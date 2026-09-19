@@ -84,7 +84,10 @@ public class IStorage {
         if (val == null) {
             put(key, null);
         } else {
-            put(key, codec.encodeStart(lookup.createSerializationContext(NbtOps.INSTANCE), val).getOrThrow());
+            put(
+                    key,
+                    codec.encodeStart(lookup.createSerializationContext(NbtOps.INSTANCE), val)
+                            .getOrThrow());
         }
     }
 

@@ -120,7 +120,8 @@ public class NoRender extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundUpdateMobEffectPacket.class), this::doCancelEffect);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundUpdateMobEffectPacket.class), this::doCancelEffect);
         registerListener(Listener.getPacketPoint().getChannel(ClientboundAddEntityPacket.class), this::doCancelSpawn);
         registerListener(
                 Listener.getParticleCreateListener().getChannel(ParticleTypes.RAIN), this::doParticleSpawnWeather);

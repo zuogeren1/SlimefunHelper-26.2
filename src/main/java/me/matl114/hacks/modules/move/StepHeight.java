@@ -140,8 +140,7 @@ public class StepHeight extends BaseModule implements LegalMovementManager.Movem
                             movementManagerEvent.cancel();
                             //                        movementManagerEvent.context.playerStatus.restorePos();
                             movementManagerEvent.context.playerStatus.entity.setOnGround(true);
-                            mc.getConnection()
-                                    .send(VPacket.newOnGroundOnly(true, player.horizontalCollision));
+                            mc.getConnection().send(VPacket.newOnGroundOnly(true, player.horizontalCollision));
                             return;
                         }
                         player.setOnGround(false);

@@ -29,14 +29,14 @@ import me.matl114.versioned.api.VPacket;
 import me.matl114.versioned.api.VRecord;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.component.*;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.component.*;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ColorParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.entity.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -50,9 +50,9 @@ import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateMobEffectPacket;
+import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
-import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
@@ -60,14 +60,13 @@ import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityEvent;
@@ -94,6 +93,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -159,7 +159,9 @@ public class PlayerStateManager extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onMove, Integer.MAX_VALUE);
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class),
+                this::onMove,
+                Integer.MAX_VALUE);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundSetEntityMotionPacket.class),
                 this::onPostPlayerVelocityUpdate,
@@ -191,14 +193,18 @@ public class PlayerStateManager extends BaseModule {
                 Integer.MAX_VALUE);
         registerListener(Listener.getPlayerInitConfiguration(), this::onPlayerInitialize);
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class), this::onTickEnd, Integer.MAX_VALUE);
+                Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class),
+                this::onTickEnd,
+                Integer.MAX_VALUE);
         registerListener(Listener.getPreGameTick(), this::updateOtherPlayers);
         registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onTotemPop);
         registerListener(Listener.getServerLeavePoint(), this::onLeave);
         registerListener(
                 Listener.getEntityRemoveListener().getChannel(EntityTypes.PLAYER), this::onOtherPlayerRemoveDeath);
         registerListener(Listener.getPostClickSlot(), this::onClickSlot);
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundContainerSetContentPacket.class), this::onInventoryUpdate);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundContainerSetContentPacket.class),
+                this::onInventoryUpdate);
         registerListener(
                 Listener.getPacketPoint().getChannel(ClientboundContainerSetSlotPacket.class),
                 this::onInventorySlotUpdate);
@@ -207,7 +213,8 @@ public class PlayerStateManager extends BaseModule {
         registerListener(Listener.getPacketPoint().getChannel(ClientboundRespawnPacket.class), this::onRespawn);
         registerListener(
                 Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::onEntityTrackedDataUpdate);
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityConsume);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityConsume);
         registerListener(
                 Listener.getEntityRemoveListener().getChannel(EntityTypes.SPLASH_POTION), this::onSplashedPotionHit);
         registerListener(
@@ -569,8 +576,7 @@ public class PlayerStateManager extends BaseModule {
         if (mc.player.isPassenger()) {
             fallDistance = 0.0;
         }
-        if (mc.player.hasEffect(MobEffects.SLOW_FALLING)
-                || mc.player.hasEffect(MobEffects.LEVITATION)) {
+        if (mc.player.hasEffect(MobEffects.SLOW_FALLING) || mc.player.hasEffect(MobEffects.LEVITATION)) {
             fallDistance = 0.0;
         }
         if (lastClimbing) {
@@ -731,10 +737,12 @@ public class PlayerStateManager extends BaseModule {
         if (sprint != lastSprint) {
             if (sprint) {
                 mc.getConnection()
-                        .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_SPRINTING));
+                        .send(new ServerboundPlayerCommandPacket(
+                                mc.player, ServerboundPlayerCommandPacket.Action.START_SPRINTING));
             } else {
                 mc.getConnection()
-                        .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
+                        .send(new ServerboundPlayerCommandPacket(
+                                mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
             }
             ClientPlayerAccess.of(mc.player).setLastSprintFlag(sprint);
         }
@@ -841,8 +849,7 @@ public class PlayerStateManager extends BaseModule {
         popMap.remove(VRecord.getId(eventRemove.context.getProfile()));
     }
 
-    private static final Int2ObjectOpenHashMap<Holder<MobEffect>> colorToRegistry =
-            new Int2ObjectOpenHashMap<>();
+    private static final Int2ObjectOpenHashMap<Holder<MobEffect>> colorToRegistry = new Int2ObjectOpenHashMap<>();
 
     static {
         for (var re : BuiltInRegistries.MOB_EFFECT) {
@@ -896,8 +903,7 @@ public class PlayerStateManager extends BaseModule {
                                                     && handItem.getItem() != lastUsing.getItem())) {
                                         // mark as consuming
                                         ItemStack consumedUsing = lastUsing;
-                                        Consumable componentEat =
-                                                consumedUsing.get(DataComponents.CONSUMABLE);
+                                        Consumable componentEat = consumedUsing.get(DataComponents.CONSUMABLE);
                                         if (componentEat != null) {
                                             consumedUsing
                                                     .getAllOfType(ConsumableListener.class)
@@ -924,13 +930,17 @@ public class PlayerStateManager extends BaseModule {
                                             if (!componentEat.onConsumeEffects().isEmpty()) {
                                                 for (var effect : componentEat.onConsumeEffects()) {
                                                     if (effect instanceof ApplyStatusEffectsConsumeEffect apply) {
-                                                        apply.effects().forEach(s -> status.visibleStatusEffects
-                                                                .computeIfAbsent(s.getEffect(), EffectTracker::new)
-                                                                .refresh(s));
-                                                    } else if (effect instanceof ClearAllStatusEffectsConsumeEffect clear) {
+                                                        apply.effects()
+                                                                .forEach(s -> status.visibleStatusEffects
+                                                                        .computeIfAbsent(
+                                                                                s.getEffect(), EffectTracker::new)
+                                                                        .refresh(s));
+                                                    } else if (effect
+                                                            instanceof ClearAllStatusEffectsConsumeEffect clear) {
                                                         // it will be cleared by tracked data update
                                                         // status.visibleStatusEffects.clear();
-                                                    } else if (effect instanceof RemoveStatusEffectsConsumeEffect remove) {
+                                                    } else if (effect
+                                                            instanceof RemoveStatusEffectsConsumeEffect remove) {
                                                         // it will be cleared by tracked data update
                                                     }
                                                 }
@@ -991,8 +1001,7 @@ public class PlayerStateManager extends BaseModule {
             ItemStack stack = potionEntity.getItem();
             if (stack.isEmpty()) return;
             PotionContents potionContentsComponent = stack.get(DataComponents.POTION_CONTENTS);
-            if (potionContentsComponent == null
-                    || Objects.equals(potionContentsComponent, PotionContents.EMPTY)) {
+            if (potionContentsComponent == null || Objects.equals(potionContentsComponent, PotionContents.EMPTY)) {
                 return;
             }
             float durationScale = stack.getOrDefault(DataComponents.POTION_DURATION_SCALE, 1.0f);
@@ -1047,8 +1056,7 @@ public class PlayerStateManager extends BaseModule {
             ItemStack stack = potionEntity.getItem();
             if (stack.isEmpty()) return;
             PotionContents potionContentsComponent = stack.get(DataComponents.POTION_CONTENTS);
-            if (potionContentsComponent == null
-                    || Objects.equals(potionContentsComponent, PotionContents.EMPTY)) {
+            if (potionContentsComponent == null || Objects.equals(potionContentsComponent, PotionContents.EMPTY)) {
                 return;
             }
             float durationScale = stack.getOrDefault(DataComponents.POTION_DURATION_SCALE, 1.0f);
@@ -1059,8 +1067,7 @@ public class PlayerStateManager extends BaseModule {
                     () -> {
                         if (checkNull()) return true;
                         if (Tasks.getTick() > startTick + 20) return true;
-                        List<AreaEffectCloud> near =
-                                mc.level.getEntitiesOfClass(AreaEffectCloud.class, detectBox);
+                        List<AreaEffectCloud> near = mc.level.getEntitiesOfClass(AreaEffectCloud.class, detectBox);
                         if (near.isEmpty()) return false;
                         for (var en : near) {
                             if (en instanceof MetadataHolder holder) {
@@ -1096,8 +1103,7 @@ public class PlayerStateManager extends BaseModule {
             MetaData data = holder.getMetadata();
             Pair<PotionContents, Float> pairData = data.get(this, AREA_EFFECT_CLOUD_POTION_CONTENT);
             if (pairData != null) {
-                List<Player> targets =
-                        mc.level.getEntitiesOfClass(Player.class, cloud.getBoundingBox());
+                List<Player> targets = mc.level.getEntitiesOfClass(Player.class, cloud.getBoundingBox());
                 if (targets.isEmpty()) return;
                 List<MobEffectInstance> effectList = new ArrayList<>();
                 pairData.getFirst().forEachEffect(effectList::add, pairData.getSecond());

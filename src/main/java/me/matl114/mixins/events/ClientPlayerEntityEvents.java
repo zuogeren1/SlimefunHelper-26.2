@@ -19,6 +19,7 @@ import net.minecraft.client.ClientRecipeBook;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.chat.ChatAbilities;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.ClientInput;
 import net.minecraft.client.player.LocalPlayer;
@@ -145,6 +146,7 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayer impl
             ClientRecipeBook recipeBook,
             Input lastPlayerInput,
             boolean lastSprinting,
+            ChatAbilities abilities,
             CallbackInfo ci) {
         this.movementManager = new LegalMovementManager();
     }
@@ -152,12 +154,18 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayer impl
     @Unique
     private static Vec2 compatMovementVectorWithViaFabric(Vec2 vec2f) {
         // shit,
-        return ViaFabricPlusHooks.getInstance().getCurrentVersion().isLowerOrEqualTo(21, 4) ? vec2f : vec2f.normalized();
+        return ViaFabricPlusHooks.getInstance().getCurrentVersion().isLowerOrEqualTo(21, 4)
+                ? vec2f
+                : vec2f.normalized();
     }
 
     @Inject(
             method = "aiStep",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER))
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target = "Lnet/minecraft/client/player/ClientInput;tick()V",
+                            shift = At.Shift.AFTER))
     public void onPostInputTick(CallbackInfo ci) {
         if (!checkClientPlayer()) return;
         Input currentInput = this.input.keyPresses;
@@ -168,8 +176,7 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayer impl
         // changed, update movementVector
         if (!Objects.equals(currentInput, this.input.keyPresses)) {
             PlayerInputUtils.Input i0 = new PlayerInputUtils.Input(this.input.keyPresses);
-            this.input.moveVector =
-                    compatMovementVectorWithViaFabric(new Vec2(i0.sidewaysSpeed(), i0.forwardSpeed()));
+            this.input.moveVector = compatMovementVectorWithViaFabric(new Vec2(i0.sidewaysSpeed(), i0.forwardSpeed()));
         }
     }
 
@@ -306,7 +313,7 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayer impl
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/multiplayer/ClientPacketListener;sendPacket(Lnet/minecraft/network/protocol/Packet;)V"))
+                                    "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"))
     private Packet onSendMovementPackets(Packet par1) {
         if (par1 instanceof PlayerMoveC2SPacketAccess acc) {
             acc.setCause(PlayerMoveC2SPacketAccess.Cause.PLAYER_MOVEMENT);

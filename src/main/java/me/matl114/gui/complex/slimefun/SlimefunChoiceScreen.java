@@ -245,8 +245,8 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
         SubScreenWidget.instance(this.x + this.backgroundWidth - 3, this.y + 90, 26, 26)
                 .addDrawableChild(DisplayWidget.instance(0, 0, 26, 26).setRenderHandler(PlateElement.instance()))
                 .addDrawableChild(ExecutableWidget.instance(4, 4, 18, 18)
-                        .setInputHandler(
-                                new ButtonElement(TextProvider.of(Component.empty()), ButtonAction.isLeft((left) -> {
+                        .setInputHandler(new ButtonElement(
+                                TextProvider.of(Component.empty()), ButtonAction.isLeft((left) -> {
                                     Runnable callback = this::executeFilterTask;
                                     if (ScreenUtils.hasShiftDown()) {
                                         // clear

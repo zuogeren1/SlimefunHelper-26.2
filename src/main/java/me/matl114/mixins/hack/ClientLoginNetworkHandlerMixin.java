@@ -17,7 +17,8 @@ public abstract class ClientLoginNetworkHandlerMixin {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/network/protocol/common/custom/BrandPayload;<init>(Ljava/lang/String;)V"))
+                            target =
+                                    "Lnet/minecraft/network/protocol/common/custom/BrandPayload;<init>(Ljava/lang/String;)V"))
     private String changeBrandName(String string) {
         String brand = ClientExtra.INSTANCE.clientBrandName.getValue();
         if (brand != null && !brand.isEmpty()) {

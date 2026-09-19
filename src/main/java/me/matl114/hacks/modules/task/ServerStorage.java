@@ -148,8 +148,8 @@ public class ServerStorage extends BaseModule {
         if (cacheMap != null) {
             return _getFromSSSSMap(pos, supplier, cacheMap);
         } else {
-            var blockMap = serverStorage.blockStorageMap.computeIfAbsent(
-                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
+            var blockMap =
+                    serverStorage.blockStorageMap.computeIfAbsent(mc.level.dimension(), k -> new ConcurrentHashMap<>());
             return _getFromSSSSMap(pos, supplier, blockMap);
         }
     }
@@ -163,8 +163,8 @@ public class ServerStorage extends BaseModule {
         if (cacheMap != null) {
             _putToSSSSMap(pos, blockStorage, cacheMap);
         } else {
-            var blockMap = serverStorage.blockStorageMap.computeIfAbsent(
-                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
+            var blockMap =
+                    serverStorage.blockStorageMap.computeIfAbsent(mc.level.dimension(), k -> new ConcurrentHashMap<>());
             _putToSSSSMap(pos, blockStorage, blockMap);
         }
     }
@@ -192,8 +192,8 @@ public class ServerStorage extends BaseModule {
         if (cacheMap != null) {
             return _getFromSSSSMap(pos, supplier, cacheMap);
         } else {
-            var blockMap = serverStorage.chunkStorageMap.computeIfAbsent(
-                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
+            var blockMap =
+                    serverStorage.chunkStorageMap.computeIfAbsent(mc.level.dimension(), k -> new ConcurrentHashMap<>());
             return _getFromSSSSMap(pos, supplier, blockMap);
         }
     }
@@ -207,8 +207,8 @@ public class ServerStorage extends BaseModule {
         if (cacheMap != null) {
             _putToSSSSMap(pos, blockStorage, cacheMap);
         } else {
-            var blockMap = serverStorage.chunkStorageMap.computeIfAbsent(
-                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
+            var blockMap =
+                    serverStorage.chunkStorageMap.computeIfAbsent(mc.level.dimension(), k -> new ConcurrentHashMap<>());
             _putToSSSSMap(pos, blockStorage, blockMap);
         }
     }

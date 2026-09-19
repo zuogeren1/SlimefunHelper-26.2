@@ -38,7 +38,7 @@ public abstract class MerchantScreenMixin extends AbstractContainerScreen<Mercha
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;<init>(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/network/chat/Component;)V",
+                                    "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;<init>(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/network/chat/Component;II)V",
                             shift = At.Shift.AFTER))
     private void onInit(MerchantMenu handler, Inventory inventory, Component title, CallbackInfo ci) {
         owner = (Villager) InteractionTasks.predictScreenFrom(e -> e instanceof Villager);

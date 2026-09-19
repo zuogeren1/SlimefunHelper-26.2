@@ -92,7 +92,14 @@ public class EnchantmentDisplay extends BaseModule {
     public final Map<Item, List<ResourceKey<Enchantment>>> checkList = new HashMap<>();
     public final Map<Item, FlagRef> checkFlags = new HashMap<>();
 
-    {
+    // 26.2: 遍历注册表时要 new ItemStack，必须在组件绑定之后，
+    // 因此不能在实例初始化块里做，改为首次使用时构建。
+    private boolean checkListBuilt = false;
+
+    private void ensureCheckList() {
+        if (checkListBuilt) {
+            return;
+        }
         for (var item : BuiltInRegistries.ITEM) {
             if (item instanceof MaceItem mace) {
                 checkList.put(item, List.of(Enchantments.DENSITY, Enchantments.BREACH));
@@ -114,6 +121,7 @@ public class EnchantmentDisplay extends BaseModule {
                 checkFlags.put(item, enableBow);
             }
         }
+        checkListBuilt = true;
     }
 
     public void onInfoAttached(Event<List<GuiModel>> event) {
@@ -122,6 +130,7 @@ public class EnchantmentDisplay extends BaseModule {
             if (stack.isEmpty()) {
                 return;
             }
+            ensureCheckList();
             if (checkList.containsKey(stack.getItem())) {
                 FlagRef checkFlag = checkFlags.get(stack.getItem());
                 if (checkFlag == null || !checkFlag.get()) {

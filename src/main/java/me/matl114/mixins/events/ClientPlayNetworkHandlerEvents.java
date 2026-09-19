@@ -25,9 +25,9 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.network.Connection;
 import net.minecraft.network.PacketListener;
-import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
@@ -160,7 +160,7 @@ public abstract class ClientPlayNetworkHandlerEvents {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/multiplayer/ClientLevel;<init>(Lnet/minecraft/client/multiplayer/ClientPacketListener;Lnet/minecraft/client/multiplayer/ClientLevel$ClientLevelData;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/core/Holder;IILnet/minecraft/client/renderer/LevelRenderer;ZJI)V",
+                                    "Lnet/minecraft/client/multiplayer/ClientLevel;<init>(Lnet/minecraft/client/multiplayer/ClientPacketListener;Lnet/minecraft/client/multiplayer/ClientLevel$ClientLevelData;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/core/Holder;IILnet/minecraft/client/renderer/extract/LevelExtractor;ZJI)V",
                             shift = At.Shift.AFTER))
     private void onPlayerSwitchDimension0(ClientboundRespawnPacket packet, CallbackInfo ci) {
         worldChangeOnRespawn = true;
@@ -189,8 +189,7 @@ public abstract class ClientPlayNetworkHandlerEvents {
             at =
                     @At(
                             value = "INVOKE",
-                            target =
-                                    "Lnet/minecraft/network/Connection;send(Lnet/minecraft/network/protocol/Packet;)V",
+                            target = "Lnet/minecraft/network/Connection;send(Lnet/minecraft/network/protocol/Packet;)V",
                             ordinal = 1))
     private void onTeleportConfirmResponse(
             Connection instance,
@@ -247,8 +246,7 @@ public abstract class ClientPlayNetworkHandlerEvents {
             at =
                     @At(
                             value = "INVOKE",
-                            target =
-                                    "Lnet/minecraft/world/entity/Entity;lerpMotion(Lnet/minecraft/world/phys/Vec3;)V"))
+                            target = "Lnet/minecraft/world/entity/Entity;lerpMotion(Lnet/minecraft/world/phys/Vec3;)V"))
     private void onEntityVelocityUpdate(Entity instance, Vec3 clientVelocity, Operation<Void> original) {
         if (!Listener.getEntityClientVelocityUpdate().isEmpty()) {
             Event<Vec3> vcUpdate = new Event<>(clientVelocity, true, true, instance);
@@ -267,8 +265,7 @@ public abstract class ClientPlayNetworkHandlerEvents {
     @WrapOperation(
             method = "handleExplosion",
             at = @At(value = "INVOKE", target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"))
-    private void onExplosionVelocityUpdate(
-            Optional instance, Consumer<? super Vec3> action, Operation<Void> original) {
+    private void onExplosionVelocityUpdate(Optional instance, Consumer<? super Vec3> action, Operation<Void> original) {
         if (instance.isPresent()) {
             Vec3 vec3d = (Vec3) instance.get();
             Event<Vec3> updateDeltaEvent = new Event<>(vec3d, true, true);

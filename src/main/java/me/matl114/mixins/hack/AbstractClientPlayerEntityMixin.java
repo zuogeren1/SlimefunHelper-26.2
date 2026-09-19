@@ -33,17 +33,16 @@ public abstract class AbstractClientPlayerEntityMixin {
             original = Math.max(original, 0.1F);
         }
         if (NoRender.INSTANCE.noSpeedFov()) {
-            original = Math.min(original, 0.17F);
+            // 原值 0.17F 高于真实速度（速度 II 约 0.14），等于压根没 clamp；
+            // 压到基准步行速度 0.1 才能真正消掉加速带来的 FOV 拉伸
+            original = Math.min(original, 0.1F);
         }
         return original;
     }
 
     @ModifyExpressionValue(
             method = "getFieldOfViewModifier",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/player/AbstractClientPlayer;isUsingItem()Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/AbstractClientPlayer;isUsingItem()Z"))
     private boolean onNoUseItemFov(boolean original) {
         if (NoRender.INSTANCE.noUseItemFov()) {
             return false;

@@ -274,14 +274,16 @@ public class ConfigManager extends BaseModule {
 
         Ref<?> ref = config.get(rawPath.split("\\."));
         if (ref == null) {
-            Debug.chat(Component.literal("未找到配置项: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
+            Debug.chat(
+                    Component.literal("未找到配置项: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
             return;
         }
 
         AttrKeyValue<?> keyValue = ref.createKeyValue(rawPath);
         keyValue.valueChange(this, value);
         if (!keyValue.isValidate()) {
-            Debug.chat(Component.literal("配置项格式不正确: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
+            Debug.chat(
+                    Component.literal("配置项格式不正确: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
             return;
         }
         Debug.chat(Component.literal("成功设置配置项: " + configName + "." + rawPath).withStyle(ChatFormatting.GREEN));
@@ -299,11 +301,13 @@ public class ConfigManager extends BaseModule {
 
         Ref<?> ref = config.get(rawPath.split("\\."));
         if (ref == null) {
-            Debug.chat(Component.literal("未找到配置项: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
+            Debug.chat(
+                    Component.literal("未找到配置项: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
             return;
         }
         if (!ref.hasDefaultValue()) {
-            Debug.chat(Component.literal("配置项没有默认值: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
+            Debug.chat(
+                    Component.literal("配置项没有默认值: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));
             return;
         }
 

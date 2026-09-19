@@ -127,10 +127,12 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getPacketListenerPoint(ClientboundPlayerAbilitiesPacket.class), this::onAbility);
-        registerListener(Listener.getPacketListenerPoint(ServerboundPlayerAbilitiesPacket.class), this::onAbilityUpdate);
+        registerListener(
+                Listener.getPacketListenerPoint(ServerboundPlayerAbilitiesPacket.class), this::onAbilityUpdate);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onStartMine);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerInputPacket.class), this::onInterceptFlyInput);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundPlayerInputPacket.class), this::onInterceptFlyInput);
     }
 
     public void onAbility(Event<ClientboundPlayerAbilitiesPacket> event) {

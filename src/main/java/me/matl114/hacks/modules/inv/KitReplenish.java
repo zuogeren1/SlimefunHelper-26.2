@@ -546,7 +546,8 @@ public class KitReplenish extends BaseModule {
         if (isShulker(stack) && stack.has(DataComponents.CONTAINER)) {
             ItemContainerContents container = stack.get(DataComponents.CONTAINER);
             if (container != null && !Objects.equals(ItemContainerContents.EMPTY, container)) {
-                Container shulkerView = InventoryUtils.createReadOnlyInventory(container.nonEmptyItemCopyStream().toList());
+                Container shulkerView = InventoryUtils.createReadOnlyInventory(
+                        container.allItemsCopyStream().toList());
                 int size = Math.min(view.getContainerSize(), shulkerView.getContainerSize());
                 double score = 0;
                 for (var i = 0; i < size; ++i) {
@@ -564,7 +565,8 @@ public class KitReplenish extends BaseModule {
         if (isShulker(stack) && stack.has(DataComponents.CONTAINER)) {
             ItemContainerContents container = stack.get(DataComponents.CONTAINER);
             if (container != null && !Objects.equals(ItemContainerContents.EMPTY, container)) {
-                Container shulkerView = InventoryUtils.createReadOnlyInventory(container.nonEmptyItemCopyStream().toList());
+                Container shulkerView = InventoryUtils.createReadOnlyInventory(
+                        container.allItemsCopyStream().toList());
                 Map<Item, Integer> itemTypeCount = new LinkedHashMap<>();
                 boolean hasSame = false;
                 for (var re : InventoryUtils.iterable(view)) {
@@ -613,7 +615,7 @@ public class KitReplenish extends BaseModule {
                     ReplenishTemplate sample = ReplenishTemplate.of(re.create());
                     Integer need = integerMap.get(sample);
                     int weightedCount = re.count();
-                    int maxCount = re.item().value().getDefaultMaxStackSize();
+                    int maxCount = re.create().getMaxStackSize();
                     if (maxCount < 64) {
                         weightedCount = weightedCount * 64 / maxCount;
                     }
@@ -896,8 +898,7 @@ public class KitReplenish extends BaseModule {
         }
     }
 
-    private int findResortSwapCandidate(
-            Inventory playerInventory, ItemStack templateStack, int targetIndex, int to) {
+    private int findResortSwapCandidate(Inventory playerInventory, ItemStack templateStack, int targetIndex, int to) {
         int fallback = -1;
         for (int i = targetIndex + 1; i < to; ++i) {
             ItemStack candidate = playerInventory.getItem(i);
@@ -1117,9 +1118,12 @@ public class KitReplenish extends BaseModule {
         int stage;
 
         private void createSummary() {
-            int from =
-                    Math.clamp(Math.clamp(rule.from(), 0, inventory.getContainerSize()), 0, InventoryUtils.getPlayerBackpackSize());
-            int to = Math.clamp(Math.clamp(rule.to(), 0, inventory.getContainerSize()), 0, InventoryUtils.getPlayerBackpackSize());
+            int from = Math.clamp(
+                    Math.clamp(rule.from(), 0, inventory.getContainerSize()),
+                    0,
+                    InventoryUtils.getPlayerBackpackSize());
+            int to = Math.clamp(
+                    Math.clamp(rule.to(), 0, inventory.getContainerSize()), 0, InventoryUtils.getPlayerBackpackSize());
             this.rule = this.rule.withFrom(from).withTo(to);
             this.viewInventory = InventoryUtils.createSubInventoryView(inventory, from, to);
             toReplenishSummary = new LinkedHashMap<>();
@@ -1523,7 +1527,7 @@ public class KitReplenish extends BaseModule {
 
     public static Container loadShulkerAsSupplyInventory(ItemContainerContents component) {
         List<ItemStack> stacks = new ArrayList<>(EMPTY_SLOTS);
-        component.nonEmptyItemCopyStream().forEach(stacks::add);
+        component.allItemsCopyStream().forEach(stacks::add);
         return InventoryUtils.createInventory(stacks);
     }
 

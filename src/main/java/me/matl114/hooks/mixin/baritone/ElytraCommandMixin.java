@@ -35,7 +35,8 @@ public abstract class ElytraCommandMixin extends Command {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/world/level/Level;dimension()Lnet/minecraft/resources/ResourceKey;"),
+                            target =
+                                    "Lnet/minecraft/world/level/Level;dimension()Lnet/minecraft/resources/ResourceKey;"),
             require = 0)
     private ResourceKey<Level> onExecuteNetherSupport(ResourceKey<Level> original) {
         if (BaritoneFix.INSTANCE.enableDimensionFix.get() && original != Level.NETHER) {

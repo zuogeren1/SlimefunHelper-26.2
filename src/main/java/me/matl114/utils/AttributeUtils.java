@@ -6,11 +6,11 @@ import java.util.*;
 import me.matl114.accessors.access.LivingEntityAccess;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import net.minecraft.core.Holder;
-import net.minecraft.world.entity.ai.attributes.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.*;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
@@ -28,11 +28,10 @@ public class AttributeUtils {
         return player.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
     }
 
-    public static AttributeMap getAttributeWith(
-            LivingEntity living, Map<EquipmentSlot, ItemStack> equipmentOverrides) {
+    public static AttributeMap getAttributeWith(LivingEntity living, Map<EquipmentSlot, ItemStack> equipmentOverrides) {
         Map<EquipmentSlot, ItemStack> filterMap = new LinkedHashMap<>(equipmentOverrides);
-        AttributeMap attributeContainer = new AttributeMap(
-                DefaultAttributes.getSupplier((EntityType<? extends LivingEntity>) living.getType()));
+        AttributeMap attributeContainer =
+                new AttributeMap(DefaultAttributes.getSupplier((EntityType<? extends LivingEntity>) living.getType()));
         attributeContainer.assignAllValues(living.getAttributes());
         for (Map.Entry<EquipmentSlot, ItemStack> entry : filterMap.entrySet()) {
             var slot = entry.getKey();
@@ -110,8 +109,7 @@ public class AttributeUtils {
     //        }
     //    }
 
-    private static void setAttributeVia(
-            AttributeMap attributeContainer, Holder<Attribute> attribute, double level) {
+    private static void setAttributeVia(AttributeMap attributeContainer, Holder<Attribute> attribute, double level) {
         var attributeInstance = attributeContainer.getInstance(attribute);
         attributeInstance
                 .removeModifiers(); // Minecraft is applying attribute modifiers in some situations, remove them before

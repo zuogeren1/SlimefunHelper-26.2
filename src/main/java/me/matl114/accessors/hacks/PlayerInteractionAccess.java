@@ -40,7 +40,6 @@ public interface PlayerInteractionAccess {
 
     default void sendBreakPacket(BlockPos currentPos, boolean silent) {
         Vec3 shouldFacing = Vec3.atCenterOf(currentPos)
-
                 .subtract(Minecraft.getInstance().player.getEyePosition());
         Direction dir = Direction.getApproximateNearest(shouldFacing).getOpposite();
         sendBreakPacket(currentPos, dir, silent);
@@ -107,8 +106,8 @@ public interface PlayerInteractionAccess {
         if (block.isAir()) {
             return -1.0F;
         }
-        float miningSpeed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
-                Minecraft.getInstance().player, block, tool);
+        float miningSpeed =
+                WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(Minecraft.getInstance().player, block, tool);
         float speed = WorldUtils.calcBlockBreakingDelta(
                 block, Minecraft.getInstance().level, currentBreakingPos, miningSpeed);
         int ticksSinceLastStart = getCurrentMiningTicks();
@@ -127,8 +126,7 @@ public interface PlayerInteractionAccess {
         if (currentFailBreakPos == null) {
             return -1.0F;
         }
-        return predictFailMiningProgressWithTool(
-                Minecraft.getInstance().player.getMainHandItem(), 0);
+        return predictFailMiningProgressWithTool(Minecraft.getInstance().player.getMainHandItem(), 0);
     }
 
     /**
@@ -142,8 +140,8 @@ public interface PlayerInteractionAccess {
         if (block.isAir()) {
             return -1.0F;
         }
-        float miningSpeed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
-                Minecraft.getInstance().player, block, tool);
+        float miningSpeed =
+                WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(Minecraft.getInstance().player, block, tool);
         float speed = WorldUtils.calcBlockBreakingDelta(
                 block, Minecraft.getInstance().level, currentBreakingPos, miningSpeed);
         int ticksSinceLastStart = getFailBreakMiningTicks() + extraTick;

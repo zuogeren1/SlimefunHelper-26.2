@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import xaero.map.element.HoveredMapElementHolder;
 import xaero.map.gui.GuiMap;
@@ -22,6 +23,7 @@ import xaero.map.gui.dropdown.rightclick.GuiRightClickMenu;
 import xaero.map.gui.dropdown.rightclick.RightClickOption;
 import xaero.map.mods.gui.Waypoint;
 
+@Pseudo
 @Environment(EnvType.CLIENT)
 @Mixin(GuiRightClickMenu.class)
 public abstract class XaeroGuiRightClickMenuMixin {

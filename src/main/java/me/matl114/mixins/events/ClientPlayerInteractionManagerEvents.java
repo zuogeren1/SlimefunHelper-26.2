@@ -59,7 +59,8 @@ public abstract class ClientPlayerInteractionManagerEvents {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V",
+                            target =
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
     private void onCancelSend(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
@@ -70,7 +71,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
         }
     }
 
-    @Inject(method = "method_41929", at = @At("RETURN"))
+    @Inject(method = "lambda$useItem$0", at = @At("RETURN"))
     public void onInteractItem(
             InteractionHand hand,
             Player playerEntity,
@@ -153,14 +154,17 @@ public abstract class ClientPlayerInteractionManagerEvents {
                             target =
                                     "Lnet/minecraft/world/item/ItemStack;useOn(Lnet/minecraft/world/item/context/UseOnContext;)Lnet/minecraft/world/InteractionResult;"))
     private void onInteractBlockInternalCaptureBlockPlace(
-            LocalPlayer player, InteractionHand hand, BlockHitResult hitResult, CallbackInfoReturnable<InteractionResult> cir) {
+            LocalPlayer player,
+            InteractionHand hand,
+            BlockHitResult hitResult,
+            CallbackInfoReturnable<InteractionResult> cir) {
         var re = lastInteractCaptureBlockPlace.peekLast();
         if (re != null) {
             re.setValue(true);
         }
     }
 
-    @Inject(method = "handleInventoryMouseClick", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "handleContainerInput", at = @At("HEAD"), cancellable = true)
     public void onClickSlot(
             int syncId, int slotId, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
         Event<SlotClickAction> eventClickSlot =
@@ -172,7 +176,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
         }
     }
 
-    @Inject(method = "handleInventoryMouseClick", at = @At("RETURN"))
+    @Inject(method = "handleContainerInput", at = @At("RETURN"))
     public void onClickSlotPost(
             int syncId, int slotId, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
         Listener.getPostClickSlot().broadcast(new SlotClickAction(actionType, syncId, slotId, button));

@@ -183,7 +183,8 @@ public class EntryPrimitiveMap<T, W> extends PrimitiveMap<Holder<T>, W> {
                 "entryprimitivemap",
                 Codec.withAlternative(factory.wrapCodecXmap(parentType.typeCodec()), legacyCodec()),
                 widgetFactory,
-                (EntryPrimitiveMap<T, W>) new EntryPrimitiveMap<>(BuiltInRegistries.BLOCK, NBTTypes.STRING_TYPE, Map.of()));
+                (EntryPrimitiveMap<T, W>)
+                        new EntryPrimitiveMap<>(BuiltInRegistries.BLOCK, NBTTypes.STRING_TYPE, Map.of()));
     }
 
     public static final NBTType<EntryPrimitiveMap<Object, Object>> TYPE = createEntry();

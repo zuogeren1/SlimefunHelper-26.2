@@ -18,7 +18,6 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
 import me.matl114.utils.containers.MetaData;
 import net.minecraft.ChatFormatting;
-import net.minecraft.world.entity.projectile.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
@@ -30,6 +29,7 @@ import net.minecraft.world.entity.monster.CrossbowAttackMob;
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
 import net.minecraft.world.entity.monster.skeleton.WitherSkeleton;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.*;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.arrow.ThrownTrident;
 import net.minecraft.world.entity.projectile.hurtingprojectile.AbstractHurtingProjectile;
@@ -151,7 +151,8 @@ public class ProjectileESP extends BaseModule {
                         type.getDescription(),
                         "trace:",
                         Component.literal("%.2f".formatted(minDist)).withStyle(ChatFormatting.RED),
-                        (front ? Component.literal("in front of") : Component.literal("at back of")).withStyle(ChatFormatting.GREEN),
+                        (front ? Component.literal("in front of") : Component.literal("at back of"))
+                                .withStyle(ChatFormatting.GREEN),
                         "you");
             } else {
                 Debug.chat("Fireball trace update: not towards you");
@@ -196,7 +197,8 @@ public class ProjectileESP extends BaseModule {
                 Debug.chat(
                         "Arrow trace update:",
                         Component.literal("%.2f".formatted(minDist)).withStyle(ChatFormatting.RED),
-                        (front ? Component.literal("in front of") : Component.literal("at back of")).withStyle(ChatFormatting.GREEN),
+                        (front ? Component.literal("in front of") : Component.literal("at back of"))
+                                .withStyle(ChatFormatting.GREEN),
                         "you");
             } else {
                 Debug.chat("Arrow trace update: not towards you");
@@ -226,9 +228,7 @@ public class ProjectileESP extends BaseModule {
                             RenderUtils.drawStripLineVirtual(stack, predictFireballTrace(explosive), Color.RED);
                         }
                     }
-                    if (arrowFlag
-                            && fireball instanceof AbstractSkeleton arrow
-                            && !(arrow instanceof WitherSkeleton)) {
+                    if (arrowFlag && fireball instanceof AbstractSkeleton arrow && !(arrow instanceof WitherSkeleton)) {
                         renderSkeletonProjectile(stack, arrow, tickDelta);
                     } else if (arrowFlag && fireball instanceof Player player) {
                         renderPlayerProjectile(stack, player, tickDelta);
@@ -297,8 +297,8 @@ public class ProjectileESP extends BaseModule {
             double yaw = Math.toRadians(player.getYRot());
             HumanoidArm mainArm = mc.options.mainHand().get();
 
-            boolean rightSide =
-                    mainArm == HumanoidArm.RIGHT && hand == InteractionHand.MAIN_HAND || mainArm == HumanoidArm.LEFT && hand == InteractionHand.OFF_HAND;
+            boolean rightSide = mainArm == HumanoidArm.RIGHT && hand == InteractionHand.MAIN_HAND
+                    || mainArm == HumanoidArm.LEFT && hand == InteractionHand.OFF_HAND;
 
             double sideMultiplier = rightSide ? -1 : 1;
             double handOffsetX = Math.cos(yaw) * 0.16 * sideMultiplier;
@@ -307,7 +307,8 @@ public class ProjectileESP extends BaseModule {
             return new Vec3(handOffsetX, 0, handOffsetZ);
         }
 
-        public static ArrowPredictor of(Player player, ProjectileWeaponItem weaponItem, InteractionHand hand, float tickDelta) {
+        public static ArrowPredictor of(
+                Player player, ProjectileWeaponItem weaponItem, InteractionHand hand, float tickDelta) {
             Vec3 vec3d;
             final Vec3 offset = getHandOffset(player, hand);
             Vec3 pos = new Vec3(player.getX(), player.getEyeY() - 0.10000000149011612, player.getZ())

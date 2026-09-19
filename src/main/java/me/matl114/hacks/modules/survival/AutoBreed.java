@@ -289,8 +289,7 @@ public class AutoBreed extends BaseModule {
         if (pen == null) {
             return null;
         }
-        List<Animal> animals =
-                mc.level.getEntitiesOfClass(Animal.class, pen.innerBox(), this::isBreedTarget);
+        List<Animal> animals = mc.level.getEntitiesOfClass(Animal.class, pen.innerBox(), this::isBreedTarget);
         return animals.stream()
                 .min(Comparator.comparingDouble(animal -> animal.distanceToSqr(mc.player)))
                 .orElse(null);

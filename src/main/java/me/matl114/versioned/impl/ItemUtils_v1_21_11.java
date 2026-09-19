@@ -13,11 +13,10 @@ import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.DataVersion;
 import me.matl114.versioned.api.VItem;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.*;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.*;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.NbtOps;
@@ -27,6 +26,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.util.GsonHelper;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.AdventureModePredicate;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
@@ -149,8 +149,9 @@ public class ItemUtils_v1_21_11 implements VItem {
 
     @Override
     public MutableComponent getFormattedName(ItemStack stack) {
-        MutableComponent mutableText =
-                Component.empty().append(stack.getHoverName()).withStyle(stack.getRarity().color());
+        MutableComponent mutableText = Component.empty()
+                .append(stack.getHoverName())
+                .withStyle(stack.getRarity().color());
         if (stack.has(DataComponents.CUSTOM_NAME)) {
             mutableText.withStyle(ChatFormatting.ITALIC);
         }
@@ -195,9 +196,11 @@ public class ItemUtils_v1_21_11 implements VItem {
                 return codec.decode(ops, input).flatMap((pair) -> {
                     try {
                         JsonElement jsonElement = JsonParser.parseString((String) pair.getFirst());
-                        return ComponentSerialization.CODEC.parse(dynamicOps, jsonElement).map((text) -> {
-                            return Pair.of(text, pair.getSecond());
-                        });
+                        return ComponentSerialization.CODEC
+                                .parse(dynamicOps, jsonElement)
+                                .map((text) -> {
+                                    return Pair.of(text, pair.getSecond());
+                                });
                     } catch (JsonParseException var3) {
                         JsonParseException jsonParseException = var3;
                         Objects.requireNonNull(jsonParseException);
@@ -208,15 +211,17 @@ public class ItemUtils_v1_21_11 implements VItem {
 
             public <T> DataResult<T> encode(Component text, DynamicOps<T> dynamicOps, T object) {
                 DynamicOps<JsonElement> dynamicOps2 = toJsonOps(dynamicOps);
-                return ComponentSerialization.CODEC.encodeStart(dynamicOps2, text).flatMap((json) -> {
-                    try {
-                        return codec.encodeStart(dynamicOps, GsonHelper.toStableString(json));
-                    } catch (IllegalArgumentException var4) {
-                        IllegalArgumentException illegalArgumentException = var4;
-                        Objects.requireNonNull(illegalArgumentException);
-                        return DataResult.error(illegalArgumentException::getMessage);
-                    }
-                });
+                return ComponentSerialization.CODEC
+                        .encodeStart(dynamicOps2, text)
+                        .flatMap((json) -> {
+                            try {
+                                return codec.encodeStart(dynamicOps, GsonHelper.toStableString(json));
+                            } catch (IllegalArgumentException var4) {
+                                IllegalArgumentException illegalArgumentException = var4;
+                                Objects.requireNonNull(illegalArgumentException);
+                                return DataResult.error(illegalArgumentException::getMessage);
+                            }
+                        });
             }
 
             private static <T> DynamicOps<JsonElement> toJsonOps(DynamicOps<T> ops) {
@@ -232,7 +237,8 @@ public class ItemUtils_v1_21_11 implements VItem {
     {
         Codec<Component> STRINGIFY_CODEC = codec(Integer.MAX_VALUE);
 
-        TEXT_CODEC = Codec.of(ComponentSerialization.CODEC, Codec.withAlternative(STRINGIFY_CODEC, ComponentSerialization.CODEC));
+        TEXT_CODEC = Codec.of(
+                ComponentSerialization.CODEC, Codec.withAlternative(STRINGIFY_CODEC, ComponentSerialization.CODEC));
     }
 
     {
@@ -249,9 +255,7 @@ public class ItemUtils_v1_21_11 implements VItem {
                                         .orElse(0))));
         builder.put(DataComponents.CUSTOM_NAME, TEXT_CODEC);
         builder.put(DataComponents.ITEM_NAME, TEXT_CODEC);
-        builder.put(
-                DataComponents.LORE,
-                TEXT_CODEC.sizeLimitedListOf(256).xmap(ItemLore::new, ItemLore::lines));
+        builder.put(DataComponents.LORE, TEXT_CODEC.sizeLimitedListOf(256).xmap(ItemLore::new, ItemLore::lines));
         builder.put(
                 DataComponents.ENCHANTMENTS,
                 Codec.withAlternative(
@@ -265,8 +269,7 @@ public class ItemUtils_v1_21_11 implements VItem {
         builder.put(
                 DataComponents.DYED_COLOR,
                 Codec.withAlternative(
-                        DyedItemColor.CODEC,
-                        DyedItemColor.CODEC.fieldOf("rgb").codec()));
+                        DyedItemColor.CODEC, DyedItemColor.CODEC.fieldOf("rgb").codec()));
         builder.put(
                 DataComponents.CAN_BREAK,
                 Codec.withAlternative(

@@ -87,7 +87,8 @@ public interface VPacket {
     /**
      * 实例方法 - 创建 LookAndOnGround 数据包
      */
-    public ServerboundMovePlayerPacket createLookAndOnGround(float yaw, float pitch, boolean isOnGround, boolean collision);
+    public ServerboundMovePlayerPacket createLookAndOnGround(
+            float yaw, float pitch, boolean isOnGround, boolean collision);
 
     /**
      * 实例方法 - 创建 Full 数据包

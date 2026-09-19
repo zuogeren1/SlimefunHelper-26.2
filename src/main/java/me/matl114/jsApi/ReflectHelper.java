@@ -62,8 +62,8 @@ public class ReflectHelper {
         Debug.chat(Component.literal("类型: " + Modifier.toString(clazz.getModifiers())));
         Debug.chat(Component.literal("父类: " + clazz.getSuperclass()));
         Debug.chat(Component.literal("接口: " + Arrays.asList(clazz.getInterfaces())));
-        Debug.chat(
-                Component.literal("=== " + getClassNameForLog(clazz) + " 的构造器信息 ===").withStyle(ChatFormatting.GREEN));
+        Debug.chat(Component.literal("=== " + getClassNameForLog(clazz) + " 的构造器信息 ===")
+                .withStyle(ChatFormatting.GREEN));
 
         for (var con : clazz.getDeclaredConstructors()) {
             String str = getMethodInfo(con);
@@ -146,8 +146,8 @@ public class ReflectHelper {
 
     public static void logMethodsInfo(Object what) {
         Class<?> clazz = what instanceof Class<?> ? (Class<?>) what : what.getClass();
-        Debug.chat(
-                Component.literal("=== " + getClassNameForLog(clazz) + " 的方法信息 ===").withStyle(ChatFormatting.GREEN));
+        Debug.chat(Component.literal("=== " + getClassNameForLog(clazz) + " 的方法信息 ===")
+                .withStyle(ChatFormatting.GREEN));
         for (var method : clazz.getMethods()) {
             String str = getMethodInfo(method);
             Debug.chat(str);

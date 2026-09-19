@@ -141,7 +141,8 @@ public class AdvancedScrollElement extends AbstractElement {
 
             context.fill(1, y1 + 1, element.getTextureWidth() - 1, y2 - 1, CommonColors.GRAY);
             if (element.isDragging() || (element.isMouseOver(mouseX, mouseY) && isMouseOverBar(element, mouseY))) {
-                RenderHandler.drawHighlightFrame(context, 0, y1, element.getTextureWidth(), y2 - y1, CommonColors.WHITE);
+                RenderHandler.drawHighlightFrame(
+                        context, 0, y1, element.getTextureWidth(), y2 - y1, CommonColors.WHITE);
             }
         }
     }

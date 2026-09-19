@@ -30,7 +30,8 @@ public abstract class RecipeBookScreenEvents implements RecipeUpdateListener {
         return (button -> {
             pressAction.onPress(button);
             if (!Listener.getPostToggleRecipeBook().isEmpty()) {
-                Listener.getPostToggleRecipeBook().broadcast(new RecipeBookToggle(this, this.recipeBookComponent, button));
+                Listener.getPostToggleRecipeBook()
+                        .broadcast(new RecipeBookToggle(this, this.recipeBookComponent, button));
             }
         });
     }

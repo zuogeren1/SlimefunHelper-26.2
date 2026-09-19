@@ -20,7 +20,10 @@ public abstract class ArrayPaletteFixMixin<T> {
 
     @Inject(
             method = "valueFor",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/chunk/MissingPaletteEntryException;<init>(I)V"),
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target = "Lnet/minecraft/world/level/chunk/MissingPaletteEntryException;<init>(I)V"),
             cancellable = true)
     private void onException(int id, CallbackInfoReturnable<T> cir) {
         if (ClientExtra.INSTANCE.paletteException.get()) {

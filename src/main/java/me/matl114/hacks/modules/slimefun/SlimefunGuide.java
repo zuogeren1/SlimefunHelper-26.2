@@ -100,8 +100,10 @@ public class SlimefunGuide extends BaseModule {
     private static final Component TITLE_ALL_TYPE = Component.literal("全部记录配方类型");
     private static final Component TITLE_ALL_VANILLA = Component.literal("全部原版配方");
     private static final Component TITLE_ALL_SAVED = Component.literal("全部保存物品");
-    public static final List<Component> TOOLTIPS_SAVED_RULE =
-            List.of(Component.literal("左键获得一组该物品(仅限创造)"), Component.literal("shift左键拷贝/give指令"), Component.literal("右键打开物品编辑器"));
+    public static final List<Component> TOOLTIPS_SAVED_RULE = List.of(
+            Component.literal("左键获得一组该物品(仅限创造)"),
+            Component.literal("shift左键拷贝/give指令"),
+            Component.literal("右键打开物品编辑器"));
 
     public void openMainGuideMenu() {
         if (handleNotEnable()) return;
@@ -111,8 +113,8 @@ public class SlimefunGuide extends BaseModule {
                         () -> SlimefunTasks.getRecipeDatabase().getId2Recipe().values().stream()
                                 .toList(),
                         (entry) -> new ExecutableWidget(0, 0, 16, 16)
-                                .setElementHandler(
-                                        SlotElement.instance(entry.output().copyWithCount(1), (item, button) -> {
+                                .setElementHandler(SlotElement.instance(
+                                        entry.output().copyWithCount(1), (item, button) -> {
                                             if (button == 0) {
                                                 openRecipeEntryMenu((RecipeEntry) entry);
                                                 return true;
@@ -177,8 +179,8 @@ public class SlimefunGuide extends BaseModule {
                         TOOLTIPS_ITEM_RULE,
                         () -> RecipeTasks.getAllRecipe().values().stream().toList(),
                         (rp) -> new ExecutableWidget(0, 0, 16, 16)
-                                .setElementHandler(
-                                        SlotElement.instance(rp.output().copyWithCount(1), (item, button) -> {
+                                .setElementHandler(SlotElement.instance(
+                                        rp.output().copyWithCount(1), (item, button) -> {
                                             if (button == 0) {
                                                 openRecipeEntryMenu((RecipeEntry) rp);
                                                 return true;

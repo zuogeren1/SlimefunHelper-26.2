@@ -24,13 +24,12 @@ import me.matl114.utils.containers.MetaData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
@@ -43,6 +42,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.function.BooleanConsumer;
@@ -100,7 +100,8 @@ public class RenderOptimize extends BaseModule {
     public final NBTRef<EntrySet<BlockEntityType<?>>> cullingTypes2 = builder(
                     renderOptimize.add("optimize-culling-block-entity-types"), EntrySet.<BlockEntityType<?>>parameter())
             .defaultValue(new EntrySet<>(
-                    new Regex("^((.*sign)|barrel|skull|(.*chest)|enchanting_table)$"), BuiltInRegistries.BLOCK_ENTITY_TYPE))
+                    new Regex("^((.*sign)|barrel|skull|(.*chest)|enchanting_table)$"),
+                    BuiltInRegistries.BLOCK_ENTITY_TYPE))
             .build();
 
     public final NBTRef<EntrySet<ParticleType<?>>> cullingTypes3 = builder(
@@ -274,7 +275,8 @@ public class RenderOptimize extends BaseModule {
                             double frontX = -Mth.sin(yawRad);
                             double frontZ = Mth.cos(yawRad);
                             Vec3 frontNormal = new Vec3(frontX, 0, frontZ).normalize();
-                            Vec3 signCenter = Vec3.atLowerCornerOf(blockPos).add(signBlock.getSignHitboxCenterPosition(blockState));
+                            Vec3 signCenter = Vec3.atLowerCornerOf(blockPos)
+                                    .add(signBlock.getSignHitboxCenterPosition(blockState));
                             Vec3 toPlayer = cameraPos.subtract(signCenter);
                             Vec3 playerLook = RenderUtils.getCameraLookVec(0.0f);
                             boolean showFront = true;
@@ -486,7 +488,8 @@ public class RenderOptimize extends BaseModule {
                 Boolean cacheR = cacheResults.get(posId);
                 if (cacheR == null) {
                     BlockState state = mcwolrd.getBlockState(blockPos);
-                    checkIsBlock = !state.isAir() && state.canOcclude() && state.isCollisionShapeFullBlock(mcwolrd, blockPos);
+                    checkIsBlock =
+                            !state.isAir() && state.canOcclude() && state.isCollisionShapeFullBlock(mcwolrd, blockPos);
                     cacheResults.put(posId, checkIsBlock ? Boolean.TRUE : Boolean.FALSE);
                 } else {
                     checkIsBlock = cacheR;

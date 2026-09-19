@@ -25,17 +25,17 @@ import me.matl114.utils.render.RenderCollector;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -56,7 +56,8 @@ public class WorldScanner extends BaseModule {
     public FlagRef enable = flagBuilder(worldScanner.add("enable")).build();
 
     public NBTRef<EntrySet<Block>> typeFilter = builder(worldScanner.add("search-type"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*_portal|end_gateway|end_portal_frame)$"), BuiltInRegistries.BLOCK))
+            .defaultValue(
+                    new EntrySet<>(new Regex("^(.*_portal|end_gateway|end_portal_frame)$"), BuiltInRegistries.BLOCK))
             .updateListener(this::updateBlockTypeFilter)
             .build();
 
@@ -246,8 +247,7 @@ public class WorldScanner extends BaseModule {
                                             }
                                             if (option.line()) {
                                                 traceLineCollector.submit(
-                                                        box.move(entry.getKey())
-                                                                .getCenter(),
+                                                        box.move(entry.getKey()).getCenter(),
                                                         ColorUtils.withAlphaInt(color.getValue(), 255));
                                             }
                                         }

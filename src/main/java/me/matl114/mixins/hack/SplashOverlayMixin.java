@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LoadingOverlay.class)
 public abstract class SplashOverlayMixin {
     @Inject(
-            method = "render",
+            method = "extractRenderState",
             at =
                     @At(
                             value = "INVOKE",
@@ -57,7 +57,7 @@ public abstract class SplashOverlayMixin {
     }
 
     @ModifyExpressionValue(
-            method = "drawProgressBar",
+            method = "extractProgressBar",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ARGB;color(IIII)I"))
     private int onOverrideProgressbar(int original, @Local(ordinal = 5) int j) {
         return RenderTasks.getCustomOverlay().colorProgressbar.get().withAlpha(j);

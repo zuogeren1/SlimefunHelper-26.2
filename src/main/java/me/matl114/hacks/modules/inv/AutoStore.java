@@ -82,11 +82,7 @@ public class AutoStore extends BaseModule {
                             } else {
                                 InvTasks.getClickExecutor().execute(() -> {
                                     mc.gameMode.handleContainerInput(
-                                            handledScreen.getMenu().containerId,
-                                            slot,
-                                            0,
-                                            ContainerInput.THROW,
-                                            player);
+                                            handledScreen.getMenu().containerId, slot, 0, ContainerInput.THROW, player);
                                 });
                             }
                             return;
@@ -100,11 +96,7 @@ public class AutoStore extends BaseModule {
                                 mc.gameMode.handleContainerInput(
                                         handledScreen.getMenu().containerId, i, 1, ContainerInput.PICKUP, player);
                                 mc.gameMode.handleContainerInput(
-                                        handledScreen.getMenu().containerId,
-                                        slot,
-                                        0,
-                                        ContainerInput.PICKUP,
-                                        player);
+                                        handledScreen.getMenu().containerId, slot, 0, ContainerInput.PICKUP, player);
                             });
                             return;
                         }

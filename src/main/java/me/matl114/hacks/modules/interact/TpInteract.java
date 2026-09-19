@@ -63,10 +63,8 @@ public class TpInteract extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundUseItemOnPacket.class), this::onInteractBlock);
-        registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class), this::onInteractEntity);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundUseItemOnPacket.class), this::onInteractBlock);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class), this::onInteractEntity);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBlockMine);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
@@ -95,7 +93,11 @@ public class TpInteract extends BaseModule {
                                             (handler) -> {
                                                 for (var i = 0; i < size; ++i) {
                                                     mc.gameMode.handleContainerInput(
-                                                            handler.containerId, i, 0, ContainerInput.QUICK_MOVE, mc.player);
+                                                            handler.containerId,
+                                                            i,
+                                                            0,
+                                                            ContainerInput.QUICK_MOVE,
+                                                            mc.player);
                                                 }
                                             });
                                 }))) {
@@ -160,7 +162,8 @@ public class TpInteract extends BaseModule {
                                 ? (selectedPos) -> executeTp(selectedPos, () -> {
                                     mc.getConnection().send(packetToSend);
                                     PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.gameMode);
-                                    if (packetToSend.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
+                                    if (packetToSend.getAction()
+                                                    == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
                                             && Objects.equals(access.getCurrentMiningPos(), packetToSend.getPos())
                                             && access.getCurrentFailBreakPos() == null) {
                                         access.sendFailBreakCurrentPos(null);
@@ -216,7 +219,8 @@ public class TpInteract extends BaseModule {
             BlockPos entityPos = pos.blockPosition();
             // todo: move this to CombatExtra or PositionPredictor or something
             for (var deltaPos : InteractExtra.INSTANCE.getBlocksAround()) {
-                Vec3 checkPos = Vec3.atBottomCenterOf(entityPos.offset(deltaPos)).add(0, 1E-4, 0);
+                Vec3 checkPos =
+                        Vec3.atBottomCenterOf(entityPos.offset(deltaPos)).add(0, 1E-4, 0);
                 if (entityBox.distanceToSqr(checkPos.add(0, eyeHeight, 0)) < MathUtils.s2(attackRange)
                         && !MovTasks.ENGIN.checkEnvironmentCollision(mc.player, checkPos, true)) {
                     selectedPos = checkPos;
@@ -245,7 +249,8 @@ public class TpInteract extends BaseModule {
                 RenderTasks.registerVirtualRenderTask(new RenderTasks.RenderTask(
                         RenderTasks.DEBUG_TICK,
                         new RenderTasks.BoxObject(
-                                mc.player.dimensions.makeBoundingBox(pos), ColorUtils.withAlpha(Color.MAGENTA, 0.25F))));
+                                mc.player.dimensions.makeBoundingBox(pos),
+                                ColorUtils.withAlpha(Color.MAGENTA, 0.25F))));
             }
             List<MovTasks.MovInfo> moveInfo = new ArrayList<>();
             moveInfo.addAll(MovTasks.createMovInfoList(from));

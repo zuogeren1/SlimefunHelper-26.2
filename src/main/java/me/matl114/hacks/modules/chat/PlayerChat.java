@@ -20,8 +20,8 @@ import me.matl114.managers.config.ListRef;
 import me.matl114.utils.ChatUtils;
 import me.matl114.versioned.api.VRecord;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.contents.ObjectContents;
@@ -211,8 +211,9 @@ public class PlayerChat extends BaseModule {
                     .withStyle(Style.EMPTY);
         }
         if (playerName != null && pattern.matcher(playerName).matches()) {
-            ObjectContents content =
-                    new ObjectContents(new PlayerSprite(ResolvableProfile.createUnresolved(playerName), false), java.util.Optional.empty());
+            ObjectContents content = new ObjectContents(
+                    new PlayerSprite(ResolvableProfile.createUnresolved(playerName), false),
+                    java.util.Optional.empty());
             mutableBoolean.setTrue();
             return builder -> builder.withHoverEvent(
                             ChatUtils.getHoverShowText(List.of(Component.literal("玩家:" + playerName))))

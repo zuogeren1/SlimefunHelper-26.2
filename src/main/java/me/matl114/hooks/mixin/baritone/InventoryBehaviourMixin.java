@@ -6,8 +6,10 @@ import me.matl114.hacks.modules.survival.BaritoneFix;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 
+@Pseudo
 @Environment(EnvType.CLIENT)
 @Mixin(InventoryBehavior.class)
 public abstract class InventoryBehaviourMixin {

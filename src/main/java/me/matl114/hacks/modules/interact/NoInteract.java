@@ -146,7 +146,9 @@ public class NoInteract extends BaseModule {
                 if (!InteractUtils.canInteractAndPlace(mc.player, mayInteractAccept)) {
                     onFailOriginalInteract(interactAtPos, state);
                     if (stack.getItem() instanceof BlockItem) {
-                        if (sneakIfInsta.get() && ViaFabricPlusHooks.isSupportInstaSneak() && !mc.player.isShiftKeyDown()) {
+                        if (sneakIfInsta.get()
+                                && ViaFabricPlusHooks.isSupportInstaSneak()
+                                && !mc.player.isShiftKeyDown()) {
                             PlayerInputUtils.of(mc.player)
                                     .sneak(true)
                                     .sendPlayerSneakUpdatePacket()

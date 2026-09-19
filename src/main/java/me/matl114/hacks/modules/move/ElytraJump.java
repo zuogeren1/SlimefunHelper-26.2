@@ -306,8 +306,8 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                         mc.player,
                         mc.player
                                 .dimensions
-                                .makeBoundingBox(
-                                        Vec3.atBottomCenterOf(currentLandingBlock).add(0, 1, 0))
+                                .makeBoundingBox(Vec3.atBottomCenterOf(currentLandingBlock)
+                                        .add(0, 1, 0))
                                 .move(EntityUtils.pitchYawToRotation(0, mc.player.getYRot())))) {
             // check horizontal collision
             Vec3 simulationMove = MovTasks.simulateMovement(
@@ -323,8 +323,8 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                         mc.player,
                         mc.player
                                 .dimensions
-                                .makeBoundingBox(
-                                        Vec3.atBottomCenterOf(currentLandingBlock).add(0, 1, 0))
+                                .makeBoundingBox(Vec3.atBottomCenterOf(currentLandingBlock)
+                                        .add(0, 1, 0))
                                 .move(EntityUtils.pitchYawToRotation(0, mc.player.getYRot())));
                 if (!checkBox.isEmpty()) {
                     // climb up 1 block

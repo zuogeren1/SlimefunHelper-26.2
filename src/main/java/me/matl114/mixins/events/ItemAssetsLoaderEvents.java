@@ -9,8 +9,8 @@ import java.util.concurrent.Executor;
 import me.matl114.events.RenderListener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.renderer.item.CuboidItemModelWrapper;
 import net.minecraft.client.renderer.item.ClientItem;
+import net.minecraft.client.renderer.item.CuboidItemModelWrapper;
 import net.minecraft.client.resources.model.ClientItemInfoLoader;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -36,7 +36,8 @@ public abstract class ItemAssetsLoaderEvents {
                         autoAssets.put(
                                 id,
                                 new ClientItem(
-                                        new CuboidItemModelWrapper.Unbaked(id, java.util.Optional.empty(), new ArrayList<>()),
+                                        new CuboidItemModelWrapper.Unbaked(
+                                                id, java.util.Optional.empty(), new ArrayList<>()),
                                         new ClientItem.Properties(true, true, 1.0F)));
                     }
                     return autoAssets;

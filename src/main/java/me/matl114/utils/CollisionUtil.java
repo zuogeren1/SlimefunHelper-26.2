@@ -13,13 +13,11 @@ import me.matl114.accessors.moonrise.MoonriseChunkBlockCountingAccess;
 import me.matl114.accessors.moonrise.MoonriseVoxelShapeAccess;
 import me.matl114.hacks.RenderTasks;
 import me.matl114.utils.world.CachedShapeData;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
-import net.minecraft.world.level.chunk.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.vehicle.boat.Boat;
@@ -28,11 +26,13 @@ import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.*;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkSource;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.BooleanOp;
@@ -47,7 +47,8 @@ public final class CollisionUtil {
             it.unimi.dsi.fastutil.doubles.DoubleArrayList.wrap(new double[] {0.0, 1.0});
 
     public static boolean isSpecialCollidingBlock(final BlockBehaviour.BlockStateBase block) {
-        return block.hasLargeCollisionShape() || block.getBlock() == net.minecraft.world.level.block.Blocks.MOVING_PISTON;
+        return block.hasLargeCollisionShape()
+                || block.getBlock() == net.minecraft.world.level.block.Blocks.MOVING_PISTON;
     }
 
     public static boolean isEmpty(final net.minecraft.world.phys.AABB aabb) {
@@ -1785,9 +1786,11 @@ public final class CollisionUtil {
             final java.util.List<net.minecraft.world.phys.shapes.VoxelShape> intoVoxel,
             final java.util.List<net.minecraft.world.phys.AABB> intoAABB,
             final int collisionFlags,
-            final java.util.function.BiPredicate<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos>
+            final java.util.function.BiPredicate<
+                            net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos>
                     predicate,
-            BiFunction<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos, AABB> environmentFilter) {
+            BiFunction<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos, AABB>
+                    environmentFilter) {
         return getCollisionsForBlocksOrWorldBorder(
                 world, entity, aabb, intoVoxel, intoAABB, null, collisionFlags, predicate, environmentFilter, false);
     }
@@ -1800,9 +1803,11 @@ public final class CollisionUtil {
             final java.util.List<net.minecraft.world.phys.AABB> intoAABB,
             @Nullable final List<BlockPos> intoBlocks,
             final int collisionFlags,
-            final java.util.function.BiPredicate<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos>
+            final java.util.function.BiPredicate<
+                            net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos>
                     predicate,
-            BiFunction<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos, AABB> environmentFilter,
+            BiFunction<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos, AABB>
+                    environmentFilter,
             boolean fastReturn) {
         final boolean checkOnly = (collisionFlags & COLLISION_FLAG_CHECK_ONLY) != 0;
         boolean ret = false;
@@ -1826,8 +1831,8 @@ public final class CollisionUtil {
         final int minBlockX = net.minecraft.util.Mth.floor(aabb.minX - COLLISION_EPSILON) - 1;
         final int maxBlockX = net.minecraft.util.Mth.floor(aabb.maxX + COLLISION_EPSILON) + 1;
 
-        final int minBlockY = Math.max(
-                (minSection << 4) - 1, net.minecraft.util.Mth.floor(aabb.minY - COLLISION_EPSILON) - 1);
+        final int minBlockY =
+                Math.max((minSection << 4) - 1, net.minecraft.util.Mth.floor(aabb.minY - COLLISION_EPSILON) - 1);
         final int maxBlockY = Math.min(
                 (((world.getMaxSectionY() - 1)) << 4) + 16,
                 net.minecraft.util.Mth.floor(aabb.maxY + COLLISION_EPSILON) + 1);
@@ -1835,7 +1840,8 @@ public final class CollisionUtil {
         final int minBlockZ = net.minecraft.util.Mth.floor(aabb.minZ - COLLISION_EPSILON) - 1;
         final int maxBlockZ = net.minecraft.util.Mth.floor(aabb.maxZ + COLLISION_EPSILON) + 1;
 
-        final net.minecraft.core.BlockPos.MutableBlockPos mutablePos = new net.minecraft.core.BlockPos.MutableBlockPos();
+        final net.minecraft.core.BlockPos.MutableBlockPos mutablePos =
+                new net.minecraft.core.BlockPos.MutableBlockPos();
         final net.minecraft.world.phys.shapes.CollisionContext collisionShape = new LazyEntityCollisionContext(entity);
 
         // special cases:
@@ -1893,8 +1899,9 @@ public final class CollisionUtil {
                     // ((ca.spottedleaf.moonrise.patches.block_counting.BlockCountingChunkSection)section).moonrise$getSpecialCollidingBlocks() != 0;
                     final int sectionAdjust = !hasSpecial ? 1 : 0;
 
-                    final net.minecraft.world.level.chunk.PalettedContainer<net.minecraft.world.level.block.state.BlockState> blocks =
-                            section.getStates(); //  .states;
+                    final net.minecraft.world.level.chunk.PalettedContainer<
+                                    net.minecraft.world.level.block.state.BlockState>
+                            blocks = section.getStates(); //  .states;
 
                     final int minXIterate = currChunkX == minChunkX ? (minBlockX & 15) + sectionAdjust : 0;
                     final int maxXIterate = currChunkX == maxChunkX ? (maxBlockX & 15) - sectionAdjust : 15;
@@ -1920,7 +1927,8 @@ public final class CollisionUtil {
                                     continue;
                                 }
 
-                                final net.minecraft.world.level.block.state.BlockState blockData = blocks.get(localBlockIndex);
+                                final net.minecraft.world.level.block.state.BlockState blockData =
+                                        blocks.get(localBlockIndex);
                                 mutablePos.set(blockX, blockY, blockZ);
 
                                 if (environmentFilter != null) {
@@ -1951,25 +1959,26 @@ public final class CollisionUtil {
                                 }
                                 ;
 
-                                net.minecraft.world.phys.shapes.VoxelShape blockCollision = MoonriseBlockStateBaseAccess.of(
-                                                blockData)
-                                        .moonrise$getConstantCollisionShape();
+                                net.minecraft.world.phys.shapes.VoxelShape blockCollision =
+                                        MoonriseBlockStateBaseAccess.of(blockData)
+                                                .moonrise$getConstantCollisionShape();
 
                                 if (edgeCount == 0
                                         || ((edgeCount != 1 || blockData.hasLargeCollisionShape())
                                                 && (edgeCount != 2
                                                         || blockData.getBlock()
-                                                                == net.minecraft.world.level.block.Blocks.MOVING_PISTON))) {
+                                                                == net.minecraft.world.level.block.Blocks
+                                                                        .MOVING_PISTON))) {
                                     if (blockCollision == null) {
                                         mutablePos.set(blockX, blockY, blockZ);
                                         blockCollision = blockData.getCollisionShape(world, mutablePos, collisionShape);
                                     }
 
-                                    net.minecraft.world.phys.AABB singleAABB = MoonriseVoxelShapeAccess.of(blockCollision)
+                                    net.minecraft.world.phys.AABB singleAABB = MoonriseVoxelShapeAccess.of(
+                                                    blockCollision)
                                             .moonrise$getSingleAABBRepresentation();
                                     if (singleAABB != null) {
-                                        singleAABB =
-                                                singleAABB.move((double) blockX, (double) blockY, (double) blockZ);
+                                        singleAABB = singleAABB.move((double) blockX, (double) blockY, (double) blockZ);
                                         if (!voxelShapeIntersect(aabb, singleAABB)) {
                                             continue;
                                         }
@@ -2192,10 +2201,12 @@ public final class CollisionUtil {
             final java.util.List<net.minecraft.world.phys.shapes.VoxelShape> intoVoxel,
             final java.util.List<net.minecraft.world.phys.AABB> intoAABB,
             final int collisionFlags,
-            final java.util.function.BiPredicate<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos>
+            final java.util.function.BiPredicate<
+                            net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos>
                     blockPredicate,
             final java.util.function.Predicate<net.minecraft.world.entity.Entity> entityPredicate,
-            BiFunction<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos, AABB> environmentFilter) {
+            BiFunction<net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos, AABB>
+                    environmentFilter) {
         if ((collisionFlags & COLLISION_FLAG_CHECK_ONLY) != 0) {
             return getCollisionsForBlocksOrWorldBorder(
                             world, entity, aabb, intoVoxel, intoAABB, collisionFlags, blockPredicate, environmentFilter)
@@ -2207,7 +2218,8 @@ public final class CollisionUtil {
         }
     }
 
-    public static final class LazyEntityCollisionContext extends net.minecraft.world.phys.shapes.EntityCollisionContext {
+    public static final class LazyEntityCollisionContext
+            extends net.minecraft.world.phys.shapes.EntityCollisionContext {
 
         private net.minecraft.world.phys.shapes.CollisionContext delegate;
         private boolean delegated;
@@ -2252,7 +2264,8 @@ public final class CollisionUtil {
 
         @Override
         public boolean canStandOnFluid(
-                final net.minecraft.world.level.material.FluidState state, final net.minecraft.world.level.material.FluidState fluidState) {
+                final net.minecraft.world.level.material.FluidState state,
+                final net.minecraft.world.level.material.FluidState fluidState) {
             return this.getDelegate().canStandOnFluid(state, fluidState);
         }
     }
@@ -2408,8 +2421,7 @@ public final class CollisionUtil {
 
     public static boolean hasAnyIntersects(Level world, Predicate<Entity> exceptPredicate, VoxelShape shape) {
         if (shape.isEmpty()) return false;
-        Iterator<Entity> iterator =
-                world.getEntities(null, shape.bounds()).iterator();
+        Iterator<Entity> iterator = world.getEntities(null, shape.bounds()).iterator();
 
         while (iterator.hasNext()) {
             Entity entity = iterator.next();
@@ -2424,8 +2436,7 @@ public final class CollisionUtil {
             if (exceptPredicate.test(entity)) {
                 continue;
             }
-            if (Shapes.joinIsNotEmpty(
-                    shape, Shapes.create(entity.getBoundingBox()), BooleanOp.AND)) {
+            if (Shapes.joinIsNotEmpty(shape, Shapes.create(entity.getBoundingBox()), BooleanOp.AND)) {
 
                 return true;
             }

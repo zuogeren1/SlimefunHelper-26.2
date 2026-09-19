@@ -59,10 +59,12 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
                         .setElementHandler(new ButtonElement(
                                 (el) -> {
                                     return switch (w.getOriginValue().getType()) {
-                                        case 0 -> Component.translatableWithFallback(
-                                                "widget.nbt-parsable.widget-pos.percentage", "Per");
-                                        case 1 -> Component.translatableWithFallback(
-                                                "widget.nbt-parsable.widget-pos.absolute-length", "Abs");
+                                        case 0 ->
+                                            Component.translatableWithFallback(
+                                                    "widget.nbt-parsable.widget-pos.percentage", "Per");
+                                        case 1 ->
+                                            Component.translatableWithFallback(
+                                                    "widget.nbt-parsable.widget-pos.absolute-length", "Abs");
                                         default -> Component.empty();
                                     };
                                 },

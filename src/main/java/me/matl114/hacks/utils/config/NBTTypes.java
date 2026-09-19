@@ -101,8 +101,8 @@ public interface NBTTypes {
     public NBTType<Registry<?>> REGISTRY_TYPE = new NBTType<>(
             "registry",
             (Codec<Registry<?>>) (Codec<?>) BuiltInRegistries.REGISTRY.byNameCodec(),
-            (s, x, y, dx, dy) ->
-                    RegistryAttrKeyValue.generateTextInputWithRegistrySearch(BuiltInRegistries.REGISTRY, s, x, y, dx, dy),
+            (s, x, y, dx, dy) -> RegistryAttrKeyValue.generateTextInputWithRegistrySearch(
+                    BuiltInRegistries.REGISTRY, s, x, y, dx, dy),
             WrapperFactory.<String, Registry<?>>of(
                     s -> BuiltInRegistries.REGISTRY.getValue(Identifier.tryParse(s)),
                     v -> ((Registry) BuiltInRegistries.REGISTRY).getKey(v).toString()),

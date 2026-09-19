@@ -87,7 +87,8 @@ public class CommonUtils {
             default -> {
                 // need fix
                 DimensionType type = mc.level.dimensionType();
-                if (type.cardinalLightType() == net.minecraft.world.level.CardinalLighting.Type.NETHER || type.hasCeiling()) {
+                if (type.cardinalLightType() == net.minecraft.world.level.CardinalLighting.Type.NETHER
+                        || type.hasCeiling()) {
                     return LevelStem.NETHER;
                 }
                 if (type.hasSkyLight()) {

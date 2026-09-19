@@ -62,8 +62,10 @@ public class EntityESP extends BaseModule {
                     BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.COLOR_TYPE,
                     Map.of(
-                            EntityTypes.PLAYER, Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.YELLOW)),
-                            EntityTypes.ARMOR_STAND, Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.GREEN))),
+                            EntityTypes.PLAYER,
+                                    Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.YELLOW)),
+                            EntityTypes.ARMOR_STAND,
+                                    Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.GREEN))),
                     TextColor.fromLegacyFormat(ChatFormatting.RED)))
             .build();
 

@@ -37,11 +37,10 @@ import me.matl114.utils.world.ContainerPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.Container;
 import net.minecraft.world.inventory.ContainerInput;
@@ -55,6 +54,7 @@ import net.minecraft.world.level.block.entity.BarrelBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -323,7 +323,8 @@ public class PathingSchedular {
                     ChunkPos chunk1 = MathUtils.toChunkPos(pos1);
                     for (var x = chunk0.x; x <= chunk1.x; x++) {
                         for (var z = chunk0.z; z <= chunk1.z; z++) {
-                            net.minecraft.world.level.chunk.ChunkAccess chunk = mc.level.getChunkSource().getChunkNow(x, z);
+                            net.minecraft.world.level.chunk.ChunkAccess chunk =
+                                    mc.level.getChunkSource().getChunkNow(x, z);
                             if (chunk != null) {
                                 for (var re : ChunkAccess.of(chunk).blockEntityEntries()) {
                                     BlockPos pos = re.getKey();
@@ -540,7 +541,9 @@ public class PathingSchedular {
                         }
                     }
                     boolean canHasOp = InventoryUtils.findItem(
-                                    topInventory, item -> item.count() == 0 || item.count() < item.getMaxStackSize(), true)
+                                    topInventory,
+                                    item -> item.count() == 0 || item.count() < item.getMaxStackSize(),
+                                    true)
                             != null;
                     if (canHasOp) {
                         if (!hasOp) {
@@ -685,7 +688,8 @@ public class PathingSchedular {
         }
         BlockPos stopPos = findNearbyStandableStop(pos);
         if (stopPos != null) {
-            if (net.minecraft.world.phys.Vec3.atCenterOf(stopPos).distanceToSqr(mc.player.position()) < MathUtils.s2(distance)) {
+            if (net.minecraft.world.phys.Vec3.atCenterOf(stopPos).distanceToSqr(mc.player.position())
+                    < MathUtils.s2(distance)) {
                 return null;
             }
             return new GoalNear(stopPos, distance);
@@ -729,8 +733,9 @@ public class PathingSchedular {
                         if (!isValidLandingSpot(supportPos, standPos)) {
                             continue;
                         }
-                        double score =
-                                net.minecraft.world.phys.Vec3.atCenterOf(standPos).distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(targetPos)) + radius * 0.01;
+                        double score = net.minecraft.world.phys.Vec3.atCenterOf(standPos)
+                                        .distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(targetPos))
+                                + radius * 0.01;
                         if (score < bestScore) {
                             bestScore = score;
                             bestPos = standPos.immutable();

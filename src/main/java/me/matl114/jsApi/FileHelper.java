@@ -513,8 +513,9 @@ public class FileHelper {
             writeJson(file, existing, pretty);
         } else if (existing.isJsonObject() && json.isJsonObject()) {
             // Merge objects (overwrites duplicate keys)
-            json.getAsJsonObject().entrySet().forEach(entry -> existing.getAsJsonObject()
-                    .add(entry.getKey(), entry.getValue()));
+            json.getAsJsonObject()
+                    .entrySet()
+                    .forEach(entry -> existing.getAsJsonObject().add(entry.getKey(), entry.getValue()));
             writeJson(file, existing, pretty);
         } else {
             // Cannot merge different types, replace

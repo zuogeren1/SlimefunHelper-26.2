@@ -208,7 +208,8 @@ public class ClientSideCommand extends BaseModule {
     }
 
     private boolean handleClientSideGiveCommand(
-            Map<String, ParsedArgument<ClientSuggestionProvider, ?>> argsMap, String command) throws CommandSyntaxException {
+            Map<String, ParsedArgument<ClientSuggestionProvider, ?>> argsMap, String command)
+            throws CommandSyntaxException {
         if (enableGive.get()) {
             if (mc.gameMode.getPlayerMode().isCreative()) {
                 Debug.chat(Component.literal("尝试在客户端执行give指令").withStyle(ChatFormatting.GREEN));
@@ -217,14 +218,21 @@ public class ClientSideCommand extends BaseModule {
                 StringRange range = entityArgument.getRange();
                 if (entitySelector.isSelfSelector()
                         || Objects.equals(
-                                mc.player.getScoreboardName(),
-                                command.substring(range.getStart(), range.getEnd()))) {
-                    ItemInput itemStack =
-                            (ItemInput) argsMap.get("item").getResult();
+                                mc.player.getScoreboardName(), command.substring(range.getStart(), range.getEnd()))) {
+                    ItemInput itemStack = (ItemInput) argsMap.get("item").getResult();
                     int count = argsMap.containsKey("count")
                             ? (Integer) argsMap.get("count").getResult()
                             : 1;
-                    ItemStack itemStackToGive = itemStack.createItemStack(count);
+                    // 1.21.11 是 createStack(count, false)，第二参是"是否做超堆叠校验"，
+                    // 传 false = 放行。26.2 的 createItemStack 无条件校验且 2 参重载已不存在，
+                    // 超堆叠会抛 CommandSyntaxException → 命令被转发给服务端（行为完全不同）。
+                    // 这里捕获后改为直接构造，恢复旧版"静默生成"的语义。
+                    ItemStack itemStackToGive;
+                    try {
+                        itemStackToGive = itemStack.createItemStack(count);
+                    } catch (Exception e) {
+                        itemStackToGive = new ItemStack(itemStack.item(), count, itemStack.components());
+                    }
                     InvTasks.creativeGive(itemStackToGive, count);
                     Debug.chat(Component.literal("命令执行成功！").withStyle(ChatFormatting.GREEN));
                     return true;

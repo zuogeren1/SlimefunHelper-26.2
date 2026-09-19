@@ -23,20 +23,18 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.EnumRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.FrontAndTop;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.AbstractFurnaceBlock;
 import net.minecraft.world.level.block.AnvilBlock;
 import net.minecraft.world.level.block.BarrelBlock;
@@ -67,9 +65,11 @@ import net.minecraft.world.level.block.StonecutterBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.VaultBlock;
 import net.minecraft.world.level.block.piston.PistonBaseBlock;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -226,8 +226,8 @@ public class BlockRotate extends BaseModule {
                                                 .getCurrentVersion()
                                                 .isLowerOrEqualTo(20, 8)))) {
                     if (ViaFabricPlusHooks.isSupportDupRot()) {
-                        var packet =
-                                LegacySnapRotManager.INSTANCE.createSnapAt(lookVec.subtract(mc.player.getEyePosition()));
+                        var packet = LegacySnapRotManager.INSTANCE.createSnapAt(
+                                lookVec.subtract(mc.player.getEyePosition()));
                         PacketManager.schedulePostSendPacket(e.context, packet);
                     } else {
                         InteractionTasks.addPostRotationCorrectTask(
@@ -422,8 +422,9 @@ public class BlockRotate extends BaseModule {
             Vec2 pitchYaw;
             switch (facing) {
                 case DOWN -> {
-                    pitchYaw = EntityUtils.rotationToPitchYaw(
-                            Vec3.atLowerCornerOf(rotation.getUnitVec3i()).add(0, -4, 0).normalize());
+                    pitchYaw = EntityUtils.rotationToPitchYaw(Vec3.atLowerCornerOf(rotation.getUnitVec3i())
+                            .add(0, -4, 0)
+                            .normalize());
                 }
                 case UP -> {
                     pitchYaw = EntityUtils.rotationToPitchYaw(
@@ -433,7 +434,8 @@ public class BlockRotate extends BaseModule {
                 }
                 default -> {
                     pitchYaw = EntityUtils.rotationToPitchYaw(
-                            Vec3.atLowerCornerOf(facing.getOpposite().getUnitVec3i()).normalize());
+                            Vec3.atLowerCornerOf(facing.getOpposite().getUnitVec3i())
+                                    .normalize());
                 }
             }
             deceive.pitch = pitchYaw.x;

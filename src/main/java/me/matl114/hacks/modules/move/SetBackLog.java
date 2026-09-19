@@ -60,8 +60,7 @@ public class SetBackLog extends BaseModule {
 
         if (logResync.get()) {
             StringFormat logFormat = logResyncFormat.get();
-            Debug.chat(logFormat.formatText(
-                    ChatUtils.getDisplayedLocationDouble(packet.x(), packet.y(), packet.z())));
+            Debug.chat(logFormat.formatText(ChatUtils.getDisplayedLocationDouble(packet.x(), packet.y(), packet.z())));
         }
         if (logAc.get()) {
 
@@ -70,8 +69,7 @@ public class SetBackLog extends BaseModule {
                     StringFormat logFormat = logAcFormat.get();
                     try {
                         Debug.chat(logFormat.formatText(
-                                tpId,
-                                ChatUtils.getDisplayedLocationDouble(packet.x(), packet.y(), packet.z())));
+                                tpId, ChatUtils.getDisplayedLocationDouble(packet.x(), packet.y(), packet.z())));
                     } catch (Throwable e) {
                         Debug.chat(ChatUtils.stringToText("&cInvalid format string: " + e.getMessage()));
                     }

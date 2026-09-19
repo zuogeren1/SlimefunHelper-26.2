@@ -14,7 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Environment(EnvType.CLIENT)
 @Mixin(AbstractContainerEventHandler.class)
 public class AbstractElementButtonFixMixin {
-    @Inject(method = "setFocused(Lnet/minecraft/client/gui/components/events/GuiEventListener;)V", at = @At("HEAD"), cancellable = true)
+    @Inject(
+            method = "setFocused(Lnet/minecraft/client/gui/components/events/GuiEventListener;)V",
+            at = @At("HEAD"),
+            cancellable = true)
     private void onSetFocused(GuiEventListener focused, CallbackInfo ci) {
         if ((Object) this instanceof CustomFocusBehaviourScreenAccess access
                 && !access.canFocusButtonWhenClicked()

@@ -67,8 +67,8 @@ public class AutoReconnect extends BaseModule {
                                     : Component.literal("Toggle Auto reconnect on")),
                             ButtonAction.run(enable::toggle))));
             widget.addDrawableChild(ExecutableWidget.instance(0, 0, 200, 20)
-                    .setElementHandler(
-                            new ButtonElement(TextProvider.of(Component.literal("Reconnect")), ButtonAction.run(() -> {
+                    .setElementHandler(new ButtonElement(
+                            TextProvider.of(Component.literal("Reconnect")), ButtonAction.run(() -> {
                                 if (enable.get() && counter > 0) {
                                     counter = 0;
                                 } else {
@@ -104,7 +104,8 @@ public class AutoReconnect extends BaseModule {
 
     public void reconect(Screen screen) {
         if (lastServer != null) {
-            ConnectScreen.startConnecting(screen, mc, ServerAddress.parseString(lastServer.ip), lastServer, false, null);
+            ConnectScreen.startConnecting(
+                    screen, mc, ServerAddress.parseString(lastServer.ip), lastServer, false, null);
         }
     }
 }

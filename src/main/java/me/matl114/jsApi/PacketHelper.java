@@ -14,9 +14,9 @@ import me.matl114.versioned.api.VPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
@@ -99,8 +99,7 @@ public class PacketHelper {
                     mc.getConnection()
                             .send(new ServerboundPlayerActionPacket(
                                     ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK,
-                                    PlayerInteractionAccess.of(mc.gameMode)
-                                            .getCurrentMiningPos(),
+                                    PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(),
                                     dir));
                 }
                 PlayerInteractionAccess.of(mc.gameMode).startMiningBlock(blockPos, dir);
@@ -123,7 +122,8 @@ public class PacketHelper {
         BlockHitResult hitResult = RaycastUtils.createHitResult(blockPos, dir);
         syncHotbar();
         mc.gameMode.startPrediction(mc.level, (seq) -> {
-            var packet = new ServerboundUseItemOnPacket(offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, hitResult, seq);
+            var packet = new ServerboundUseItemOnPacket(
+                    offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, hitResult, seq);
             if (packet instanceof PlayerInteractBlockC2SPacketAccess access) {
                 access.setUseContext(new PlayerInteractBlockC2SPacketAccess.UseContext(
                         mc.player
@@ -166,7 +166,8 @@ public class PacketHelper {
     public static void sendInteractItem(boolean offHand, float pitch, float yaw) {
         syncHotbar();
         mc.gameMode.startPrediction(mc.level, (seq) -> {
-            return new ServerboundUseItemPacket(offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, seq, yaw, pitch);
+            return new ServerboundUseItemPacket(
+                    offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, seq, yaw, pitch);
         });
     }
 
@@ -182,15 +183,13 @@ public class PacketHelper {
         syncHotbar();
         mc.gameMode.startPrediction(mc.level, (seq) -> {
             return new ServerboundInteractPacket(
-                    s,
-                    offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
-                    p,
-                    sneaking);
+                    s, offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, p, sneaking);
         });
     }
 
     public static void sendSwingHand(boolean offhand) {
-        mc.getConnection().send(new ServerboundSwingPacket(offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND));
+        mc.getConnection()
+                .send(new ServerboundSwingPacket(offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND));
     }
 
     public static void startMine(Object pos, Object direction) {}
@@ -247,7 +246,8 @@ public class PacketHelper {
     }
 
     public static void sendPlayerAction(Object action) {
-        ServerboundPlayerActionPacket.Action actionPacket = JsHelper.toEnum(action, ServerboundPlayerActionPacket.Action.class);
+        ServerboundPlayerActionPacket.Action actionPacket =
+                JsHelper.toEnum(action, ServerboundPlayerActionPacket.Action.class);
         switch (actionPacket) {
             case STAB, SWAP_ITEM_WITH_OFFHAND, DROP_ITEM, DROP_ALL_ITEMS, RELEASE_USE_ITEM -> {}
 

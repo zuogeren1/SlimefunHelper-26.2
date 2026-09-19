@@ -105,9 +105,7 @@ public interface CommandExecution {
 
         @Override
         public Level getExecuteWorld() {
-            return sender instanceof Player player
-                    ? player.level()
-                    : Minecraft.getInstance().level;
+            return sender instanceof Player player ? player.level() : Minecraft.getInstance().level;
         }
     }
 

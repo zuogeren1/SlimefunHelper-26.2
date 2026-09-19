@@ -37,8 +37,7 @@ public abstract class PlayerInteractItemC2SPacketMixin implements PlayerInteract
     @Inject(method = "<init>(Lnet/minecraft/world/InteractionHand;IFF)V", at = @At("RETURN"))
     private void trackUseContext(InteractionHand hand, int sequence, float yaw, float pitch, CallbackInfo ci) {
         if (Minecraft.getInstance().player != null) {
-            useContext =
-                    Minecraft.getInstance().player.getItemInHand(hand).copy();
+            useContext = Minecraft.getInstance().player.getItemInHand(hand).copy();
         }
     }
 

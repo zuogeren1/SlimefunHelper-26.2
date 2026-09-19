@@ -21,7 +21,10 @@ public abstract class IdListPaletteFixMixin {
 
     @Inject(
             method = "valueFor",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/chunk/MissingPaletteEntryException;<init>(I)V"),
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target = "Lnet/minecraft/world/level/chunk/MissingPaletteEntryException;<init>(I)V"),
             cancellable = true)
     private void get(CallbackInfoReturnable<Object> cir) {
         if (ClientExtra.INSTANCE.paletteException.get()) {

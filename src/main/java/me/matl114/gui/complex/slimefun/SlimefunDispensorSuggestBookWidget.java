@@ -42,13 +42,30 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
     protected static final int SLOT_SIZE = 8;
     protected static final int TEXT_START_DY = 68;
     protected static final int TEXT_START_DX = 56;
-    protected static final ItemStack BOOK_ICON = new ItemStack(Items.KNOWLEDGE_BOOK);
-    protected static final ItemStack REFRESH_ICON = new ItemStack(Items.STRUCTURE_VOID);
+    // 26.2: ItemStack 必须在组件绑定之后才能构造，改为首次访问时创建
+    private static ItemStack bookIconCache = null;
+    private static ItemStack refreshIconCache = null;
+
+    protected static ItemStack bookIcon() {
+        if (bookIconCache == null) {
+            bookIconCache = new ItemStack(Items.KNOWLEDGE_BOOK);
+        }
+        return bookIconCache;
+    }
+
+    protected static ItemStack refreshIcon() {
+        if (refreshIconCache == null) {
+            refreshIconCache = new ItemStack(Items.STRUCTURE_VOID);
+        }
+        return refreshIconCache;
+    }
+
     protected static final Component REFRESH_HARD =
             Component.translatable("widget.gui.slimefun-dispensor-suggest-book-widget.refresh-hard");
     protected static final Component REFRESH_SOFT =
             Component.translatable("widget.gui.slimefun-dispensor-suggest-book-widget.refresh-soft");
-    protected static final Component TITLE = Component.translatable("widget.gui.slimefun-dispensor-suggest-book-widget.title");
+    protected static final Component TITLE =
+            Component.translatable("widget.gui.slimefun-dispensor-suggest-book-widget.title");
 
     protected static final Component MULTIBLOCK_EXECUTE =
             Component.translatable("widget.gui.slimefun-dispensor-suggest-book-widget.multiblock-execute");
@@ -157,7 +174,7 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
         //            Debug.chat(Text.literal("[自动多方块] 已关闭自动执行!"));
         //        }
         toggleBookWidget = ExecutableWidget.instance(0, 0, 8, 8)
-                .setElementHandler(SlotElement.instance(BOOK_ICON)
+                .setElementHandler(SlotElement.instance(bookIcon())
                         .withInputHandler(InputHandler.run(this::toggleActive))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-dispensor-suggest-book-widget.book.tooltips", ""))))
@@ -178,7 +195,8 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
         multiblockExecuteOneWidget = ExecutableWidget.instance(30, 0, 18, 8)
                 .setElementHandler(new ButtonElement(TextProvider.of(MULTIBLOCK_EXECUTE), ButtonAction.run(() -> {
                             SlimefunTasks.getMultiBlockHelper()
-                                    .onMultiBlockExecute(Minecraft.getInstance().gui.screen(), false, false);
+                                    .onMultiBlockExecute(
+                                            Minecraft.getInstance().gui.screen(), false, false);
                             Tasks.scheduleDelayed(this::refreshContents, 2);
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -208,7 +226,7 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
                         .withPresentCondition(this::active))
                 .addToSub(this);
         refresh = ExecutableWidget.instance(DX - 8, 0, 8, 8)
-                .setElementHandler(SlotElement.instance(REFRESH_ICON)
+                .setElementHandler(SlotElement.instance(refreshIcon())
                         .withInputHandler(InputHandler.run(this::refreshContents))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-dispensor-suggest-book-widget.refresh.tooltips", "")))
@@ -218,9 +236,7 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
                 .setElementHandler(new ButtonElement(TextProvider.of(MULTIBLOCK_EXECUTE), ButtonAction.run(() -> {
                             SlimefunTasks.getMultiBlockHelper()
                                     .onMultiBlockExecute(
-                                            Minecraft.getInstance().gui.screen(),
-                                            true,
-                                            ScreenUtils.hasShiftDown());
+                                            Minecraft.getInstance().gui.screen(), true, ScreenUtils.hasShiftDown());
                             Tasks.scheduleDelayed(this::refreshContents, 5);
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -233,8 +249,7 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
         multiblockAutoExecute = ExecutableWidget.instance(DX - 30, 0, 18, 8)
                 .setElementHandler(new ButtonElement(
                                 TextProvider.of(MULTIBLOCK_AUTO), ((element, widget, mouseButton) -> {
-                                    if (Minecraft.getInstance().gui.screen()
-                                            instanceof TileInventory handledScreen) {
+                                    if (Minecraft.getInstance().gui.screen() instanceof TileInventory handledScreen) {
                                         MultiBlockHelper multiBlockHelper = SlimefunTasks.getMultiBlockHelper();
                                         if (multiBlockHelper.isMultiBlockExecuting(handledScreen)) {
                                             widget.setAlpha(0.4f);

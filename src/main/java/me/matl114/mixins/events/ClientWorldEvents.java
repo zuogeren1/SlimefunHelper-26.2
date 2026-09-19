@@ -15,7 +15,9 @@ import org.spongepowered.asm.mixin.injection.At;
 @Environment(EnvType.CLIENT)
 @Mixin(ClientLevel.class)
 public abstract class ClientWorldEvents {
-    @WrapOperation(method = "tickEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;tick()V"))
+    @WrapOperation(
+            method = "tickNonPassenger",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;tick()V"))
     public void onEntityTick(Entity instance, Operation<Void> original) {
         Event<Entity> entityEvent = new Event<>(instance, true, false);
         Listener.getEntityPreTickListener().handleValue(entityEvent);

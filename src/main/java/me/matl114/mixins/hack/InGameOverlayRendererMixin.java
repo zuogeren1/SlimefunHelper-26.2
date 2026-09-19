@@ -17,7 +17,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ScreenEffectRenderer.class)
 public abstract class InGameOverlayRendererMixin {
     // 26.2 起渲染改为"提交节点"模式：
-    // renderTex/renderWater/renderFire (MultiBufferSource) -> submitBlockSprite/submitWater/submitFire (SubmitNodeCollector)
+    // renderTex/renderWater/renderFire (MultiBufferSource) -> submitBlockSprite/submitWater/submitFire
+    // (SubmitNodeCollector)
     @Inject(method = "submitBlockSprite", at = @At("HEAD"), cancellable = true)
     private static void onNoRender0(
             TextureAtlasSprite sprite,
@@ -40,10 +41,7 @@ public abstract class InGameOverlayRendererMixin {
 
     @Inject(method = "submitFire", at = @At("HEAD"), cancellable = true)
     private static void onNoRender2(
-            PoseStack matrices,
-            SubmitNodeCollector submitNodeCollector,
-            TextureAtlasSprite sprite,
-            CallbackInfo ci) {
+            PoseStack matrices, SubmitNodeCollector submitNodeCollector, TextureAtlasSprite sprite, CallbackInfo ci) {
         if (NoRender.INSTANCE.noFireOverlay()) {
             ci.cancel();
         }

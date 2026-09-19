@@ -109,7 +109,8 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
     }
 
     @Shadow
-    protected abstract <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(T drawableElement);
+    protected abstract <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(
+            T drawableElement);
 
     @Shadow
     protected void removeWidget(GuiEventListener child) {}
@@ -174,12 +175,12 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
     }
 
     @ModifyArgs(
-            method = "close",
+            method = "onClose",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
+                                    "Lnet/minecraft/client/gui/Gui;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V"))
     public void onRedirectReturnScreen(Args args) {
         if (parent != null) {
             args.set(0, parent);

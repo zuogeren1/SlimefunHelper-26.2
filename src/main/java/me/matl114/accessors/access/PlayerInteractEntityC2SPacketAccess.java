@@ -17,6 +17,7 @@ public interface PlayerInteractEntityC2SPacketAccess {
      * <p>因此该判断在 26.2 下恒为 false。攻击相关逻辑（Criticals / ElytraBot 等）应改为监听
      * {@code ServerboundAttackPacket}，此项属于功能性重构，尚未完成。
      */
+    @Deprecated // 26.2 下恒 false，误用会静默得到错误结果；攻击请用 ServerboundAttackPacket 通道
     default boolean isAttack() {
         return false;
     }

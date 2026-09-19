@@ -42,9 +42,7 @@ public class NoSound extends BaseModule {
                     root.add("no-sounds"), EntrySet.<SoundEvent>parameter())
             .defaultValue(new EntrySet<>(
                     BuiltInRegistries.SOUND_EVENT,
-                    Set.of(
-                            SoundEvents.ARMOR_EQUIP_NETHERITE.value(),
-                            SoundEvents.ARMOR_EQUIP_DIAMOND.value())))
+                    Set.of(SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundEvents.ARMOR_EQUIP_DIAMOND.value())))
             .build();
 
     public final NBTRef<EntryPrimitiveMap<SoundEvent, Double>> soundVolumeOverride = builder(

@@ -44,6 +44,16 @@ import net.minecraft.world.level.levelgen.SingleThreadedRandomSource;
 
 public class RegistryDisplays {
 
+    // 26.2: ItemStack 必须在组件绑定之后才能构造，不能在 <clinit> 里 new。
+    private static ItemStack defaultNullIcon = null;
+
+    public static ItemStack defaultNullIcon() {
+        if (defaultNullIcon == null) {
+            defaultNullIcon = new ItemStack(Items.BARRIER);
+        }
+        return defaultNullIcon;
+    }
+
     public static ItemStack createEnchantmentIcon(Enchantment enchantment) {
         ItemStack itemStack = new ItemStack(Items.ENCHANTED_BOOK);
         Holder<Enchantment> entry =
@@ -115,16 +125,16 @@ public class RegistryDisplays {
         return new IEntry<>(name, identifier, icon, value);
     }
 
-    public static final ItemStack ANVIL_ITEM = new ItemStack(Items.ANVIL);
-    public static final ItemStack AIR_ITEM = new ItemStack(Items.AIR);
+    // 26.2: ItemStack 必须在组件绑定之后才能构造（Holder.components() 会抛
+    // "Components not bound yet"），因此不能在 <clinit> 里 new，改为按需创建。
     private static final RandomSource RAND = new SingleThreadedRandomSource(999);
     public static Map<Class<?>, IIcon<?>> TYPE_TO_ICON_MAP = ImmutableMap.<Class<?>, IIcon<?>>builder()
             .put(Item.class, IIcon.<ItemLike>renderItem(ItemStack::new))
             .put(Block.class, IIcon.<ItemLike>renderItem(ItemStack::new))
-            .put(Attribute.class, IIcon.renderItem((v) -> ANVIL_ITEM))
+            .put(Attribute.class, IIcon.renderItem((v) -> new ItemStack(Items.ANVIL)))
             .put(Enchantment.class, IIcon.renderItem(RegistryDisplays::createEnchantmentIcon))
             .put(BlockEntityType.class, IIcon.<BlockEntityType<?>>renderItem(s -> {
-                if (s.validBlocks.isEmpty()) return AIR_ITEM;
+                if (s.validBlocks.isEmpty()) return new ItemStack(Items.AIR);
                 List<Block> blockList = s.validBlocks.stream().toList();
                 int select = ((int) (System.currentTimeMillis() / 1000) % blockList.size());
                 return new ItemStack(blockList.get(select));
@@ -162,14 +172,13 @@ public class RegistryDisplays {
     }
 
     public static interface IIcon<T> {
-        public static ItemStack DEFAULT_NULL_ICON = new ItemStack(Items.BARRIER);
         public static IIcon<?> EMPTY = ((x, y, context, registerValue) -> {
-            context.drawItem(DEFAULT_NULL_ICON, x, y, 999, 0);
+            context.drawItem(defaultNullIcon(), x, y, 999, 0);
         });
 
         default void render(int startIndexX, int startIndexY, VDrawContext context, T registerValue) {
             if (registerValue == null) {
-                context.drawItem(DEFAULT_NULL_ICON, startIndexX, startIndexY, 114514, 0);
+                context.drawItem(defaultNullIcon(), startIndexX, startIndexY, 114514, 0);
             } else {
                 renderNonnull(startIndexX, startIndexY, context, registerValue);
             }

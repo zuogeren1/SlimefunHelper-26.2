@@ -42,17 +42,16 @@ import me.matl114.versioned.api.VPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+import net.minecraft.util.*;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
-import net.minecraft.util.*;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -61,6 +60,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -105,8 +105,7 @@ public class MovTasks {
                 // calculate when elytra
                 // boolean mc.level.getGameRules().get()
                 if (packetNum > 0)
-                    for (var p = 0; p <= packetNum; ++p)
-                        mc.getConnection().send(VPacket.newVehicleMove(vehicle));
+                    for (var p = 0; p <= packetNum; ++p) mc.getConnection().send(VPacket.newVehicleMove(vehicle));
             }
             double deltaY = vehicle.getY() - mc.player.getY();
             vehicle.setPos(to.add(0, deltaY, 0));
@@ -131,8 +130,7 @@ public class MovTasks {
                 mc.player.setOnGround(onGroundOverride);
             }
             mc.getConnection()
-                    .send(VPacket.newPositionAndOnGround(
-                            to.x(), to.y(), to.z(), mc.player.onGround(), false));
+                    .send(VPacket.newPositionAndOnGround(to.x(), to.y(), to.z(), mc.player.onGround(), false));
             if (updatePlayer) mc.player.setPos(to);
         }
     }
@@ -773,7 +771,8 @@ public class MovTasks {
         if (mc.player == null) return;
         LAST_TP_FROM = mc.player.position();
         LAST_TP_REQUEST = Vec3.ZERO.add(target);
-        scheduleTpInternal(MovingContext.create(mc.player.position()), target, farawayTp, command, false, considerNoFall);
+        scheduleTpInternal(
+                MovingContext.create(mc.player.position()), target, farawayTp, command, false, considerNoFall);
     }
     // TODO: add height limit: based on world height limit: some world do not want player to reach lower than height
     // limit-or higher than bedrock or sth
@@ -837,10 +836,10 @@ public class MovTasks {
                 AABB boundariesToBox = mc.player.dimensions.makeBoundingBox(target);
                 AABB boundariesSmallAxis;
                 AABB boundariesLargeAxis;
-                boundariesSmallAxis = CollisionUtil.resetY(
-                        tpSmallerAxisPlate, world.getMinY(), world.getMinY() + world.getHeight());
-                boundariesLargeAxis = CollisionUtil.resetY(
-                        tpLargerAxisPlate, world.getMinY(), world.getMinY() + world.getHeight());
+                boundariesSmallAxis =
+                        CollisionUtil.resetY(tpSmallerAxisPlate, world.getMinY(), world.getMinY() + world.getHeight());
+                boundariesLargeAxis =
+                        CollisionUtil.resetY(tpLargerAxisPlate, world.getMinY(), world.getMinY() + world.getHeight());
                 boolean debug0 = DEBUG_RENDER_COLLISION_RENDERING;
                 // DEBUG_RENDER_COLLISION_RENDERING = true;
                 STATIC_DEBUG_COLOR = Color.CYAN;
@@ -1195,8 +1194,8 @@ public class MovTasks {
             boolean ignoreUnloadedChunk) {
         final AABB currBoundingBox = entity.dimensions.makeBoundingBox(startPos);
         if (CollisionUtil.isEmpty(currBoundingBox)) return;
-        AABB collisionBox = makeCollectorBoxInvolvingCollision(
-                currBoundingBox, movement, entity.maxUpStep(), entity.onGround());
+        AABB collisionBox =
+                makeCollectorBoxInvolvingCollision(currBoundingBox, movement, entity.maxUpStep(), entity.onGround());
         CollisionUtil.getCollisions(
                 entity.level(),
                 entity,
@@ -1245,7 +1244,8 @@ public class MovTasks {
                     collisionBox = CollisionUtil.expandUpwards(
                             currBoundingBox.expandTowards(movement.x, movement.y, movement.z), stepHeight);
                 } else {
-                    collisionBox = currBoundingBox.expandTowards(movement.x, Math.max(stepHeight, movement.y), movement.z);
+                    collisionBox =
+                            currBoundingBox.expandTowards(movement.x, Math.max(stepHeight, movement.y), movement.z);
                 }
             } else {
                 collisionBox = currBoundingBox.expandTowards(movement.x, movement.y, movement.z);
@@ -1390,8 +1390,7 @@ public class MovTasks {
             return false;
         } else {
             Vec3 movement = simulateMovement(entity, entity.position(), move, true);
-            return !Mth.equal(movement.x, move.x)
-                    || !Mth.equal(movement.z, move.z);
+            return !Mth.equal(movement.x, move.x) || !Mth.equal(movement.z, move.z);
         }
     }
 
@@ -2346,7 +2345,8 @@ public class MovTasks {
 
         //        Listener.registerSinglePacketListener(PlayerPositionLookS2CPacket.class,
         // MovTasks::listenPositionResync);
-        Listener.registerSinglePacketListener(ServerboundMovePlayerPacket.class, MovTasks::doIntercepteMovingPacketsWhileTp);
+        Listener.registerSinglePacketListener(
+                ServerboundMovePlayerPacket.class, MovTasks::doIntercepteMovingPacketsWhileTp);
         Listener.getClientPlayerSendMovementPoint().registerHandler(MovTasks::doStopPlayerSendMovementPackets);
 
         moduleManager.registerFactories(MovTasks::initModules);
@@ -2462,8 +2462,7 @@ public class MovTasks {
 
     public static final TabResult crossHairTarget = TabResult.ofStreamSupplier(() -> (mc.hitResult != null
                     && mc.hitResult.getType() == HitResult.Type.ENTITY)
-            ? Stream.of(
-                    "@" + ((EntityHitResult) (mc.hitResult)).getEntity().getStringUUID())
+            ? Stream.of("@" + ((EntityHitResult) (mc.hitResult)).getEntity().getStringUUID())
             : Stream.empty());
 
     public static final ArgumentType<?> entityAtArgumentType = SimpleCommandArgs.argumentBuilder(
@@ -2546,8 +2545,8 @@ public class MovTasks {
         });
         specialPositionRegistry.put("back", (re, var1, errMsg) -> {
             if (MovTasks.LAST_TP_FROM != null) {
-                errMsg.accept(
-                        Component.literal("使用上一个位置: ").append(ChatUtils.getDisplayedLocationDouble(MovTasks.LAST_TP_FROM)));
+                errMsg.accept(Component.literal("使用上一个位置: ")
+                        .append(ChatUtils.getDisplayedLocationDouble(MovTasks.LAST_TP_FROM)));
                 return MovTasks.LAST_TP_FROM;
             }
             errMsg.accept(Component.literal("找不到上一个位置"));

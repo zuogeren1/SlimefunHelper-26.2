@@ -74,6 +74,12 @@ dependencies {
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 	compileOnly files("libs/baritone-meteor-26.2.jar")
+	// 开发环境专用：把 baritone 加进 runClient 的运行时类路径。
+	// baritone 是可选前置（compileOnly），但本项目有 7 个 baritone mixin，
+	// 只有它真的在类路径上，才能验证 ElytraBehaviour / ElytraProcess 等 hook 的注入是否成立。
+	// 新版 Loom 不再 remap，这里用 localRuntime 以原始 jar 加入；
+	// Fabric Loader 的 ClasspathModCandidateFinder 会扫描运行时类路径并把它当 mod 加载。
+	localRuntime files("libs/baritone-meteor-26.2.jar")
 //	compileOnly files("libs/xaeroworldmap-fabric-26.2-1.41.0.jar")
 //	compileOnly files("libs/xaerominimap-fabric-26.2-26.1.0.jar")
 //	compileOnly files("libs/XaeroPlus-2.32.1+fabric-26.2-WM1.41.0-MM26.1.0.jar")
@@ -116,7 +122,7 @@ spotless {
 
 	java {
 		// 使用 PalantirJavaFormat（更简单，不需要配置文件）
-		palantirJavaFormat('2.38.0')
+		palantirJavaFormat('2.98.0')
 				.style('PALANTIR')
 
 		removeUnusedImports()
@@ -220,15 +226,8 @@ tasks.named("runClient", JavaExec) {
 //}
 
 
-// 移植期间临时禁用：palantirJavaFormat 会全量重排源文件，淹没迁移 diff，无法 review
-// 移植完成后需恢复
-// build.dependsOn spotlessApply
-
-// 移植期间同时禁用 spotlessCheck：
-// palantir-java-format 2.38.0/2.50.0 与 Java 25 不兼容
-// （NoSuchMethodError: Log$DeferredDiagnosticHandler.getDiagnostics()），
-// 否则 `gradlew build` 会在格式校验阶段失败。
-tasks.matching { it.name.toLowerCase().startsWith('spotless') }.configureEach { enabled = false }
+// 26.2 移植收尾：格式化已恢复（palantir-java-format 2.98.0，兼容 Java 25）
+build.dependsOn spotlessApply
 
 // configure the maven publication
 publishing {

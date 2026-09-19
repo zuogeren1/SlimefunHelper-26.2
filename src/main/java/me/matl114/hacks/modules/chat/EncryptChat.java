@@ -202,7 +202,8 @@ public class EncryptChat extends BaseModule {
                 .addToSub(subScreen);
         ExecutableWidget.instance(155, 0, 60, 20)
                 .setElementHandler(new ButtonElement(
-                        TextProvider.of(Component.translatable("widget.encrypt-chat.open-editor")), ButtonAction.run(() -> {
+                        TextProvider.of(Component.translatable("widget.encrypt-chat.open-editor")),
+                        ButtonAction.run(() -> {
                             var screen = WidgetUtils.createValueAccessorsEditScreen(
                                     Component.translatable("widget.encrypt-chat.open-editor.title"),
                                     List::of,

@@ -6,19 +6,19 @@ import java.util.*;
 import java.util.function.Predicate;
 import me.matl114.utils.world.AlignedFace;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -36,12 +36,12 @@ public class RaycastUtils {
     }
 
     public static BlockHitResult raycastSolidBlockResult(Entity e, Vec3 from, Vec3 to) {
-        return mc.level.clip(
-                new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, e));
+        return mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, e));
     }
 
     public static boolean raycastHitAnyEntity(Entity e, Vec3 from, Vec3 to) {
-        var re = ProjectileUtil.getEntityHitResult(e, from, to, new AABB(from, to), es -> !es.isSpectator() && es.isPickable(), 16384);
+        var re = ProjectileUtil.getEntityHitResult(
+                e, from, to, new AABB(from, to), es -> !es.isSpectator() && es.isPickable(), 16384);
         return re != null && re.getType() != HitResult.Type.MISS;
     }
 
@@ -74,8 +74,9 @@ public class RaycastUtils {
     }
 
     public static BlockHitResult createHitResult(BlockPos pos, Vec3 playerEyePos) {
-        Direction direction =
-                Direction.getApproximateNearest(Vec3.atCenterOf(pos).subtract(playerEyePos)).getOpposite();
+        Direction direction = Direction.getApproximateNearest(
+                        Vec3.atCenterOf(pos).subtract(playerEyePos))
+                .getOpposite();
         return createHitResult(pos, direction);
     }
 
@@ -136,8 +137,8 @@ public class RaycastUtils {
         return Optional.empty();
     }
 
-    private static final Comparator<Vec3i> PRIORITIZE_LEAST_BLOCK_DISTANCE =
-            Comparator.comparingDouble(vec -> -Vec3.atLowerCornerOf(vec).add(0.5, 0.5, 0.5).distanceToSqr(mc.player.position()));
+    private static final Comparator<Vec3i> PRIORITIZE_LEAST_BLOCK_DISTANCE = Comparator.comparingDouble(
+            vec -> -Vec3.atLowerCornerOf(vec).add(0.5, 0.5, 0.5).distanceToSqr(mc.player.position()));
 
     public static HitResult findBestBlockPlacement(BlockPos pos) {
         BlockState state = mc.level.getBlockState(pos);
@@ -193,23 +194,23 @@ public class RaycastUtils {
 
     public static AlignedFace getBoxFace(AABB box, Direction direction) {
         return switch (direction) {
-            case Direction.DOWN -> new AlignedFace(
-                    new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.maxX, box.minY, box.maxZ));
+            case Direction.DOWN ->
+                new AlignedFace(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.maxX, box.minY, box.maxZ));
 
-            case Direction.UP -> new AlignedFace(
-                    new Vec3(box.minX, box.maxY, box.minZ), new Vec3(box.maxX, box.maxY, box.maxZ));
+            case Direction.UP ->
+                new AlignedFace(new Vec3(box.minX, box.maxY, box.minZ), new Vec3(box.maxX, box.maxY, box.maxZ));
 
-            case Direction.SOUTH -> new AlignedFace(
-                    new Vec3(box.minX, box.minY, box.maxZ), new Vec3(box.maxX, box.maxY, box.maxZ));
+            case Direction.SOUTH ->
+                new AlignedFace(new Vec3(box.minX, box.minY, box.maxZ), new Vec3(box.maxX, box.maxY, box.maxZ));
 
-            case Direction.NORTH -> new AlignedFace(
-                    new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.maxX, box.maxY, box.minZ));
+            case Direction.NORTH ->
+                new AlignedFace(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.maxX, box.maxY, box.minZ));
 
-            case Direction.EAST -> new AlignedFace(
-                    new Vec3(box.maxX, box.minY, box.minZ), new Vec3(box.maxX, box.maxY, box.maxZ));
+            case Direction.EAST ->
+                new AlignedFace(new Vec3(box.maxX, box.minY, box.minZ), new Vec3(box.maxX, box.maxY, box.maxZ));
 
-            case Direction.WEST -> new AlignedFace(
-                    new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.minX, box.maxY, box.maxZ));
+            case Direction.WEST ->
+                new AlignedFace(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.minX, box.maxY, box.maxZ));
         };
     }
 
@@ -269,8 +270,8 @@ public class RaycastUtils {
         Vec3 vec3d = hitResult.getLocation();
         if (!vec3d.closerThan(cameraPos, interactionRange)) {
             Vec3 vec3d2 = hitResult.getLocation();
-            Direction direction =
-                    Direction.getApproximateNearest(vec3d2.x - cameraPos.x, vec3d2.y - cameraPos.y, vec3d2.z - cameraPos.z);
+            Direction direction = Direction.getApproximateNearest(
+                    vec3d2.x - cameraPos.x, vec3d2.y - cameraPos.y, vec3d2.z - cameraPos.z);
             return BlockHitResult.miss(vec3d2, direction, BlockPos.containing(vec3d2));
         } else {
             return hitResult;

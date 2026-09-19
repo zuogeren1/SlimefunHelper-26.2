@@ -100,7 +100,8 @@ public class SearchControl extends BaseModule {
         currentLookControl = switch (mode.get()) {
             case RECT -> createLookRect();
             case CIRCLE -> createLookCircle();
-            case SPIRAL -> createLookSpiral();};
+            case SPIRAL -> createLookSpiral();
+        };
     }
 
     public Runnable createLookRect() {
@@ -119,7 +120,9 @@ public class SearchControl extends BaseModule {
                 if (onlyWhenFly.get() && !mc.player.isFallFlying()) {
                     return;
                 }
-                if (mc.player.position().distanceToSqr(Vec3.atCenterOf(centerPos.get().to()))
+                if (mc.player
+                                .position()
+                                .distanceToSqr(Vec3.atCenterOf(centerPos.get().to()))
                         < MathUtils.s2(maxDist.get())) {
                     currentLookControl.run();
                 } else {
@@ -205,7 +208,8 @@ public class SearchControl extends BaseModule {
         double phiRad = Math.atan2(r, b);
         float phiDeg = (float) Math.toDegrees(phiRad);
 
-        float cos = (float) ((mc.player.getDeltaMovement().horizontalDistance()) / (2 * relativeCoord.horizontalDistance()));
+        float cos = (float)
+                ((mc.player.getDeltaMovement().horizontalDistance()) / (2 * relativeCoord.horizontalDistance()));
         float yawControl = yawRadial + phiDeg - cos;
 
         PlayerStateManager.setPlayerYawSafe(mc.player, yawControl);

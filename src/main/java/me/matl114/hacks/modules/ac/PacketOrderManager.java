@@ -6,8 +6,8 @@ import me.matl114.events.Listener;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import net.minecraft.network.protocol.game.*;
-import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 import net.minecraft.network.protocol.game.ServerboundAttackPacket;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
@@ -36,9 +36,7 @@ public class PacketOrderManager extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class),
-                this::onAttack,
-                Integer.MAX_VALUE);
+                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onAttack, Integer.MAX_VALUE);
         registerListener(
                 Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class),
                 this::onInteract,
@@ -56,9 +54,13 @@ public class PacketOrderManager extends BaseModule {
                 this::onEntityAction,
                 Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPacketTick, Integer.MAX_VALUE);
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class),
+                this::onPacketTick,
+                Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class), this::onTickEnd, Integer.MAX_VALUE);
+                Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class),
+                this::onTickEnd,
+                Integer.MAX_VALUE);
     }
 
     public void onAttack(Event<ServerboundAttackPacket> event) {

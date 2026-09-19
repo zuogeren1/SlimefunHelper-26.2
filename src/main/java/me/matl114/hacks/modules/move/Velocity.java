@@ -20,9 +20,9 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.entity.PlayerInputUtils;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ClientboundPingPacket;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
@@ -121,15 +121,19 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
         // 在此处注册事件监听器（当前为空）
         registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onVelocity);
         registerListener(Listener.getPlayerExplosionVelocity(), this::onExplosion);
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onSendMove);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundPlayerPositionPacket.class), this::onSetPosition);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundPlayerPositionPacket.class), this::onSetPosition);
         registerListener(Listener.getPacketPoint().getChannel(ClientboundPingPacket.class), this::onPing);
         registerListener(Listener.getPreGameTick(), this::onPreTick);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockUpdatePacket.class), this::onBlockUpdate);
-        registerListener(Listener.getPacketPreHandlePoint().getChannel(ClientboundExplodePacket.class), this::onExplosionPre);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockUpdatePacket.class),
+                this::onBlockUpdate);
+        registerListener(
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundExplodePacket.class), this::onExplosionPre);
         registerListener(Listener.getPlayerFluidVelocityPoint(), this::onElytraLiquidPush);
     }
 
@@ -398,7 +402,8 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     }
 
     private void sendFallFlying() {
-        var packet = new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING);
+        var packet =
+                new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING);
 
         mc.getConnection().send(packet);
     }

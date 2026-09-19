@@ -154,8 +154,8 @@ public class TargetCommand extends BaseModule {
             Vector3d vector3d = pos.getPosition(p);
             Vec3 vec3d = (new Vec3(vector3d.x, vector3d.y, vector3d.z));
             p.sendMessage(Component.literal("Pos: ").append(ChatUtils.getDisplayedLocation(vec3d)));
-            p.sendMessage(
-                    Component.literal("NetherPos: ").append(ChatUtils.getDisplayedLocation(vec3d.scale((double) 1 / 8))));
+            p.sendMessage(Component.literal("NetherPos: ")
+                    .append(ChatUtils.getDisplayedLocation(vec3d.scale((double) 1 / 8))));
             p.sendMessage(Component.literal("WorldPos: ").append(ChatUtils.getDisplayedLocation(vec3d.scale(8))));
             BlockPos blockPos = BlockPos.containing(vec3d);
             p.sendMessage(Component.literal("ChunkPos: ")

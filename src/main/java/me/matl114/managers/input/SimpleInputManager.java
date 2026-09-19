@@ -98,8 +98,8 @@ public class SimpleInputManager implements IInputManager {
         // Update record key states
         boolean stateChange = onKeyInputPre(keyCode, scanCode, modifiers, action);
         // fire event to ask if the input is consumed
-        Event<KeyboardAction> hardWareInput =
-                new Event<>(new KeyboardAction(this.mc.keyboardHandler, keyCode, scanCode, action, modifiers), true, false);
+        Event<KeyboardAction> hardWareInput = new Event<>(
+                new KeyboardAction(this.mc.keyboardHandler, keyCode, scanCode, action, modifiers), true, false);
         Listener.getKeyboardInput().handleValue(hardWareInput);
         boolean canceled = hardWareInput.isCancelled();
 

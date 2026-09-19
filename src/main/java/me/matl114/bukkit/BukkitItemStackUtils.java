@@ -19,7 +19,15 @@ import net.minecraft.world.item.component.ResolvableProfile;
 public class BukkitItemStackUtils {
     public static ConfigurationSerializableDataType<BukkitItemStack> DATATYPE_MOCKITEMSTACK =
             new ConfigurationSerializableDataType(BukkitItemStack.class);
-    public static ItemStack STACK_FORBIDDEN = new ItemStack(Items.BARRIER, 1);
+    // 26.2: ItemStack 必须在组件绑定之后才能构造，改为首次访问时创建
+    private static ItemStack stackForbiddenCache = null;
+
+    public static ItemStack stackForbidden() {
+        if (stackForbiddenCache == null) {
+            stackForbiddenCache = new ItemStack(Items.BARRIER, 1);
+        }
+        return stackForbiddenCache;
+    }
 
     public static void init() {}
 
@@ -74,7 +82,7 @@ public class BukkitItemStackUtils {
 
         } catch (Throwable e) {
             Debug.info("error in ItemConvertion");
-            return STACK_FORBIDDEN;
+            return stackForbidden();
         }
     }
 

@@ -19,11 +19,11 @@ import me.matl114.hacks.modules.render.*;
 import me.matl114.managers.Tasks;
 import me.matl114.utils.*;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.*;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -364,7 +364,10 @@ public class RenderTasks {
             Color color = ColorUtils.withAlpha(color1, 0.25F);
             RenderUtils.drawSolidBox(stack, startBox.getMinPosition(), startBox.getMaxPosition(), color);
             RenderUtils.drawSolidBox(
-                    stack, startBox.getMinPosition().add(delta), startBox.getMaxPosition().add(delta), color);
+                    stack,
+                    startBox.getMinPosition().add(delta),
+                    startBox.getMaxPosition().add(delta),
+                    color);
             for (var ver : CollisionUtil.getBoxVertices(startBox))
                 RenderUtils.drawLineVirtual(stack, ver, ver.add(delta), color2);
         }

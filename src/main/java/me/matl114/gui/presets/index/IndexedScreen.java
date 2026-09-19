@@ -9,7 +9,8 @@ import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.network.chat.Component;
 
 // todo: replace it with IndexedSubScreen
-public abstract class IndexedScreen<T, W extends GuiEventListener & Renderable & NarratableEntry> extends GenericScreen {
+public abstract class IndexedScreen<T, W extends GuiEventListener & Renderable & NarratableEntry>
+        extends GenericScreen {
     protected final List<T> configList;
     protected IndexedSubScreen<T, W> subScreenDelegate;
 

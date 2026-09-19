@@ -57,7 +57,8 @@ public final class ExplosionUtils {
                 RESPAWN_ANCHOR_POWER,
                 explosionPos,
                 predictedPos,
-                fromWorldWithOverrides(world, Map.of(BlockPos.containing(explosionPos), Blocks.AIR.defaultBlockState())),
+                fromWorldWithOverrides(
+                        world, Map.of(BlockPos.containing(explosionPos), Blocks.AIR.defaultBlockState())),
                 hitRule);
     }
 

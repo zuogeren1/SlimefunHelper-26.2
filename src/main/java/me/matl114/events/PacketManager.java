@@ -20,7 +20,6 @@ import me.matl114.events.channels.ListenerPoint;
 import me.matl114.events.packets.PacketStorage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.Connection;
-import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.PacketType;
@@ -28,6 +27,7 @@ import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.common.ClientboundKeepAlivePacket;
 import net.minecraft.network.protocol.common.CommonPacketTypes;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
@@ -233,8 +233,7 @@ public class PacketManager {
 
     public static void flushOutBound() {
         try {
-            if (mc.getConnection() != null
-                    && mc.getConnection().getConnection().isConnected()) {
+            if (mc.getConnection() != null && mc.getConnection().getConnection().isConnected()) {
                 // flush
                 startFlushOut = true;
                 try {
@@ -251,8 +250,7 @@ public class PacketManager {
     }
 
     public static void flushOutBound(Function<PacketStorage, FlushAction> pdd) {
-        if (mc.getConnection() != null
-                && mc.getConnection().getConnection().isConnected()) {
+        if (mc.getConnection() != null && mc.getConnection().getConnection().isConnected()) {
             // flush
             startFlushOut = true;
             var iter = packetQueueOut.iterator();

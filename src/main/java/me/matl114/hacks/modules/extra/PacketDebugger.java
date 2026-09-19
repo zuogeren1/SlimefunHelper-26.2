@@ -20,12 +20,13 @@ import me.matl114.managers.config.StringRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
@@ -174,19 +175,20 @@ public class PacketDebugger extends BaseModule {
                             actionC2SPacket.getPos(),
                             actionC2SPacket.getSequence(),
                             timeStr);
+                } else if (type instanceof ServerboundAttackPacket attack) {
+                    // 26.2 把攻击拆成了独立包，旧版是 PlayerInteractEntityC2SPacket 的 ATTACK 类型
+                    debug("Send", simplifyId(type.type().id()), "ATTACK", attack.entityId(), timeStr);
                 } else if (type instanceof ServerboundInteractPacket interact) {
+                    // usingSecondaryAction 是客户端传的"是否潜行"，不是交互类型
+                    // （旧版 INTERACT_AT 是带命中点的交互，26.2 该语义合并进 ServerboundInteractPacket）
                     debug(
                             "Send",
                             simplifyId(type.type().id()),
-                            interact.usingSecondaryAction() ? "INTERACT_SECONDARY" : "INTERACT",
+                            interact.usingSecondaryAction() ? "INTERACT(sneaking)" : "INTERACT",
                             interact.entityId,
                             timeStr);
                 } else if (type instanceof ServerboundPlayerCommandPacket ccmd) {
-                    debug(
-                            "Send",
-                            simplifyId(type.type().id()),
-                            ccmd.getAction().name(),
-                            timeStr);
+                    debug("Send", simplifyId(type.type().id()), ccmd.getAction().name(), timeStr);
                 } else if (type instanceof ServerboundAcceptTeleportationPacket confirm) {
                     debug("Send", simplifyId(type.type().id()), ", Id:", confirm.getId(), timeStr);
                 } else {

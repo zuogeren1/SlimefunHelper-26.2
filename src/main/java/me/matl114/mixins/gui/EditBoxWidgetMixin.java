@@ -46,9 +46,6 @@ public abstract class EditBoxWidgetMixin extends AbstractTextAreaWidget implemen
     @Shadow
     protected abstract void seekCursorScreen(double mouseX, double mouseY);
 
-    @Shadow
-    protected abstract double scrollRate();
-
     @Unique
     public void setListener(PropertyTracker<TextFieldAccess, String> tracker) {
         setValueListener((str) -> tracker.valueChange(this, str));
@@ -77,8 +74,7 @@ public abstract class EditBoxWidgetMixin extends AbstractTextAreaWidget implemen
 
     @Inject(method = "keyPressed", at = @At(value = "RETURN"), cancellable = true)
     public void fixInventoryKeyPressedWhenFocused(KeyEvent input, CallbackInfoReturnable<Boolean> cir) {
-        if (this.isFocused()
-                && Minecraft.getInstance().options.keyInventory.matches(input)) {
+        if (this.isFocused() && Minecraft.getInstance().options.keyInventory.matches(input)) {
             cir.setReturnValue(true);
         }
     }

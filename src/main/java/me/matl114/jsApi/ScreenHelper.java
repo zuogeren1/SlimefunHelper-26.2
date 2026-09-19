@@ -5,9 +5,9 @@ import javax.annotation.Nonnull;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.utils.ApiMethod;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.client.gui.screens.inventory.BeaconScreen;
@@ -129,9 +129,7 @@ public class ScreenHelper {
             return null;
         } else if (s instanceof AbstractContainerScreen) {
             if (s instanceof ContainerScreen) {
-                return String.format(
-                        "%d Row Chest",
-                        ((ChestMenu) ((ContainerScreen) s).getMenu()).getRowCount());
+                return String.format("%d Row Chest", ((ChestMenu) ((ContainerScreen) s).getMenu()).getRowCount());
             } else if (s instanceof DispenserScreen) {
                 return "3x3 Container";
             } else if (s instanceof AnvilScreen) {

@@ -22,7 +22,8 @@ public abstract class SlimeBlockMixin {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/world/entity/Entity;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V",
+                            target =
+                                    "Lnet/minecraft/world/entity/Entity;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
     private void onDisableSlimeBlockVelocityModify(

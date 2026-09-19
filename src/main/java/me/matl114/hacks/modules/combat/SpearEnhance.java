@@ -119,10 +119,12 @@ public class SpearEnhance extends BaseModule {
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(RenderListener.getCustomModelOverride(), this::onReplaceSpearModel);
         registerListener(Listener.getClientPlayerPostSendMovementPoint(), this::onPostTick);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onUsePiercing);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onUsePiercing);
         registerListener(Listener.getAttackAction(), this::onUsingStab);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onSpearEntity);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class),
+                this::onSpearEntity);
         registerListener(Listener.getPostPlayerUseItem(), this::onSpearUse);
     }
 
@@ -173,7 +175,8 @@ public class SpearEnhance extends BaseModule {
             ItemStack stack = getSpear();
             KineticWeapon kineticWeaponComponent = stack.get(DataComponents.KINETIC_WEAPON);
             if (kineticWeaponComponent != null) {
-                if (player.getTicksUsingItem() < kineticWeaponComponent.delayTicks() - ((player == mc.player) ? 0 : 4)) {
+                if (player.getTicksUsingItem()
+                        < kineticWeaponComponent.delayTicks() - ((player == mc.player) ? 0 : 4)) {
                     return false;
                 }
             } else {
@@ -380,10 +383,8 @@ public class SpearEnhance extends BaseModule {
         return false;
     }
 
-    private static final Optional<Holder<SoundEvent>> currentSpearHitSoundEvent =
-            Optional.of(SoundEvents.SPEAR_HIT);
-    private static final Optional<Holder<SoundEvent>> currentSpearUseSoundEvent =
-            Optional.of(SoundEvents.SPEAR_USE);
+    private static final Optional<Holder<SoundEvent>> currentSpearHitSoundEvent = Optional.of(SoundEvents.SPEAR_HIT);
+    private static final Optional<Holder<SoundEvent>> currentSpearUseSoundEvent = Optional.of(SoundEvents.SPEAR_USE);
 
     public void onSpearEntity(Event<ClientboundEntityEventPacket> eventPost) {
         if (checkNull()) return;

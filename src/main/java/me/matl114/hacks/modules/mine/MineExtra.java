@@ -6,8 +6,8 @@ import java.awt.*;
 import java.util.*;
 import me.matl114.accessors.access.PlayerMoveC2SPacketAccess;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
-import me.matl114.events.Event;
 import me.matl114.events.*;
+import me.matl114.events.Event;
 import me.matl114.events.impl.EventContainer;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
@@ -27,20 +27,20 @@ import me.matl114.utils.WorldUtils;
 import me.matl114.utils.collections.IndexEntry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -177,8 +177,10 @@ public class MineExtra extends BaseModule {
         registerListener(Listener.getGameJoinPoint(), this::onGameJoin);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onMine);
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onGrimSBFastBreakExplode);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onSilentBreak);
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class),
+                this::onGrimSBFastBreakExplode);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onSilentBreak);
         registerListener(Listener.getPacketPostSendPoint().getChannel(ServerboundSwingPacket.class), this::onLastSwing);
         registerListener(Listener.getPreGameTick(), this::onGrimCooldownResetPackets);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMove);
@@ -299,8 +301,7 @@ public class MineExtra extends BaseModule {
             var packet = event.context();
             if (packet.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
                     && packet.getPos().getY() < 1145
-                    && Objects.equals(
-                            PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(), packet.getPos())) {
+                    && Objects.equals(PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(), packet.getPos())) {
                 if (mc.player.getAbilities().instabuild) {
                     gainedAdvantageCooldown = 150;
                     return;
@@ -485,7 +486,8 @@ public class MineExtra extends BaseModule {
             gainedAdvantageCooldown = 150;
             if (!mc.player.getAbilities().instabuild) {
                 LocalPlayer player = Minecraft.getInstance().player;
-                Direction dir = Direction.getApproximateNearest(Vec3.atCenterOf(pos).subtract(player.getEyePosition()))
+                Direction dir = Direction.getApproximateNearest(
+                                Vec3.atCenterOf(pos).subtract(player.getEyePosition()))
                         .getOpposite();
                 for (int i = 0; i < 20; ++i) {
                     mc.gameMode.startPrediction(Minecraft.getInstance().level, (sequence -> {
@@ -513,7 +515,8 @@ public class MineExtra extends BaseModule {
                 gainedAdvantageMining = 150;
                 if (!mc.player.getAbilities().instabuild) {
                     LocalPlayer player = Minecraft.getInstance().player;
-                    Direction dir = Direction.getApproximateNearest(Vec3.atCenterOf(pos).subtract(player.getEyePosition()))
+                    Direction dir = Direction.getApproximateNearest(
+                                    Vec3.atCenterOf(pos).subtract(player.getEyePosition()))
                             .getOpposite();
                     for (int i = 0; i < 20; ++i) {
                         mc.gameMode.startPrediction(mc.level, (sequence -> {
@@ -608,8 +611,7 @@ public class MineExtra extends BaseModule {
             if (!optimizeOneBlock.get()) {
                 return false;
             }
-            BlockPos blockPos =
-                    PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos();
+            BlockPos blockPos = PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos();
             BlockState state = mc.level.getBlockState(blockPos);
             if (state.isAir()) {
                 return false;
@@ -624,8 +626,7 @@ public class MineExtra extends BaseModule {
             RenderUtils.startDrawVirtual(renderEvent.context);
             try {
                 if (mc.gameMode != null && mc.player != null && mc.level != null) {
-                    BlockPos blockPos =
-                            PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos();
+                    BlockPos blockPos = PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos();
                     Vec3 pos = Vec3.atLowerCornerOf(blockPos);
                     // 超过200格的不渲染
                     if (mc.player.position().distanceToSqr(pos) < 40000 && shouldRenderMine()) {
@@ -636,8 +637,7 @@ public class MineExtra extends BaseModule {
                                 ColorUtils.withAlpha(frameColor.get().color(), 1.0F));
                         BlockState state = mc.level.getBlockState(blockPos);
                         var tool = getGhostHandMiningTool(state);
-                        float progress = PlayerInteractionAccess.of(mc.gameMode)
-                                .getCurrentMiningProgress(tool.val());
+                        float progress = PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningProgress(tool.val());
                         if (progress > 0.0F) {
                             AABB box;
                             if (state.isAir()) {
@@ -646,8 +646,9 @@ public class MineExtra extends BaseModule {
                                 VoxelShape shape = state.getShape(mc.level, blockPos);
                                 box = shape.isEmpty() ? new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0) : shape.bounds();
                             }
-                            Vec3 vec3 =
-                                    box.getMaxPosition().subtract(box.getMinPosition()).scale(0.5);
+                            Vec3 vec3 = box.getMaxPosition()
+                                    .subtract(box.getMinPosition())
+                                    .scale(0.5);
 
                             Vec3 vec3d = pos.add(box.getCenter());
                             float clamped = Mth.clamp(progress, 0.0F, 1.0F);
@@ -665,8 +666,8 @@ public class MineExtra extends BaseModule {
                         Vec3 doubleMineVec = Vec3.atLowerCornerOf(doubleMinePos);
                         if (mc.player.position().distanceToSqr(doubleMineVec) < 40000
                                 && !Objects.equals(doubleMineVec, pos)) {
-                            float progressFail = PlayerInteractionAccess.of(mc.gameMode)
-                                    .getFailBreakMiningProgress();
+                            float progressFail =
+                                    PlayerInteractionAccess.of(mc.gameMode).getFailBreakMiningProgress();
                             RenderUtils.drawOutlinedBox(
                                     renderEvent.context,
                                     doubleMineVec,
@@ -679,9 +680,7 @@ public class MineExtra extends BaseModule {
                                     box = new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
                                 } else {
                                     VoxelShape shape = state.getShape(mc.level, doubleMinePos);
-                                    box = shape.isEmpty()
-                                            ? new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
-                                            : shape.bounds();
+                                    box = shape.isEmpty() ? new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0) : shape.bounds();
                                 }
                                 Vec3 vec3 = box.getMaxPosition()
                                         .subtract(box.getMinPosition())

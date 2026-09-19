@@ -1,7 +1,7 @@
 package me.matl114.mixins.hack;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import com.llamalad7.mixinextras.sugar.ref.LocalBooleanRef;
+import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import java.util.List;
 import me.matl114.hacks.ChatTasks;
 import me.matl114.hacks.modules.chat.ChatExtra;
@@ -10,11 +10,11 @@ import me.matl114.hacks.modules.survival.XaeroHelper;
 import me.matl114.hooks.XaeroHooks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ActiveTextCollector;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -66,18 +66,27 @@ public abstract class ChatHudMixin {
         }
     }
 
-    @Inject(method = "captureClickableText(Lnet/minecraft/client/gui/ActiveTextCollector;IIZ)V", at = @At("HEAD"))
+    // 26.2: 第四个参数由 boolean expanded 换成了 ChatComponent$DisplayMode。
+    // 原来"强制展开"的语义这里按"强制前台显示"映射为 FOREGROUND —— 若与原意不符需要再调。
+    @Inject(
+            method =
+                    "captureClickableText(Lnet/minecraft/client/gui/ActiveTextCollector;IILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;)V",
+            at = @At("HEAD"))
     private void onRenderChatScreen(
             ActiveTextCollector textConsumer,
             int windowHeight,
             int currentTick,
-            boolean expanded,
+            ChatComponent.DisplayMode displayMode,
             CallbackInfo ci,
-            @Local(argsOnly = true) LocalBooleanRef expanding) {
+            @Local(argsOnly = true) LocalRef<ChatComponent.DisplayMode> displayModeRef) {
         if (XaeroHelper.INSTANCE.transparentGuiMapFix.get()
                 && XaeroHooks.getInstance().isXaeroWorldMapEnable()
                 && XaeroHooks.getInstance().isGuiMap(minecraft.gui.screen())) {
-            expanding.set(true);
+            // 聊天受限时原版传 FOREGROUND_RESTRICTED，无条件覆盖会让它退化成 FOREGROUND，
+            // 导致"聊天受限"提示不再渲染（旧版无此概念），故受限时保持原样。
+            if (displayModeRef.get() != ChatComponent.DisplayMode.FOREGROUND_RESTRICTED) {
+                displayModeRef.set(ChatComponent.DisplayMode.FOREGROUND);
+            }
         }
     }
 }

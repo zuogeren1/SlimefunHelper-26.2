@@ -21,19 +21,19 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
 import me.matl114.versioned.api.VRender;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.WallSkullBlock;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -213,11 +213,9 @@ public class ElytraFinder extends BaseModule implements LegalMovementManager.Mov
                                 stack,
                                 vertexConsumer,
                                 Vec3.atCenterOf(currentShipStructure)
-
                                         .add(RenderTasks.FROM)
                                         .subtract(camerPos),
                                 Vec3.atCenterOf(currentShipStructure)
-
                                         .add(RenderTasks.TO)
                                         .subtract(camerPos),
                                 ColorUtils.withAlphaInt(Color.MAGENTA.getRGB(), 255));

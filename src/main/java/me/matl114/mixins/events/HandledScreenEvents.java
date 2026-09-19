@@ -24,7 +24,7 @@ public abstract class HandledScreenEvents extends Screen {
     }
 
     @Inject(
-            method = "renderContents",
+            method = "extractContents",
             at =
                     @At(
                             value = "INVOKE",
@@ -35,12 +35,12 @@ public abstract class HandledScreenEvents extends Screen {
     }
 
     @Inject(
-            method = "renderSlots",
+            method = "extractSlots",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;renderSlot(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/inventory/Slot;II)V"))
+                                    "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;extractSlot(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/inventory/Slot;II)V"))
     public void onRenderSlot(GuiGraphicsExtractor context, int mouseX, int mouseY, CallbackInfo ci, @Local Slot slot) {
         RenderListener.renderSlotInScreen(context, (AbstractContainerScreen<?>) (Object) this, slot);
     }

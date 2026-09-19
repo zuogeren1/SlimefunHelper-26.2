@@ -35,14 +35,12 @@ import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.item.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffects;
@@ -51,12 +49,14 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.ProjectileWeaponItem;
 import net.minecraft.world.item.ShieldItem;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -652,7 +652,8 @@ public class Attack extends BaseModule {
                                         if (elytraExtra.onSwitchItemArmorFallFlying()) {
                                             mc.getConnection()
                                                     .send(new ServerboundPlayerCommandPacket(
-                                                            mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+                                                            mc.player,
+                                                            ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                                             elytraExtra.switchSlotToArmor(elytraExtra.thisFallFlyingIsArmorFly);
                                             elytraExtra.thisTickSwitchingIndex = -1;
                                             EntityInternalAccess.of(mc.player)
@@ -665,7 +666,8 @@ public class Attack extends BaseModule {
                                             elytraExtra.switchSlotToArmor(elytraSlot);
                                             if (!mc.player.isFallFlying())
                                                 ch.send(new ServerboundPlayerCommandPacket(
-                                                        mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+                                                        mc.player,
+                                                        ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                                             //
                                             // EntityInternalAccess.of(mc.player).setDataFlag(VDataFlag.FALL_FLYING_FLAG_INDEX, true);
                                         });

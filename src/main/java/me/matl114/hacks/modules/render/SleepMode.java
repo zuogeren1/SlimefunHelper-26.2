@@ -77,7 +77,9 @@ public class SleepMode extends BaseModule {
         registerListener(Listener.getPreSetScreen(), this::interceptSetScreen, Integer.MIN_VALUE);
         registerCommandBootstrap(this::onSleepCommandBootstrap);
         registerListener(
-                Listener.getPacketPoint().getChannel(ClientboundLevelChunkWithLightPacket.class), this::onChunkData, Integer.MIN_VALUE);
+                Listener.getPacketPoint().getChannel(ClientboundLevelChunkWithLightPacket.class),
+                this::onChunkData,
+                Integer.MIN_VALUE);
         registerListener(Listener.getHotKeyTriggeredListener(), this::interceptHotKey, Integer.MIN_VALUE);
     }
 
@@ -298,8 +300,8 @@ public class SleepMode extends BaseModule {
                     .setRenderHandler(LabelElement.instance(Component.literal("按 " + getWakeupButton() + " 键退出休眠模式")))
                     .addTo(this);
             ExecutableWidget.instance(40, (this.height * 2) / 3 + 20, this.width - 80, this.height / 3 - 40)
-                    .setElementHandler(
-                            new ButtonElement(TextProvider.of(Component.literal("点击下方按钮以刷新屏幕")), ButtonAction.run(() -> {
+                    .setElementHandler(new ButtonElement(
+                            TextProvider.of(Component.literal("点击下方按钮以刷新屏幕")), ButtonAction.run(() -> {
                                 if (isScreenSleeping()) {
                                     if (ClientUtils.isPlayerOnline()) {
                                         sleepingScreenInstance = null;
@@ -404,17 +406,15 @@ public class SleepMode extends BaseModule {
                 shouldFreshSleepScreen = true;
                 if (shouldFreshSleepScreen) {
                     shouldFreshSleepScreen = false;
-                    mc.gameRenderer
-                            .globalSettingsUniform
-                            .update(
-                                    mc.getWindow().getWidth(),
-                                    mc.getWindow().getHeight(),
-                                    (Double) mc.options.glintStrength().get(),
-                                    mc.level == null ? 0L : mc.level.getGameTime(),
-                                    tickCounter,
-                                    mc.options.getMenuBackgroundBlurriness(),
-                                    mc.gameRenderer.mainCamera().position(),
-                                    mc.options.textureFiltering().get() == TextureFilteringMethod.RGSS);
+                    mc.gameRenderer.globalSettingsUniform.update(
+                            mc.getWindow().getWidth(),
+                            mc.getWindow().getHeight(),
+                            (Double) mc.options.glintStrength().get(),
+                            mc.level == null ? 0L : mc.level.getGameTime(),
+                            tickCounter,
+                            mc.options.getMenuBackgroundBlurriness(),
+                            mc.gameRenderer.mainCamera().position(),
+                            mc.options.textureFiltering().get() == TextureFilteringMethod.RGSS);
 
                     int i = (int) (mc.mouseHandler.xpos()
                             * (double) mc.getWindow().getGuiScaledWidth()
@@ -425,9 +425,11 @@ public class SleepMode extends BaseModule {
 
                     RenderSystem.getDevice()
                             .createCommandEncoder()
-                            .clearDepthTexture(mc.gameRenderer.mainRenderTarget().getDepthTexture(), 1.0);
+                            .clearDepthTexture(
+                                    mc.gameRenderer.mainRenderTarget().getDepthTexture(), 1.0);
                     mc.gameRenderer.gameRenderState.guiRenderState.reset();
-                    GuiGraphicsExtractor drawContext = new GuiGraphicsExtractor(mc, mc.gameRenderer.gameRenderState.guiRenderState, i, j);
+                    GuiGraphicsExtractor drawContext =
+                            new GuiGraphicsExtractor(mc, mc.gameRenderer.gameRenderState.guiRenderState, i, j);
 
                     currentRenderingSleeping.extractRenderState(drawContext, i, j, tickCounter.getGameTimeDeltaTicks());
                     // 26.2: GuiRenderer.render() 无参，且 incrementFrameNumber() 已移除
@@ -514,7 +516,8 @@ public class SleepMode extends BaseModule {
             event.cancel();
             if (sleepingScreenInstance != null) {
                 sleepingScreenInstance.mouseDragged(
-                        new MouseButtonEvent(event.context.mouseX(), event.context.mouseY(), event.context.mouse().activeButton),
+                        new MouseButtonEvent(
+                                event.context.mouseX(), event.context.mouseY(), event.context.mouse().activeButton),
                         event.context.deltaX(),
                         event.context.deltaY());
             }

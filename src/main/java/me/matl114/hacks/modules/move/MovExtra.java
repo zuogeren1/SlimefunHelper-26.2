@@ -58,7 +58,8 @@ public class MovExtra extends BaseModule {
         if (mc.player.isFallFlying()) {
             // stop fallflying
             mc.getConnection()
-                    .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+                    .send(new ServerboundPlayerCommandPacket(
+                            mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
             EntityAccess.of(mc.player).setDataFlag(VDataFlag.FALL_FLYING_FLAG_INDEX, false);
         } else {
             if (mc.player.getAbilities().flying) {
@@ -90,7 +91,8 @@ public class MovExtra extends BaseModule {
             // only sprint need to be toggled
             if (PlayerStateManager.INSTANCE.lastSprint) {
                 mc.getConnection()
-                        .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
+                        .send(new ServerboundPlayerCommandPacket(
+                                mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
                 ClientPlayerAccess.of(player).setLastSprintFlag(false);
             }
         }
@@ -141,7 +143,7 @@ public class MovExtra extends BaseModule {
 
     public void onPresetLoad(Event<EventContainer<ModulePreset>> presetEvent) {
         switch (presetEvent.context.getValue()) {
-                // check 1.21.2+
+            // check 1.21.2+
             case AC_GRIM, AC_GRIM_LEGACY -> fuckGrimAC.set(true);
             default -> fuckGrimAC.set(false);
         }

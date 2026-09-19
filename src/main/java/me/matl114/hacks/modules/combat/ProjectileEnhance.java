@@ -21,7 +21,6 @@ import me.matl114.utils.ItemStackUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
@@ -29,6 +28,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.EggItem;
 import net.minecraft.world.item.EnderpearlItem;
@@ -86,7 +86,8 @@ public class ProjectileEnhance extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onTridentDupe);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onTridentDupe);
         registerListener(
                 Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onPlayerInteractItem);
     }

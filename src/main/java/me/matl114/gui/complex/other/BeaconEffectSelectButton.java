@@ -69,8 +69,7 @@ public class BeaconEffectSelectButton extends AbstractButton {
             identifier = BUTTON_TEXTURE;
         }
 
-        context.blitSprite(
-                RenderPipelines.GUI_TEXTURED, identifier, this.getX(), this.getY(), this.width, this.height);
+        context.blitSprite(RenderPipelines.GUI_TEXTURED, identifier, this.getX(), this.getY(), this.width, this.height);
         this.renderExtra(context);
     }
 
@@ -97,6 +96,7 @@ public class BeaconEffectSelectButton extends AbstractButton {
                 .append(
                         this.currentEffect == null
                                 ? Component.translatable("widget.gui.beacon-effect-select-button.no-selection")
-                                : Component.translatable(this.currentEffect.value().getDescriptionId()));
+                                : Component.translatable(
+                                        this.currentEffect.value().getDescriptionId()));
     }
 }

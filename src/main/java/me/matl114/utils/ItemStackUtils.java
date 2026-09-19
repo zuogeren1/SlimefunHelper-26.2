@@ -20,15 +20,15 @@ import me.matl114.versioned.impl.TooltipHideFlag_v1_21_11;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientRegistryLayer;
-import net.minecraft.core.component.*;
+import net.minecraft.core.*;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.*;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.world.item.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.StringTag;
@@ -36,12 +36,12 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.chat.Style;
-import net.minecraft.core.*;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Unit;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -238,8 +238,7 @@ public class ItemStackUtils {
                 return cachedRegistry;
             }
             if (staticRegistry == null) {
-                staticRegistry = ClientRegistryLayer.createRegistryAccess()
-                        .compositeAccess();
+                staticRegistry = ClientRegistryLayer.createRegistryAccess().compositeAccess();
             }
             return staticRegistry;
         }
@@ -306,8 +305,7 @@ public class ItemStackUtils {
     }
 
     public static void applyEntityModifier(ItemStack stack, ItemAttributeModifiers data) {
-        setOrRemoveChange(
-                stack, ATTRIBUTE_MODIFIERS, Objects.equals(data, ItemAttributeModifiers.EMPTY) ? null : data);
+        setOrRemoveChange(stack, ATTRIBUTE_MODIFIERS, Objects.equals(data, ItemAttributeModifiers.EMPTY) ? null : data);
     }
 
     public static boolean getIsUnbreakable(ItemStack stack) {
@@ -372,16 +370,12 @@ public class ItemStackUtils {
 
     public static void setEnchantment(ItemStack stack, ItemEnchantments enchantments) {
         setOrRemoveChange(
-                stack,
-                ENCHANTMENTS,
-                Objects.equals(enchantments, ItemEnchantments.EMPTY) ? null : enchantments);
+                stack, ENCHANTMENTS, Objects.equals(enchantments, ItemEnchantments.EMPTY) ? null : enchantments);
     }
 
     public static void setStoredEnchantment(ItemStack stack, ItemEnchantments enchantments) {
         setOrRemoveChange(
-                stack,
-                STORED_ENCHANTMENTS,
-                Objects.equals(enchantments, ItemEnchantments.EMPTY) ? null : enchantments);
+                stack, STORED_ENCHANTMENTS, Objects.equals(enchantments, ItemEnchantments.EMPTY) ? null : enchantments);
     }
 
     public static ItemStack getCleanedItem(ItemStack stack) {
@@ -530,10 +524,8 @@ public class ItemStackUtils {
             var n2 = map2.remove(CUSTOM_DATA);
             // both having or not having lore
             if (map1.equals(map2)) {
-                Tag nbt1 =
-                        (n1 == null || n1.isEmpty()) ? null : ((CustomData) n1.get()).tag.get(BUKKIT_NAMESPACE);
-                Tag nbt2 =
-                        (n2 == null || n2.isEmpty()) ? null : ((CustomData) n2.get()).tag.get(BUKKIT_NAMESPACE);
+                Tag nbt1 = (n1 == null || n1.isEmpty()) ? null : ((CustomData) n1.get()).tag.get(BUKKIT_NAMESPACE);
+                Tag nbt2 = (n2 == null || n2.isEmpty()) ? null : ((CustomData) n2.get()).tag.get(BUKKIT_NAMESPACE);
                 return Objects.equals(nbt1, nbt2);
             } else {
                 return false;

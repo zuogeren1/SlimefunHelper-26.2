@@ -44,12 +44,12 @@ import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.FaviconTexture;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.multiplayer.*;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.ServerStatusPinger;
 import net.minecraft.client.multiplayer.resolver.ResolvedServerAddress;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.multiplayer.resolver.ServerNameResolver;
-import net.minecraft.client.multiplayer.*;
 import net.minecraft.nbt.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -169,7 +169,8 @@ public class ServerScanner extends BaseModule {
         subScreenWidget.addDrawableChild(textField);
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(180, 10, 20, 20)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Component.literal("+").withStyle(ChatFormatting.BOLD)), ButtonAction.run(() -> {
+                                TextProvider.of(Component.literal("+").withStyle(ChatFormatting.BOLD)),
+                                ButtonAction.run(() -> {
                                     if (!currentInputAdd.isEmpty()) {
                                         refreshSingle(currentInputAdd);
                                         logInfo("已添加 " + currentInputAdd);
@@ -180,8 +181,8 @@ public class ServerScanner extends BaseModule {
                 .setElementHandler(new ButtonElement(
                         TextProvider.of(Component.literal("Refresh All")), ButtonAction.run(this::refreshServerList))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(300, 10, 100, 20)
-                .setElementHandler(
-                        new ButtonElement(TextProvider.of(Component.literal("Copy Server List")), ButtonAction.run(() -> {
+                .setElementHandler(new ButtonElement(
+                        TextProvider.of(Component.literal("Copy Server List")), ButtonAction.run(() -> {
                             JsonArray jsonArray = new JsonArray();
                             List<String> list = List.copyOf(this.scannedIps);
                             for (var str : list) {
@@ -192,8 +193,7 @@ public class ServerScanner extends BaseModule {
                                     JsonObject el = new JsonObject();
                                     el.addProperty("version", ChatUtils.textToString(info.version));
                                     el.addProperty("motd", ChatUtils.textToString(info.motd));
-                                    el.addProperty(
-                                            "status", info.state().name().toLowerCase(Locale.ROOT));
+                                    el.addProperty("status", info.state().name().toLowerCase(Locale.ROOT));
                                     el.addProperty("player_count", ChatUtils.textToString(getPlayerListDisplay(info)));
                                     List<Component> playerList = info.playerList;
                                     if (playerList != null && !playerList.isEmpty()) {
@@ -221,7 +221,8 @@ public class ServerScanner extends BaseModule {
         subScreenWidget.addDrawableChild(textField2);
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(180, 30, 20, 20)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Component.literal("-").withStyle(ChatFormatting.BOLD)), ButtonAction.run(() -> {
+                                TextProvider.of(Component.literal("-").withStyle(ChatFormatting.BOLD)),
+                                ButtonAction.run(() -> {
                                     if (!currentInputRemove.isEmpty()) {
                                         removeAll(currentInputRemove);
                                         logInfo("已移除 " + currentInputRemove);
@@ -229,8 +230,8 @@ public class ServerScanner extends BaseModule {
                                 }))
                         .withTooltips(TooltipHandler.of(List.of(Component.literal("Remove Server"))))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(200, 30, 100, 20)
-                .setElementHandler(
-                        new ButtonElement(TextProvider.of(Component.literal("Refresh Shown")), ButtonAction.run(() -> {
+                .setElementHandler(new ButtonElement(
+                        TextProvider.of(Component.literal("Refresh Shown")), ButtonAction.run(() -> {
                             List<String> refreshList = new ArrayList<>();
                             for (var entry : this.lastRenderTick.object2IntEntrySet()) {
                                 if (entry.getIntValue() > Tasks.getTick() - updateInterval) {
@@ -240,9 +241,10 @@ public class ServerScanner extends BaseModule {
                             refreshServerList(refreshList, 100);
                         }))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(300, 30, 100, 20)
-                .setElementHandler(new ButtonElement(TextProvider.of(Component.literal("Back")), ButtonAction.run(() -> {
-                    if (mc.gui.screen() != null) mc.gui.screen().onClose();
-                }))));
+                .setElementHandler(
+                        new ButtonElement(TextProvider.of(Component.literal("Back")), ButtonAction.run(() -> {
+                            if (mc.gui.screen() != null) mc.gui.screen().onClose();
+                        }))));
 
         return subScreenWidget;
     }
@@ -791,7 +793,8 @@ public class ServerScanner extends BaseModule {
     private void connect(ServerData serverInfo) {
         Screen screen = mc.gui.screen();
         if (screen != null) {
-            ConnectScreen.startConnecting(screen, mc, ServerAddress.parseString(serverInfo.ip), serverInfo, false, null);
+            ConnectScreen.startConnecting(
+                    screen, mc, ServerAddress.parseString(serverInfo.ip), serverInfo, false, null);
         }
     }
 }

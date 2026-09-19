@@ -70,7 +70,8 @@ public class BowTp extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBowAction, -999);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBowAction, -999);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
@@ -78,7 +79,9 @@ public class BowTp extends BaseModule {
     public void onBowAction(Event<ServerboundPlayerActionPacket> packetEvent) {
         if (packetEvent.isCancelled()) return;
         var actionPacket = packetEvent.context();
-        if (actionPacket.getAction() == ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM && enable.get() && canTp()) {
+        if (actionPacket.getAction() == ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM
+                && enable.get()
+                && canTp()) {
             if (mc.player != null && mc.player.getUseItem().getItem() instanceof BowItem bowItem) {
                 var targetSelector = CombatTasks.getTargetSelector();
                 Entity entity = targetSelector.searchAttackEntity(
@@ -265,7 +268,10 @@ public class BowTp extends BaseModule {
                         float opacity = Math.min(0.6F, 0.10F + dist * 0.02F);
                         AABB box = RenderUtils.getLerpedBox(entity, tickDelta);
                         RenderUtils.drawSolidBox(
-                                stack, box.getMinPosition(), box.getMaxPosition(), ColorUtils.withAlpha(Color.GREEN, opacity));
+                                stack,
+                                box.getMinPosition(),
+                                box.getMaxPosition(),
+                                ColorUtils.withAlpha(Color.GREEN, opacity));
                     }
                 } finally {
                     RenderUtils.stopDrawVirtual(stack);

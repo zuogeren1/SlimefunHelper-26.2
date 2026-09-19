@@ -127,9 +127,9 @@ public class ByteCodeUtils {
             case 'D' -> "double";
             case 'V' -> "void";
             default ->
-            // not a primitive
-            // throw new RuntimeException("Not a primitive descriptor:"+descriptor);
-            null;
+                // not a primitive
+                // throw new RuntimeException("Not a primitive descriptor:"+descriptor);
+                null;
         };
     }
     /**

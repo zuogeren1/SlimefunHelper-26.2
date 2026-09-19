@@ -1,64 +1,26 @@
 package me.matl114.mixins.hack;
 
-import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import java.util.Objects;
-import me.matl114.hacks.modules.render.NoRender;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.WeatherEffectRenderer;
-import net.minecraft.client.renderer.state.level.WeatherRenderState;
-import net.minecraft.core.Holder;
-import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
 
+/**
+ * 本 mixin 当前为空 —— 原本挂在 {@code LevelRenderer} 上的两个钩子已迁走：
+ * <ul>
+ *   <li>「无天气」({@code NoRender.noWeather}) → {@code hack.WeatherEffectRendererMixin}
+ *       （26.2 世界渲染提取搬到 {@code LevelExtractor} / {@code WeatherEffectRenderer}，
+ *       {@code renderLevel} 里已无该调用点）。
+ *   <li>「屏蔽黑暗 / 失明」→ {@code events.CameraEvents}
+ *       （26.2 在 {@code Camera.extractRenderState} 里读 BLINDNESS / DARKNESS）。
+ * </ul>
+ *
+ * <p>另外「隐藏实体」({@code NoRender.entity.force-no}) 在两层版本里都是网络包层面的实现
+ * （取消 {@code ClientboundAddEntityPacket}），不在这里做。
+ *
+ * <p>保留本类是为了让 {@code LevelRenderer} 的注入点有明确的归属说明位置；
+ * 若以后需要在 {@code LevelRenderer} 上挂新钩子，直接加在这里。
+ */
 @Environment(EnvType.CLIENT)
 @Mixin(LevelRenderer.class)
-public abstract class WorldRenderMixin {
-
-    @WrapOperation(
-            method = "doesMobEffectBlockSky",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target =
-                                    "Lnet/minecraft/world/entity/LivingEntity;hasEffect(Lnet/minecraft/core/Holder;)Z"))
-    public boolean hasBlindnessOrDarkness(
-            LivingEntity instance, Holder<MobEffect> effect, Operation<Boolean> original) {
-        if (NoRender.INSTANCE.noDarkNess() && Objects.equals(effect, MobEffects.DARKNESS)) {
-            return false;
-        }
-        if (NoRender.INSTANCE.noBlindness() && Objects.equals(effect, MobEffects.BLINDNESS)) {
-            return false;
-        }
-        return original.call(instance, effect);
-    }
-
-    @WrapWithCondition(
-            method = "renderLevel",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target =
-                                    "Lnet/minecraft/client/renderer/WeatherEffectRenderer;extractRenderState(Lnet/minecraft/world/level/Level;IFLnet/minecraft/world/phys/Vec3;Lnet/minecraft/client/renderer/state/WeatherRenderState;)V"))
-    public boolean buildPrecipitationPiecesNoWeather(
-            WeatherEffectRenderer instance,
-            Level world,
-            int ticks,
-            float tickProgress,
-            Vec3 cameraPos,
-            WeatherRenderState state) {
-        if (NoRender.INSTANCE.noWeather()) {
-            state.intensity = 0;
-            return false;
-        }
-        return true;
-    }
-}
+public abstract class WorldRenderMixin {}

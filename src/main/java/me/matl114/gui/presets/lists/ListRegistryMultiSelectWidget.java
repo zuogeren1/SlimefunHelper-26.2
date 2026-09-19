@@ -45,8 +45,9 @@ public class ListRegistryMultiSelectWidget<T> extends ListMultiSelectWidget<Trip
         }
     };
 
-    private static <T> Pair<List<Triplet<Component, Identifier, T>>, Set<Triplet<Component, Identifier, T>>> buildPairInternal(
-            Registry<T> registry, Set<T> currentSelection, Function<T, Component> localization) {
+    private static <T>
+            Pair<List<Triplet<Component, Identifier, T>>, Set<Triplet<Component, Identifier, T>>> buildPairInternal(
+                    Registry<T> registry, Set<T> currentSelection, Function<T, Component> localization) {
         var set = new HashSet<Triplet<Component, Identifier, T>>();
         var list = registry.stream()
                 .map(s -> new Triplet<Component, Identifier, T>(localization.apply(s), registry.getKey(s), s))

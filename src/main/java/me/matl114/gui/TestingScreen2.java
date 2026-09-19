@@ -65,7 +65,8 @@ public class TestingScreen2 extends SlimefunScreen {
         //            this.x , this.y, width , 10 * height
         //        )
         //            .addTo(this);
-        //        element6 = new ListRegistrySelectScreen<>(Registries.ITEM, (item)->item.getName(new ItemStack(item)).getString(),
+        //        element6 = new ListRegistrySelectScreen<>(Registries.ITEM, (item)->item.getName(new
+        // ItemStack(item)).getString(),
         // (triplet)->{
         //            return new RegistryDisplayRender(new ItemStack(triplet.getC()), triplet.getC().getName(),
         // triplet.getB());

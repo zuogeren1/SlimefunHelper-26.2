@@ -43,7 +43,8 @@ public class PlayerStatistic extends IRender2DColoredModule {
     public final FlagRef enableItems = flagBuilder(hud.add("enable-items")).build();
 
     public final NBTRef<EntrySet<Item>> itemTypes = builder(hud.add("item-types"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.TOTEM_OF_UNDYING, Items.FIREWORK_ROCKET)))
+            .defaultValue(
+                    new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.TOTEM_OF_UNDYING, Items.FIREWORK_ROCKET)))
             .build();
 
     public final FlagRef enablePotions = flagBuilder(hud.add("enable-potions")).build();
@@ -145,7 +146,9 @@ public class PlayerStatistic extends IRender2DColoredModule {
             cnt = 0;
         }
         drawItemStatistic(
-                vdraw, PotionContents.createItemStack(Items.POTION, BuiltInRegistries.POTION.wrapAsHolder(potionType)), cnt);
+                vdraw,
+                PotionContents.createItemStack(Items.POTION, BuiltInRegistries.POTION.wrapAsHolder(potionType)),
+                cnt);
     }
 
     private static final RegistryDisplays.IIcon<MobEffect> statusEffectRenderer =
@@ -175,8 +178,7 @@ public class PlayerStatistic extends IRender2DColoredModule {
                 }
 
                 vdraw.popMatrix();
-                vdraw.drawText(
-                        mc.font, timeText, (int) HEIGHT, 0, color.get().withAlpha(255), true);
+                vdraw.drawText(mc.font, timeText, (int) HEIGHT, 0, color.get().withAlpha(255), true);
             }
             vdraw.popMatrix();
             vdraw.getMatrices().translate(0, HEIGHT);

@@ -185,8 +185,7 @@ public class AutoTotem extends BaseModule {
             // revert usage to avoid conflict
             for (var i = slots.size() - 1; i >= 0; --i) {
                 if (i != consumeSlot
-                        && (slots.get(i).container instanceof Inventory
-                                || handled == mc.player.inventoryMenu)
+                        && (slots.get(i).container instanceof Inventory || handled == mc.player.inventoryMenu)
                         && slots.get(i).getItem().getItem() == Items.TOTEM_OF_UNDYING) {
                     MovTasks.getMovExtra().sendPacketsForInventoryAction();
                     InvTasks.clickSlotAsync(i, consumeSlot, ContainerInput.SWAP);

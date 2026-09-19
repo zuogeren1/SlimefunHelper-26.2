@@ -13,6 +13,7 @@ import me.matl114.utils.chat.SimpleOrderedTextVisitor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.locale.Language;
+import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentContents;
@@ -23,7 +24,6 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.contents.PlainTextContents;
-import net.minecraft.network.chat.*;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.FormattedCharSink;
 import net.minecraft.util.Unit;
@@ -590,7 +590,8 @@ public class ChatUtils {
         return Component.literal("[%.2f,~,%.2f]".formatted(x, z))
                 .setStyle(Style.EMPTY
                         .withClickEvent(new ClickEvent.CopyToClipboard("%.2f ~ %.2f".formatted(x, z)))
-                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
+                        .withHoverEvent(
+                                new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
                 .withStyle(ChatFormatting.GREEN);
     }
 
@@ -616,7 +617,8 @@ public class ChatUtils {
         return Component.literal("[%.2f,%.2f,%.2f]".formatted(x, y, z))
                 .setStyle(Style.EMPTY
                         .withClickEvent(new ClickEvent.CopyToClipboard("%.2f %.2f %.2f".formatted(x, y, z)))
-                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
+                        .withHoverEvent(
+                                new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
                 .withStyle(ChatFormatting.GREEN);
     }
 
@@ -641,7 +643,8 @@ public class ChatUtils {
         return Component.literal("[%d,%d,%d]".formatted((int) x, (int) y, (int) z))
                 .setStyle(Style.EMPTY
                         .withClickEvent(new ClickEvent.CopyToClipboard("%.2f %.2f %.2f".formatted(x, y, z)))
-                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
+                        .withHoverEvent(
+                                new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
                 .withStyle(ChatFormatting.GREEN);
     }
 
@@ -727,7 +730,10 @@ public class ChatUtils {
         String tooltipValue = Language.getInstance().getOrDefault(key, defaultVal);
         if (tooltipValue == null || tooltipValue.isEmpty()) return List.of();
         String[] splites = tooltipValue.split("\n");
-        return Arrays.stream(splites).map(Component::literal).map(Component.class::cast).toList();
+        return Arrays.stream(splites)
+                .map(Component::literal)
+                .map(Component.class::cast)
+                .toList();
     }
 
     public static String getOrderedTextString(FormattedCharSequence... text) {
@@ -787,7 +793,9 @@ public class ChatUtils {
     //    }
 
     public static class TextBuilder
-            implements FormattedText.StyledContentConsumer<Unit>, FormattedCharSink, FormattedText.ContentConsumer<Unit> {
+            implements FormattedText.StyledContentConsumer<Unit>,
+                    FormattedCharSink,
+                    FormattedText.ContentConsumer<Unit> {
         Style style = Style.EMPTY;
         MutableComponent empty = Component.empty();
         StringBuilder builder = new StringBuilder();
@@ -966,8 +974,8 @@ public class ChatUtils {
                             //                        base.append(addition);
                         }
                         builder.withLine();
-                        // ignore \n
-                        // return base;
+                    // ignore \n
+                    // return base;
                 }
                 currentIndex = matcher.end(groupId);
             }

@@ -19,8 +19,8 @@ public class RegistrySelectScreen<T> extends ConfirmingBigScreen {
         super(Component.empty());
         this.registry = registry;
         this.callback = callback;
-        setTitleLabel(
-                Component.translatable("widget.gui.registry-select-screen.title").withStyle(ChatFormatting.AQUA));
+        setTitleLabel(Component.translatable("widget.gui.registry-select-screen.title")
+                .withStyle(ChatFormatting.AQUA));
         this.selectSubScreen = ListRegistryMultiSelectWidget.registry(
                 this.registry, currentSelection, ValueAccessor.holder(""), 0, CONTENT_START_Y + 20, WIDTH, 240, 20);
     }

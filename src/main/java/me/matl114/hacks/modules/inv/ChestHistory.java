@@ -39,8 +39,6 @@ import me.matl114.utils.world.BlockLocation;
 import me.matl114.utils.world.ContainerPosition;
 import me.matl114.versioned.api.VRender;
 import net.minecraft.ChatFormatting;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
@@ -61,11 +59,13 @@ import net.minecraft.world.entity.Display;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.Vec3;
@@ -168,8 +168,8 @@ public class ChestHistory extends BaseModule {
                 && useContext.stack().getItem() instanceof BlockItem bi
                 && bi.getBlock() instanceof ShulkerBoxBlock) {
             //
-            BlockPos placePos = useContext.getPlaceBlockPos(
-                    eventInteract.context.getHand(), eventInteract.context.getHitResult());
+            BlockPos placePos =
+                    useContext.getPlaceBlockPos(eventInteract.context.getHand(), eventInteract.context.getHitResult());
             // if it is a real place
             BlockState state = mc.level.getBlockState(placePos);
             if (state.getBlock() == bi.getBlock()

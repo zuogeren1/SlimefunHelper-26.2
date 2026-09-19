@@ -58,7 +58,8 @@ public class RenderCollectors {
                         if (drawOutline) {
                             for (var re : entries) {
                                 var box = re.val().move(cameraPos);
-                                op.drawOutlinedBox(matrices, vtx, box.getMinPosition(), box.getMaxPosition(), re.index());
+                                op.drawOutlinedBox(
+                                        matrices, vtx, box.getMinPosition(), box.getMaxPosition(), re.index());
                             }
                         }
                         if (drawTraceLine) {

@@ -18,7 +18,8 @@ public interface PlayerMoveC2SPacketAccess {
         return packet;
     }
 
-    public static ServerboundMovePlayerPacket setCauseFrom(ServerboundMovePlayerPacket packet, ServerboundMovePlayerPacket packet2) {
+    public static ServerboundMovePlayerPacket setCauseFrom(
+            ServerboundMovePlayerPacket packet, ServerboundMovePlayerPacket packet2) {
         return setCause(packet, of(packet2).getCause());
     }
 

@@ -817,8 +817,8 @@ public class PathManager extends BaseModule {
     }
 
     private boolean hasClearLine(Vec3 from, Vec3 to) {
-        HitResult result = mc.level.clip(new ClipContext(
-                from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+        HitResult result =
+                mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
         return result.getType() != HitResult.Type.BLOCK;
     }
 
@@ -1308,8 +1308,7 @@ public class PathManager extends BaseModule {
                         delta = delta.normalize();
                         int seq = (((int) len - 1) / 5) + 1;
                         for (var re = 1; re < seq; ++re) {
-                            immutablePoints.add(
-                                    BlockPos.containing(vec3d1.add(delta.scale(len * re / (double) seq))));
+                            immutablePoints.add(BlockPos.containing(vec3d1.add(delta.scale(len * re / (double) seq))));
                         }
                     }
                 }

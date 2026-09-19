@@ -81,7 +81,11 @@ public abstract class MouseEvents {
                             ordinal = 0,
                             shift = At.Shift.BEFORE))
     private void onMouseClick(
-            long window, MouseButtonInfo input, int action, CallbackInfo ci, @Local(ordinal = 1) MouseButtonInfo input2) {
+            long window,
+            MouseButtonInfo input,
+            int action,
+            CallbackInfo ci,
+            @Local(ordinal = 1) MouseButtonInfo input2) {
         Point coord = ScreenUtils.getMouseCoord(this.minecraft, (MouseHandler) (Object) this);
         if (SimpleInputManager.getInstance()
                 .onMouseClick(coord.x, coord.y, input2.button(), action, input2.modifiers())) {
@@ -93,7 +97,8 @@ public abstract class MouseEvents {
             method = "handleAccumulatedMovement",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;mouseMoved(DD)V"))
     private void onMouseMove(Screen instance, double f, double g, Operation<Void> original) {
-        Event<MouseMoveAction> event = new Event<>(new MouseMoveAction((MouseHandler) (Object) this, f, g), true, false);
+        Event<MouseMoveAction> event =
+                new Event<>(new MouseMoveAction((MouseHandler) (Object) this, f, g), true, false);
         Listener.getMouseMove().handleValue(event);
         if (!event.isCancelled()) {
             original.call(instance, f, g);
@@ -107,9 +112,10 @@ public abstract class MouseEvents {
                             value = "INVOKE",
                             target =
                                     "Lnet/minecraft/client/gui/screens/Screen;mouseDragged(Lnet/minecraft/client/input/MouseButtonEvent;DD)Z"))
-    private boolean onMouseDrag(Screen instance, MouseButtonEvent click, double v1, double v2, Operation<Boolean> original) {
-        Event<MouseDragAction> event =
-                new Event<>(new MouseDragAction((MouseHandler) (Object) this, click.x(), click.y(), v1, v2), true, false);
+    private boolean onMouseDrag(
+            Screen instance, MouseButtonEvent click, double v1, double v2, Operation<Boolean> original) {
+        Event<MouseDragAction> event = new Event<>(
+                new MouseDragAction((MouseHandler) (Object) this, click.x(), click.y(), v1, v2), true, false);
         Listener.getMouseDrag().handleValue(event);
         if (!event.isCancelled()) {
             return original.call(instance, click, v1, v2);
@@ -131,7 +137,8 @@ public abstract class MouseEvents {
             double g = ypos()
                     * (double) this.minecraft.getWindow().getGuiScaledHeight()
                     / (double) this.minecraft.getWindow().getScreenHeight();
-            Event<MouseMoveAction> event = new Event<>(new MouseMoveAction((MouseHandler) (Object) this, f, g), true, false);
+            Event<MouseMoveAction> event =
+                    new Event<>(new MouseMoveAction((MouseHandler) (Object) this, f, g), true, false);
             Listener.getMouseMove().handleValue(event);
 
             if (this.activeButton != null) {
@@ -150,10 +157,7 @@ public abstract class MouseEvents {
 
     @WrapOperation(
             method = "turnPlayer",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
     private void onMouseUpdateLook(LocalPlayer instance, double x, double y, Operation<Void> original) {
         Event<FPoint> event = new Event<>(new FPoint(x, y), true, true);
         Listener.getPlayerChangeLook().handleValue(event);

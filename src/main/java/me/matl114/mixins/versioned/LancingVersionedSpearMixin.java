@@ -21,7 +21,8 @@ public abstract class LancingVersionedSpearMixin {
                             value = "INVOKE",
                             target =
                                     "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;"))
-    private static Object fixSpearRender1(ItemStack instance, DataComponentType componentType, Operation<Object> original) {
+    private static Object fixSpearRender1(
+            ItemStack instance, DataComponentType componentType, Operation<Object> original) {
         if (SpearEnhance.INSTANCE.fixOldVersionSpear.get()) {
             return SpearEnhance.INSTANCE.getRealComponent(instance);
         }
@@ -35,7 +36,8 @@ public abstract class LancingVersionedSpearMixin {
                             value = "INVOKE",
                             target =
                                     "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;"))
-    private static Object fixSpearRender2(ItemStack instance, DataComponentType componentType, Operation<Object> original) {
+    private static Object fixSpearRender2(
+            ItemStack instance, DataComponentType componentType, Operation<Object> original) {
         if (SpearEnhance.INSTANCE.fixOldVersionSpear.get()) {
             return SpearEnhance.INSTANCE.getRealComponent(instance);
         }
@@ -49,7 +51,8 @@ public abstract class LancingVersionedSpearMixin {
                             value = "INVOKE",
                             target =
                                     "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;"))
-    private static Object fixSpearRender3(ItemStack instance, DataComponentType componentType, Operation<Object> original) {
+    private static Object fixSpearRender3(
+            ItemStack instance, DataComponentType componentType, Operation<Object> original) {
         if (SpearEnhance.INSTANCE.fixOldVersionSpear.get()) {
             return SpearEnhance.INSTANCE.getRealComponent(instance);
         }
@@ -63,7 +66,8 @@ public abstract class LancingVersionedSpearMixin {
                             value = "INVOKE",
                             target =
                                     "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;"))
-    private static Object fixSpearRender4(ItemStack instance, DataComponentType componentType, Operation<Object> original) {
+    private static Object fixSpearRender4(
+            ItemStack instance, DataComponentType componentType, Operation<Object> original) {
         if (SpearEnhance.INSTANCE.fixOldVersionSpear.get()) {
             return SpearEnhance.INSTANCE.getRealComponent(instance);
         }

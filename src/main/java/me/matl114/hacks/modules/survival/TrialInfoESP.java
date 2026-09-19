@@ -111,8 +111,8 @@ public class TrialInfoESP extends BaseModule {
                             } else {
                                 time = "?";
                             }
-                            textLines.add(
-                                    Component.translatable("message.module.trial-info-esp.display.trial-cooldown", time));
+                            textLines.add(Component.translatable(
+                                    "message.module.trial-info-esp.display.trial-cooldown", time));
                         } else if (state != TrialSpawnerState.INACTIVE) {
                             OptionalLong activeLong = WorldManager.INSTANCE.getTrialSpawnerActiveStartTime(be1);
                             String time;
@@ -128,7 +128,9 @@ public class TrialInfoESP extends BaseModule {
                             textLines.add(
                                     Component.translatable("message.module.trial-info-esp.display.trial-active", time));
                         }
-                        var entity = be1.getTrialSpawner().getStateData().getOrCreateDisplayEntity(be1.getTrialSpawner(), mc.level, state);
+                        var entity = be1.getTrialSpawner()
+                                .getStateData()
+                                .getOrCreateDisplayEntity(be1.getTrialSpawner(), mc.level, state);
                         if (entity != null) {
                             textLines.add(Component.translatable(
                                     "message.module.trial-info-esp.display.trial-type",
@@ -139,12 +141,15 @@ public class TrialInfoESP extends BaseModule {
                         boolean omin = currentState.getValue(VaultBlock.OMINOUS);
                         textLines.add(
                                 omin
-                                        ? Component.translatable("message.module.trial-info.esp.display.vault-type.ominous")
-                                        : Component.translatable("message.module.trial-info.esp.display.vault-type.common"));
+                                        ? Component.translatable(
+                                                "message.module.trial-info.esp.display.vault-type.ominous")
+                                        : Component.translatable(
+                                                "message.module.trial-info.esp.display.vault-type.common"));
                         VaultSharedData sharedData = be2.getSharedData();
                         var set = sharedData.getConnectedPlayers();
                         if (!set.contains(mc.player.getUUID())) {
-                            textLines.add(Component.translatable("message.module.trial-info-esp.display.vault-can-open"));
+                            textLines.add(
+                                    Component.translatable("message.module.trial-info-esp.display.vault-can-open"));
                         } else {
                             textLines.add(
                                     Component.translatable("message.module.trial-info-esp.display.vault-can-not-open"));

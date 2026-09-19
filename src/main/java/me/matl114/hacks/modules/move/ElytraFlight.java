@@ -239,8 +239,7 @@ public class ElytraFlight extends BaseModule implements LegalMovementManager.Mov
                     case CONTROL -> {
                         boolean packetMotion = true;
 
-                        Vec3 movementInput =
-                                new Vec3(input.sidewaysSpeed(), input.upwardSpeed(), input.forwardSpeed());
+                        Vec3 movementInput = new Vec3(input.sidewaysSpeed(), input.upwardSpeed(), input.forwardSpeed());
                         Vec3 velocity = EntityUtils.movementInputToVelocity(movementInput, 1.0F, player.getYRot());
                         if (movementInput.horizontalDistanceSqr() > 0.0D) {
                             if (movementInput.y > 0) {

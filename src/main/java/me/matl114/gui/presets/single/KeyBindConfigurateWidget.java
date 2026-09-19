@@ -10,9 +10,9 @@ import me.matl114.managers.input.KeyCode;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
-import net.minecraft.util.CommonColors;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
 
 public class KeyBindConfigurateWidget extends SubScreenWidget {
     AttrKeyValue<MultiKeyBind> multiKeyBind;

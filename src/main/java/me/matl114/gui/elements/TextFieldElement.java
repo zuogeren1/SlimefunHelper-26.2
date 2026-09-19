@@ -582,10 +582,11 @@ public class TextFieldElement extends AbstractElement {
         if (this.drawsBackground()) {
             innerX -= 4;
         }
-        String string =
-                this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
+        String string = this.textRenderer.plainSubstrByWidth(
+                this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
         this.setCursor(
-                this.textRenderer.plainSubstrByWidth(string, innerX).length() + this.firstCharacterIndex, shiftDownAction);
+                this.textRenderer.plainSubstrByWidth(string, innerX).length() + this.firstCharacterIndex,
+                shiftDownAction);
     }
 
     public void drawSelection(GuiGraphicsExtractor context, int x1, int y1, int x2, int y2, boolean invert) {
@@ -636,15 +637,14 @@ public class TextFieldElement extends AbstractElement {
 
             int color = this.editable ? this.editableColor : this.uneditableColor;
             int cursorOffset = this.selectionStart - this.firstCharacterIndex;
-            String visibleText =
-                    this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
+            String visibleText = this.textRenderer.plainSubstrByWidth(
+                    this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
             boolean cursorInVisibleRange = cursorOffset >= 0 && cursorOffset <= visibleText.length();
             boolean showBlink = this.focused
                     && (Util.getMillis() - this.lastSwitchFocusTime) / 300L % 2L == 0L
                     && cursorInVisibleRange;
             int drawX = this.textX;
-            int selectionOffset =
-                    Mth.clamp(this.selectionEnd - this.firstCharacterIndex, 0, visibleText.length());
+            int selectionOffset = Mth.clamp(this.selectionEnd - this.firstCharacterIndex, 0, visibleText.length());
             if (!visibleText.isEmpty()) {
                 String beforeCursor = cursorInVisibleRange ? visibleText.substring(0, cursorOffset) : visibleText;
                 FormattedCharSequence orderedText = this.format(beforeCursor, this.firstCharacterIndex);
@@ -695,8 +695,7 @@ public class TextFieldElement extends AbstractElement {
                 if (hasMoreChars) {
                     drawContext.fill(cursorX, this.textY - 1, cursorX + 1, this.textY + 10, color);
                 } else {
-                    drawContext.text(
-                            this.textRenderer, HORIZONTAL_CURSOR, cursorX, this.textY, color, this.textShadow);
+                    drawContext.text(this.textRenderer, HORIZONTAL_CURSOR, cursorX, this.textY, color, this.textShadow);
                 }
             }
         } finally {
@@ -794,8 +793,8 @@ public class TextFieldElement extends AbstractElement {
     }
 
     protected void updateTextPosition() {
-        String visibleText =
-                this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
+        String visibleText = this.textRenderer.plainSubstrByWidth(
+                this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
         this.textX = this.centered
                 ? (this.width - this.textRenderer.width(visibleText)) / 2
                 : (this.drawsBackground ? 4 : 0);
@@ -805,11 +804,13 @@ public class TextFieldElement extends AbstractElement {
     protected void updateFirstCharacterIndex(int cursor) {
         this.firstCharacterIndex = Math.min(this.firstCharacterIndex, this.text.length());
         int innerWidth = this.getInnerWidth();
-        String visibleText = this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), innerWidth);
+        String visibleText =
+                this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), innerWidth);
         int visibleEnd = visibleText.length() + this.firstCharacterIndex;
         if (cursor == this.firstCharacterIndex) {
-            this.firstCharacterIndex -=
-                    this.textRenderer.plainSubstrByWidth(this.text, innerWidth, true).length();
+            this.firstCharacterIndex -= this.textRenderer
+                    .plainSubstrByWidth(this.text, innerWidth, true)
+                    .length();
         }
         if (cursor > visibleEnd) {
             this.firstCharacterIndex += cursor - visibleEnd;

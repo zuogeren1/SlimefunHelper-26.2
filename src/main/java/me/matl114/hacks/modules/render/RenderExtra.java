@@ -13,12 +13,12 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.Debug;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.Connection;
+import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
 import net.minecraft.network.protocol.common.ServerboundResourcePackPacket;
-import net.minecraft.network.chat.*;
 
 public class RenderExtra extends BaseModule {
     public static RenderExtra INSTANCE;
@@ -63,8 +63,8 @@ public class RenderExtra extends BaseModule {
             var sendPacket = resourceEvent.context();
             connection.send(
                     new ServerboundResourcePackPacket(sendPacket.id(), ServerboundResourcePackPacket.Action.ACCEPTED));
-            connection.send(
-                    new ServerboundResourcePackPacket(sendPacket.id(), ServerboundResourcePackPacket.Action.DOWNLOADED));
+            connection.send(new ServerboundResourcePackPacket(
+                    sendPacket.id(), ServerboundResourcePackPacket.Action.DOWNLOADED));
             connection.send(new ServerboundResourcePackPacket(
                     sendPacket.id(), ServerboundResourcePackPacket.Action.SUCCESSFULLY_LOADED));
             Debug.chat(

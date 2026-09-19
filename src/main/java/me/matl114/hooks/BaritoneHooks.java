@@ -203,15 +203,19 @@ public abstract class BaritoneHooks implements IHooks {
                                                             map.entrySet().stream()
                                                                     .collect(Collectors.toMap(
                                                                             s -> Holder.of(
-                                                                                    BuiltInRegistries.BLOCK, s.getKey()),
+                                                                                    BuiltInRegistries.BLOCK,
+                                                                                    s.getKey()),
                                                                             s -> new PrimitiveList<>(
                                                                                     NBTTypes.HOLDER_TYPE.cast(),
                                                                                     s.getValue().stream()
                                                                                             .map(sss -> Holder.of(
-                                                                                                    BuiltInRegistries.BLOCK,
+                                                                                                    BuiltInRegistries
+                                                                                                            .BLOCK,
                                                                                                     sss))
                                                                                             .toList(),
-                                                                                    Holder.of(BuiltInRegistries.BLOCK, null)),
+                                                                                    Holder.of(
+                                                                                            BuiltInRegistries.BLOCK,
+                                                                                            null)),
                                                                             (k, v) -> v));
                                                     return new PrimitiveMap<>(
                                                             NBTTypes.HOLDER_TYPE.cast(),
@@ -377,17 +381,21 @@ public abstract class BaritoneHooks implements IHooks {
         public Goal convertGoal(IPathGoal goal) {
             return switch (goal) {
                 case GoalBlockPos pos -> new GoalBlock(pos.pos());
-                case me.matl114.hacks.utils.move.goal.GoalNear near -> new GoalNearManhattan(near.center(), near.radius());
+                case me.matl114.hacks.utils.move.goal.GoalNear near ->
+                    new GoalNearManhattan(near.center(), near.radius());
                 case GoalNearBlockPos near -> new GoalGetToBlock(near.pos());
-                case GoalList list -> new GoalComposite(
-                        list.goals().stream().map(this::convertGoal).toArray(Goal[]::new));
-                case GoalFollow entity -> new GoalDynamicGoal(
-                        entity.entity()::position,
-                        0.3
-                                + (entity.entity()
-                                                .getDimensions(entity.entity().getPose())
-                                                .width()
-                                        / 2));
+                case GoalList list ->
+                    new GoalComposite(
+                            list.goals().stream().map(this::convertGoal).toArray(Goal[]::new));
+                case GoalFollow entity ->
+                    new GoalDynamicGoal(
+                            entity.entity()::position,
+                            0.3
+                                    + (entity.entity()
+                                                    .getDimensions(
+                                                            entity.entity().getPose())
+                                                    .width()
+                                            / 2));
                 case GoalDynamic dynamic -> new GoalDynamicGoal(dynamic.supplier(), dynamic.radius());
                 case GoalDirection direction -> new GoalYawDirection(mc.player.blockPosition(), direction.yaw());
             };

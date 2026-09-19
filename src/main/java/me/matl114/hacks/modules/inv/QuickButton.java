@@ -51,7 +51,8 @@ public class QuickButton extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onHandledScreenInitialized);
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class),
+                this::onHandledScreenInitialized);
     }
 
     public void onHandledScreenInitialized(Event<AbstractContainerScreen<?>> event) {
@@ -98,8 +99,8 @@ public class QuickButton extends BaseModule {
                     flagRef != null ? HotKeyUtils.wrapFlagAsToggle(fullKey, flagRef) : Runnables.doNothing();
             ExecutableWidget widget = ExecutableWidget.instance(
                             xv + x0 * (buttonWidth + 1), yv + y0, buttonWidth, buttonHeight)
-                    .setElementHandler(
-                            new ButtonElement(TextProvider.of(Component.literal(key)), ((element, widget1, mouseButton) -> {
+                    .setElementHandler(new ButtonElement(
+                            TextProvider.of(Component.literal(key)), ((element, widget1, mouseButton) -> {
                                 stateChange.run();
                                 if (flagRef != null) {
                                     widget1.setAlpha(flagRef.get() ? 1.0f : 0.4f);
@@ -120,8 +121,8 @@ public class QuickButton extends BaseModule {
         for (Map.Entry<String, Runnable> entry : buttonTasks.entrySet()) {
             final Runnable task = entry.getValue();
             ExecutableWidget.instance(xv + x0 * (buttonWidth + 1), yv - y0, buttonWidth, buttonHeight)
-                    .setElementHandler(
-                            new ButtonElement(TextProvider.of(Component.literal(entry.getKey())), ButtonAction.run(task)))
+                    .setElementHandler(new ButtonElement(
+                            TextProvider.of(Component.literal(entry.getKey())), ButtonAction.run(task)))
                     .addTo(handledScreen);
             x0 += 1;
             if (x0 == 4) {

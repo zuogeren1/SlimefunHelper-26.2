@@ -48,6 +48,8 @@ public class EntityHelper {
     }
 
     public static EntityType getEntityTypeByName(String name) {
-        return BuiltInRegistries.ENTITY_TYPE.getOptional(net.minecraft.resources.Identifier.parse(name)).orElse(null);
+        return BuiltInRegistries.ENTITY_TYPE
+                .getOptional(net.minecraft.resources.Identifier.tryParse(name))
+                .orElse(null);
     }
 }

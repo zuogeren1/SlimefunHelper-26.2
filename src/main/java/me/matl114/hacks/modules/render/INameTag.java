@@ -294,8 +294,7 @@ public abstract class INameTag extends BaseModule {
                 Map<Holder<MobEffect>, Component> effects) {
             this.player = player;
             this.nameDisplay = display;
-            this.nameLength =
-                    display == null ? 0.0F : mc.font.getSplitter().stringWidth(display);
+            this.nameLength = display == null ? 0.0F : mc.font.getSplitter().stringWidth(display);
             if (this.nameLength <= 0.0F) {
                 this.nameDisplay = null;
             }

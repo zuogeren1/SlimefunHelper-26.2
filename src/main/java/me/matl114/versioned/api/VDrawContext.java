@@ -224,6 +224,5 @@ public interface VDrawContext {
 
     public void drawItem(ItemStack stack, int x, int y, int seed, int z);
 
-    public void drawItemInSlot(
-            Font textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride);
+    public void drawItemInSlot(Font textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride);
 }

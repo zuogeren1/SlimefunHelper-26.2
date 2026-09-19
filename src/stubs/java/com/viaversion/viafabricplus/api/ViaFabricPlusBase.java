@@ -6,8 +6,8 @@ import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import io.netty.channel.Channel;
 import java.nio.file.Path;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.Connection;
+import net.minecraft.world.item.ItemStack;
 
 public interface ViaFabricPlusBase {
     default int apiVersion() {

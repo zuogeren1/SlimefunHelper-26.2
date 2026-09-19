@@ -30,8 +30,8 @@ public class EnchantmentUtils {
     public static float calculate(LivingEntity stack, ContextAwareCalculator<Float> consumer, float baseValue) {
         MutableFloat mutableFloat = new MutableFloat(baseValue);
         EnchantmentHelper.runIterationOnEquipment(stack, (enchantment, level, context) -> {
-            mutableFloat.setValue(
-                    consumer.calculate(mutableFloat.getValue(), enchantment, level, context.itemStack(), context.inSlot()));
+            mutableFloat.setValue(consumer.calculate(
+                    mutableFloat.getValue(), enchantment, level, context.itemStack(), context.inSlot()));
         });
         return mutableFloat.getValue();
     }
@@ -59,7 +59,8 @@ public class EnchantmentUtils {
         }
     }
 
-    public static boolean matchPartialCondition(LootItemCondition condition, Predicate<LootItemCondition> testCondition) {
+    public static boolean matchPartialCondition(
+            LootItemCondition condition, Predicate<LootItemCondition> testCondition) {
         if (condition instanceof AllOfCondition allOf) {
             return allOf.terms.stream().allMatch(s -> matchPartialCondition(s, testCondition));
         } else if (condition instanceof AnyOfCondition anyOf) {
@@ -71,10 +72,10 @@ public class EnchantmentUtils {
         }
     }
 
-    private static void forEachEnchantments(ItemStack stack, EquipmentSlot slot, EnchantmentHelper.EnchantmentVisitor consumer) {
+    private static void forEachEnchantments(
+            ItemStack stack, EquipmentSlot slot, EnchantmentHelper.EnchantmentVisitor consumer) {
         if (!stack.isEmpty()) {
-            ItemEnchantments itemEnchantmentsComponent =
-                    (ItemEnchantments) stack.get(DataComponents.ENCHANTMENTS);
+            ItemEnchantments itemEnchantmentsComponent = (ItemEnchantments) stack.get(DataComponents.ENCHANTMENTS);
             if (itemEnchantmentsComponent != null && !itemEnchantmentsComponent.isEmpty()) {
 
                 for (var entry : itemEnchantmentsComponent.entrySet()) {
@@ -93,10 +94,6 @@ public class EnchantmentUtils {
 
     public interface ContextAwareCalculator<T> {
         public T calculate(
-                T current,
-                Holder<Enchantment> enchantment,
-                int level,
-                ItemStack stack,
-                @Nullable EquipmentSlot slot);
+                T current, Holder<Enchantment> enchantment, int level, ItemStack stack, @Nullable EquipmentSlot slot);
     }
 }

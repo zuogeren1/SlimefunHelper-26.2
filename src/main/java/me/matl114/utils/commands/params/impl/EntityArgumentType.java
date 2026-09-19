@@ -110,8 +110,7 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
                 .filter(token -> token != null && !token.isBlank() && !token.contains(" "))
                 .distinct();
         Stream<String> crosshair = mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY
-                ? Stream.of(
-                        "@" + ((EntityHitResult) mc.hitResult).getEntity().getStringUUID())
+                ? Stream.of("@" + ((EntityHitResult) mc.hitResult).getEntity().getStringUUID())
                 : Stream.empty();
         return Stream.of(SELECTOR_TABS.stream(), entityTokens, crosshair)
                 .flatMap(stream -> stream)
@@ -884,14 +883,16 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
                     return false;
                 }
                 TagKey<EntityType<?>> tag = TagKey.create(Registries.ENTITY_TYPE, id);
-                this.predicates.add(entity -> entity.getType().builtInRegistryHolder().is(tag) != inverted.inverted());
+                this.predicates.add(
+                        entity -> entity.getType().builtInRegistryHolder().is(tag) != inverted.inverted());
                 return true;
             }
             Identifier id = parseIdentifier(inverted.value());
             if (id == null) {
                 return false;
             }
-            EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
+            EntityType<?> entityType =
+                    BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
             if (entityType == null) {
                 return false;
             }
@@ -974,9 +975,9 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
         private void sort(Vec3 origin, List<Entity> entities) {
             switch (this) {
                 case NEAREST -> entities.sort(Comparator.comparingDouble(entity -> entity.distanceToSqr(origin)));
-                case FURTHEST -> entities.sort(
-                        Comparator.comparingDouble((Entity entity) -> entity.distanceToSqr(origin))
-                                .reversed());
+                case FURTHEST ->
+                    entities.sort(Comparator.comparingDouble((Entity entity) -> entity.distanceToSqr(origin))
+                            .reversed());
                 case RANDOM -> Collections.shuffle(entities);
                 case ARBITRARY -> {}
             }
@@ -991,7 +992,8 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
         }
     }
 
-    private record DoubleRange(@Nullable Double min, @Nullable Double max) {
+    private record DoubleRange(
+            @Nullable Double min, @Nullable Double max) {
         private boolean testSquared(double squared) {
             if (min != null && squared < min * min) {
                 return false;

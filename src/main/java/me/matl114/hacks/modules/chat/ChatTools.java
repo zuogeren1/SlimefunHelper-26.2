@@ -133,10 +133,12 @@ public class ChatTools extends BaseModule {
             List.of(Component.literal("切换是否keepChatInv"), Component.literal("若启用,回车发送文字后将仍保持在聊天界面"));
     private static final List<Component> TOOLTIPS_SEL_TO_UNICODE =
             List.of(Component.literal("点击将当前正在输入的输入框中"), Component.literal("输入的字符转为unicode字符"));
-    private static final List<Component> TOOLTIPS_INT_TO_CHAR = List.of(Component.literal("可以将旁边的小输入框中的数字和字符进行ascii转换"));
-    private static final List<Component> TOOLTIPS_ENCRYPT =
-            List.of(Component.literal("左击切换是否进行消息加密"), Component.literal("右击以打开配置文件"), Component.literal("按住ctrl发送可以禁用加密"));
-    private static final List<Component> TOOLTIPS_FORMAT = List.of(Component.literal("左击切换是否进行聊天格式化"), Component.literal("右击以打开配置文件"));
+    private static final List<Component> TOOLTIPS_INT_TO_CHAR =
+            List.of(Component.literal("可以将旁边的小输入框中的数字和字符进行ascii转换"));
+    private static final List<Component> TOOLTIPS_ENCRYPT = List.of(
+            Component.literal("左击切换是否进行消息加密"), Component.literal("右击以打开配置文件"), Component.literal("按住ctrl发送可以禁用加密"));
+    private static final List<Component> TOOLTIPS_FORMAT =
+            List.of(Component.literal("左击切换是否进行聊天格式化"), Component.literal("右击以打开配置文件"));
     private static final List<Component> TOOLTIPS_SPECIAL_CHARS =
             List.of(Component.literal("点击展开/关闭特殊字符快捷键"), Component.literal("可以在配置界面中配置特殊字符列表"));
 
@@ -216,21 +218,21 @@ public class ChatTools extends BaseModule {
         Runnable toggle2 = HotKeyUtils.getToggleTask(
                 Configs.CHAT_CONFIG, chatTools.add("keep-chat-inv").toPath());
         ExecutableWidget.instance(180, 24, 70, 20)
-                .setElementHandler(
-                        new ButtonElement(TextProvider.of(Component.literal("keep-chat-inv")), ButtonAction.run(toggle2))
-                                .setActivePredicate((el) -> keepChatInv.get())
-                                .withTooltips(TooltipHandler.of(TOOLTIPS_KEEP_INV)))
+                .setElementHandler(new ButtonElement(
+                                TextProvider.of(Component.literal("keep-chat-inv")), ButtonAction.run(toggle2))
+                        .setActivePredicate((el) -> keepChatInv.get())
+                        .withTooltips(TooltipHandler.of(TOOLTIPS_KEEP_INV)))
                 .addToSub(basicSubScreenWidget);
 
         ExecutableWidget.instance(120, 24, 60, 20)
-                .setElementHandler(
-                        new ButtonElement(TextProvider.of(Component.literal("to-unicode")), ButtonAction.run(() -> {
+                .setElementHandler(new ButtonElement(
+                                TextProvider.of(Component.literal("to-unicode")), ButtonAction.run(() -> {
                                     EditBox widget = findCurrentFocusing();
                                     if (widget != null) {
                                         widget.setValue(ChatUtils.toUnicodedString(widget.getValue()));
                                     }
                                 }))
-                                .withTooltips(TooltipHandler.of(TOOLTIPS_SEL_TO_UNICODE)))
+                        .withTooltips(TooltipHandler.of(TOOLTIPS_SEL_TO_UNICODE)))
                 .addToSub(basicSubScreenWidget);
         ExecutableWidget.instance(0, 24, 20, 20)
                 .setElementHandler(IconElement.statedGuiPredicate(

@@ -350,7 +350,7 @@ public class ItemCache {
     public ItemStack getFromCodecId(String id) {
         if (id.startsWith(ItemCache.PREFIX)) {
             var re = this.getItem(id);
-            return (re != null && re.isValid()) ? re.getItemStack().copy() : ItemStackData.MISSING;
+            return (re != null && re.isValid()) ? re.getItemStack().copy() : ItemStackData.missing();
         } else {
             return new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.tryParse(id)));
         }

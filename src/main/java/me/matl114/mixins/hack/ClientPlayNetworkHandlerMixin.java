@@ -39,7 +39,8 @@ public abstract class ClientPlayNetworkHandlerMixin {
             cancellable = true)
     private void onCloseScreenClearKeepedInv(ClientboundContainerClosePacket packet, CallbackInfo ci) {
         ClientPlayerAccess access = ClientPlayerAccess.of(Minecraft.getInstance().player);
-        if (access.getKeepedInvHandler() != null && access.getKeepedInvHandler().containerId == packet.getContainerId()) {
+        if (access.getKeepedInvHandler() != null
+                && access.getKeepedInvHandler().containerId == packet.getContainerId()) {
             access.clearKeepedInventory(true);
         }
         if (Minecraft.getInstance().player.containerMenu.containerId != packet.getContainerId()) {
@@ -53,7 +54,8 @@ public abstract class ClientPlayNetworkHandlerMixin {
         // ",packet.getContainerId(),packet.getSlot(),packet.getItemStack());
         if (Minecraft.getInstance().player != null) {
             ClientPlayerAccess access = ClientPlayerAccess.of(Minecraft.getInstance().player);
-            if (access.getKeepedInvHandler() != null && packet.getContainerId() == access.getKeepedInvHandler().containerId) {
+            if (access.getKeepedInvHandler() != null
+                    && packet.getContainerId() == access.getKeepedInvHandler().containerId) {
                 access.getKeepedInvHandler().setItem(packet.getSlot(), packet.getStateId(), packet.getItem());
             }
         }
@@ -63,9 +65,9 @@ public abstract class ClientPlayNetworkHandlerMixin {
     private void onInventorySyncToKeeped(ClientboundContainerSetContentPacket packet, CallbackInfo ci) {
         if (Minecraft.getInstance().player != null) {
             ClientPlayerAccess access = ClientPlayerAccess.of(Minecraft.getInstance().player);
-            if (access.getKeepedInvHandler() != null && packet.containerId() == access.getKeepedInvHandler().containerId) {
-                access.getKeepedInvHandler()
-                        .initializeContents(packet.stateId(), packet.items(), packet.carriedItem());
+            if (access.getKeepedInvHandler() != null
+                    && packet.containerId() == access.getKeepedInvHandler().containerId) {
+                access.getKeepedInvHandler().initializeContents(packet.stateId(), packet.items(), packet.carriedItem());
             }
         }
     }

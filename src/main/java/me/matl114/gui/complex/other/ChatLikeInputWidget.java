@@ -17,8 +17,7 @@ public class ChatLikeInputWidget extends EditBox {
     int messageHistoryIndex;
     String chatLastMessage = "";
 
-    public ChatLikeInputWidget(
-            Font textRenderer, int x, int y, int width, int height, Consumer<String> enterCallback) {
+    public ChatLikeInputWidget(Font textRenderer, int x, int y, int width, int height, Consumer<String> enterCallback) {
         super(textRenderer, x, y, width, height, Component.empty());
         this.callback = enterCallback;
         this.setBordered(false);

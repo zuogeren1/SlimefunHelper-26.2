@@ -73,10 +73,9 @@ public abstract class ShulkerScreenMixin extends AbstractContainerScreen<Shulker
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;<init>(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/network/chat/Component;)V",
+                                    "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;<init>(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/network/chat/Component;II)V",
                             shift = At.Shift.AFTER))
-    private void tryInitBlockPos(
-            ShulkerBoxMenu handler, Inventory inventory, Component title, CallbackInfo ci) {
+    private void tryInitBlockPos(ShulkerBoxMenu handler, Inventory inventory, Component title, CallbackInfo ci) {
         this.world = Minecraft.getInstance().level;
         // everything
         this.pos = InvTasks.predictScreenFrom((b) -> b instanceof ShulkerBoxBlock);

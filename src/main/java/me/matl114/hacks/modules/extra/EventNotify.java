@@ -70,8 +70,10 @@ public class EventNotify extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundSetSubtitleTextPacket.class), this::onTitle);
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onTotemPop);
+        registerListener(
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundSetSubtitleTextPacket.class), this::onTitle);
+        registerListener(
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onTotemPop);
         registerListener(Listener.getServerLeavePoint(), this::onReconfiguration);
         registerListener(Listener.getServerDisconnectPoint(), this::onLeaveServer);
         registerListener(BaritoneHooks.getLandingEvent(), this::onBaritoneEnd);

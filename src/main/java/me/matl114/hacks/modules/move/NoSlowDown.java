@@ -26,8 +26,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
@@ -75,11 +75,11 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
         super.registerAll();
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
         registerListener(Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::onServerSyncSneak);
-        registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class), this::onInteractSend);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class), this::onInteractSend);
         registerListener(Listener.getPlayerWebSlowPoint(), this::onWeb);
         registerListener(Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::onEntityDataUpdate);
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onConsume);
+        registerListener(
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onConsume);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onSendStartUse);
     }
 
@@ -323,7 +323,8 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
                         input.sneak(true).sendPlayerSneakUpdatePacket();
                         input.sneak(false).sendPlayerSneakUpdatePacket();
                         mc.gameMode.startPrediction(mc.level, (seq) -> {
-                            return new ServerboundInteractPacket(id, InteractionHand.MAIN_HAND, mc.player.position(), true);
+                            return new ServerboundInteractPacket(
+                                    id, InteractionHand.MAIN_HAND, mc.player.position(), true);
                         });
                         sneakStatus = true;
                         Debug.chat("[NoSlow] 成功伪造状态");
@@ -379,7 +380,8 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
                                             // to trigger plugin events
                                             input.sneak(true).sendPlayerSneakUpdatePacket();
                                             input.sneak(false).sendPlayerSneakUpdatePacket();
-                                            mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                                            mc.getConnection()
+                                                    .send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
                                             mc.gameMode.startPrediction(mc.level, (seq) -> {
                                                 return new ServerboundInteractPacket(
                                                         target.getId(),
@@ -387,7 +389,8 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
                                                         mc.player.position(),
                                                         true);
                                             });
-                                            mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                                            mc.getConnection()
+                                                    .send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
                                             Debug.chat("[NoSlow] 成功伪造状态");
                                             sneakStatus = true;
                                         });
@@ -417,8 +420,7 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
     private float getActiveItemSpeedMultiplier() {
         ItemStack stack = mc.player.getUseItem();
         //        if(VItem.getInstance().isSpear(stack))return 1.0F;
-        return ((UseEffects) stack.getOrDefault(DataComponents.USE_EFFECTS, UseEffects.DEFAULT))
-                .speedMultiplier();
+        return ((UseEffects) stack.getOrDefault(DataComponents.USE_EFFECTS, UseEffects.DEFAULT)).speedMultiplier();
     }
 
     public void onInteractSend(Event<ServerboundInteractPacket> interactPacket) {
@@ -527,11 +529,13 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
                     // 何意味...
                     if (hbSlot2.isPresent()) {
                         // NO FUCKING USE
-                        //                        mc.gameMode.handleContainerInput(handler.containerId, idx.getAsInt(), 0,
+                        //                        mc.gameMode.handleContainerInput(handler.containerId, idx.getAsInt(),
+                        // 0,
                         // ContainerInput.PICKUP, mc.player);
                         //                        postCallBack =
                         //                            ()->{
-                        //                            mc.gameMode.handleContainerInput(handler.containerId, idx.getAsInt(), 0,
+                        //                            mc.gameMode.handleContainerInput(handler.containerId,
+                        // idx.getAsInt(), 0,
                         // ContainerInput.PICKUP, mc.player);
                         //                        };
                         mc.gameMode.handleContainerInput(
@@ -540,7 +544,11 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
                                 handler.containerId, hbSlot2.getAsInt(), selectedIdx, ContainerInput.SWAP, mc.player);
                         postCallBack = () -> {
                             mc.gameMode.handleContainerInput(
-                                    handler.containerId, hbSlot2.getAsInt(), selectedIdx, ContainerInput.SWAP, mc.player);
+                                    handler.containerId,
+                                    hbSlot2.getAsInt(),
+                                    selectedIdx,
+                                    ContainerInput.SWAP,
+                                    mc.player);
                             mc.gameMode.handleContainerInput(
                                     handler.containerId, hbSlot2.getAsInt(), 0, ContainerInput.PICKUP, mc.player);
                         };

@@ -296,8 +296,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                 if (canPlace) {
                     if (autoAttackCrystals.get()) {
                         mc.level
-                                .getEntities(
-                                        (Entity) null, MathUtils.getBlockBox(test), (e) -> e instanceof EndCrystal)
+                                .getEntities((Entity) null, MathUtils.getBlockBox(test), (e) -> e instanceof EndCrystal)
                                 .forEach(endCrystalEntity -> {
                                     if (endCrystalEntity instanceof EndCrystal endCrystal
                                             && !Attack.INSTANCE.attackEntity(endCrystalEntity)) {
@@ -347,7 +346,10 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                             : InvExtra.INSTANCE.swapInventoryIndexToHand(supply.index());
                 }
                 InteractionTasks.handlePlaceMode(
-                        mode.get(), selfHitResult, offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, swingHand.get());
+                        mode.get(),
+                        selfHitResult,
+                        offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
+                        swingHand.get());
                 placeCnt += 1;
                 if (placeCnt >= mul) {
                     break;

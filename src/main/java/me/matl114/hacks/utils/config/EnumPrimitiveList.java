@@ -146,8 +146,10 @@ public class EnumPrimitiveList<T extends ConfigEnum, W> implements NBTParsable<E
                 NBTType<Pair<T, Primitive<W>>> pairLikeNbtType =
                         NBTTypes.<Pair<T, Primitive<W>>, T, Primitive<W>>createPairLike(
                                 "pair",
-                                NBTTypes.<T>createEnumLike("config_enum_lookup", finiteMap, s -> s.cast()
-                                        .name()),
+                                NBTTypes.<T>createEnumLike(
+                                        "config_enum_lookup",
+                                        finiteMap,
+                                        s -> s.cast().name()),
                                 "key",
                                 Primitive.TYPE.cast(),
                                 "value",

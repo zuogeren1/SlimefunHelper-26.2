@@ -466,7 +466,8 @@ public abstract class BaseModule implements ModuleListProvider {
     protected static final int indexWidth = 140;
     protected static final int blankWidth = 10;
 
-    public DrawableWidget createRefKeyLabel(Supplier<Component> text, Supplier<List<Component>> tooltips, int dx, int dy) {
+    public DrawableWidget createRefKeyLabel(
+            Supplier<Component> text, Supplier<List<Component>> tooltips, int dx, int dy) {
         return ExecutableWidget.instance(0, 0, dx, dy)
                 .setElementHandler(new ColorLabelTextElement(
                                 el -> text.get(),
@@ -505,8 +506,9 @@ public abstract class BaseModule implements ModuleListProvider {
 
     public static Component getModuleMeta(Enum<?> enumReff) {
         ConfigEnum configEnum = (ConfigEnum) enumReff;
-        return Component.translatable("module-meta." + configEnum.getConfigEnumType().replace("_", "-") + "."
-                + enumReff.name().toLowerCase(Locale.ROOT));
+        return Component.translatable(
+                "module-meta." + configEnum.getConfigEnumType().replace("_", "-") + "."
+                        + enumReff.name().toLowerCase(Locale.ROOT));
     }
 
     public static Supplier<Component> moduleMeta(Supplier<EnumRef<?>> enumReff) {

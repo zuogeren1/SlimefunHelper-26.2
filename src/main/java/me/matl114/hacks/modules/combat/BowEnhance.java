@@ -90,7 +90,8 @@ public class BowEnhance extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBowAction, 999);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBowAction, 999);
         registerListener(RenderListener.getRender3DEvent(), this::onRenderAimTarget);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
@@ -169,7 +170,10 @@ public class BowEnhance extends BaseModule {
                     if (entity != null) {
                         AABB box = RenderUtils.getLerpedBox(entity, tickDelta);
                         RenderUtils.drawSolidBox(
-                                stack, box.getMinPosition(), box.getMaxPosition(), ColorUtils.withAlpha(Color.GREEN, 0.25F));
+                                stack,
+                                box.getMinPosition(),
+                                box.getMaxPosition(),
+                                ColorUtils.withAlpha(Color.GREEN, 0.25F));
                     }
                 } finally {
                     RenderUtils.stopDrawVirtual(stack);
@@ -178,17 +182,17 @@ public class BowEnhance extends BaseModule {
         }
     }
 
-    public void bowActionMovement(Event<ServerboundPlayerActionPacket> event, @Nullable Entity entity, float initialVelocity) {
+    public void bowActionMovement(
+            Event<ServerboundPlayerActionPacket> event, @Nullable Entity entity, float initialVelocity) {
         Vec2 playerPitchYaw = new Vec2(mc.player.getXRot(), mc.player.getYRot());
         var facing = entity == null
                 ? mc.player.getLookAngle().normalize()
                 : CombatTasks.getPositionPredict()
                         .predictAimPositionForEntity(entity, 3600000)
                         .subtract(mc.player.getEyePosition());
-        Entity nowMePointingTheEntity =
-                (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)
-                        ? ((EntityHitResult) mc.hitResult).getEntity()
-                        : null;
+        Entity nowMePointingTheEntity = (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)
+                ? ((EntityHitResult) mc.hitResult).getEntity()
+                : null;
         if (nowMePointingTheEntity != null
                 && nowMePointingTheEntity.position().distanceToSqr(mc.player.getEyePosition()) > 50) {
             nowMePointingTheEntity = null;
@@ -276,9 +280,9 @@ public class BowEnhance extends BaseModule {
                             currentPlayerPos, currentPlayerPos.add(finalMove), false, 161, true);
                     if (!tpSequence.isEmpty()) {
                         Vec2 redirectTarget = null;
-                        Debug.chat(
-                                Component.literal("[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
-                                        .withStyle(ChatFormatting.GREEN));
+                        Debug.chat(Component.literal(
+                                        "[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
+                                .withStyle(ChatFormatting.GREEN));
                         List<MovTasks.MovInfo> movements = new ArrayList<>();
                         int size = tpSequence.size();
                         for (int i = 0; i < size; ++i) {
@@ -393,10 +397,9 @@ public class BowEnhance extends BaseModule {
                 : CombatTasks.getPositionPredict()
                         .predictAimPositionForEntity(entity, 3600000)
                         .subtract(mc.player.getEyePosition());
-        Entity nowMePointingTheEntity =
-                (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)
-                        ? ((EntityHitResult) mc.hitResult).getEntity()
-                        : null;
+        Entity nowMePointingTheEntity = (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)
+                ? ((EntityHitResult) mc.hitResult).getEntity()
+                : null;
         if (nowMePointingTheEntity != null
                 && nowMePointingTheEntity.position().distanceToSqr(mc.player.getEyePosition()) > 50) {
             nowMePointingTheEntity = null;
@@ -482,9 +485,9 @@ public class BowEnhance extends BaseModule {
                     java.util.List<Vec3> tpSequence = MovTasks.generateTpSequence(
                             currentPlayerPos, currentPlayerPos.add(finalMove), false, 161, true);
                     if (!tpSequence.isEmpty()) {
-                        Debug.chat(
-                                Component.literal("[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
-                                        .withStyle(ChatFormatting.GREEN));
+                        Debug.chat(Component.literal(
+                                        "[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
+                                .withStyle(ChatFormatting.GREEN));
                         List<MovTasks.MovInfo> movements = new ArrayList<>();
                         int size = tpSequence.size();
                         for (int i = 0; i < size; ++i) {

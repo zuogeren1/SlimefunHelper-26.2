@@ -34,7 +34,8 @@ public class BeaconEnhance extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onScreenInitialize);
+        registerListener(
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onScreenInitialize);
     }
 
     public void onScreenInitialize(Event<Screen> e) {

@@ -12,14 +12,14 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.game.ClientboundRecipeBookAddPacket;
 import net.minecraft.network.protocol.game.ClientboundRecipeBookRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket;
-import net.minecraft.world.item.crafting.*;
-import net.minecraft.world.item.crafting.display.*;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.context.ContextMap;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.display.*;
 import net.minecraft.world.item.crafting.display.FurnaceRecipeDisplay;
 import net.minecraft.world.item.crafting.display.RecipeDisplay;
 import net.minecraft.world.item.crafting.display.RecipeDisplayEntry;
@@ -148,24 +148,27 @@ public class RecipeTasks {
         } else if (instance instanceof ShapelessCraftingRecipeDisplay shapeless) {
             int var = 0;
             for (var i : shapeless.ingredients()) {
-                ingredients[var++] = new RecipeIngredient(i.resolveForStacks(map).toArray(ItemStack[]::new));
+                ingredients[var++] =
+                        new RecipeIngredient(i.resolveForStacks(map).toArray(ItemStack[]::new));
             }
             for (; var < 9; ++var) {
                 ingredients[var] = RecipeIngredient.EMPTY;
             }
         } else if (instance instanceof FurnaceRecipeDisplay shaped) {
-            ingredients[0] =
-                    new RecipeIngredient(shaped.ingredient().resolveForStacks(map).toArray(ItemStack[]::new));
+            ingredients[0] = new RecipeIngredient(
+                    shaped.ingredient().resolveForStacks(map).toArray(ItemStack[]::new));
             for (var i = 1; i < 9; ++i) {
                 ingredients[i] = RecipeIngredient.EMPTY;
             }
         } else if (instance instanceof StonecutterRecipeDisplay shaped) {
-            ingredients[0] = new RecipeIngredient(shaped.input().resolveForStacks(map).toArray(ItemStack[]::new));
+            ingredients[0] =
+                    new RecipeIngredient(shaped.input().resolveForStacks(map).toArray(ItemStack[]::new));
             for (var i = 1; i < 9; ++i) {
                 ingredients[i] = RecipeIngredient.EMPTY;
             }
         } else if (instance instanceof SmithingRecipeDisplay shaped) {
-            ingredients[1] = new RecipeIngredient(shaped.base().resolveForStacks(map).toArray(ItemStack[]::new));
+            ingredients[1] =
+                    new RecipeIngredient(shaped.base().resolveForStacks(map).toArray(ItemStack[]::new));
             ingredients[2] =
                     new RecipeIngredient(shaped.addition().resolveForStacks(map).toArray(ItemStack[]::new));
             ingredients[0] =

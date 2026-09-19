@@ -45,7 +45,8 @@ public class NoGround extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onSendMovePacket);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onSendMovePacket);
     }
 
     public void onSendMovePacket(Event<ServerboundMovePlayerPacket> event) {

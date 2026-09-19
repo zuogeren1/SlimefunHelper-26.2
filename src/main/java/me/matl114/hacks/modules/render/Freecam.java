@@ -71,8 +71,7 @@ public class Freecam extends BaseModule implements LegalMovementManager.Movement
         registerListener(Listener.getTeleportationConfirm(), this::onPosResync);
         registerListener(Listener.getPostGameTick(), this::onTick);
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class),
-                this::onStopInteractWithSelf);
+                Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class), this::onStopInteractWithSelf);
         registerListener(Listener.getPlayerChangeLook(), this::onPlayerChangeLook);
         registerListener(Listener.getMouseScroll(), this::onScrollSpeedAdjust);
     }

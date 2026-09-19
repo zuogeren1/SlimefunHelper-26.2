@@ -118,8 +118,9 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
                                             .stream())
                             .toList()));
         } else {
-            labelElement = LabelElement.instance(Component.translatable("widget.gui.inventory-view-screen.virtual-screen")
-                            .append(Component.translatable("widget.gui.inventory-view-screen.click-slot")))
+            labelElement = LabelElement.instance(
+                            Component.translatable("widget.gui.inventory-view-screen.virtual-screen")
+                                    .append(Component.translatable("widget.gui.inventory-view-screen.click-slot")))
                     .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                             "widget.gui.inventory-view-screen.click-slot.tooltips", "")));
         }
@@ -162,7 +163,16 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
         ;
     }
 
-    protected static final ItemStack ICON_UNKNOWN = new ItemStack(Items.BARRIER);
+    // 26.2: ItemStack 必须在组件绑定之后才能构造，改为首次访问时创建
+    private static ItemStack iconUnknownCache = null;
+
+    protected static ItemStack iconUnknown() {
+        if (iconUnknownCache == null) {
+            iconUnknownCache = new ItemStack(Items.BARRIER);
+        }
+        return iconUnknownCache;
+    }
+
     protected ItemStack cursorStack = ItemStack.EMPTY;
 
     protected DrawableWidget makeIcon(Slot screen) {

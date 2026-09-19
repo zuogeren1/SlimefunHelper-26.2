@@ -20,7 +20,8 @@ public abstract class ItemVersionedSpearMixin {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/world/item/ItemStack;has(Lnet/minecraft/core/component/DataComponentType;)Z",
+                            target =
+                                    "Lnet/minecraft/world/item/ItemStack;has(Lnet/minecraft/core/component/DataComponentType;)Z",
                             ordinal = 1))
     private boolean fixSpearUse1(ItemStack instance, DataComponentType componentType, Operation<Boolean> original) {
         if (componentType == DataComponents.KINETIC_WEAPON && SpearEnhance.INSTANCE.fixOldVersionSpear.get()) {
@@ -34,7 +35,8 @@ public abstract class ItemVersionedSpearMixin {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/world/item/ItemStack;has(Lnet/minecraft/core/component/DataComponentType;)Z",
+                            target =
+                                    "Lnet/minecraft/world/item/ItemStack;has(Lnet/minecraft/core/component/DataComponentType;)Z",
                             ordinal = 1))
     private boolean fixSpearUse2(ItemStack instance, DataComponentType componentType, Operation<Boolean> original) {
         if (componentType == DataComponents.KINETIC_WEAPON && SpearEnhance.INSTANCE.fixOldVersionSpear.get()) {

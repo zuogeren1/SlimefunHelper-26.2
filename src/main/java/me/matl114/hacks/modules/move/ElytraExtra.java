@@ -39,9 +39,9 @@ import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VItem;
 import me.matl114.versioned.api.VPacket;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.entity.*;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ServerboundPongPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
@@ -50,12 +50,11 @@ import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityTypes;
@@ -67,6 +66,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -315,15 +315,15 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                 Listener.getEntityRemoveListener().getChannel(EntityTypes.FIREWORK_ROCKET), this::onFireworkRemove);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
-        registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::handleMaceAttack);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::handleMaceAttack);
         registerListener(Listener.getGameJoinPoint(), this::onGameJoinAutoStartFallFlying);
         registerListener(Listener.getPlayerSwitchFallFlying(), this::onMonitorFallFlying, Integer.MAX_VALUE - 1);
         registerListener(Listener.getPlayerSwitchFallFlying(), this::onElytraFlightStart, Integer.MAX_VALUE - 1);
         registerListener(
                 Listener.getPacketPoint().getChannel(ServerboundPlayerCommandPacket.class), this::onElytraFlightRocket);
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundAcceptTeleportationPacket.class), this::onAcceptTeleportation);
+                Listener.getPacketPoint().getChannel(ServerboundAcceptTeleportationPacket.class),
+                this::onAcceptTeleportation);
         registerListener(Listener.getPostGameTick(), this::onArmorStateTick);
     }
 
@@ -562,7 +562,8 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                                     MovTasks.getMovExtra().sendPacketsForPreStartFallFlying();
                                     mc.getConnection()
                                             .send(new ServerboundPlayerCommandPacket(
-                                                    mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+                                                    mc.player,
+                                                    ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                                     MovTasks.getMovExtra().sendPacketsForPostStartFallFlying();
                                 }
                             } else {
@@ -672,7 +673,8 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                 && !shouldUseDelayMovementAttackMaceFix()) {
             // try stop
             mc.getConnection()
-                    .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+                    .send(new ServerboundPlayerCommandPacket(
+                            mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
             // current not armor flying
             if (!isCurrentArmorGliding()) {
                 // not armor fly, do reset fly
@@ -719,7 +721,8 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
     }
 
     private boolean canUnbreakableFlyItem(ItemStack item) {
-        return item.count() == 0 || (!VItem.getInstance().canGlide(item) && mc.player.isEquippableInSlot(item, EquipmentSlot.CHEST));
+        return item.count() == 0
+                || (!VItem.getInstance().canGlide(item) && mc.player.isEquippableInSlot(item, EquipmentSlot.CHEST));
     }
 
     public int findEmptyPlaceForElytra() {
@@ -1158,13 +1161,19 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                         if (findResult.index() == InventoryUtils.getSelectedSlot()) {
                             timerVanilla.fire();
                             Listener.sendPacketNoEvents(new ServerboundUseItemPacket(
-                                    InteractionHand.MAIN_HAND, NetworkUtils.generateNextSequence(), lastYaw, lastPitch));
+                                    InteractionHand.MAIN_HAND,
+                                    NetworkUtils.generateNextSequence(),
+                                    lastYaw,
+                                    lastPitch));
                         } else {
                             callback = InvExtra.INSTANCE.swapInventoryIndexToOffhand(findResult.index());
                             if (callback != null) {
                                 timerVanilla.fire();
                                 Listener.sendPacketNoEvents(new ServerboundUseItemPacket(
-                                        InteractionHand.OFF_HAND, NetworkUtils.generateNextSequence(), lastYaw, lastPitch));
+                                        InteractionHand.OFF_HAND,
+                                        NetworkUtils.generateNextSequence(),
+                                        lastYaw,
+                                        lastPitch));
                                 callback.run();
                             }
                         }
@@ -1422,8 +1431,7 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                 // simulation
                 Vec3 vec3d = mc.player.getDeltaMovement().scale(4);
                 Vec3 simu2 = MovTasks.simulateMovement(player, mc.player.position(), vec3d, false);
-                if (vec3d.horizontalDistance() > 0.3 && !Mth.equal(simu2.x, vec3d.x)
-                        || !Mth.equal(simu2.z, vec3d.z)) {
+                if (vec3d.horizontalDistance() > 0.3 && !Mth.equal(simu2.x, vec3d.x) || !Mth.equal(simu2.z, vec3d.z)) {
 
                     // player.setVelocity(vec3d.multiply(0.3 / speed));
                     movementManagerEvent.context.markForResetRot();
@@ -1469,8 +1477,7 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                 // use firework to control server motion
                 Vec3 vec3d = mc.player.getLookAngle().scale(0.85 * 6);
                 Vec3 simu2 = MovTasks.simulateMovement(player, mc.player.position(), vec3d, false);
-                if (!Mth.equal(simu2.x, vec3d.x)
-                        || !Mth.equal(simu2.z, vec3d.z)) {
+                if (!Mth.equal(simu2.x, vec3d.x) || !Mth.equal(simu2.z, vec3d.z)) {
 
                     // player.setVelocity(vec3d.multiply(0.3 / speed));
                     triggerKinetic = 1;
@@ -1487,8 +1494,7 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
             if (!controlled && !canControl) {
                 Vec3 vec3d = mc.player.getDeltaMovement().scale(6);
                 Vec3 simu2 = MovTasks.simulateMovement(player, mc.player.position(), vec3d, false);
-                if (!Mth.equal(simu2.x, vec3d.x)
-                        || !Mth.equal(simu2.z, vec3d.z)) {
+                if (!Mth.equal(simu2.x, vec3d.x) || !Mth.equal(simu2.z, vec3d.z)) {
 
                     // player.setVelocity(vec3d.multiply(0.3 / speed));
                     triggerKinetic = 2;
@@ -1709,8 +1715,7 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
         if (autoTakeOffFlag) {
             if (player.isFallFlying()) {
 
-                if (PlayerStateManager.INSTANCE.glidingTicks > autoTakeOffRetryGt.get()
-                        && !mc.player.isInWater()) {
+                if (PlayerStateManager.INSTANCE.glidingTicks > autoTakeOffRetryGt.get() && !mc.player.isInWater()) {
                     lastOnGroundOrInWaterAutoTakeOff = false;
                     autoTakeOffFlag = false;
                 } else {
@@ -2142,8 +2147,8 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
         //            }
         //        }
         switch (presetEvent.context.getValue()) {
-            case AC_GRIM, AC_GRIM_LEGACY -> noKineticMode.set(
-                    noKineticMode.get().withValue(new WrapEnum<>(Configs.BypassMode.BYPASS_GRIM)));
+            case AC_GRIM, AC_GRIM_LEGACY ->
+                noKineticMode.set(noKineticMode.get().withValue(new WrapEnum<>(Configs.BypassMode.BYPASS_GRIM)));
             default -> noKineticMode.set(noKineticMode.get().withValue(new WrapEnum<>(Configs.BypassMode.NO_BYPASS)));
         }
         switch (presetEvent.context.getValue()) {

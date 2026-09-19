@@ -8,8 +8,6 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import me.matl114.utils.annotations.NeedTest;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -24,6 +22,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.BeehiveBlock;
 import net.minecraft.world.level.block.BeetrootBlock;
 import net.minecraft.world.level.block.Block;
@@ -56,6 +55,7 @@ import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.SweetBerryBushBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -214,13 +214,15 @@ public class FarmingUtils {
             }
 
             if (block1 instanceof SnowLayerBlock
-                    && state2.equals(state1.setValue(SnowLayerBlock.LAYERS, Math.min(8, state1.getValue(SnowLayerBlock.LAYERS) + 1)))) {
+                    && state2.equals(state1.setValue(
+                            SnowLayerBlock.LAYERS, Math.min(8, state1.getValue(SnowLayerBlock.LAYERS) + 1)))) {
                 return Pair.of(isItem(block1.asItem()), hit(pos, Direction.UP, 0.5, 1.0, 0.5));
             }
 
             if (block1 instanceof CandleBlock) {
                 if (state1.getValue(CandleBlock.CANDLES) < 4
-                        && state2.equals(state1.setValue(CandleBlock.CANDLES, state1.getValue(CandleBlock.CANDLES) + 1))) {
+                        && state2.equals(
+                                state1.setValue(CandleBlock.CANDLES, state1.getValue(CandleBlock.CANDLES) + 1))) {
                     return Pair.of(isItem(block1.asItem()), null);
                 }
                 if (state1.getValue(CandleBlock.LIT) && state2.equals(state1.setValue(CandleBlock.LIT, false))) {
@@ -235,7 +237,8 @@ public class FarmingUtils {
 
             if (block1 instanceof SeaPickleBlock
                     && state1.getValue(SeaPickleBlock.PICKLES) < 4
-                    && state2.equals(state1.setValue(SeaPickleBlock.PICKLES, state1.getValue(SeaPickleBlock.PICKLES) + 1))) {
+                    && state2.equals(
+                            state1.setValue(SeaPickleBlock.PICKLES, state1.getValue(SeaPickleBlock.PICKLES) + 1))) {
                 return Pair.of(isItem(block1.asItem()), null);
             }
 
@@ -248,8 +251,8 @@ public class FarmingUtils {
 
             if (block1 instanceof LeafLitterBlock
                     && state1.getValue(LeafLitterBlock.AMOUNT) < 4
-                    && state2.equals(state1.setValue(
-                            LeafLitterBlock.AMOUNT, state1.getValue(LeafLitterBlock.AMOUNT) + 1))) {
+                    && state2.equals(
+                            state1.setValue(LeafLitterBlock.AMOUNT, state1.getValue(LeafLitterBlock.AMOUNT) + 1))) {
                 return Pair.of(isItem(block1.asItem()), null);
             }
 
@@ -302,8 +305,8 @@ public class FarmingUtils {
 
             if (block1 instanceof RespawnAnchorBlock
                     && state1.getValue(RespawnAnchorBlock.CHARGE) < 4
-                    && state2.equals(
-                            state1.setValue(RespawnAnchorBlock.CHARGE, state1.getValue(RespawnAnchorBlock.CHARGE) + 1))) {
+                    && state2.equals(state1.setValue(
+                            RespawnAnchorBlock.CHARGE, state1.getValue(RespawnAnchorBlock.CHARGE) + 1))) {
                 return Pair.of(isItem(Items.GLOWSTONE), null);
             }
 
@@ -331,7 +334,8 @@ public class FarmingUtils {
             }
 
             if (block1 instanceof CopperGolemStatueBlock
-                    && state1.getValue(CopperGolemStatueBlock.POSE).getNextPose() == state2.getValue(CopperGolemStatueBlock.POSE)
+                    && state1.getValue(CopperGolemStatueBlock.POSE).getNextPose()
+                            == state2.getValue(CopperGolemStatueBlock.POSE)
                     && state1.getValue(CopperGolemStatueBlock.FACING) == state2.getValue(CopperGolemStatueBlock.FACING)
                     && state1.getValue(CopperGolemStatueBlock.WATERLOGGED)
                             == state2.getValue(CopperGolemStatueBlock.WATERLOGGED)) {

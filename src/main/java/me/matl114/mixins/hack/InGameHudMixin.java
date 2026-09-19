@@ -7,9 +7,8 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.DebugScreenOverlay;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Final;
@@ -21,12 +20,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(value = Gui.class, priority = 10)
+@Mixin(value = Hud.class, priority = 10)
 public abstract class InGameHudMixin {
-    @Shadow
-    @Final
-    private DebugScreenOverlay debugOverlay;
-
     @Shadow
     @Final
     private Minecraft minecraft;
@@ -43,7 +38,7 @@ public abstract class InGameHudMixin {
     @Inject(
             at = @At("HEAD"),
             method =
-                    "renderTabList(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V")
+                    "extractTabList(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V")
     private void rejectWurstHud(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (RenderExtra.INSTANCE.noWurstHud.get()) {
             this.tmpValue3 = true;
@@ -59,7 +54,7 @@ public abstract class InGameHudMixin {
     }
 
     @Inject(
-            method = "renderTabList",
+            method = "extractTabList",
             at =
                     @At(
                             value = "INVOKE",
@@ -77,13 +72,13 @@ public abstract class InGameHudMixin {
     }
 
     @WrapWithCondition(
-            method = "renderCameraOverlays",
+            method = "extractCameraOverlays",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;renderSpyglassOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
-    private boolean onRenderSpyGlass(Gui instance, GuiGraphicsExtractor context, float scale) {
+                                    "Lnet/minecraft/client/gui/Hud;extractSpyglassOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+    private boolean onRenderSpyGlass(Hud instance, GuiGraphicsExtractor context, float scale) {
         if (NoRender.INSTANCE.noItemOverlay()) {
             return false;
         }
@@ -91,14 +86,14 @@ public abstract class InGameHudMixin {
     }
 
     @WrapWithCondition(
-            method = "renderCameraOverlays",
+            method = "extractCameraOverlays",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;renderTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+                                    "Lnet/minecraft/client/gui/Hud;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
                             ordinal = 0))
-    private boolean onRenderHeadItem(Gui instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+    private boolean onRenderHeadItem(Hud instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
         if (NoRender.INSTANCE.noItemOverlay()) {
             return false;
         }
@@ -106,14 +101,14 @@ public abstract class InGameHudMixin {
     }
 
     @WrapWithCondition(
-            method = "renderCameraOverlays",
+            method = "extractCameraOverlays",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;renderTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+                                    "Lnet/minecraft/client/gui/Hud;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
                             ordinal = 1))
-    private boolean onRenderFreeze(Gui instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+    private boolean onRenderFreeze(Hud instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
         if (NoRender.INSTANCE.noFreezeOverlay()) {
             return false;
         }
@@ -121,13 +116,13 @@ public abstract class InGameHudMixin {
     }
 
     @WrapWithCondition(
-            method = "renderCameraOverlays",
+            method = "extractCameraOverlays",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;renderPortalOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
-    private boolean onRenderPortal(Gui instance, GuiGraphicsExtractor context, float scale) {
+                                    "Lnet/minecraft/client/gui/Hud;extractPortalOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+    private boolean onRenderPortal(Hud instance, GuiGraphicsExtractor context, float scale) {
         if (NoRender.INSTANCE.noPortalOverlay()) {
             return false;
         }
@@ -135,13 +130,13 @@ public abstract class InGameHudMixin {
     }
 
     @WrapWithCondition(
-            method = "renderCameraOverlays",
+            method = "extractCameraOverlays",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;renderVignette(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/entity/Entity;)V"))
-    private boolean onRenderVignette(Gui instance, GuiGraphicsExtractor context, Entity entity) {
+                                    "Lnet/minecraft/client/gui/Hud;extractVignette(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/entity/Entity;)V"))
+    private boolean onRenderVignette(Hud instance, GuiGraphicsExtractor context, Entity entity) {
         if (NoRender.INSTANCE.noVignetteOverlay()) {
             return false;
         }

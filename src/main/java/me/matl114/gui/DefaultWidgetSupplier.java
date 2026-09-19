@@ -1,6 +1,8 @@
 package me.matl114.gui;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import me.matl114.accessors.gui.TextFieldAccess;
 import me.matl114.gui.basic.AbstractElement;
 import me.matl114.gui.basic.ButtonAction;
@@ -72,19 +74,25 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
                         0,
                         builder.message == null ? Component.empty() : builder.message);
         if (builder.textPredicate != null) {
-            // 26.2 移除了 EditBox.setFilter(Predicate)，改用 setResponder 实现等价的输入过滤：
-            // 逐个字符用 predicate 校验，剔除不合法的字符后回写。
+            // 26.2 移除了 EditBox.setFilter(Predicate)。旧版谓词作用于「整串」、
+            // 整串不通过即整体拒绝；逐字符过滤会让 s -> s.length() <= 8 这类谓词恒真而失效。
+            // 这里改为整串校验，不通过时回退到上一个合法值。
+            // applying 标志用于防止 setValue 再次触发 responder 造成递归。
+            AtomicReference<String> lastValid = new AtomicReference<>("");
+            AtomicBoolean applying = new AtomicBoolean(false);
             textFieldWidget.setResponder(value -> {
-                StringBuilder sb = new StringBuilder(value.length());
-                for (int i = 0; i < value.length(); i++) {
-                    char c = value.charAt(i);
-                    if (builder.textPredicate.test(String.valueOf(c))) {
-                        sb.append(c);
-                    }
+                if (applying.get()) {
+                    return;
                 }
-                String filtered = sb.toString();
-                if (!filtered.equals(value)) {
-                    textFieldWidget.setValue(filtered);
+                if (builder.textPredicate.test(value)) {
+                    lastValid.set(value);
+                } else {
+                    applying.set(true);
+                    try {
+                        textFieldWidget.setValue(lastValid.get());
+                    } finally {
+                        applying.set(false);
+                    }
                 }
             });
         }

@@ -120,7 +120,8 @@ public class BindCommand extends BaseModule implements IHotKey {
 
     private void listBindings(CommandExecution execution, ArgumentInputStream args) {
         List<Pair<MultiKeyBind, StringFormat>> list = commands.get().list();
-        execution.sendMessage(Component.literal("bindc 当前绑定: " + list.size() + " 条").withStyle(ChatFormatting.GREEN));
+        execution.sendMessage(
+                Component.literal("bindc 当前绑定: " + list.size() + " 条").withStyle(ChatFormatting.GREEN));
         for (int i = 0; i < list.size(); ++i) {
             Pair<MultiKeyBind, StringFormat> binding = list.get(i);
             MultiKeyBind hotkey = binding.getFirst();

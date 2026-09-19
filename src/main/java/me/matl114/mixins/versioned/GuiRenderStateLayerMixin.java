@@ -12,8 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GuiRenderState.Node.class)
 public abstract class GuiRenderStateLayerMixin implements GuiRenderStateLayerAccess {
     // add depth impl
+    // 26.2: GuiRenderState$Node 的构造器带一个 Node 参数，@Inject 的 handler 必须一并声明
     @Inject(method = "<init>", at = @At(value = "RETURN"))
-    private void onInit(CallbackInfo ci) {
+    private void onInit(GuiRenderState.Node node, CallbackInfo ci) {
         this.depthLevel = DrawContext_v1_21_11.getCurrentDepthLevel();
     }
 

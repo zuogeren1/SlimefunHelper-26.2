@@ -145,8 +145,7 @@ public class ForwardTp extends BaseModule {
         return lastAvailablePos;
     }
 
-    public static Vec3 calculateNextWallPosition(
-            Entity executor, Vec3 curPose, Vec3 lookAt, double delta, double max) {
+    public static Vec3 calculateNextWallPosition(Entity executor, Vec3 curPose, Vec3 lookAt, double delta, double max) {
         //        double stepHeight = executor.getStepHeight();
         //        boolean onGround = executor.isOnGround();
         lookAt = lookAt.normalize();

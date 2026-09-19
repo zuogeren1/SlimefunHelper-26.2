@@ -21,8 +21,8 @@ public class StringListModifyScreen<T> extends ConfirmingBigScreen {
 
     public StringListModifyScreen(ListAttrKeyValue<T> list, Consumer<ListAttrKeyValue<T>> consumer) {
         super(Component.empty());
-        setTitleLabel(
-                Component.translatable("widget.gui.string-list-modify-screen.title").withStyle(ChatFormatting.GREEN));
+        setTitleLabel(Component.translatable("widget.gui.string-list-modify-screen.title")
+                .withStyle(ChatFormatting.GREEN));
         this.listAttrKeyValue = list;
         this.list = new ArrayList<>(this.listAttrKeyValue.createAttrKeyValueForElements());
         this.consumer = consumer;

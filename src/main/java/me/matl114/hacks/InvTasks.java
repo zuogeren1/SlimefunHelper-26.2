@@ -26,8 +26,6 @@ import me.matl114.utils.itemdb.ItemStackData;
 import me.matl114.utils.itemdb.ItemStackDataWithAmount;
 import me.matl114.utils.tasks.LimitedSpeedExecutor;
 import net.minecraft.ChatFormatting;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -54,11 +52,13 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.DoubleBlockCombiner;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -130,7 +130,8 @@ public class InvTasks {
                 if (!(slot.container instanceof Inventory)) {
                     final int index = i;
                     clickExecutor.execute(() -> {
-                        mc.gameMode.handleContainerInput(handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
+                        mc.gameMode.handleContainerInput(
+                                handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
                     });
                 }
             }
@@ -147,7 +148,8 @@ public class InvTasks {
                 if (slot.container instanceof Inventory) {
                     final int index = i;
                     clickExecutor.execute(() -> {
-                        mc.gameMode.handleContainerInput(handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
+                        mc.gameMode.handleContainerInput(
+                                handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
                     });
                 }
             }
@@ -302,7 +304,8 @@ public class InvTasks {
                                 cleanedStack, ItemStackUtils.getCleanedItem(slot2.getItem(), false, false))) {
                     final int index = i;
                     clickExecutor.execute(() -> {
-                        mc.gameMode.handleContainerInput(handler.containerId, index, 1, ContainerInput.THROW, mc.player);
+                        mc.gameMode.handleContainerInput(
+                                handler.containerId, index, 1, ContainerInput.THROW, mc.player);
                     });
                 }
             }
@@ -466,7 +469,9 @@ public class InvTasks {
                         try {
                             String nbtSeri = entry.getKey()
                                     .codecOrThrow()
-                                    .encodeStart(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE), val.get())
+                                    .encodeStart(
+                                            ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE),
+                                            val.get())
                                     .getOrThrow()
                                     .toString();
                             builder.append(cmp).append('=').append(nbtSeri);
@@ -533,8 +538,7 @@ public class InvTasks {
     @ApiMethod
     public static SlotMatchingResult allSlotMatch(AbstractContainerScreen handledScreen) {
         var result = new SlotMatchingResult();
-        int[] array = IntStream.range(0, handledScreen.getMenu().slots.size())
-                .toArray();
+        int[] array = IntStream.range(0, handledScreen.getMenu().slots.size()).toArray();
         result.slots = new IntArrayList(array);
         return result;
     }
@@ -585,7 +589,8 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static SlotMatchingResult getItemStackMatchingSlot(AbstractContainerMenu screen, ItemStack stack, int... list) {
+    public static SlotMatchingResult getItemStackMatchingSlot(
+            AbstractContainerMenu screen, ItemStack stack, int... list) {
         if (stack.isEmpty()) return getEmptySlots(screen, list);
         var result = new SlotMatchingResult();
         result.setItemSample(stack);
@@ -678,8 +683,7 @@ public class InvTasks {
             // 直接填满就行
             for (var i : trustedSlotIndexList) {
                 if (!handler.getSlot(i).getItem().isEmpty()
-                        && ItemStack.isSameItemSameComponents(
-                                handler.getSlot(i).getItem(), itemStack)) {
+                        && ItemStack.isSameItemSameComponents(handler.getSlot(i).getItem(), itemStack)) {
                     moveStackFromTo(handler, i, toSlot);
                     if (handler.getSlot(toSlot).getItem().getCount() >= toAmount) {
                         break;
@@ -690,8 +694,7 @@ public class InvTasks {
             // 考虑数量
             for (var i : trustedSlotIndexList) {
                 if (!handler.getSlot(i).getItem().isEmpty()
-                        && ItemStack.isSameItemSameComponents(
-                                handler.getSlot(i).getItem(), itemStack)) {
+                        && ItemStack.isSameItemSameComponents(handler.getSlot(i).getItem(), itemStack)) {
                     int currentAmount = handler.getSlot(toSlot).getItem().getCount();
                     //
                     if (currentAmount + handler.getSlot(i).getItem().getCount() > toAmount) {
@@ -711,7 +714,11 @@ public class InvTasks {
 
     @ApiMethod
     public static void moveRecipePatternToContainer(
-            AbstractContainerMenu screen, ItemStack[] ingredients, int[] slot, int patternAmount, boolean removeOrigin) {
+            AbstractContainerMenu screen,
+            ItemStack[] ingredients,
+            int[] slot,
+            int patternAmount,
+            boolean removeOrigin) {
         int[] playerInv = getPlayerInventorySlots(screen).toIntArray();
         moveRecipePatternToContainer(
                 screen,
@@ -841,7 +848,8 @@ public class InvTasks {
                     int distanceToHalf = Math.abs(halfTrans - amount);
                     int minDelta = Math.min(Math.min(amount, currentFromAmount - amount), distanceToHalf);
                     if (minDelta == amount) {
-                        mc.gameMode.handleContainerInput(handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
+                        mc.gameMode.handleContainerInput(
+                                handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
                         for (var i = 0; i < amount; ++i) {
                             mc.gameMode.handleContainerInput(
                                     handler.containerId, toSlot, 1, ContainerInput.PICKUP, mc.player);
@@ -852,12 +860,14 @@ public class InvTasks {
                         }
                         return;
                     } else if (minDelta == currentFromAmount - amount) {
-                        mc.gameMode.handleContainerInput(handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
+                        mc.gameMode.handleContainerInput(
+                                handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
                         for (int i = 0; i < minDelta; ++i) {
                             mc.gameMode.handleContainerInput(
                                     handler.containerId, fromIndex, 1, ContainerInput.PICKUP, mc.player);
                         }
-                        mc.gameMode.handleContainerInput(handler.containerId, toSlot, 0, ContainerInput.PICKUP, mc.player);
+                        mc.gameMode.handleContainerInput(
+                                handler.containerId, toSlot, 0, ContainerInput.PICKUP, mc.player);
                         return;
                     } else {
                         //
@@ -895,8 +905,23 @@ public class InvTasks {
         getChestHistory().openInventoryCacheScreen();
     }
 
-    public static final ItemStack INV_ICON_UNKNOWN = new ItemStack(Items.BARRIER);
-    private static final ItemStack INV_ICON_NO_ITEM = new ItemStack(Items.BEDROCK);
+    // 26.2: ItemStack 必须在组件绑定之后才能构造，改为首次访问时创建
+    private static ItemStack invIconUnknownCache = null;
+    private static ItemStack invIconNoItemCache = null;
+
+    public static ItemStack invIconUnknown() {
+        if (invIconUnknownCache == null) {
+            invIconUnknownCache = new ItemStack(Items.BARRIER);
+        }
+        return invIconUnknownCache;
+    }
+
+    public static ItemStack invIconNoItem() {
+        if (invIconNoItemCache == null) {
+            invIconNoItemCache = new ItemStack(Items.BEDROCK);
+        }
+        return invIconNoItemCache;
+    }
 
     public static ItemStack generateIconForScreen(AbstractContainerScreen<?> screen) {
         if (screen instanceof TileInventory tile && !tile.isVirtual()) {
@@ -907,9 +932,9 @@ public class InvTasks {
                     return new ItemStack(itemType);
                 }
             }
-            return INV_ICON_NO_ITEM;
+            return invIconNoItem();
         }
-        return INV_ICON_UNKNOWN;
+        return invIconUnknown();
     }
     // suppress random source use when dropItem
     public static final ThreadLocal<Boolean> SUPPRESS_DROPITEM_SPAWN = ThreadLocal.withInitial(() -> false);

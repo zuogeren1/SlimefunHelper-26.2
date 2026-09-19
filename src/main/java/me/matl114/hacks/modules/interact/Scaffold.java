@@ -20,12 +20,11 @@ import me.matl114.utils.InteractUtils;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.collections.IndexEntry;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
@@ -33,6 +32,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -63,8 +63,8 @@ public class Scaffold extends BaseModule {
                 }
             }
         }
-        searchOffsets.sort(Comparator.comparingInt(
-                v -> (int) Math.max(Math.max(Math.abs(v.getX()), Math.abs(v.getY())), Math.abs(v.getZ()))));
+        searchOffsets.sort(Comparator.comparingInt(v ->
+                (int) Math.max(Math.max(Math.abs(v.getX()), Math.abs(v.getY())), Math.abs(v.getZ()))));
     }
 
     final ModulePath scaffold = makePath(Configs.INTERACT_CONFIG, "interact-scaffold");
@@ -147,9 +147,13 @@ public class Scaffold extends BaseModule {
                 var mode = legalMode.get();
                 // todo: delay movement fix
                 InteractionTasks.handlePlaceMode(
-                        mode, result, offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, swingHand.get());
+                        mode,
+                        result,
+                        offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
+                        swingHand.get());
             } else {
-                InteractionTasks.interactBlock(offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, result, swingHand.get());
+                InteractionTasks.interactBlock(
+                        offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, result, swingHand.get());
             }
         } finally {
             callback.run();

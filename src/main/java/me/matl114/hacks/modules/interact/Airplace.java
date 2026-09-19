@@ -24,6 +24,7 @@ import me.matl114.utils.MathUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.algorithms.StateMachine;
 import me.matl114.utils.entity.PlayerInputUtils;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -31,8 +32,6 @@ import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -42,6 +41,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -117,7 +117,10 @@ public class Airplace extends BaseModule {
                         switch (enableAirWall.get()) {
                             case VANILLA -> {
                                 BlockHitResult newResult = new BlockHitResult(
-                                        block.getLocation(), block.getDirection(), block.getBlockPos(), block.isInside());
+                                        block.getLocation(),
+                                        block.getDirection(),
+                                        block.getBlockPos(),
+                                        block.isInside());
                                 event.context(newResult);
                                 return;
                             }
@@ -206,7 +209,9 @@ public class Airplace extends BaseModule {
                 && targetPos != null
                 && mc.player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof BlockItem block
                 && block != Items.AIR
-                && Vec3.atCenterOf(targetPos).subtract(mc.player.getEyePosition()).horizontalDistanceSqr()
+                && Vec3.atCenterOf(targetPos)
+                                .subtract(mc.player.getEyePosition())
+                                .horizontalDistanceSqr()
                         <= MathUtils.s2(mc.player.blockInteractionRange() + 1)) {
             for (var i = 1; i < 256; ++i) {
                 BlockPos checkPos = targetPos.offset(0, -i, 0);
@@ -319,7 +324,9 @@ public class Airplace extends BaseModule {
             InteractionHand hand = currentTask.hand;
             ItemStack stackInHand = mc.player.getItemInHand(hand);
             if (ItemStack.isSameItem(stackInHand, stack)) {
-                if (Vec3.atCenterOf(targetPos).subtract(mc.player.getEyePosition()).horizontalDistanceSqr()
+                if (Vec3.atCenterOf(targetPos)
+                                .subtract(mc.player.getEyePosition())
+                                .horizontalDistanceSqr()
                         <= MathUtils.s2(mc.player.blockInteractionRange() + 1)) {
                     stateMachine.step();
                 } else {
@@ -407,7 +414,8 @@ public class Airplace extends BaseModule {
             };
             Listener.addPostPacketCatcher(
                     new PacketCatcherImpl(ClientboundContainerSetSlotPacket.class, packetPredicate));
-            Listener.addPostPacketCatcher(new PacketCatcherImpl(ClientboundContainerSetContentPacket.class, packetPredicate));
+            Listener.addPostPacketCatcher(
+                    new PacketCatcherImpl(ClientboundContainerSetContentPacket.class, packetPredicate));
         }
         startWaitTick++;
         machine.markForEndState();
@@ -448,7 +456,8 @@ public class Airplace extends BaseModule {
                     RenderUtils.startDrawVirtual(stack);
                     try {
                         BlockPos pos = block.getBlockPos();
-                        RenderUtils.drawOutlinedBox(stack, Vec3.atLowerCornerOf(pos), Vec3.atLowerCornerOf(pos.offset(1, 1, 1)), Color.RED);
+                        RenderUtils.drawOutlinedBox(
+                                stack, Vec3.atLowerCornerOf(pos), Vec3.atLowerCornerOf(pos.offset(1, 1, 1)), Color.RED);
                     } finally {
                         RenderUtils.stopDrawVirtual(stack);
                     }

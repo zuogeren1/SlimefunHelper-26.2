@@ -125,7 +125,8 @@ public class RenderListener {
             names = {"renderer", "stack"})
     private static final EventChannel<GuiGraphicsExtractor> renderSlot = new EventChannel<>();
 
-    public static void renderSlotInScreen(GuiGraphicsExtractor context, AbstractContainerScreen<?> renderer, Slot stack) {
+    public static void renderSlotInScreen(
+            GuiGraphicsExtractor context, AbstractContainerScreen<?> renderer, Slot stack) {
         if (renderSlot.isEmpty()) return;
         Event<GuiGraphicsExtractor> contextEvent = new Event<>(context, false, false, renderer, stack);
         renderSlot.handleValue(contextEvent);

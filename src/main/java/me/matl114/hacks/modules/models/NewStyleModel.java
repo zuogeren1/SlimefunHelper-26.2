@@ -119,7 +119,8 @@ public class NewStyleModel extends BaseModule {
         for (Item item : BuiltInRegistries.ITEM) {
             Identifier id = new Identifier(
                     NAMESPACE,
-                    PATH_OF_NEW_VERSION + "/" + BuiltInRegistries.ITEM.getKey(item).getPath());
+                    PATH_OF_NEW_VERSION + "/"
+                            + BuiltInRegistries.ITEM.getKey(item).getPath());
             Optional<ItemModel> modelId = RenderListener.getModModel(id);
 
             if (modelId.isPresent()) {

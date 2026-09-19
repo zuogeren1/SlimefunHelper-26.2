@@ -23,8 +23,7 @@ public class NBTUtils {
         return element.tags.computeIfAbsent(key, (k) -> defaultValue.get());
     }
 
-    public static Tag computeIfAbsent(
-            @Nonnull CompoundTag element, String key, Function<String, Tag> defaultValue) {
+    public static Tag computeIfAbsent(@Nonnull CompoundTag element, String key, Function<String, Tag> defaultValue) {
         return element.tags.computeIfAbsent(key, defaultValue);
     }
 
@@ -74,9 +73,9 @@ public class NBTUtils {
         return tag.read(key, codec).orElse(null);
     }
 
-    public static <W> W getValue(
-            @Nonnull CompoundTag tag, String key, Codec<W> codec, HolderLookup.Provider lookup) {
-        return tag.read(key, codec, lookup.createSerializationContext(NbtOps.INSTANCE)).orElse(null);
+    public static <W> W getValue(@Nonnull CompoundTag tag, String key, Codec<W> codec, HolderLookup.Provider lookup) {
+        return tag.read(key, codec, lookup.createSerializationContext(NbtOps.INSTANCE))
+                .orElse(null);
     }
 
     public static <W> W toValue(Tag nbtElement, Codec<W> codec) {

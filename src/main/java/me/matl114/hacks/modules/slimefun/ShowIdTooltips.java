@@ -65,7 +65,8 @@ public class ShowIdTooltips extends BaseModule {
         }
     }
 
-    protected static final Component SLIMEFUN_MODID = Component.literal("Slimefun").withStyle(ChatFormatting.BLUE);
+    protected static final Component SLIMEFUN_MODID =
+            Component.literal("Slimefun").withStyle(ChatFormatting.BLUE);
 
     protected static String GCE_CHICKEN_PATH = "geneticchickengineering:gce_pocket_chicken_dna";
     protected static char[] GCE_GENE_DISPLAY_L = new char[] {'b', 'c', 'd', 'f', 's', 'w'};
@@ -118,12 +119,14 @@ public class ShowIdTooltips extends BaseModule {
                                 int speed = nbt.get(CLT_SEED_GROWTH_PATH) instanceof IntTag it ? it.intValue() : 0;
                                 int strength = nbt.get(CLT_SEED_STRENGTH_PATH) instanceof IntTag it ? it.intValue() : 0;
                                 info.append(Component.literal("等级: ").withStyle(ChatFormatting.YELLOW));
-                                info.append(Component.literal(String.valueOf(level)).withStyle(ChatFormatting.GRAY));
-                                info.append(Component.literal(" 速率: ").withStyle(ChatFormatting.YELLOW));
-                                info.append(Component.literal(String.valueOf(speed)).withStyle(ChatFormatting.GRAY));
-                                info.append(Component.literal(" 强度: ").withStyle(ChatFormatting.YELLOW));
                                 info.append(
-                                        Component.literal(String.valueOf(strength)).withStyle(ChatFormatting.GRAY));
+                                        Component.literal(String.valueOf(level)).withStyle(ChatFormatting.GRAY));
+                                info.append(Component.literal(" 速率: ").withStyle(ChatFormatting.YELLOW));
+                                info.append(
+                                        Component.literal(String.valueOf(speed)).withStyle(ChatFormatting.GRAY));
+                                info.append(Component.literal(" 强度: ").withStyle(ChatFormatting.YELLOW));
+                                info.append(Component.literal(String.valueOf(strength))
+                                        .withStyle(ChatFormatting.GRAY));
                             }
 
                         } else {

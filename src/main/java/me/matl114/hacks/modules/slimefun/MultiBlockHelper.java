@@ -36,20 +36,20 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.DispenserScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec2;
@@ -84,7 +84,8 @@ public class MultiBlockHelper extends BaseModule {
         registerListener(Listener.getPostPlayerUseItemAtBlock(), this::onBlockClick);
         registerListener(Listener.getPreGameTick(), this::onTick);
         registerListener(Listener.getServerLeavePoint(), this::onExit);
-        registerListener(Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onScreenInit);
+        registerListener(
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onScreenInit);
     }
 
     private int lastChatTimestamp = 0;
@@ -184,7 +185,8 @@ public class MultiBlockHelper extends BaseModule {
         if (first.isEmpty()) return;
         if (lastChatTimestamp + 5 * 20 < Tasks.getTick()) {
             Debug.chat(
-                    Component.literal("[MBHelper] Interacting with multiblock: ").withStyle(ChatFormatting.RED),
+                    Component.literal("[MBHelper] Interacting with multiblock: ")
+                            .withStyle(ChatFormatting.RED),
                     first.get().id());
             lastChatTimestamp = Tasks.getTick();
         }
@@ -219,7 +221,8 @@ public class MultiBlockHelper extends BaseModule {
         } else {
             for (int i = 0; i < rateLimit; ++i) {
                 mc.gameMode.startPrediction(
-                        mc.level, (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
+                        mc.level,
+                        (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
             }
             if (delayClick && clickMany) {
                 AtomicInteger count = new AtomicInteger(2);
@@ -228,8 +231,8 @@ public class MultiBlockHelper extends BaseModule {
                             for (int i = 0; i < rateLimit; ++i) {
                                 mc.gameMode.startPrediction(
                                         mc.level,
-                                        (sequence ->
-                                                new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
+                                        (sequence -> new ServerboundUseItemOnPacket(
+                                                InteractionHand.MAIN_HAND, result, sequence)));
                             }
                             return count.decrementAndGet() <= 0;
                         },
@@ -268,7 +271,8 @@ public class MultiBlockHelper extends BaseModule {
                         for (int i = 0; i < clickRate; ++i) {
                             mc.gameMode.startPrediction(
                                     mc.level,
-                                    (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
+                                    (sequence -> new ServerboundUseItemOnPacket(
+                                            InteractionHand.MAIN_HAND, result, sequence)));
                         }
                         ClientAccess.of(mc).setItemUseCooldown(0);
                         return false;
@@ -280,7 +284,8 @@ public class MultiBlockHelper extends BaseModule {
         LegacySnapRotManager.INSTANCE.snapAt(pitchYaw.x, pitchYaw.y, false);
         for (int i = 0; i < clickRate; ++i) {
             mc.gameMode.startPrediction(
-                    mc.level, (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
+                    mc.level,
+                    (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
         }
     }
 
@@ -304,7 +309,8 @@ public class MultiBlockHelper extends BaseModule {
                 mc.gameMode.startPrediction(
                         mc.level, (z) -> new ServerboundUseItemPacket(hand, z, pitchYaw.y, pitchYaw.x));
                 mc.gameMode.startPrediction(
-                        mc.level, (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
+                        mc.level,
+                        (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
             }
             ClientAccess.of(mc).setItemUseCooldown(0);
         } else {
@@ -364,8 +370,8 @@ public class MultiBlockHelper extends BaseModule {
     }
 
     public void clearMultiBlockExecuteTasks() {
-        Debug.chat(
-                Component.literal("[自动多方块] 已清除 %d 个执行中多方块".formatted(screens.size())).withStyle(ChatFormatting.GREEN));
+        Debug.chat(Component.literal("[自动多方块] 已清除 %d 个执行中多方块".formatted(screens.size()))
+                .withStyle(ChatFormatting.GREEN));
         screens.clear();
         executeCursor = 0;
     }

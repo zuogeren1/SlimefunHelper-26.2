@@ -142,9 +142,7 @@ public class WorldManager extends BaseModule {
                         && NBTUtils.resolve(status.getDataContainer(), KEY_VILLAGER_TRADE, KEY_VILLAGER_TRADE_LIST)
                                 instanceof ListTag list
                 ? NBTUtils.toValue(
-                        list,
-                        Codec.list(TradeRecord.CODEC),
-                        mc.getConnection().registryAccess())
+                        list, Codec.list(TradeRecord.CODEC), mc.getConnection().registryAccess())
                 : null;
     }
 

@@ -95,9 +95,11 @@ public class PositionPredict extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundMoveEntityPacket.class), this::onPostEntity);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundTeleportEntityPacket.class), this::onPostEntityPos);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundMoveEntityPacket.class), this::onPostEntity);
+        registerListener(
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundTeleportEntityPacket.class),
+                this::onPostEntityPos);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityPositionSyncPacket.class),
                 this::onPostEntityTeleport);

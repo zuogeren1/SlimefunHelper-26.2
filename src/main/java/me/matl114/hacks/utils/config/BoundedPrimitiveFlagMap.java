@@ -25,8 +25,8 @@ public class BoundedPrimitiveFlagMap<E extends Enum<E>> extends BoundedPrimitive
                     int estimateWidth = 180;
                     int startX = (width - estimateWidth) / 2;
                     return ExecutableWidget.instance(x + startX, y, estimateWidth, height)
-                            .setElementHandler(
-                                    new ButtonElement(TextProvider.of(Component.literal(v.name())), ButtonAction.empty()));
+                            .setElementHandler(new ButtonElement(
+                                    TextProvider.of(Component.literal(v.name())), ButtonAction.empty()));
                 },
                 NBTTypes.BOOLEAN_TYPE,
                 250,

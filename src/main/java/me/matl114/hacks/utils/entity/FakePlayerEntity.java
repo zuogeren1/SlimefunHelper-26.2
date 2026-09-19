@@ -69,9 +69,8 @@ public class FakePlayerEntity extends RemotePlayer {
             if (!this.checkTotemDeathProtection(damageSource)) {
                 this.die(damageSource);
             } else {
-                ClientConnectionAccess.of(Minecraft.getInstance()
-                                .getConnection()
-                                .getConnection())
+                ClientConnectionAccess.of(
+                                Minecraft.getInstance().getConnection().getConnection())
                         .handlePacket(new ClientboundEntityEventPacket(this, EntityEvent.PROTECTED_FROM_DEATH));
             }
         }

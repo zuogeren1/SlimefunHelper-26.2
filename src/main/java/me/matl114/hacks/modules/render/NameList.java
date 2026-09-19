@@ -185,7 +185,8 @@ public class NameList extends INameTag {
 
     public void handleTooManyPlayerList(VDrawContext vdraw) {
         vdraw.pushMatrix();
-        FormattedCharSequence display = Component.literal("......(" + (nameTagInfos.size() - playerListMaxLength.get()) + " more)")
+        FormattedCharSequence display = Component.literal(
+                        "......(" + (nameTagInfos.size() - playerListMaxLength.get()) + " more)")
                 .getVisualOrderText();
         float length = mc.font.getSplitter().stringWidth(display);
         if (right.get()) {

@@ -46,7 +46,8 @@ public class Config implements RefMap {
     private static final Set<Config> configs = new LinkedHashSet<>();
 
     public static final MappedRegistry<Config> REGISTRY = new MappedRegistry<>(
-            ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("slimefunhelper", "configs")), Lifecycle.stable());
+            ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("slimefunhelper", "configs")),
+            Lifecycle.stable());
     private static final Set<Config> allConfigInternal = new LinkedHashSet<>();
 
     @Getter

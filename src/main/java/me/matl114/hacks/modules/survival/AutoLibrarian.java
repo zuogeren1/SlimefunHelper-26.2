@@ -31,8 +31,6 @@ import me.matl114.utils.*;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.render.RenderCollector;
 import net.minecraft.ChatFormatting;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.MerchantScreen;
 import net.minecraft.core.BlockPos;
@@ -58,9 +56,11 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -155,8 +155,7 @@ public class AutoLibrarian extends BaseModule {
                 map2.put(re.getKey(), re.getValue());
             } else {
                 ResourceKey<Enchantment> registryKey = ResourceKey.create(Registries.ENCHANTMENT, re.getKey());
-                Holder<Enchantment> entry =
-                        RegistryUtils.getRegistryEntry(handler.registryAccess(), registryKey);
+                Holder<Enchantment> entry = RegistryUtils.getRegistryEntry(handler.registryAccess(), registryKey);
                 if (entry == null) {
                     map2.put(re.getKey(), re.getValue());
                 } else {
@@ -177,8 +176,7 @@ public class AutoLibrarian extends BaseModule {
         if (handler == null) return;
         Map<Identifier, Integer> map = enchantments.get().idMap();
         Map<Identifier, Integer> map2 = new LinkedHashMap<>(map);
-        Registry<Enchantment> enchantment =
-                RegistryUtils.getRegistry(handler.registryAccess(), Registries.ENCHANTMENT);
+        Registry<Enchantment> enchantment = RegistryUtils.getRegistry(handler.registryAccess(), Registries.ENCHANTMENT);
         for (var re : enchantment.entrySet()) {
             Identifier id = re.getKey().identifier();
             if (!map2.containsKey(id)) {
@@ -335,8 +333,7 @@ public class AutoLibrarian extends BaseModule {
         if (currentState.isAir() || currentState.liquid() || currentState.canBeReplaced()) {
             hasOpened = false;
             if (Objects.equals(professionRegistryKey, VillagerProfession.NONE)) {
-                IndexEntry<ItemStack> findStack =
-                        InventoryUtils.findPlayerItem(s -> s.is(Items.LECTERN), true, false);
+                IndexEntry<ItemStack> findStack = InventoryUtils.findPlayerItem(s -> s.is(Items.LECTERN), true, false);
                 if (findStack != null) {
                     noLecternNotify = false;
                     Runnable callback = InvExtra.INSTANCE.swapInventoryIndexToHand(findStack.index());
@@ -345,7 +342,9 @@ public class AutoLibrarian extends BaseModule {
                                 Vec3.atCenterOf(targetWorkspace).subtract(targetVillager.position()));
                         Interact.INSTANCE.placeBlockStrict(
                                 targetWorkspace,
-                                Blocks.LECTERN.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, direction));
+                                Blocks.LECTERN
+                                        .defaultBlockState()
+                                        .setValue(HorizontalDirectionalBlock.FACING, direction));
                         callback.run();
                         return;
                     }
@@ -474,12 +473,16 @@ public class AutoLibrarian extends BaseModule {
                         mc.gameMode.handleContainerInput(handler.containerId, 2, 1, ContainerInput.PICKUP, mc.player);
                     } else {
                         if (log.get()) {
-                            logI18N("message.module.auto-librarian.auto-lock.no-item", Items.EMERALD.getName(new ItemStack(Items.EMERALD)));
+                            logI18N(
+                                    "message.module.auto-librarian.auto-lock.no-item",
+                                    Items.EMERALD.getName(new ItemStack(Items.EMERALD)));
                         }
                     }
                 } else {
                     if (log.get()) {
-                        logI18N("message.module.auto-librarian.auto-lock.no-item", Items.BOOK.getName(new ItemStack(Items.BOOK)));
+                        logI18N(
+                                "message.module.auto-librarian.auto-lock.no-item",
+                                Items.BOOK.getName(new ItemStack(Items.BOOK)));
                     }
                 }
             }
@@ -589,7 +592,6 @@ public class AutoLibrarian extends BaseModule {
                 BlockPos rightBp = targetWorkSpace.relative(rightPos);
                 if (Objects.equals(playerPos, leftBp)) {
                     Vec3 corner = Vec3.atBottomCenterOf(playerPos)
-
                             .relative(lastDirection.getOpposite(), 0.2)
                             .relative(rightPos, 0.15);
                     if (MathUtils.isInBox(corner, mc.player.position(), 0.05)) {
@@ -599,7 +601,6 @@ public class AutoLibrarian extends BaseModule {
 
                 } else if (Objects.equals(playerPos, rightBp)) {
                     Vec3 corner = Vec3.atBottomCenterOf(playerPos)
-
                             .relative(lastDirection.getOpposite(), 0.23)
                             .relative(leftPos, 0.15);
                     if (MathUtils.isInBox(corner, mc.player.position(), 0.05)) {

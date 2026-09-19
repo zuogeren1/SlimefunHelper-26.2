@@ -9,31 +9,27 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.animal.*;
-import net.minecraft.world.entity.vehicle.*;
-import net.minecraft.world.item.*;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.attribute.EnvironmentAttributes;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.Bucketable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Shearable;
+import net.minecraft.world.entity.animal.*;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.Bucketable;
 import net.minecraft.world.entity.animal.allay.Allay;
 import net.minecraft.world.entity.animal.armadillo.Armadillo;
 import net.minecraft.world.entity.animal.camel.Camel;
@@ -59,11 +55,13 @@ import net.minecraft.world.entity.monster.piglin.PiglinArmPose;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.wanderingtrader.WanderingTrader;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.*;
 import net.minecraft.world.entity.vehicle.ContainerEntity;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import net.minecraft.world.entity.vehicle.minecart.Minecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartCommandBlock;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.ArmorStandItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.BoatItem;
@@ -108,6 +106,7 @@ import net.minecraft.world.item.crafting.RecipePropertySet;
 import net.minecraft.world.item.equipment.Equippable;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.Spawner;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.AbstractCauldronBlock;
 import net.minecraft.world.level.block.AbstractFurnaceBlock;
 import net.minecraft.world.level.block.AnvilBlock;
@@ -166,6 +165,7 @@ import net.minecraft.world.level.block.SuspiciousEffectHolder;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -180,8 +180,7 @@ public class InteractUtils {
     private static final Predicate<ItemStack> ALWAYS_TRUE = stack -> true;
 
     @Nullable
-    public static BlockState getBlockPlacement(
-            Block block, Player player, Level world, BlockHitResult blockHitResult) {
+    public static BlockState getBlockPlacement(Block block, Player player, Level world, BlockHitResult blockHitResult) {
         Item blockItem = block.asItem();
         return blockItem instanceof BlockItem blockItem1
                 ? getBlockPlacement(blockItem1, player, world, blockHitResult)
@@ -209,12 +208,14 @@ public class InteractUtils {
         // cube
         Level world = player.level();
         BlockState state = Blocks.STONE.defaultBlockState();
-        return state.canSurvive(world, pos) && world.isUnobstructed(state, pos, CollisionContext.placementContext(player));
+        return state.canSurvive(world, pos)
+                && world.isUnobstructed(state, pos, CollisionContext.placementContext(player));
     }
     // should equals getBlockPlacement(state.getBlock) != null
     public static boolean canBlockPlace(Player player, BlockPos pos, BlockState state) {
         Level world = player.level();
-        return state.canSurvive(world, pos) && world.isUnobstructed(state, pos, CollisionContext.placementContext(player));
+        return state.canSurvive(world, pos)
+                && world.isUnobstructed(state, pos, CollisionContext.placementContext(player));
     }
 
     public static BlockPos getCurrentPlacePos(Player player, BlockHitResult blockHitResult) {
@@ -229,11 +230,14 @@ public class InteractUtils {
     }
 
     public static InteractionResult simulateInteract(EntityHitResult entityHitResult) {
+        // 1.21.11 这里先做「带命中点」交互，不被接受时回退做「不带命中点」的
+        // interactEntity(player, entity, hand)。但 26.2 的 MultiPlayerGameMode
+        // 已删掉 3 参版本（javap 确认只剩 interact(Player, Entity, EntityHitResult, InteractionHand)），
+        // 旧回退语义无法照搬。移植时误把同一调用复制了一遍，导致首次交互被拒时
+        // 会重复发 ServerboundInteractPacket 并再次执行本地交互副作用。
+        // 按 InteractionTasks.interactEntity 的同批处理方式：去掉该回退分支。
         InteractionResult actionResult = mc.gameMode.interact(
                 mc.player, entityHitResult.getEntity(), entityHitResult, InteractionHand.MAIN_HAND);
-        if (!actionResult.consumesAction()) {
-            actionResult = mc.gameMode.interact(mc.player, entityHitResult.getEntity(), entityHitResult, InteractionHand.MAIN_HAND);
-        }
 
         if (actionResult instanceof InteractionResult.Success) {
             InteractionResult.Success success = (InteractionResult.Success) actionResult;
@@ -333,8 +337,8 @@ public class InteractUtils {
         if (!hasLead) {
             return false;
         }
-        List<Leashable> leashables = Leashable.leashableInArea(
-                world, Vec3.atCenterOf(pos), entity -> entity.getLeashHolder() == player);
+        List<Leashable> leashables =
+                Leashable.leashableInArea(world, Vec3.atCenterOf(pos), entity -> entity.getLeashHolder() == player);
         return !leashables.isEmpty();
     }
 
@@ -529,8 +533,7 @@ public class InteractUtils {
         ENTITY_MAY_INTERACT = result;
     }
 
-    public static boolean isInteractAcceptable(
-            Level world, Player player, Entity entity, ItemStack interactStack) {
+    public static boolean isInteractAcceptable(Level world, Player player, Entity entity, ItemStack interactStack) {
         if (world == null || player == null || entity == null) {
             return false;
         }
@@ -681,7 +684,8 @@ public class InteractUtils {
                     return true;
                 }
                 if (wolf.isOwnedBy(player)) {
-                    if (stack.getItem() instanceof DyeItem dyeItem && stack.get(net.minecraft.core.component.DataComponents.DYE) != wolf.getCollarColor()) {
+                    if (stack.getItem() instanceof DyeItem dyeItem
+                            && stack.get(net.minecraft.core.component.DataComponents.DYE) != wolf.getCollarColor()) {
                         return true;
                     }
                     if (stack.is(Items.WOLF_ARMOR) && !wolf.isBaby() && !wolf.isWearingBodyArmor()) {
@@ -704,7 +708,8 @@ public class InteractUtils {
                 return cat.isFood(stack);
             }
             if (cat.isOwnedBy(player)) {
-                if (stack.getItem() instanceof DyeItem dyeItem && stack.get(net.minecraft.core.component.DataComponents.DYE) != cat.getCollarColor()) {
+                if (stack.getItem() instanceof DyeItem dyeItem
+                        && stack.get(net.minecraft.core.component.DataComponents.DYE) != cat.getCollarColor()) {
                     return true;
                 }
                 if (cat.isFood(stack) && cat.getHealth() < cat.getMaxHealth()) {
@@ -790,7 +795,8 @@ public class InteractUtils {
 
         Equippable equippableComponent = interactStack.get(DataComponents.EQUIPPABLE);
         if (equippableComponent != null && equippableComponent.swappable()) {
-            if (!player.canUseSlot(equippableComponent.slot()) || !equippableComponent.canBeEquippedBy(player.getType().builtInRegistryHolder())) {
+            if (!player.canUseSlot(equippableComponent.slot())
+                    || !equippableComponent.canBeEquippedBy(player.getType().builtInRegistryHolder())) {
                 return false;
             }
             ItemStack equippedStack = player.getItemBySlot(equippableComponent.slot());
@@ -809,8 +815,7 @@ public class InteractUtils {
                     || !player.getProjectile(interactStack).isEmpty();
         }
         if (item instanceof CrossbowItem) {
-            ChargedProjectiles chargedProjectilesComponent =
-                    interactStack.get(DataComponents.CHARGED_PROJECTILES);
+            ChargedProjectiles chargedProjectilesComponent = interactStack.get(DataComponents.CHARGED_PROJECTILES);
             return chargedProjectilesComponent != null && !chargedProjectilesComponent.isEmpty()
                     || !player.getProjectile(interactStack).isEmpty();
         }
@@ -925,8 +930,7 @@ public class InteractUtils {
             if (fromBlock instanceof FlowerBedBlock
                     && (layers = fromState.getValue(FlowerBedBlock.AMOUNT)) < 4
                     && toState.getValue(FlowerBedBlock.AMOUNT) > layers) {
-                result.add(
-                        Pair.of(fromState.setValue(FlowerBedBlock.AMOUNT, layers + 1), isItem(fromBlock.asItem())));
+                result.add(Pair.of(fromState.setValue(FlowerBedBlock.AMOUNT, layers + 1), isItem(fromBlock.asItem())));
             }
             if (fromBlock instanceof LeafLitterBlock
                     && fromState.getValue(LeafLitterBlock.AMOUNT) < 4
@@ -942,7 +946,8 @@ public class InteractUtils {
                     && toState.getValue(ComparatorBlock.MODE) != fromState.getValue(ComparatorBlock.MODE)) {
                 result.add(Pair.of(fromState.cycle(ComparatorBlock.MODE), ALWAYS_TRUE));
             }
-            if (fromBlock instanceof DoorBlock && toState.getValue(DoorBlock.OPEN) != fromState.getValue(DoorBlock.OPEN)) {
+            if (fromBlock instanceof DoorBlock
+                    && toState.getValue(DoorBlock.OPEN) != fromState.getValue(DoorBlock.OPEN)) {
                 result.add(Pair.of(fromState.cycle(DoorBlock.OPEN), ALWAYS_TRUE));
             }
             if (fromBlock instanceof TrapDoorBlock
@@ -962,7 +967,8 @@ public class InteractUtils {
                     && toState.equals(fromState.setValue(ButtonBlock.POWERED, true))) {
                 result.add(Pair.of(toState, ALWAYS_TRUE));
             }
-            if (fromBlock instanceof NoteBlock && toState.getValue(NoteBlock.NOTE) != fromState.getValue(NoteBlock.NOTE)) {
+            if (fromBlock instanceof NoteBlock
+                    && toState.getValue(NoteBlock.NOTE) != fromState.getValue(NoteBlock.NOTE)) {
                 result.add(Pair.of(fromState.cycle(NoteBlock.NOTE), ALWAYS_TRUE));
             }
             if (fromBlock instanceof CandleBlock
@@ -980,7 +986,8 @@ public class InteractUtils {
                     && fromState.getValue(RespawnAnchorBlock.CHARGE) < 4
                     && toState.getValue(RespawnAnchorBlock.CHARGE) > fromState.getValue(RespawnAnchorBlock.CHARGE)) {
                 result.add(Pair.of(
-                        fromState.setValue(RespawnAnchorBlock.CHARGE, fromState.getValue(RespawnAnchorBlock.CHARGE) + 1),
+                        fromState.setValue(
+                                RespawnAnchorBlock.CHARGE, fromState.getValue(RespawnAnchorBlock.CHARGE) + 1),
                         isItem(Items.GLOWSTONE)));
             }
             if (fromBlock instanceof CakeBlock

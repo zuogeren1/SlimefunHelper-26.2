@@ -77,8 +77,7 @@ public abstract class DispenserCraftScreenMixin extends AbstractContainerScreen<
                             target =
                                     "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;<init>(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/network/chat/Component;)V",
                             shift = At.Shift.AFTER))
-    protected void tryInitBlockPos(
-            DispenserMenu handler, Inventory inventory, Component title, CallbackInfo ci) {
+    protected void tryInitBlockPos(DispenserMenu handler, Inventory inventory, Component title, CallbackInfo ci) {
         this.world = Minecraft.getInstance().level;
         this.pos = InvTasks.predictScreenFrom((b) -> b == Blocks.DISPENSER || b == Blocks.DROPPER);
         if (this.pos != null && this.world != null) {

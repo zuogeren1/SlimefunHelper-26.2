@@ -65,8 +65,7 @@ public class CustomItemStackBuilder {
     }
 
     public CustomItemStackBuilder endLore() {
-        ItemStackUtils.setOrRemoveChange(
-                this.stack, DataComponents.LORE, new ItemLore(List.copyOf(this.tooltip)));
+        ItemStackUtils.setOrRemoveChange(this.stack, DataComponents.LORE, new ItemLore(List.copyOf(this.tooltip)));
         return this;
     }
 

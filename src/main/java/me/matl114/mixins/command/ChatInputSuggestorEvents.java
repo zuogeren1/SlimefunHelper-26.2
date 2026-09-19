@@ -25,9 +25,6 @@ public abstract class ChatInputSuggestorEvents {
     private CompletableFuture<Suggestions> pendingSuggestions;
 
     @Shadow
-    protected abstract void updateUsageInfo();
-
-    @Shadow
     public abstract void showSuggestions(boolean a);
 
     @Shadow

@@ -32,7 +32,8 @@ public class PostManager extends BaseModule {
         registerListener(Listener.getPacketPoint().getChannel(ClientboundPingPacket.class), this::peekPingPacketIn);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundPingPacket.class), this::postPongPacketOut);
-        registerListener(Listener.getPacketPostSendPoint().getChannel(ServerboundClientTickEndPacket.class), this::postTickEnd);
+        registerListener(
+                Listener.getPacketPostSendPoint().getChannel(ServerboundClientTickEndPacket.class), this::postTickEnd);
         registerListener(Listener.getServerLeavePoint(), this::onDisconnectReset);
         registerListener(Listener.getPostGameTick(), this::onWatchPingLongTimeNoSent);
         registerListener(Listener.getPreTick(), this::onPreTick);
@@ -117,8 +118,7 @@ public class PostManager extends BaseModule {
         runQueue(handler, postTickHandlers);
     }
 
-    private void runQueue(
-            ClientPacketListener handler, Deque<Consumer<ClientPacketListener>> postTickHandlers) {
+    private void runQueue(ClientPacketListener handler, Deque<Consumer<ClientPacketListener>> postTickHandlers) {
         if (!postTickHandlers.isEmpty()) {
 
             if (handler != null) {

@@ -52,7 +52,8 @@ public class CombatLog extends BaseModule {
 
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);
     }
 
     public void onEntityDamage(Event<ClientboundDamageEventPacket> e) {

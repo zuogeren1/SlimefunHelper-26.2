@@ -35,11 +35,10 @@ import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.render.RenderCollector;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageTypes;
@@ -53,6 +52,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -518,7 +518,8 @@ public class CrystalAura extends BaseModule {
 
     private boolean isBasePlacedCrystalInAttackRange(BlockPos basePos) {
         Vec3 place = Vec3.atBottomCenterOf(basePos.above());
-        AABB estimatedEndCrystalBox = new AABB(place.x - 1, place.y, place.z - 1, place.x + 1, place.y + 2, place.z + 1);
+        AABB estimatedEndCrystalBox =
+                new AABB(place.x - 1, place.y, place.z - 1, place.x + 1, place.y + 2, place.z + 1);
         return estimatedEndCrystalBox.distanceToSqr(mc.player.getEyePosition())
                 <= MathUtils.s2(CombatExtra.INSTANCE.getAttackRange());
     }
@@ -675,7 +676,10 @@ public class CrystalAura extends BaseModule {
         }
         mc.level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
         InteractionTasks.handlePlaceMode(
-                mode.get(), hitResult, offhand.get() ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, swingHand.get());
+                mode.get(),
+                hitResult,
+                offhand.get() ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
+                swingHand.get());
         callback.run();
         trackedGlasses.put(pos, Tasks.getTick());
         return true;

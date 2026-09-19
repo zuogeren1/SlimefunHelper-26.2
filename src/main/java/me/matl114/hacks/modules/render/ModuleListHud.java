@@ -47,8 +47,8 @@ public class ModuleListHud extends IRender2DColoredModule {
     }
 
     private void sortModuleEntries() {
-        moduleEntries.sort(Comparator.comparingDouble(
-                s -> -mc.font.getSplitter().stringWidth(s.getDisplay())));
+        moduleEntries.sort(
+                Comparator.comparingDouble(s -> -mc.font.getSplitter().stringWidth(s.getDisplay())));
     }
 
     public void onUpdate(Event<Void> event) {
@@ -111,14 +111,13 @@ public class ModuleListHud extends IRender2DColoredModule {
 
             if (!Objects.equals(lastMeta, moduleEntry.getMetaData())) {
                 lastMeta = moduleEntry.getMetaData();
-                lastDisplay =
-                        ((lastMeta != null && mc.font.getSplitter().stringWidth(lastMeta) > 0.0F)
-                                ? (moduleEntry
-                                        .getDisplay()
-                                        .append(Component.literal("["))
-                                        .append(lastMeta)
-                                        .append(Component.literal("]")))
-                                : moduleEntry.getDisplay());
+                lastDisplay = ((lastMeta != null && mc.font.getSplitter().stringWidth(lastMeta) > 0.0F)
+                        ? (moduleEntry
+                                .getDisplay()
+                                .append(Component.literal("["))
+                                .append(lastMeta)
+                                .append(Component.literal("]")))
+                        : moduleEntry.getDisplay());
                 update = true;
             }
             return update;

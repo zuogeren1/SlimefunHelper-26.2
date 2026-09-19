@@ -24,8 +24,7 @@ public abstract class ScreenHandlerFixMixin {
                             target =
                                     "Lnet/minecraft/world/inventory/AbstractContainerMenu;doClick(IILnet/minecraft/world/inventory/ContainerInput;Lnet/minecraft/world/entity/player/Player;)V",
                             shift = At.Shift.BEFORE))
-    private void onPreSlotClick(
-            int slotIndex, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
+    private void onPreSlotClick(int slotIndex, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
         if (Minecraft.getInstance().level != null
                 && Minecraft.getInstance().level.isClientSide()) {
             InvTasks.SUPPRESS_DROPITEM_SPAWN.set(true);
@@ -40,8 +39,7 @@ public abstract class ScreenHandlerFixMixin {
                             target =
                                     "Lnet/minecraft/world/inventory/AbstractContainerMenu;doClick(IILnet/minecraft/world/inventory/ContainerInput;Lnet/minecraft/world/entity/player/Player;)V",
                             shift = At.Shift.AFTER))
-    private void onPostSlotClick(
-            int slotIndex, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
+    private void onPostSlotClick(int slotIndex, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
         InvTasks.SUPPRESS_DROPITEM_SPAWN.set(false);
     }
 

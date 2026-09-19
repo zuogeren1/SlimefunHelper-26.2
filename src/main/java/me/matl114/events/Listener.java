@@ -28,13 +28,13 @@ import me.matl114.utils.collections.Point;
 import net.minecraft.CrashReport;
 import net.minecraft.ReportedException;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
-import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.player.ClientInput;
@@ -961,8 +961,7 @@ public class Listener {
     }
 
     public static void onClientConnectionEstablish(Event<Connection> event) {
-        if (event.getArgs(0) == PacketFlow.CLIENTBOUND
-                && event.getArgs(1) instanceof ClientCookiePacketListener) {
+        if (event.getArgs(0) == PacketFlow.CLIENTBOUND && event.getArgs(1) instanceof ClientCookiePacketListener) {
             clientConnection = event.context;
             Tasks.scheduleRepeated(
                     () -> {

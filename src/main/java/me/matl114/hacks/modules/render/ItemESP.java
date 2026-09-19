@@ -204,7 +204,8 @@ public class ItemESP extends BaseModule {
                     () -> {
                         if (pendingUpdateEntities) {
                             if (!checkNull()
-                                    && (mc.gui.screen() == null || mc.gui.screen() instanceof AbstractContainerScreen<?>)) {
+                                    && (mc.gui.screen() == null
+                                            || mc.gui.screen() instanceof AbstractContainerScreen<?>)) {
                                 pendingUpdateEntities = false;
                                 if (enableSpecial.get()) {
                                     for (var entity : mc.level.entitiesForRendering()) {
@@ -289,7 +290,8 @@ public class ItemESP extends BaseModule {
                         if (special
                                 && entity instanceof EntityAccess<?> access
                                 && !access.isMetaEmpty()
-                                && access.getMetadata().get(this, ITEM_ESP_METADATA_KEY) instanceof Component displayText) {
+                                && access.getMetadata().get(this, ITEM_ESP_METADATA_KEY)
+                                        instanceof Component displayText) {
                             if (specialOp.box()) {
                                 boxCollector.submit(entity.getBoundingBox(), specialColor);
                             }

@@ -34,7 +34,8 @@ public class ItemStackDisplayUtils {
 
     public static int getDurabilityPercentage(ItemStack stackOverride) {
         if (stackOverride.getMaxDamage() > 0) {
-            return ((stackOverride.getMaxDamage() - stackOverride.getDamageValue()) * 100) / stackOverride.getMaxDamage();
+            return ((stackOverride.getMaxDamage() - stackOverride.getDamageValue()) * 100)
+                    / stackOverride.getMaxDamage();
         } else {
             return 100;
         }

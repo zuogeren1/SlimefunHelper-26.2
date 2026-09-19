@@ -22,7 +22,11 @@ import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
 public abstract class DrawableWidget
-        implements GuiEventListener, Renderable, net.minecraft.client.gui.layouts.LayoutElement, NarratableEntry, Draggable {
+        implements GuiEventListener,
+                Renderable,
+                net.minecraft.client.gui.layouts.LayoutElement,
+                NarratableEntry,
+                Draggable {
     public DrawableWidget(int x, int y, int dx, int dy) {
         this.x = x;
         this.y = y;

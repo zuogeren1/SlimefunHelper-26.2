@@ -222,7 +222,8 @@ public class AutoPlate extends BaseModule {
                 if (useBlockRotate.get()) {
                     BlockRotate.INSTANCE.addTempStateSchematic(bp, state);
                 }
-                InteractionTasks.handlePlaceMode(mode.get(), blockHitResult.val(), InteractionHand.MAIN_HAND, swingHand.get());
+                InteractionTasks.handlePlaceMode(
+                        mode.get(), blockHitResult.val(), InteractionHand.MAIN_HAND, swingHand.get());
                 mc.level.setBlock(bp, state, WorldUtils.UPDATE_BLOCK_NO_PHYSICS);
                 cnt += 1;
                 if (cnt >= multiply) {

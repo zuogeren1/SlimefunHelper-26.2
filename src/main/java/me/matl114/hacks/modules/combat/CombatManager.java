@@ -226,8 +226,7 @@ public class CombatManager extends BaseModule {
         for (var i = -SECTION_RADIUS; i <= SECTION_RADIUS; ++i) {
             for (var j = -SECTION_RADIUS; j <= SECTION_RADIUS; ++j) {
                 for (var k = -SECTION_RADIUS; k <= SECTION_RADIUS; ++k) {
-                    SectionPos pos =
-                            SectionPos.of(currentPos.getX() + i, currentPos.getY() + j, currentPos.getZ() + k);
+                    SectionPos pos = SectionPos.of(currentPos.getX() + i, currentPos.getY() + j, currentPos.getZ() + k);
                     if (!sectionSnapshots.containsKey(pos)) {
                         dirtySections.add(pos);
                     }

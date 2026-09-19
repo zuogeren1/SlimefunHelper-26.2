@@ -28,13 +28,13 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.*;
 import me.matl114.utils.*;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -89,7 +89,8 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
     public void registerAll() {
         super.registerAll();
         registerListener(RenderListener.getRender3DEvent(), this::renderPlayerSpearTarget);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class), this::onClientTickEnd);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class), this::onClientTickEnd);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
     //
@@ -243,7 +244,10 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
                         float opacity = Math.min(0.6F, 0.10F + dist * 0.02F);
                         AABB box = RenderUtils.getLerpedBox(spearEntity, tickDelta);
                         RenderUtils.drawSolidBox(
-                                stack, box.getMinPosition(), box.getMaxPosition(), ColorUtils.withAlpha(Color.GREEN, opacity));
+                                stack,
+                                box.getMinPosition(),
+                                box.getMaxPosition(),
+                                ColorUtils.withAlpha(Color.GREEN, opacity));
                     }
                 }
             } finally {
@@ -304,7 +308,9 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
     public static boolean isSpearable(Entity entity) {
         // Vec3d pos = mc.player.getEyePos();
         if (mc.player.getEyePosition().subtract(entity.getEyePosition()).lengthSqr()
-                <= MathUtils.s2(mc.player.getAttackRangeWith(mc.player.getMainHandItem()).effectiveMinRange(mc.player))) {
+                <= MathUtils.s2(mc.player
+                        .getAttackRangeWith(mc.player.getMainHandItem())
+                        .effectiveMinRange(mc.player))) {
             return false;
         }
         BlockHitResult blockHitResult = mc.level.clip(new ClipContext(

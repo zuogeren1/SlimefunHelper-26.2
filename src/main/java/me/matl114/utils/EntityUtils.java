@@ -8,26 +8,25 @@ import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.utils.entity.PlayerInputUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.entity.*;
-import net.minecraft.world.item.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.Item;
@@ -40,6 +39,7 @@ import net.minecraft.world.item.component.TypedEntityData;
 import net.minecraft.world.item.component.UseEffects;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.SpawnerBlock;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector2d;
@@ -96,10 +96,14 @@ public class EntityUtils {
             while (iter.hasNext()) {
                 EntityType<?> entityType = iter.next();
                 if (!Pattern.matches(
-                                value, BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath())
+                                value,
+                                BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath())
                         && Pattern.matches(
                                 value,
-                                "!" + BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath())) {
+                                "!"
+                                        + BuiltInRegistries.ENTITY_TYPE
+                                                .getKey(entityType)
+                                                .getPath())) {
                     iter.remove();
                 }
             }
@@ -110,22 +114,29 @@ public class EntityUtils {
 
     }
 
-    private static final BiMap<Item, EntityType<?>> ITEM2SPAWN_ENTITY = HashBiMap.create();
+    // 26.2: 建表过程要 new ItemStack，必须在组件绑定之后，改为首次访问时构建
+    private static BiMap<Item, EntityType<?>> ITEM2SPAWN_ENTITY = null;
 
-    static {
-        for (Item item : BuiltInRegistries.ITEM) {
-            if (item instanceof SpawnEggItem egg) {
-                ITEM2SPAWN_ENTITY.put(item, egg.getType(new ItemStack(item)));
+    private static BiMap<Item, EntityType<?>> spawnEggMap() {
+        BiMap<Item, EntityType<?>> map = ITEM2SPAWN_ENTITY;
+        if (map == null) {
+            map = HashBiMap.create();
+            for (Item item : BuiltInRegistries.ITEM) {
+                if (item instanceof SpawnEggItem egg) {
+                    map.put(item, egg.getType(new ItemStack(item)));
+                }
             }
+            ITEM2SPAWN_ENTITY = map;
         }
+        return map;
     }
 
     public static EntityType<?> spawnEggToEntity(Item spawner) {
-        return ITEM2SPAWN_ENTITY.getOrDefault(spawner, null);
+        return spawnEggMap().getOrDefault(spawner, null);
     }
 
     public static Item entityToSpawnEgg(EntityType<?> entityType) {
-        return ITEM2SPAWN_ENTITY.inverse().getOrDefault(entityType, null);
+        return spawnEggMap().inverse().getOrDefault(entityType, null);
     }
 
     public static EntityType<?> getStoredEntityType(ItemStack stack) {
@@ -629,16 +640,15 @@ public class EntityUtils {
     private static Vec3 simulateTravelInWaterVelocity(Vec3 velocity, boolean hasGravity) {
         PlayerInputUtils.Input input = PlayerStateManager.INSTANCE.lastInput;
 
-        Vec2 vec2f =
-                EntityUtils.applyMovementFactors(mc.player, new Vec2(input.sidewaysSpeed(), input.forwardSpeed()));
+        Vec2 vec2f = EntityUtils.applyMovementFactors(mc.player, new Vec2(input.sidewaysSpeed(), input.forwardSpeed()));
         Vec3 movementInput = new Vec3(vec2f.x, 0, vec2f.y);
         boolean falling = velocity.y <= 0.0;
         double y = mc.player.getY();
         double gravity = EntityUtils.getEffectiveGravity(mc.player);
         float drag = mc.player.isSprinting() ? 0.9F : 0.8F;
         float acceleration = 0.02F;
-        float efficiency = (float)
-                mc.player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.WATER_MOVEMENT_EFFICIENCY);
+        float efficiency = (float) mc.player.getAttributeValue(
+                net.minecraft.world.entity.ai.attributes.Attributes.WATER_MOVEMENT_EFFICIENCY);
         if (!mc.player.onGround()) {
             efficiency *= 0.5F;
         }
@@ -697,8 +707,7 @@ public class EntityUtils {
 
     private static Vec3 simulateResetVerticalVelocityInFluid(Vec3 velocity, double y) {
         if (mc.player.horizontalCollision
-                && mc.player.isFree(
-                        velocity.x, velocity.y + 0.6000000238418579 - mc.player.getY() + y, velocity.z)) {
+                && mc.player.isFree(velocity.x, velocity.y + 0.6000000238418579 - mc.player.getY() + y, velocity.z)) {
             return new Vec3(velocity.x, 0.30000001192092896, velocity.z);
         }
         return velocity;

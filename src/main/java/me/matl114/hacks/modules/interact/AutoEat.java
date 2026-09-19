@@ -135,7 +135,8 @@ public class AutoEat extends BaseModule {
         registerListener(Listener.getPostHandleInputEvents(), this::onTickPost);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onStatusConsumed);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class),
+                this::onStatusConsumed);
         registerListener(Listener.getPrePlayerUseItem(), this::onRightClick);
     }
 
@@ -157,7 +158,8 @@ public class AutoEat extends BaseModule {
     private boolean canContinueEat() {
         return eatingSlot >= 0
                 && mc.player.isUsingItem()
-                && (mc.player.getUsedItemHand() == (eatingSlot == 40 ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND))
+                && (mc.player.getUsedItemHand()
+                        == (eatingSlot == 40 ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND))
                 && (InventoryUtils.getSelectedSlot() == eatingSlot || eatingSlot == 40)
                 && eating;
     }
@@ -341,7 +343,8 @@ public class AutoEat extends BaseModule {
         InteractionHand hand = event.context.hand();
         if (enable.get() && forceEatLeftClick.get() && mc.options.keyUse.isDown() && !eating) {
             ItemStack stack = mc.player.getItemInHand(hand);
-            InteractionHand offhand = hand == InteractionHand.MAIN_HAND ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+            InteractionHand offhand =
+                    hand == InteractionHand.MAIN_HAND ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
             ItemStack offhandStack = mc.player.getItemInHand(offhand);
             if ((VItem.getInstance().isTool(stack) || VItem.getInstance().isWeapon(stack))
                     && !VItem.getInstance().isSpear(stack)
@@ -434,9 +437,10 @@ public class AutoEat extends BaseModule {
         if (consumable == null) {
             return false;
         }
-        if (stack.getAllOfType(PotionContents.class).anyMatch(component -> Streams.of(component.getAllEffects())
-                .map(MobEffectInstance::getEffect)
-                .anyMatch(healingEffects::contains))) {
+        if (stack.getAllOfType(PotionContents.class)
+                .anyMatch(component -> Streams.of(component.getAllEffects())
+                        .map(MobEffectInstance::getEffect)
+                        .anyMatch(healingEffects::contains))) {
             return true;
         }
         for (var effect : consumable.onConsumeEffects()) {

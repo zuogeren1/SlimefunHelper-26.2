@@ -147,9 +147,13 @@ public class AnchorAura extends BaseModule {
                             Items.RESPAWN_ANCHOR.getName(new ItemStack(Items.RESPAWN_ANCHOR)),
                             Items.GLOWSTONE.getName(new ItemStack(Items.GLOWSTONE)));
                 } else if (!hasAnchor) {
-                    logI18N("message.module.anchor-arua.no-item", Items.RESPAWN_ANCHOR.getName(new ItemStack(Items.RESPAWN_ANCHOR)));
+                    logI18N(
+                            "message.module.anchor-arua.no-item",
+                            Items.RESPAWN_ANCHOR.getName(new ItemStack(Items.RESPAWN_ANCHOR)));
                 } else {
-                    logI18N("message.module.anchor-arua.no-item", Items.GLOWSTONE.getName(new ItemStack(Items.GLOWSTONE)));
+                    logI18N(
+                            "message.module.anchor-arua.no-item",
+                            Items.GLOWSTONE.getName(new ItemStack(Items.GLOWSTONE)));
                 }
             });
             return false;
@@ -454,8 +458,7 @@ public class AnchorAura extends BaseModule {
     private AABB createPredictedTargetBox(Player target) {
         AABB currentBox = target.getBoundingBox();
         Vec3 currentPos = target.position();
-        Vec3 predictedPos =
-                PositionPredict.INSTANCE.attackPredictArgument.get().predict(target);
+        Vec3 predictedPos = PositionPredict.INSTANCE.attackPredictArgument.get().predict(target);
         if (predictedPos == null
                 || predictedPos.distanceToSqr(currentPos) <= MathUtils.s2(PREDICT_POSITION_SWITCH_DISTANCE)) {
             return currentBox;

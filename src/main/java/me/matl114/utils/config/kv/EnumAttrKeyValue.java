@@ -108,7 +108,8 @@ public class EnumAttrKeyValue<T> extends BaseAttrKeyValue<T> {
         } else {
             flattenMap = ((EnumAttrKeyValue<T>) this)
                     .getValueMap().keySet().stream()
-                            .map(v -> new Pair<>(v, (Supplier<Component>) () -> Component.translatableWithFallback(v, v)))
+                            .map(v ->
+                                    new Pair<>(v, (Supplier<Component>) () -> Component.translatableWithFallback(v, v)))
                             .toList();
         }
         return generateSwitchingButton(flattenMap, this, x, y, dx, dy, () -> {

@@ -217,9 +217,10 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
             case ELYTRA_GRIM_FLY40 -> new TravelPitch40Grim(this);
             case MOV_VOID -> new TravelMoveVoid();
             case MOV_VOID_2 -> new TravelMoveVoid2();
-            default -> (eve) -> {
-                return true;
-            };
+            default ->
+                (eve) -> {
+                    return true;
+                };
         };
     }
 

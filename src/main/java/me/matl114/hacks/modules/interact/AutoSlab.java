@@ -256,7 +256,8 @@ public class AutoSlab extends BaseModule {
                     if (useBlockRotate.get()) {
                         BlockRotate.INSTANCE.addTempStateSchematic(testPos, targetState);
                     }
-                    InteractionTasks.handlePlaceMode(mode.get(), hitResult.val(), InteractionHand.MAIN_HAND, swingHand.get());
+                    InteractionTasks.handlePlaceMode(
+                            mode.get(), hitResult.val(), InteractionHand.MAIN_HAND, swingHand.get());
                     cnt += 1;
                     if (cnt >= multiply) {
                         break;

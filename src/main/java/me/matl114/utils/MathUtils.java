@@ -7,14 +7,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntSupplier;
 import lombok.AllArgsConstructor;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
@@ -91,9 +91,7 @@ public class MathUtils {
 
     public static Vec3 lerp(double delta, Vec3 start, Vec3 end) {
         return new Vec3(
-                Mth.lerp(delta, start.x, end.x),
-                Mth.lerp(delta, start.y, end.y),
-                Mth.lerp(delta, start.z, end.z));
+                Mth.lerp(delta, start.x, end.x), Mth.lerp(delta, start.y, end.y), Mth.lerp(delta, start.z, end.z));
     }
 
     public static boolean isInBox(Vec3 a, Vec3 b, double range) {

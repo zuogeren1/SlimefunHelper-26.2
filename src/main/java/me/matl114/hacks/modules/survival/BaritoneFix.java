@@ -234,7 +234,8 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
         if (!lastAutoJumpExecutor.canRun(20) && mc.player.isFallFlying()) {
-            AABB blockCheckBox = mc.player.getBoundingBox().expandTowards(0, -1, 0).inflate(2, 0, 2);
+            AABB blockCheckBox =
+                    mc.player.getBoundingBox().expandTowards(0, -1, 0).inflate(2, 0, 2);
             AABB checkHeadBox = mc.player.getBoundingBox().expandTowards(0, 1, 0);
             if (CollisionUtil.isBoxCollided(mc.level, mc.player, blockCheckBox)
                     && !CollisionUtil.isBoxCollided(mc.level, mc.player, checkHeadBox)) {

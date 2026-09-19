@@ -62,7 +62,8 @@ public class TradeInformationSubScreen extends SubScreenWidget {
     }
 
     private static final Component LABEL_TRADE = Component.translatable("widget.fast-trade.trade");
-    private static final List<Component> TOOLTIPS_TRADE = List.of(Component.translatable("widget.fast-trade.trade.tooltips"));
+    private static final List<Component> TOOLTIPS_TRADE =
+            List.of(Component.translatable("widget.fast-trade.trade.tooltips"));
     private static final Component LABEL_DROP_CRAFT = Component.translatable("widget.fast-trade.toggle-drop");
     private static final List<Component> TOOLTIPS_DROPCRAFT =
             List.of(Component.translatable("widget.fast-trade.toggle-drop.tooltips"));
@@ -119,8 +120,7 @@ public class TradeInformationSubScreen extends SubScreenWidget {
                                     "widget.fast-trade.trade-info.price-multiplier",
                                     "%.2f".formatted(trade.getPriceMultiplier())));
                             builder.add(Component.translatable(
-                                    "widget.fast-trade.trade-info.demand-bonus",
-                                    String.valueOf(trade.getDemand())));
+                                    "widget.fast-trade.trade-info.demand-bonus", String.valueOf(trade.getDemand())));
                             builder.add(Component.translatable(
                                     "widget.fast-trade.trade-info.special-price",
                                     String.valueOf(trade.getSpecialPriceDiff())));
@@ -157,8 +157,8 @@ public class TradeInformationSubScreen extends SubScreenWidget {
                         .withTooltips(TooltipHandler.of(TOOLTIPS_DROPCRAFT)))
                 .addToSub(this);
         DisplayWidget.instance(10, 0, 3 * (SLOT_WIDTH + 2) + TRADE_ICON_WIDTH - 20, 20)
-                .setRenderHandler(LabelElement.instance(
-                                Component.translatable("widget.fast-trade.no-select").withStyle(ChatFormatting.RED))
+                .setRenderHandler(LabelElement.instance(Component.translatable("widget.fast-trade.no-select")
+                                .withStyle(ChatFormatting.RED))
                         .withPresentCondition((v) -> !this.active(v)))
                 .addToSub(this);
     }

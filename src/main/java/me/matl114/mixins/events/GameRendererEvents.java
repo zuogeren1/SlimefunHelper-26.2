@@ -10,8 +10,6 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameRenderer.class)
 @Environment(EnvType.CLIENT)
@@ -21,30 +19,16 @@ public abstract class GameRendererEvents {
             method = "renderLevel",
             at =
                     @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;",
+                            // 26.2: 不再走 OptionInstance.get()，改为读 OptionsRenderState.bobView 字段
+                            value = "FIELD",
+                            target = "Lnet/minecraft/client/renderer/state/OptionsRenderState;bobView:Z",
                             ordinal = 0))
-    private Object onRenderWorld(Object original, @Local PoseStack matrixStack) {
-        if (original instanceof Boolean bl) {
-            Event<PoseStack> event = new Event<>(matrixStack, true, false);
-            if (!bl) {
-                event.cancel();
-            }
-            RenderListener.getApplyWorldBobView().handleValue(event);
-            return !event.isCancelled();
+    private boolean onRenderWorld(boolean bobView, @Local PoseStack matrixStack) {
+        Event<PoseStack> event = new Event<>(matrixStack, true, false);
+        if (!bobView) {
+            event.cancel();
         }
-        return original;
-    }
-
-    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    public void onGetFov(CallbackInfoReturnable<Float> cir) {
-        float fov = cir.getReturnValueF();
-        Event<Float> fovEvent = new Event<>(fov, false, true);
-        RenderListener.getFovGetListener().handleValue(fovEvent);
-        float fov2 = fovEvent.context;
-        if (fov2 != fov) {
-            cir.setReturnValue(fov2);
-            return;
-        }
+        RenderListener.getApplyWorldBobView().handleValue(event);
+        return !event.isCancelled();
     }
 }

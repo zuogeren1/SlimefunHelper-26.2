@@ -110,8 +110,7 @@ public class ChatTasks {
 
     // modified from @ChatScreen.class
     public static void sayMessage(String chatText, boolean addToHistory) {
-        if (Minecraft.getInstance().player != null
-                && Minecraft.getInstance().player.connection != null) {
+        if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.connection != null) {
             chatText = getChatExtra().normalizeSendText(chatText);
             // in world
             if (addToHistory) {
@@ -159,7 +158,7 @@ public class ChatTasks {
             var re = args.nextNonnullString();
             switch (re) {
                 case "command" -> Tasks.scheduleDelayed(MainCommand::reloadCommand, 1);
-                    // case "vanilla" -> Tasks.scheduleDelayed(ChatTasks::reloadVanillaClientCommand, 1);
+                // case "vanilla" -> Tasks.scheduleDelayed(ChatTasks::reloadVanillaClientCommand, 1);
                 case "module" -> {
                     CompletableFuture.runAsync(() -> mc.execute(HackModules::reloadModuleGroups));
                 }
@@ -297,8 +296,8 @@ public class ChatTasks {
         public void onListRegistry(ArgumentInputStream re) {
             Identifier identifier = Identifier.tryParse(re.nextNonnull());
             ResourceKey registryKey = ResourceKey.createRegistryKey(identifier);
-            Registry result = (Registry)
-                    ItemStackUtils.registry().lookup(registryKey).orElse(null);
+            Registry result =
+                    (Registry) ItemStackUtils.registry().lookup(registryKey).orElse(null);
             if (result != null) {
                 String filter = re.nextNonnull();
                 Debug.chat(Component.literal(identifier.toString() + "所拥有的注册项:").withStyle(ChatFormatting.GREEN));
@@ -397,12 +396,12 @@ public class ChatTasks {
                                         .toList());
                     });
                 }
-                    //                    case "gamerule"->{
-                    //                        datas = mc.level.getGameRules().toNbt().entries.entrySet().stream()
-                    //                            .map(entry-> entry.getKey()+ ":" + entry.getValue().asString())
-                    //                            .filter(u-> u.contains(filter))
-                    //                            .toList();
-                    //                    }
+                //                    case "gamerule"->{
+                //                        datas = mc.level.getGameRules().toNbt().entries.entrySet().stream()
+                //                            .map(entry-> entry.getKey()+ ":" + entry.getValue().asString())
+                //                            .filter(u-> u.contains(filter))
+                //                            .toList();
+                //                    }
                 default -> {
                     Debug.chat(Component.literal("不支持的资源: " + val).withStyle(ChatFormatting.RED));
                 }
@@ -591,8 +590,7 @@ public class ChatTasks {
                 }
                 case "team" -> {
                     String user0 = Objects.equals(user, "#me") ? mc.player.getScoreboardName() : user;
-                    PlayerInfo entry =
-                            Minecraft.getInstance().getConnection().getPlayerInfo(user0);
+                    PlayerInfo entry = Minecraft.getInstance().getConnection().getPlayerInfo(user0);
                     if (entry != null) {
                         PlayerTeam team = entry.getTeam();
                         if (team != null) {
@@ -609,7 +607,9 @@ public class ChatTasks {
                             Debug.chat(
                                     Component.literal("颜色: ").withStyle(ChatFormatting.GRAY),
                                     team.getColor() == null ? "" : team.getColor());
-                            Debug.chat(Component.literal("友伤: ").withStyle(ChatFormatting.GRAY), team.isAllowFriendlyFire());
+                            Debug.chat(
+                                    Component.literal("友伤: ").withStyle(ChatFormatting.GRAY),
+                                    team.isAllowFriendlyFire());
                             Debug.chat(
                                     Component.literal("显示隐身队友: ").withStyle(ChatFormatting.GRAY),
                                     team.canSeeFriendlyInvisibles());
@@ -627,12 +627,12 @@ public class ChatTasks {
                 }
                 case "pentry" -> {
                     String user0 = Objects.equals(user, "#me") ? mc.player.getScoreboardName() : user;
-                    PlayerInfo entry =
-                            Minecraft.getInstance().getConnection().getPlayerInfo(user0);
+                    PlayerInfo entry = Minecraft.getInstance().getConnection().getPlayerInfo(user0);
                     if (entry != null) {
                         Debug.chat("查询到PlayerEntry");
                         Debug.chat(
-                                Component.literal("名字: ").withStyle(ChatFormatting.GRAY), VRecord.getName(entry.getProfile()));
+                                Component.literal("名字: ").withStyle(ChatFormatting.GRAY),
+                                VRecord.getName(entry.getProfile()));
                         Debug.chat(
                                 Component.literal("UUID: ").withStyle(ChatFormatting.GRAY),
                                 ChatUtils.getClickCopyTargetText(VRecord.getId(entry.getProfile())
@@ -649,7 +649,9 @@ public class ChatTasks {
                                 entry.getGameMode().name());
                         Debug.chat(
                                 Component.literal("DisplayName: ").withStyle(ChatFormatting.GRAY),
-                                entry.getTabListDisplayName() == null ? Component.literal("null") : entry.getTabListDisplayName());
+                                entry.getTabListDisplayName() == null
+                                        ? Component.literal("null")
+                                        : entry.getTabListDisplayName());
                         List<Component> texts = new ArrayList<>();
                         texts.add(Component.literal("Latency: " + entry.getLatency()));
                         texts.add(Component.literal("MessageVerifier: " + entry.getMessageValidator()));

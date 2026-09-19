@@ -17,8 +17,7 @@ public abstract class KeyboardDebugCrashFix {
             at =
                     @At(
                             value = "INVOKE",
-                            target =
-                                    "Lnet/minecraft/ReportedException;<init>(Lnet/minecraft/CrashReport;)V",
+                            target = "Lnet/minecraft/ReportedException;<init>(Lnet/minecraft/CrashReport;)V",
                             shift = At.Shift.BEFORE))
     private void onResetDebugCrashTime(CallbackInfo ci) {
         debugCrashKeyTime = 0L;

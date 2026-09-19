@@ -39,6 +39,7 @@ import me.matl114.utils.config.AttrKeyValue;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -56,13 +57,10 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.util.Mth;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
+import net.minecraft.util.Mth;
 import net.minecraft.util.valueproviders.ConstantInt;
 import net.minecraft.util.valueproviders.IntProvider;
-import net.minecraft.world.level.levelgen.feature.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelHeightAccessor;
@@ -79,6 +77,7 @@ import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.WorldGenerationContext;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
+import net.minecraft.world.level.levelgen.feature.*;
 import net.minecraft.world.level.levelgen.feature.ScatteredOreFeature;
 import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfiguration;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
@@ -89,6 +88,7 @@ import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.levelgen.placement.PlacementModifier;
 import net.minecraft.world.level.levelgen.placement.RarityFilter;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.Vec3;
 
 public class SeedOre extends BaseModule {
@@ -156,7 +156,9 @@ public class SeedOre extends BaseModule {
         super.registerAll();
         registerListener(Listener.getWorldSwitchPoint(), this::onDimensionChange);
         // this needs run on main thread to ensure the chunk is accessible
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundLevelChunkWithLightPacket.class), this::onChunkUpdate);
+        registerListener(
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundLevelChunkWithLightPacket.class),
+                this::onChunkUpdate);
         registerListener(Listener.getPacketPoint().getChannel(ClientboundBlockUpdatePacket.class), this::onBlockUpdate);
         registerListener(RenderListener.getRender3DEvent(), this::onRenderOreSimulation);
         registerCommandBootstrap(this::registerCommandBootstrap);
@@ -299,8 +301,9 @@ public class SeedOre extends BaseModule {
         if (!checkCurrentSeedExistence()) return;
         long value = seedMap.getLong(CommonUtils.getWorldName());
         Debug.chat(Component.literal("[世界种子] 核验当前世界种子中:").withStyle(ChatFormatting.GREEN));
-        Debug.chat(
-                Component.literal("[世界种子] 输入的种子: ").withStyle(ChatFormatting.GREEN).append(ChatUtils.getDisplayedLong(value)));
+        Debug.chat(Component.literal("[世界种子] 输入的种子: ")
+                .withStyle(ChatFormatting.GREEN)
+                .append(ChatUtils.getDisplayedLong(value)));
         long hashed = mc.level.getBiomeManager().biomeZoomSeed;
         Debug.chat(Component.literal("[世界种子] 服务器加密种子: ").append(ChatUtils.getDisplayedLong(hashed)));
         if (isSeedValid(value)) {
@@ -885,7 +888,8 @@ public class SeedOre extends BaseModule {
         return true;
     }
 
-    private static ArrayList<Vec3> generateHidden(ClientLevel world, WorldgenRandom random, BlockPos blockPos, int size) {
+    private static ArrayList<Vec3> generateHidden(
+            ClientLevel world, WorldgenRandom random, BlockPos blockPos, int size) {
 
         ArrayList<Vec3> poses = new ArrayList<>();
 
@@ -975,75 +979,25 @@ public class SeedOre extends BaseModule {
                     true);
 
             Map<PlacedFeature, Ore> featureToOre = new HashMap<>();
+            registerOre(featureToOre, indexer, features, OrePlacements.ORE_COAL_LOWER, 6, coal, new Color(47, 44, 54));
+            registerOre(featureToOre, indexer, features, OrePlacements.ORE_COAL_UPPER, 6, coal, new Color(47, 44, 54));
             registerOre(
-                    featureToOre, indexer, features, OrePlacements.ORE_COAL_LOWER, 6, coal, new Color(47, 44, 54));
+                    featureToOre, indexer, features, OrePlacements.ORE_IRON_MIDDLE, 6, iron, new Color(236, 173, 119));
             registerOre(
-                    featureToOre, indexer, features, OrePlacements.ORE_COAL_UPPER, 6, coal, new Color(47, 44, 54));
+                    featureToOre, indexer, features, OrePlacements.ORE_IRON_SMALL, 6, iron, new Color(236, 173, 119));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_IRON_MIDDLE,
-                    6,
-                    iron,
-                    new Color(236, 173, 119));
-            registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_IRON_SMALL,
-                    6,
-                    iron,
-                    new Color(236, 173, 119));
-            registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_IRON_UPPER,
-                    6,
-                    iron,
-                    new Color(236, 173, 119));
+                    featureToOre, indexer, features, OrePlacements.ORE_IRON_UPPER, 6, iron, new Color(236, 173, 119));
             registerOre(featureToOre, indexer, features, OrePlacements.ORE_GOLD, 6, gold, new Color(247, 229, 30));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_GOLD_LOWER,
-                    6,
-                    gold,
-                    new Color(247, 229, 30));
+                    featureToOre, indexer, features, OrePlacements.ORE_GOLD_LOWER, 6, gold, new Color(247, 229, 30));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_GOLD_EXTRA,
-                    6,
-                    gold,
-                    new Color(247, 229, 30));
+                    featureToOre, indexer, features, OrePlacements.ORE_GOLD_EXTRA, 6, gold, new Color(247, 229, 30));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_GOLD_NETHER,
-                    7,
-                    gold,
-                    new Color(247, 229, 30));
+                    featureToOre, indexer, features, OrePlacements.ORE_GOLD_NETHER, 7, gold, new Color(247, 229, 30));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_GOLD_DELTAS,
-                    7,
-                    gold,
-                    new Color(247, 229, 30));
+                    featureToOre, indexer, features, OrePlacements.ORE_GOLD_DELTAS, 7, gold, new Color(247, 229, 30));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_REDSTONE,
-                    6,
-                    redstone,
-                    new Color(245, 7, 23));
+                    featureToOre, indexer, features, OrePlacements.ORE_REDSTONE, 6, redstone, new Color(245, 7, 23));
             registerOre(
                     featureToOre,
                     indexer,
@@ -1053,13 +1007,7 @@ public class SeedOre extends BaseModule {
                     redstone,
                     new Color(245, 7, 23));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_DIAMOND,
-                    6,
-                    diamond,
-                    new Color(33, 244, 255));
+                    featureToOre, indexer, features, OrePlacements.ORE_DIAMOND, 6, diamond, new Color(33, 244, 255));
             registerOre(
                     featureToOre,
                     indexer,
@@ -1086,25 +1034,11 @@ public class SeedOre extends BaseModule {
                     new Color(33, 244, 255));
             registerOre(featureToOre, indexer, features, OrePlacements.ORE_LAPIS, 6, lapis, new Color(8, 26, 189));
             registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_LAPIS_BURIED,
-                    6,
-                    lapis,
-                    new Color(8, 26, 189));
+                    featureToOre, indexer, features, OrePlacements.ORE_LAPIS_BURIED, 6, lapis, new Color(8, 26, 189));
+            registerOre(featureToOre, indexer, features, OrePlacements.ORE_COPPER, 6, copper, new Color(239, 151, 0));
             registerOre(
-                    featureToOre, indexer, features, OrePlacements.ORE_COPPER, 6, copper, new Color(239, 151, 0));
-            registerOre(
-                    featureToOre,
-                    indexer,
-                    features,
-                    OrePlacements.ORE_COPPER_LARGE,
-                    6,
-                    copper,
-                    new Color(239, 151, 0));
-            registerOre(
-                    featureToOre, indexer, features, OrePlacements.ORE_EMERALD, 6, emerald, new Color(27, 209, 45));
+                    featureToOre, indexer, features, OrePlacements.ORE_COPPER_LARGE, 6, copper, new Color(239, 151, 0));
+            registerOre(featureToOre, indexer, features, OrePlacements.ORE_EMERALD, 6, emerald, new Color(27, 209, 45));
             registerOre(
                     featureToOre,
                     indexer,

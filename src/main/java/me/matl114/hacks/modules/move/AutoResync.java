@@ -85,13 +85,17 @@ public class AutoResync extends BaseModule {
         super.registerAll();
         registerListener(Listener.getPacketPoint().getChannel(ClientboundPlayerPositionPacket.class), this::onSetBack);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerPositionPacket.class), this::onPreSetBack);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerPositionPacket.class),
+                this::onPreSetBack);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerPositionPacket.class), this::onPostSetBack);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerPositionPacket.class),
+                this::onPostSetBack);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerRotationPacket.class), this::onPreRotate);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerRotationPacket.class),
+                this::onPreRotate);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerRotationPacket.class), this::onPostRotate);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerRotationPacket.class),
+                this::onPostRotate);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
     }
@@ -241,7 +245,8 @@ public class AutoResync extends BaseModule {
 
     public Vec3 getPosition(ClientboundPlayerPositionPacket packet) {
         PositionMoveRotation entityPosition = PositionMoveRotation.of(mc.player);
-        PositionMoveRotation entityPosition2 = PositionMoveRotation.calculateAbsolute(entityPosition, packet.change(), packet.relatives());
+        PositionMoveRotation entityPosition2 =
+                PositionMoveRotation.calculateAbsolute(entityPosition, packet.change(), packet.relatives());
         return entityPosition2.position();
     }
 

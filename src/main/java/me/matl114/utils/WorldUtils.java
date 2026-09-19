@@ -12,6 +12,7 @@ import me.matl114.versioned.api.VRecord;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
@@ -20,8 +21,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.effect.MobEffects;
@@ -39,6 +38,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.waypoints.TrackedWaypoint;
 
@@ -109,8 +109,9 @@ public class WorldUtils {
 
         WaypointData data =
                 switch (varInt) {
-                    case 1 -> new WaypointData.Pos(
-                            new Vec3(byteBuf.readVarInt(), byteBuf.readVarInt(), byteBuf.readVarInt()));
+                    case 1 ->
+                        new WaypointData.Pos(
+                                new Vec3(byteBuf.readVarInt(), byteBuf.readVarInt(), byteBuf.readVarInt()));
                     case 2 -> new WaypointData.Chunk(new ChunkPos(byteBuf.readVarInt(), byteBuf.readVarInt()));
                     case 3 -> new WaypointData.Direction(byteBuf.readFloat());
                     default -> WaypointData.EMPTY;
@@ -191,8 +192,7 @@ public class WorldUtils {
 
         f *= (float) player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
         if (player.isEyeInFluid(FluidTags.WATER)) {
-            f *= (float) player.getAttribute(Attributes.SUBMERGED_MINING_SPEED)
-                    .getValue();
+            f *= (float) player.getAttribute(Attributes.SUBMERGED_MINING_SPEED).getValue();
         }
 
         if (!player.onGround()) {

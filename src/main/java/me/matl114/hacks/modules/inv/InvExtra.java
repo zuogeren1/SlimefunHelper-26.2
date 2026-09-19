@@ -81,7 +81,8 @@ public class InvExtra extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getPreClickSlot(), this::onClickSlot);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundContainerClosePacket.class), this::onCloseScreen);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundContainerClosePacket.class), this::onCloseScreen);
         TaskManagers.getToggleManager().register(TaskManagers.PREFIX_BUTTON_TOGGLE + "." + "keep-inv", enableKeepInv);
         TaskManagers.getTaskManager().register(TaskManagers.PREFIX_BUTTON_TASKS + "." + CLEAR_KEEP, this::clearKeep);
     }
@@ -137,11 +138,7 @@ public class InvExtra extends BaseModule {
                     if (swapped >= 0) {
                         MovTasks.getMovExtra().sendPacketsForInventoryAction();
                         mc.gameMode.handleContainerInput(
-                                mc.player.containerMenu.containerId,
-                                swapped,
-                                selected,
-                                ContainerInput.SWAP,
-                                mc.player);
+                                mc.player.containerMenu.containerId, swapped, selected, ContainerInput.SWAP, mc.player);
                         syncAttr();
                         return () -> {
                             MovTasks.getMovExtra().sendPacketsForInventoryAction();
@@ -184,11 +181,7 @@ public class InvExtra extends BaseModule {
                     return () -> {
                         MovTasks.getMovExtra().sendPacketsForInventoryAction();
                         mc.gameMode.handleContainerInput(
-                                mc.player.containerMenu.containerId,
-                                swapped,
-                                selected,
-                                ContainerInput.SWAP,
-                                mc.player);
+                                mc.player.containerMenu.containerId, swapped, selected, ContainerInput.SWAP, mc.player);
                         syncAttr();
                     };
                 } else {
@@ -279,7 +272,8 @@ public class InvExtra extends BaseModule {
             syncAttr();
             return () -> {
                 MovTasks.getMovExtra().sendPacketsForInventoryAction();
-                mc.gameMode.handleContainerInput(handler.containerId, armorSlot, target, ContainerInput.SWAP, mc.player);
+                mc.gameMode.handleContainerInput(
+                        handler.containerId, armorSlot, target, ContainerInput.SWAP, mc.player);
                 syncAttr();
             };
         } else {
@@ -287,11 +281,13 @@ public class InvExtra extends BaseModule {
             if (armorSlotInstance.container instanceof Inventory
                     && (armorSlotInstance.getContainerSlot() < 9 || armorSlotInstance.getContainerSlot() == 40)) {
                 int target = armorSlotInstance.getContainerSlot();
-                mc.gameMode.handleContainerInput(handler.containerId, targetSlot, target, ContainerInput.SWAP, mc.player);
+                mc.gameMode.handleContainerInput(
+                        handler.containerId, targetSlot, target, ContainerInput.SWAP, mc.player);
                 syncAttr();
                 return () -> {
                     MovTasks.getMovExtra().sendPacketsForInventoryAction();
-                    mc.gameMode.handleContainerInput(handler.containerId, targetSlot, target, ContainerInput.SWAP, mc.player);
+                    mc.gameMode.handleContainerInput(
+                            handler.containerId, targetSlot, target, ContainerInput.SWAP, mc.player);
                     syncAttr();
                 };
             } else {
@@ -346,7 +342,8 @@ public class InvExtra extends BaseModule {
         mc.gameMode.handleContainerInput(
                 handler.containerId, targetSlot, fuckingHotbar114514, ContainerInput.SWAP, mc.player);
         // swap hotbar to armor, armor to hotbar
-        mc.gameMode.handleContainerInput(handler.containerId, armorSlot, fuckingHotbar114514, ContainerInput.SWAP, mc.player);
+        mc.gameMode.handleContainerInput(
+                handler.containerId, armorSlot, fuckingHotbar114514, ContainerInput.SWAP, mc.player);
         // swap the rest
         mc.gameMode.handleContainerInput(
                 handler.containerId, targetSlot, fuckingHotbar114514, ContainerInput.SWAP, mc.player);

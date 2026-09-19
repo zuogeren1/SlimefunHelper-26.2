@@ -11,11 +11,11 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
-import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
-import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -99,7 +99,8 @@ public class DrawContext_v1_21_11 implements VDrawContext {
 
     private static final ArrayDeque<IndexEntry<LayerSnapshot>> depthDeque = new ArrayDeque<>(4);
 
-    private record LayerSnapshot(GuiRenderState.Node layer, @Nullable ScreenRectangle bounds) {}
+    private record LayerSnapshot(
+            GuiRenderState.Node layer, @Nullable ScreenRectangle bounds) {}
 
     public void pushLayer(int depth) {
         int level = getCurrentDepthLevel();
@@ -292,10 +293,14 @@ public class DrawContext_v1_21_11 implements VDrawContext {
 
         @Override
         public void buildVertices(VertexConsumer vertices) {
-            vertices.addVertexWith2DPose(this.pose(), (float) this.x0(), (float) this.y0()).setColor(this.col1());
-            vertices.addVertexWith2DPose(this.pose(), (float) this.x0(), (float) this.y1()).setColor(this.col2());
-            vertices.addVertexWith2DPose(this.pose(), (float) this.x1(), (float) this.y1()).setColor(this.col3());
-            vertices.addVertexWith2DPose(this.pose(), (float) this.x1(), (float) this.y0()).setColor(this.col4());
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x0(), (float) this.y0())
+                    .setColor(this.col1());
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x0(), (float) this.y1())
+                    .setColor(this.col2());
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x1(), (float) this.y1())
+                    .setColor(this.col3());
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x1(), (float) this.y0())
+                    .setColor(this.col4());
         }
     }
 
@@ -412,8 +417,10 @@ public class DrawContext_v1_21_11 implements VDrawContext {
         var trans = matrixStack.peek3D();
         var point1 = new Vector4f(x, y, 0, 1).mul(trans);
         // Tooltips are draw in delay callback, so transfer before the call
-        List<ClientTooltipComponent> list = (List)
-                text.stream().map(Component::getVisualOrderText).map(ClientTooltipComponent::create).collect(Util.toMutableList());
+        List<ClientTooltipComponent> list = (List) text.stream()
+                .map(Component::getVisualOrderText)
+                .map(ClientTooltipComponent::create)
+                .collect(Util.toMutableList());
         data.ifPresent((datax) -> {
             list.add(list.isEmpty() ? 0 : 1, ClientTooltipComponent.create(datax));
         });
@@ -440,8 +447,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
     }
 
     @Override
-    public void drawItemInSlot(
-            Font textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride) {
+    public void drawItemInSlot(Font textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride) {
         this.drawContext.itemDecorations(textRenderer, stack, x, y, countOverride);
     }
 }

@@ -278,7 +278,8 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             if (!silent) {
                 destroyBlock(pos);
             }
-            return new ServerboundPlayerActionPacket(ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
+            return new ServerboundPlayerActionPacket(
+                    ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
         }));
     }
 
@@ -308,9 +309,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             return false;
         }
         float speed = state.getDestroyProgress(
-                Minecraft.getInstance().player,
-                Minecraft.getInstance().player.level(),
-                destroyBlockPos);
+                Minecraft.getInstance().player, Minecraft.getInstance().player.level(), destroyBlockPos);
         if (speed <= 0) {
             return false;
         }
@@ -433,7 +432,6 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             return true;
         }
         Vec3 shouldFacing = Vec3.atCenterOf(destroyBlockPos)
-
                 .subtract(Minecraft.getInstance().player.getEyePosition());
         Direction direction = Direction.getApproximateNearest(shouldFacing).getOpposite();
         return breakIfComplete(destroyBlockPos, state, direction);
@@ -450,8 +448,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             clearBreakingState();
             Runnable fastBreakGhostHand = InvExtra.INSTANCE.swapInventoryIndexToHand(tool.index());
             AttributeUtils.updateAttribute(this.minecraft.player);
-            float speed =
-                    blockState.getDestroyProgress(Minecraft.getInstance().player, this.minecraft.level, pos);
+            float speed = blockState.getDestroyProgress(Minecraft.getInstance().player, this.minecraft.level, pos);
             this.startPrediction(Minecraft.getInstance().level, (sequence) -> {
                 this.destroyBlock(pos);
                 return new ServerboundPlayerActionPacket(
@@ -549,7 +546,6 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
         if (tryAbortCurrentMiningIntoFailBreak()) {
             if (direction == null) {
                 Vec3 shouldFacing = Vec3.atCenterOf(destroyBlockPos)
-
                         .subtract(Minecraft.getInstance().player.getEyePosition());
                 direction = Direction.getApproximateNearest(shouldFacing).getOpposite();
             }
@@ -624,8 +620,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             at =
                     @At(
                             value = "FIELD",
-                            target =
-                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;destroyDelay:I",
+                            target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;destroyDelay:I",
                             shift = At.Shift.BEFORE),
             locals = LocalCapture.CAPTURE_FAILSOFT,
             cancellable = true)
@@ -641,18 +636,15 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     }
 
     @WrapOperation(
-            method = "method_41930",
+            // 26.2: 中间名已不存在，对应 lambda$startDestroyBlock$1(BlockState, BlockPos, Direction, int)
+            method = "lambda$startDestroyBlock$1",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/world/level/block/state/BlockState;calcBlockBreakingDelta(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F"))
+                                    "Lnet/minecraft/world/level/block/state/BlockState;getDestroyProgress(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F"))
     public float fastBreakGhostHand(
-            BlockState instance,
-            Player player,
-            BlockGetter blockView,
-            BlockPos blockPos,
-            Operation<Float> original) {
+            BlockState instance, Player player, BlockGetter blockView, BlockPos blockPos, Operation<Float> original) {
         if (calculateInstantBlockBreakingDeltaWithGhostHand(instance, blockPos)) {
             AttributeUtils.updateAttribute(player);
         }
@@ -763,7 +755,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     }
 
     @ModifyExpressionValue(
-            method = "handleInventoryMouseClick",
+            method = "handleContainerInput",
             at =
                     @At(
                             value = "FIELD",
@@ -785,7 +777,8 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V",
+                            target =
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V",
                             shift = At.Shift.AFTER),
             order = -114514)
     private void onInteractPreSend(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
@@ -800,7 +793,8 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
                             target = "Lorg/apache/commons/lang3/mutable/MutableObject;<init>()V",
                             remap = false),
             order = 114514)
-    private void onInteractPostSend(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+    private void onInteractPostSend(
+            Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
         LegacySnapRotManager.INSTANCE.betweenViaPacket = false;
     }
 

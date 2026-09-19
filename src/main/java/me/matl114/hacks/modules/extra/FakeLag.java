@@ -39,8 +39,7 @@ public class FakeLag extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onPacketInBound);
+        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onPacketInBound);
         flushTask = ScheduleService.launchAsyncRepeatTask(this::flushPacketEveryMs, 1, 1);
     }
 

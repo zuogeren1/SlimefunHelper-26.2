@@ -8,8 +8,8 @@ import java.util.Set;
 import me.matl114.events.Event;
 import me.matl114.events.RenderListener;
 import net.minecraft.client.renderer.texture.atlas.SpriteSource;
-import net.minecraft.client.renderer.texture.atlas.sources.SingleFile;
 import net.minecraft.client.renderer.texture.atlas.SpriteSourceList;
+import net.minecraft.client.renderer.texture.atlas.sources.SingleFile;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.spongepowered.asm.mixin.Mixin;
@@ -25,7 +25,8 @@ public abstract class AtlasLoaderEvents {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/renderer/texture/atlas/SpriteSourceList;<init>(Ljava/util/List;)V",
+                            target =
+                                    "Lnet/minecraft/client/renderer/texture/atlas/SpriteSourceList;<init>(Ljava/util/List;)V",
                             shift = At.Shift.BEFORE),
             locals = LocalCapture.CAPTURE_FAILHARD)
     private static void loadSources(

@@ -138,7 +138,8 @@ public class EntityLog extends BaseModule {
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundAddEntityPacket.class), this::onEntitySpawn);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(ClientboundRemoveEntitiesPacket.class), this::onEntityRemove);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundRemoveEntitiesPacket.class),
+                this::onEntityRemove);
         registerListener(Listener.getServerDisconnectPoint(), this::onServerExit);
         registerListener(Listener.getPostTick(), this::onUpdate);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
@@ -160,9 +161,8 @@ public class EntityLog extends BaseModule {
                     if (chatLog.get()) {
                         String name = null;
                         if (Minecraft.getInstance().level != null) {
-                            PlayerInfo entry = Minecraft.getInstance()
-                                    .getConnection()
-                                    .getPlayerInfo(packet.getUUID());
+                            PlayerInfo entry =
+                                    Minecraft.getInstance().getConnection().getPlayerInfo(packet.getUUID());
                             if (entry != null) {
                                 name = VRecord.getName(entry.getProfile());
                             }
@@ -469,9 +469,11 @@ public class EntityLog extends BaseModule {
     }
 
     private Component createTracking(String name) {
-        return ChatUtils.stringToText("&a&l[&aTrack&a&l]").withStyle(s -> s.withClickEvent(
-                        ChatUtils.getSuggestCommand(MainCommand.getMainCommandPrefix() + "pqueue add " + name))
-                .withHoverEvent(ChatUtils.getHoverShowText(List.of(Component.literal("Click to track player in queue")))));
+        return ChatUtils.stringToText("&a&l[&aTrack&a&l]")
+                .withStyle(s -> s.withClickEvent(
+                                ChatUtils.getSuggestCommand(MainCommand.getMainCommandPrefix() + "pqueue add " + name))
+                        .withHoverEvent(ChatUtils.getHoverShowText(
+                                List.of(Component.literal("Click to track player in queue")))));
     }
 
     public void handleReLogin(UUID uuid) {

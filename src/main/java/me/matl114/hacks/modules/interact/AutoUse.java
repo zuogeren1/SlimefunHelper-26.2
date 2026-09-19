@@ -17,9 +17,9 @@ import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VItem;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.Item;
@@ -78,8 +78,7 @@ public class AutoUse extends BaseModule {
 
     private boolean pass() {
         if (onlyWhenEnemyNear.get()
-                && TargetSelector.INSTANCE.searchAttackEntity(
-                                nearDistance.get(), true, pl -> pl instanceof Player)
+                && TargetSelector.INSTANCE.searchAttackEntity(nearDistance.get(), true, pl -> pl instanceof Player)
                         == null) {
             return false;
         }

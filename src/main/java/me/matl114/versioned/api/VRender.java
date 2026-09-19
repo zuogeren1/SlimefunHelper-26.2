@@ -127,7 +127,8 @@ public interface VRender {
      * @param uv
      * @param color
      */
-    default void drawSpriteQuadCameraCoord(TextureAtlasSprite sprite, PoseStack stack, Quad quad, UV uv, ColorQuad color) {
+    default void drawSpriteQuadCameraCoord(
+            TextureAtlasSprite sprite, PoseStack stack, Quad quad, UV uv, ColorQuad color) {
         createSpriteTexturedLayer(sprite, (op, bf) -> {
             op.drawTexturedQuad(stack, bf, quad, uv, color);
         });

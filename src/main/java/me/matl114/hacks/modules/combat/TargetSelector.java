@@ -582,8 +582,8 @@ public class TargetSelector extends BaseModule {
                 return -(horizontalNormalize + (e instanceof Player ? multiplyPlayer.get() : 0.0D));
             }
         } else {
-            return -(Math.abs(
-                            (horizontalMultiply) / ((e.position().subtract(vec3d).horizontalDistance() + 1E-10)))
+            return -(Math.abs((horizontalMultiply)
+                            / ((e.position().subtract(vec3d).horizontalDistance() + 1E-10)))
                     + (e instanceof Player ? multiplyPlayer.get() : 0.0D));
         }
     }

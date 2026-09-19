@@ -49,12 +49,14 @@ public abstract class MoonriseChunkBlockCountingMixin implements MoonriseChunkBl
     }
 
     @Inject(
-            method = "setBlockState(IIILnet/minecraft/world/level/block/state/BlockState;Z)Lnet/minecraft/world/level/block/state/BlockState;",
+            method =
+                    "setBlockState(IIILnet/minecraft/world/level/block/state/BlockState;Z)Lnet/minecraft/world/level/block/state/BlockState;",
             at =
                     @At(
                             value = "INVOKE",
                             shift = At.Shift.BEFORE,
-                            target = "Lnet/minecraft/world/level/block/state/BlockState;getFluidState()Lnet/minecraft/world/level/material/FluidState;",
+                            target =
+                                    "Lnet/minecraft/world/level/block/state/BlockState;getFluidState()Lnet/minecraft/world/level/material/FluidState;",
                             ordinal = 0))
     private void calculateSpecialCollidingBlocks(
             int x,

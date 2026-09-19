@@ -21,7 +21,8 @@ public class Packet_v1_21_11 implements VPacket {
     }
 
     @Override
-    public ServerboundMovePlayerPacket createLookAndOnGround(float yaw, float pitch, boolean isOnGround, boolean collision) {
+    public ServerboundMovePlayerPacket createLookAndOnGround(
+            float yaw, float pitch, boolean isOnGround, boolean collision) {
         // 1.21.1 版本不支持 collision 参数，忽略它
         return new ServerboundMovePlayerPacket.Rot(yaw, pitch, isOnGround, collision);
     }

@@ -249,29 +249,14 @@ public interface RenderHandler {
         final int color1 = color;
         return (element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
             drawScrollableText(
-                    context,
-                    mc.font,
-                    text,
-                    0,
-                    0,
-                    element.getTextureWidth(),
-                    element.getTextureHeight(),
-                    color1);
+                    context, mc.font, text, 0, 0, element.getTextureWidth(), element.getTextureHeight(), color1);
         };
     }
 
     public static RenderHandler ofAutoScaleText(Component text, int color) {
         return (element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
             RenderHandler.drawScaledText0(
-                    context,
-                    mc.font,
-                    text,
-                    0,
-                    0,
-                    element.getTextureWidth(),
-                    element.getTextureHeight(),
-                    color,
-                    0);
+                    context, mc.font, text, 0, 0, element.getTextureWidth(), element.getTextureHeight(), color, 0);
         };
     }
 
@@ -297,7 +282,8 @@ public interface RenderHandler {
             int endX,
             int endY,
             int color) {
-        drawScrollableText0(context, textRenderer, text.getVisualOrderText(), centerX, startX, startY, endX, endY, color);
+        drawScrollableText0(
+                context, textRenderer, text.getVisualOrderText(), centerX, startX, startY, endX, endY, color);
     }
 
     public static void drawScrollableText0(
@@ -363,7 +349,7 @@ public interface RenderHandler {
                         case -1 -> startX;
 
                         case 1 -> endX - i;
-                            // magic, I dont know
+                        // magic, I dont know
                         default -> (float) (startX + endX - i + 1) / 2.0F;
                     };
             context.getMatrices().pushMatrix();

@@ -196,10 +196,7 @@ public abstract class ClientPlayerEntityMixin extends AbstractClientPlayer imple
 
     @WrapOperation(
             method = "aiStep",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/player/LocalPlayer;canStartSprinting()Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;canStartSprinting()Z"))
     private boolean noSlowUsingItemDoNotBlockSprint1(LocalPlayer instance, Operation<Boolean> original) {
         // fix viafabric
         if (MovTasks.getNoSlowDown().workNoSlowItemThisTick) {
@@ -216,10 +213,7 @@ public abstract class ClientPlayerEntityMixin extends AbstractClientPlayer imple
 
     @WrapOperation(
             method = "aiStep",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/player/LocalPlayer;shouldStopRunSprinting()Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;shouldStopRunSprinting()Z"))
     private boolean noSlowUsingItemDoNotBlockSprint2(LocalPlayer instance, Operation<Boolean> original) {
         // fix viafabric
         if (MovTasks.getNoSlowDown().workNoSlowItemThisTick) {
@@ -236,10 +230,7 @@ public abstract class ClientPlayerEntityMixin extends AbstractClientPlayer imple
 
     @WrapOperation(
             method = "aiStep",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/player/LocalPlayer;shouldStopSwimSprinting()Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;shouldStopSwimSprinting()Z"))
     private boolean nnoSlowUsingItemDoNotBlockSprint3(LocalPlayer instance, Operation<Boolean> original) {
         // fix viafabric
         if (MovTasks.getNoSlowDown().workNoSlowItemThisTick) {

@@ -53,10 +53,10 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
                 this::makeIcon);
     }
 
-    private static final List<Component> RULE_ACCEPT_VIRTUAL =
-            List.of(Component.literal("点击切换容器过滤规则"), Component.empty(), Component.literal("当前过滤规则: 接受虚拟容器(即不存在实体方块的容器)"));
-    private static final List<Component> RULE_REJECT_VIRTUAL =
-            List.of(Component.literal("点击切换容器过滤规则"), Component.empty(), Component.literal("当前过滤规则: 拒绝虚拟容器(即不存在实体方块的容器)"));
+    private static final List<Component> RULE_ACCEPT_VIRTUAL = List.of(
+            Component.literal("点击切换容器过滤规则"), Component.empty(), Component.literal("当前过滤规则: 接受虚拟容器(即不存在实体方块的容器)"));
+    private static final List<Component> RULE_REJECT_VIRTUAL = List.of(
+            Component.literal("点击切换容器过滤规则"), Component.empty(), Component.literal("当前过滤规则: 拒绝虚拟容器(即不存在实体方块的容器)"));
     private boolean filterVirtual = true;
 
     protected List<Component> provideTitleTooltips(DrawableWidget widget) {
@@ -74,7 +74,7 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
         description.add(Component.literal("左键点击预览容器内容"));
         description.add(Component.literal("右键点击渲染容器位置(如果有)"));
         description.add(Component.empty());
-        final ItemStack icon = screen.getChestType().map(ItemStack::new).orElse(InvTasks.INV_ICON_UNKNOWN);
+        final ItemStack icon = screen.getChestType().map(ItemStack::new).orElse(InvTasks.invIconUnknown());
 
         if (screen.getContainerPosition().isPresent()) {
             ContainerPosition containerPosition = screen.getContainerPosition().get();
@@ -83,20 +83,20 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
                     .append(Component.literal("[%d, %d, %d]".formatted(pos.getX(), pos.getY(), pos.getZ()))
                             .withStyle(ChatFormatting.GREEN)));
             description.add(Component.literal("记录世界: ")
-                    .append(Component.literal(containerPosition.world().identifier().toString())));
+                    .append(Component.literal(
+                            containerPosition.world().identifier().toString())));
         } else {
             description.add(Component.literal("虚拟容器").withStyle(ChatFormatting.YELLOW));
         }
         return ExecutableWidget.instance(0, 0, 16, 16)
-                .setElementHandler(SlotElement.instance(icon == null ? InvTasks.INV_ICON_UNKNOWN : icon)
+                .setElementHandler(SlotElement.instance(icon == null ? InvTasks.invIconUnknown() : icon)
                         .setSlotFrame(false)
                         .withInputHandler(InputHandler.isLeft((l) -> {
                             if (l) {
                                 openInventoryViewScreen(screen);
                             } else if (screen instanceof TileInventory tile
                                     && !tile.isVirtual()
-                                    && WorldUtils.areWorldEquals(
-                                            Minecraft.getInstance().level, tile.getWorld())) {
+                                    && WorldUtils.areWorldEquals(Minecraft.getInstance().level, tile.getWorld())) {
                                 ContainerPosition pos = tile.getContainerPosition();
                                 RenderTasks.registerVirtualRenderTask(new RenderTasks.RenderTask(
                                         120,
@@ -115,7 +115,7 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
             ScreenAccess.of(new InventoryViewScreen(
                             screen.getInventory(),
                             screen.getTitle().orElse(Component.empty()),
-                            screen.getChestType().map(ItemStack::new).orElse(InvTasks.INV_ICON_UNKNOWN)))
+                            screen.getChestType().map(ItemStack::new).orElse(InvTasks.invIconUnknown())))
                     .openFromCurrent();
         }
     }

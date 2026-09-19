@@ -110,7 +110,8 @@ public class RecipeDatabase extends BaseModule {
         if (InvTasks.getCustomItemDatabase().isLoaded()) {
             onLoad();
         }
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundOpenScreenPacket.class), this::onScreenOpen);
+        registerListener(
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundOpenScreenPacket.class), this::onScreenOpen);
     }
 
     @Getter
@@ -231,7 +232,7 @@ public class RecipeDatabase extends BaseModule {
 
     private void putRecipeType(String rid, ItemStack icon) {
         if (!id2CraftType.containsKey(rid)) {
-            ItemStack icon2 = icon.isEmpty() ? ITEM_NULL_TYPE.copy() : icon.copy();
+            ItemStack icon2 = icon.isEmpty() ? itemNullType().copy() : icon.copy();
             icon2.setCount(1);
             id2CraftType.put(rid, new CraftingType(rid, ItemStackDataWithAmount.of(icon2)));
             dirtyCraftType = true;
@@ -246,11 +247,8 @@ public class RecipeDatabase extends BaseModule {
         if (ensureLoaded()) putRecipeType(rid, icon);
     }
 
-    private static final Set<?> SCREEN_TYPES = Set.of(
-            MenuType.GENERIC_9x6,
-            MenuType.GENERIC_9x3,
-            MenuType.GENERIC_9x4,
-            MenuType.GENERIC_9x5);
+    private static final Set<?> SCREEN_TYPES =
+            Set.of(MenuType.GENERIC_9x6, MenuType.GENERIC_9x3, MenuType.GENERIC_9x4, MenuType.GENERIC_9x5);
 
     public void onScreenOpen(Event<ClientboundOpenScreenPacket> event) {
         if (mc.player == null) return;
@@ -267,8 +265,8 @@ public class RecipeDatabase extends BaseModule {
             if (title != null) {
                 title = title.replaceAll("§.", "");
                 if (slimefunBookTitle.get().test(title)) {
-                    Listener.addPostPacketCatcher(
-                            new TimedPacketCatcherImpl<>(ClientboundContainerSetContentPacket.class, 20, (packetEvent) -> {
+                    Listener.addPostPacketCatcher(new TimedPacketCatcherImpl<>(
+                            ClientboundContainerSetContentPacket.class, 20, (packetEvent) -> {
                                 var packet = packetEvent.context();
                                 if (packet.containerId() == container.getMenu().containerId) {
                                     // execute immediately after the update of menu
@@ -308,8 +306,7 @@ public class RecipeDatabase extends BaseModule {
 
                         // 存在这个,
                         SlimefunRecipeEntry entry = id2Recipe.get(id);
-                        if (entry.output().isEmpty()
-                                && !slots.get(16).getItem().isEmpty()) {
+                        if (entry.output().isEmpty() && !slots.get(16).getItem().isEmpty()) {
                             shouldUpdate = true;
                         } else if (lockExistingData.get()) {
                             shouldUpdate = false;
@@ -407,11 +404,27 @@ public class RecipeDatabase extends BaseModule {
         return Set.of();
     }
 
-    public static final ItemStack ITEM_NULL_TYPE = new ItemStack(Items.BARRIER);
+    // 26.2: ItemStack 必须在组件绑定之后才能构造，改为首次访问时创建
+    private static ItemStack itemNullTypeCache = null;
+
+    public static ItemStack itemNullType() {
+        if (itemNullTypeCache == null) {
+            itemNullTypeCache = new ItemStack(Items.BARRIER);
+        }
+        return itemNullTypeCache;
+    }
 
     public static record CraftingType(String id, ItemStackDataWithAmount icon) {
-        public static final CraftingType EMPTY =
-                new CraftingType("NULL", new ItemStackDataWithAmount(ItemStackData.wrapCopy(ITEM_NULL_TYPE), 1));
+        // 26.2: 构造过程要用 itemNullType() 造 ItemStack，必须在组件绑定之后，改为首次访问时创建
+        private static CraftingType emptyCache = null;
+
+        public static CraftingType empty() {
+            if (emptyCache == null) {
+                emptyCache = new CraftingType(
+                        "NULL", new ItemStackDataWithAmount(ItemStackData.wrapCopy(itemNullType()), 1));
+            }
+            return emptyCache;
+        }
 
         public ItemStack iconStack() {
             return icon.getAsItemStack();

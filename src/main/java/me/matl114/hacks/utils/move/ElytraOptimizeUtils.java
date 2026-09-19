@@ -367,8 +367,8 @@ public class ElytraOptimizeUtils {
         return switch (ElytraExtra.INSTANCE.autoRescaleAl.get()) {
             case V1 -> ElytraExtra.INSTANCE.applyAxisLimit1(currentMotion, pitch, yaw, true);
             case V2 -> ElytraExtra.INSTANCE.applyAxisLimit2(currentMotion, pitch, yaw, false);
-            case V3 -> applyAxisLimit3_0(
-                    currentMotion, pitch, yaw, ElytraExtra.INSTANCE.autoRescaleAmount.get(), false);
+            case V3 ->
+                applyAxisLimit3_0(currentMotion, pitch, yaw, ElytraExtra.INSTANCE.autoRescaleAmount.get(), false);
         };
     }
 }

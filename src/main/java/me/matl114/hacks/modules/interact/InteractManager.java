@@ -123,7 +123,8 @@ public class InteractManager extends BaseModule {
         registerListener(Listener.getServerLeavePoint(), this::onServerLeave);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(Listener.getPostHandleInputEvents(), this::onPostInputEvent, Integer.MIN_VALUE);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMoveC2SPacket);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMoveC2SPacket);
     }
 
     public boolean duringVanillaInput = false;
@@ -691,7 +692,9 @@ public class InteractManager extends BaseModule {
     }
 
     private static Stream<String> itemIdTabs() {
-        return BuiltInRegistries.ITEM.stream().map(BuiltInRegistries.ITEM::getKey).map(Identifier::getPath);
+        return BuiltInRegistries.ITEM.stream()
+                .map(BuiltInRegistries.ITEM::getKey)
+                .map(Identifier::getPath);
     }
 
     private static Stream<String> potionMetaTabs(String raw, int metaStart) {
@@ -760,7 +763,8 @@ public class InteractManager extends BaseModule {
             metaRaw = raw.substring(metaStart + 1, raw.length() - 1);
             if (metaRaw.isBlank() || metaRaw.indexOf('[') >= 0 || metaRaw.indexOf(']') >= 0) return null;
         }
-        Item item = BuiltInRegistries.ITEM.getOptional(Identifier.tryParse(itemRaw)).orElse(null);
+        Item item =
+                BuiltInRegistries.ITEM.getOptional(Identifier.tryParse(itemRaw)).orElse(null);
         if (item == null) return null;
         if (metaRaw != null) {
             Identifier id = Identifier.tryParse(metaRaw);
@@ -929,7 +933,9 @@ public class InteractManager extends BaseModule {
                 Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
                 if (runnable != null) {
                     mc.gameMode.startDestroyBlock(
-                            blockPos, Direction.getApproximateNearest(mc.player.getEyePosition().subtract(Vec3.atCenterOf(blockPos))));
+                            blockPos,
+                            Direction.getApproximateNearest(
+                                    mc.player.getEyePosition().subtract(Vec3.atCenterOf(blockPos))));
                     if (InteractManager.INSTANCE.logA.get()) {
                         manager.logI18NSub(
                                 "Interact",
@@ -1096,8 +1102,7 @@ public class InteractManager extends BaseModule {
                 Set<Holder<MobEffect>> effectSet = Streams.of(contents.getAllEffects())
                         .map(MobEffectInstance::getEffect)
                         .collect(Collectors.toSet());
-                Set<Holder<MobEffect>> required = Streams.of(
-                                potionType.value().getEffects())
+                Set<Holder<MobEffect>> required = Streams.of(potionType.value().getEffects())
                         .map(MobEffectInstance::getEffect)
                         .collect(Collectors.toSet());
                 if (effectSet.containsAll(required)) {

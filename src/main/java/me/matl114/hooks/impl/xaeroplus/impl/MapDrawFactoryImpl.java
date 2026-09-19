@@ -83,8 +83,8 @@ public class MapDrawFactoryImpl implements IMapDrawFactory {
 
     @Override
     public IMapDrawFeature text(String id, ElementSupplier<Long2ObjectMap<TextWrapper<?>>> textSupplier) {
-        return new MapDrawFeatureImpl(
-                DrawFeatureFactory.text(id, ((windowRegionX, windowRegionZ, windowRegionSize, dimension) -> {
+        return new MapDrawFeatureImpl(DrawFeatureFactory.text(
+                id, ((windowRegionX, windowRegionZ, windowRegionSize, dimension) -> {
                     var long2ObjectMap =
                             textSupplier.supplyElement(windowRegionX, windowRegionZ, windowRegionSize, dimension);
                     Long2ObjectMap<Text> map = new Long2ObjectOpenHashMap<>();

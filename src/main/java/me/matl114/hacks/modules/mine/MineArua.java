@@ -83,7 +83,8 @@ public class MineArua extends BaseModule {
                 Direction dir = Direction.getApproximateNearest(
                                 Vec3.atCenterOf(this.cachePosition).subtract(mc.player.getEyePosition()))
                         .getOpposite();
-                HitResult hitResult = new BlockHitResult(Vec3.atLowerCornerOf(this.cachePosition), dir, this.cachePosition, false);
+                HitResult hitResult =
+                        new BlockHitResult(Vec3.atLowerCornerOf(this.cachePosition), dir, this.cachePosition, false);
                 event.context(hitResult);
             }
         }

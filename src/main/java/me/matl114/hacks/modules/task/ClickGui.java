@@ -181,7 +181,8 @@ public class ClickGui extends BaseModule {
             // todo: add
             ExecutableWidget executableWidget = ExecutableWidget.instance(0, 0, 100, 20)
                     .setElementHandler(new ButtonElement(
-                            TextProvider.of(Component.literal("SlimefunHelper")), ButtonAction.run(this::openClickGui)));
+                            TextProvider.of(Component.literal("SlimefunHelper")),
+                            ButtonAction.run(this::openClickGui)));
             if (delegateWidget != null && delegateWidget.get() != null) {
                 ScreenAccess.of(mp).removeChildFrom(delegateWidget.get());
             }
@@ -226,8 +227,7 @@ public class ClickGui extends BaseModule {
     }
 
     public void setClickGuiMeta(ClickGuiMetaData meta) {
-        Tag element =
-                ClickGuiMetaData.CODEC.encodeStart(NbtOps.INSTANCE, meta).getOrThrow();
+        Tag element = ClickGuiMetaData.CODEC.encodeStart(NbtOps.INSTANCE, meta).getOrThrow();
         internalGuiData.write(element, NbtOps.INSTANCE);
     }
 
@@ -308,7 +308,8 @@ public class ClickGui extends BaseModule {
                 baseModule.getName());
     }
 
-    private static final List<Component> TOOLTIP_HAS_BIND = List.of(Component.literal("左键切换模块是否启用"), Component.literal("右键打开模块配置界面"));
+    private static final List<Component> TOOLTIP_HAS_BIND =
+            List.of(Component.literal("左键切换模块是否启用"), Component.literal("右键打开模块配置界面"));
     private static final List<Component> TOOLTIPS_NO_BIND = List.of(Component.literal("点击打开模块配置界面"));
 
     public List<Component> getModuleButtonTooltips(BaseModule baseModule) {

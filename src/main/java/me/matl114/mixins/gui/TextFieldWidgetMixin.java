@@ -80,7 +80,7 @@ public abstract class TextFieldWidgetMixin extends AbstractWidget implements Tex
     }
 
     @WrapOperation(
-            method = "renderWidget",
+            method = "extractWidgetRenderState",
             at =
                     @At(
                             value = "INVOKE",
@@ -106,8 +106,7 @@ public abstract class TextFieldWidgetMixin extends AbstractWidget implements Tex
 
     @Inject(method = "keyPressed", at = @At(value = "RETURN"), cancellable = true)
     public void fixInventoryKeyPressedWhenFocused(KeyEvent input, CallbackInfoReturnable<Boolean> cir) {
-        if (this.isFocused()
-                && Minecraft.getInstance().options.keyInventory.matches(input)) {
+        if (this.isFocused() && Minecraft.getInstance().options.keyInventory.matches(input)) {
             cir.setReturnValue(true);
         }
     }
@@ -121,9 +120,7 @@ public abstract class TextFieldWidgetMixin extends AbstractWidget implements Tex
 
         String string = this.font.plainSubstrByWidth(
                 this.value.substring(this.displayPos), this.cast().getInnerWidth());
-        this.cast()
-                .moveCursorTo(
-                        this.font.plainSubstrByWidth(string, i).length() + this.displayPos, shiftDownAction);
+        this.cast().moveCursorTo(this.font.plainSubstrByWidth(string, i).length() + this.displayPos, shiftDownAction);
     }
 
     @Unique

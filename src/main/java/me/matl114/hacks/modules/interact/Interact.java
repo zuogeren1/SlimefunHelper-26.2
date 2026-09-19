@@ -753,14 +753,16 @@ public class Interact extends BaseModule {
         switch (blockMode.get()) {
             case NONE -> {
                 if (canUseTp() && !isWithinDistance) {
-                    return TpInteract.INSTANCE.tpAndInteractBlock(hitResult, InteractionHand.MAIN_HAND, swingHand.get());
+                    return TpInteract.INSTANCE.tpAndInteractBlock(
+                            hitResult, InteractionHand.MAIN_HAND, swingHand.get());
                 }
                 InteractionTasks.interactBlock(InteractionHand.MAIN_HAND, hitResult, swingHand.get());
                 return true;
             }
             default -> {
                 if (isWithinDistance) {
-                    InteractionTasks.handlePlaceMode(blockMode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
+                    InteractionTasks.handlePlaceMode(
+                            blockMode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
                     return true;
                 }
                 return false;
@@ -789,8 +791,10 @@ public class Interact extends BaseModule {
             }
             RenderUtils.startDrawVirtual(event.context);
             try {
-                float dist = (float)
-                        currentBox.getCenter().subtract(mc.player.getEyePosition()).length();
+                float dist = (float) currentBox
+                        .getCenter()
+                        .subtract(mc.player.getEyePosition())
+                        .length();
                 float opacity = Math.min(0.6F, 0.20F + dist * 0.02F);
                 RenderUtils.drawSolidBox(
                         event.context,

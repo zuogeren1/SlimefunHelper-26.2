@@ -29,19 +29,19 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.api.VPacket;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -143,8 +143,7 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onPlayerAttack);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onPlayerAttack);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundSwingPacket.class), this::onSwing);
         //        registerListener(
         //                Listener.getPacketPostHandlePoint().getChannel(PlayerPositionLookS2CPacket.class),
@@ -152,7 +151,8 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
         //        registerListener(
         //            Listener.getPacketPostSendPoint().getChannel(TeleportConfirmC2SPacket.class),
         // this::onTeleportConfirm);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onTeleportConfirmPre);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onTeleportConfirmPre);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
         ;
     }
@@ -207,30 +207,30 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                     mc.getConnection().send(VPacket.newPositionAndOnGround(x, y + 1.0E-4, z, false, false));
                 }
             }
-                //            case OLD_GRIM_V2 -> {
-                //                if (mc.player.isOnGround()
-                //                        && !PlayerInputUtils.of(mc.player).hasWASDMovement()) {
-                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
-                // false, false));
-                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
-                // false));
-                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 1.0E-7, z,
-                // false, false));
-                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
-                // false));
-                //                }
-                //            }
-                //            case OLD_GRIM_V3 -> {
-                //                if (mc.player.isOnGround()
-                //                        && !PlayerInputUtils.of(mc.player).hasWASDMovement()) {
-                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, true,
-                // false));
-                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
-                // false, false));
-                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.04535,
-                // z, false, false));
-                //                }
-                //            }
+            //            case OLD_GRIM_V2 -> {
+            //                if (mc.player.isOnGround()
+            //                        && !PlayerInputUtils.of(mc.player).hasWASDMovement()) {
+            //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
+            // false, false));
+            //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
+            // false));
+            //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 1.0E-7, z,
+            // false, false));
+            //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
+            // false));
+            //                }
+            //            }
+            //            case OLD_GRIM_V3 -> {
+            //                if (mc.player.isOnGround()
+            //                        && !PlayerInputUtils.of(mc.player).hasWASDMovement()) {
+            //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, true,
+            // false));
+            //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
+            // false, false));
+            //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.04535,
+            // z, false, false));
+            //                }
+            //            }
             case FREEZE -> {
                 if (lastOnGroundT) {
                     mc.getConnection()
@@ -268,7 +268,8 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                     }
                     event.cancel();
                     cache = event.context;
-                    cachedHandStack = mc.player.getItemInHand(InteractionHand.MAIN_HAND).copy();
+                    cachedHandStack =
+                            mc.player.getItemInHand(InteractionHand.MAIN_HAND).copy();
                     lastStartCacheTick = Tasks.getTick();
                     fakeMovementThisTick = true;
                 }
@@ -320,8 +321,7 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                 && event.context instanceof PlayerMoveC2SPacketAccess acc
                 && acc.getCause() == PlayerMoveC2SPacketAccess.Cause.SET_BACK) {
             setbackFlag = 1;
-            Entity entity = mc.level.getEntity(
-                    cache.entityId());
+            Entity entity = mc.level.getEntity(cache.entityId());
             var pkt0 = event.context;
             Vec2 useLegacySnap = null;
             if (entity != null) {

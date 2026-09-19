@@ -75,8 +75,8 @@ public class SearchLabel extends BaseModule {
 
     public final NBTRef<EntrySet<Block>> instantBlocks = builder(
                     searchControl.add("instant-blocks"), EntrySet.<Block>parameter())
-            .defaultValue(
-                    new EntrySet<>(BuiltInRegistries.BLOCK, List.of(Blocks.SHULKER_BOX, Blocks.CRAFTER, Blocks.ENDER_CHEST)))
+            .defaultValue(new EntrySet<>(
+                    BuiltInRegistries.BLOCK, List.of(Blocks.SHULKER_BOX, Blocks.CRAFTER, Blocks.ENDER_CHEST)))
             .build();
 
     public final FlagRef labelImportantItems =
@@ -84,7 +84,8 @@ public class SearchLabel extends BaseModule {
 
     public final NBTRef<EntrySet<Item>> importantItems = builder(
                     searchControl.add("important-items"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.ELYTRA, Items.FILLED_MAP, Items.SHULKER_BOX)))
+            .defaultValue(
+                    new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.ELYTRA, Items.FILLED_MAP, Items.SHULKER_BOX)))
             .build();
 
     public final IntRef importantItemsCount =
@@ -105,8 +106,8 @@ public class SearchLabel extends BaseModule {
 
     public final NBTRef<EntrySet<EntityType<?>>> instantEntities = builder(
                     searchControl.add("instant-entities"), EntrySet.<EntityType<?>>parameter())
-            .defaultValue(
-                    new EntrySet<>(BuiltInRegistries.ENTITY_TYPE, List.of(EntityTypes.MINECART, EntityTypes.HOPPER_MINECART)))
+            .defaultValue(new EntrySet<>(
+                    BuiltInRegistries.ENTITY_TYPE, List.of(EntityTypes.MINECART, EntityTypes.HOPPER_MINECART)))
             .build();
 
     public final FlagRef labelInWorldMap = builder(searchControl.add("label-in-world-map"), Boolean.class)
@@ -419,8 +420,7 @@ public class SearchLabel extends BaseModule {
                                                                 .test(item.getItem()
                                                                         .getItem());
                                                     } else if (s instanceof ItemFrame frame
-                                                            && !frame.getItem()
-                                                                    .isEmpty()) {
+                                                            && !frame.getItem().isEmpty()) {
                                                         return importantItems
                                                                 .get()
                                                                 .test(frame.getItem()
@@ -763,8 +763,7 @@ public class SearchLabel extends BaseModule {
             return true;
         }
 
-        return biome.is(BiomeTags.HAS_RUINED_PORTAL_NETHER)
-                && contains(NETHER_RUINED_PORTAL_BLOCKS, above, below);
+        return biome.is(BiomeTags.HAS_RUINED_PORTAL_NETHER) && contains(NETHER_RUINED_PORTAL_BLOCKS, above, below);
     }
 
     private boolean isEndStructureContainer(BlockPos pos, Block above, Block below) {
@@ -794,7 +793,10 @@ public class SearchLabel extends BaseModule {
                                 .byNameCodec()
                                 .optionalFieldOf("type-block")
                                 .forGetter(ChunkRecord::typeBlock),
-                        BuiltInRegistries.ITEM.byNameCodec().optionalFieldOf("item-type").forGetter(ChunkRecord::typeItem),
+                        BuiltInRegistries.ITEM
+                                .byNameCodec()
+                                .optionalFieldOf("item-type")
+                                .forGetter(ChunkRecord::typeItem),
                         BuiltInRegistries.ENTITY_TYPE
                                 .byNameCodec()
                                 .optionalFieldOf("entity-type")

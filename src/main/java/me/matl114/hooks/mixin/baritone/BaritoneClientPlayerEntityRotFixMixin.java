@@ -50,8 +50,7 @@ public abstract class BaritoneClientPlayerEntityRotFixMixin extends AbstractClie
                 && (BaritoneHooks.getInstance().isBaritonePathing()
                         || BaritoneHooks.getInstance().isBaritoneElytraProcessing())) {
             LegalMovementManager manager = getLegalMovementManager();
-            Vec2 rotModify =
-                    BaritoneHooks.getInstance().getBaritoneCurrentMoveRot(Minecraft.getInstance().player);
+            Vec2 rotModify = BaritoneHooks.getInstance().getBaritoneCurrentMoveRot(Minecraft.getInstance().player);
             Vec2 currentPY = new Vec2(getXRot(), getYRot());
             if (rotModify != null && !Objects.equals(rotModify, currentPY)) {
                 if (manager.isResetRot()) {

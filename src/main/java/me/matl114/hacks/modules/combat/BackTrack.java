@@ -195,8 +195,7 @@ public class BackTrack extends BaseModule {
                         trackedPosition.setBase(lastTrackingPosition);
                     }
                     vec3d = trackedPosition.decode(
-                            (long) entityMove.getXa(), (long) entityMove.getYa(), (long)
-                                    entityMove.getZa());
+                            (long) entityMove.getXa(), (long) entityMove.getYa(), (long) entityMove.getZa());
                     boolean lastDelay = shouldDelay;
                     handleTrackEntityPosition(vec3d);
                     lastTrackingPosition = vec3d;
@@ -279,7 +278,10 @@ public class BackTrack extends BaseModule {
             RenderUtils.startDrawVirtual(eventMatrixStack.context);
             try {
                 RenderUtils.drawOutlinedBox(
-                        eventMatrixStack.context, boundingBox.getMinPosition(), boundingBox.getMaxPosition(), Color.ORANGE);
+                        eventMatrixStack.context,
+                        boundingBox.getMinPosition(),
+                        boundingBox.getMaxPosition(),
+                        Color.ORANGE);
             } finally {
                 RenderUtils.stopDrawVirtual(eventMatrixStack.context);
             }

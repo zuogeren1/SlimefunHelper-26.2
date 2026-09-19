@@ -8,7 +8,6 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.utils.NetworkUtils;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ClientboundBlockChangedAckPacket;
@@ -17,6 +16,7 @@ import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class FakeBlockManager extends BaseModule {
     public static FakeBlockManager INSTANCE;
@@ -31,9 +31,11 @@ public class FakeBlockManager extends BaseModule {
         super.registerAll();
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockChangedAckPacket.class), this::onBlockACK);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockChangedAckPacket.class),
+                this::onBlockACK);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockUpdatePacket.class), this::onBlockUpdate);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockUpdatePacket.class),
+                this::onBlockUpdate);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundSectionBlocksUpdatePacket.class),
                 this::onChunkDeltaUpdate);
@@ -55,12 +57,12 @@ public class FakeBlockManager extends BaseModule {
         if (!force && fakeMiningBlocks.containsValue(pos)) {
             return;
         }
-        if (Objects.equals(
-                PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(), new BlockPos(-1, -1, -1))) {
+        if (Objects.equals(PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(), new BlockPos(-1, -1, -1))) {
             // start to avoid wrong break
             PlayerInteractionAccess.of(mc.gameMode).sendStartBreakPacket(pos);
         }
-        Direction direction = Direction.getApproximateNearest(mc.player.getEyePosition().subtract(Vec3.atCenterOf(pos)));
+        Direction direction =
+                Direction.getApproximateNearest(mc.player.getEyePosition().subtract(Vec3.atCenterOf(pos)));
         int seq = NetworkUtils.generateNextSequence();
         mc.getConnection()
                 .send(new ServerboundPlayerActionPacket(

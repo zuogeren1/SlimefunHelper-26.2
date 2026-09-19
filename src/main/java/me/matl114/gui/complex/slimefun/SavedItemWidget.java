@@ -55,7 +55,8 @@ public class SavedItemWidget extends SubScreenWidget {
                                                     .isCreative()) {
                                         InvTasks.creativeAddItem(this.itemStack, 64);
                                     } else {
-                                        Debug.chat(Component.translatable("widget.gui.saved-item-widget.creative-give.error")
+                                        Debug.chat(Component.translatable(
+                                                        "widget.gui.saved-item-widget.creative-give.error")
                                                 .withStyle(ChatFormatting.YELLOW));
                                     }
                                 }))

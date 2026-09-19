@@ -60,7 +60,7 @@ echo [gradlew] Using LOCAL_GRADLE_ZIP: %LOCAL_GRADLE_ZIP%
 echo [gradlew] Using DEFAULT_GRADLE_DIST_URL: %DEFAULT_GRADLE_DIST_URL%
 echo [gradlew] Using Gradle distribution URL: %GRADLE_DIST_URL%
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$props = '%WRAPPER_PROPS%'; $url = '%GRADLE_DIST_URL%'; $content = Get-Content -Raw -LiteralPath $props; $updated = [regex]::Replace($content, '(?m)^distributionUrl=.*$', ('distributionUrl=' + $url)); if ($updated -eq $content) { throw 'distributionUrl not found in gradle-wrapper.properties' }; Set-Content -LiteralPath $props -Value $updated -NoNewline"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$props = '%WRAPPER_PROPS%'; $url = '%GRADLE_DIST_URL%'; $content = Get-Content -Raw -LiteralPath $props; if ($content -notmatch '(?m)^distributionUrl=[^\r\n]*') { throw 'distributionUrl not found in gradle-wrapper.properties' }; $updated = [regex]::Replace($content, '(?m)^distributionUrl=[^\r\n]*', ('distributionUrl=' + $url)); if ($updated -ne $content) { Set-Content -LiteralPath $props -Value $updated -NoNewline }"
 if %ERRORLEVEL% neq 0 goto fail
 
 @rem Find java.exe

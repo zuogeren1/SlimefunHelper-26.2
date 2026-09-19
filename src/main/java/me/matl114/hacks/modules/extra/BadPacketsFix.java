@@ -90,18 +90,24 @@ public class BadPacketsFix extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getPlayerInitConfiguration(), this::onPlayerInitialize);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerCommandPacket.class), this::onSendSprint);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundPlayerCommandPacket.class), this::onSendSprint);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerInputPacket.class), this::onSendInput);
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundPlayerAbilitiesPacket.class), this::onServerAbility);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundPlayerAbilitiesPacket.class), this::onServerAbility);
         registerListener(
                 Listener.getPacketPoint().getChannel(ServerboundPlayerAbilitiesPacket.class), this::onAbilityUpdate);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundAcceptTeleportationPacket.class), this::onTeleportConfirm);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerRotation);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundAcceptTeleportationPacket.class),
+                this::onTeleportConfirm);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerRotation);
         //        registerListener(Listener.getPreHandleInputEvents(), this::onPreInputEvent);
         //        registerListener(Listener.getPostHandleInputEvents(), this::onPostInputEvent);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldChange);
         registerListener(
-                Listener.getPacketPoint().getChannel(ClientboundSetChunkCacheRadiusPacket.class), this::onRepackViewDistance);
+                Listener.getPacketPoint().getChannel(ClientboundSetChunkCacheRadiusPacket.class),
+                this::onRepackViewDistance);
         registerListener(
                 Listener.getRegistryTagKeyReload().getChannel(BuiltInRegistries.BLOCK.key()), this::fixTagsBadPackets);
     }
@@ -136,7 +142,8 @@ public class BadPacketsFix extends BaseModule {
     public void onSendSprint(Event<ServerboundPlayerCommandPacket> event) {
         if (event.context().getAction() == ServerboundPlayerCommandPacket.Action.START_SPRINTING
                 || event.context().getAction() == ServerboundPlayerCommandPacket.Action.STOP_SPRINTING) {
-            boolean isStartingSprint = (event.context().getAction() == ServerboundPlayerCommandPacket.Action.START_SPRINTING);
+            boolean isStartingSprint =
+                    (event.context().getAction() == ServerboundPlayerCommandPacket.Action.START_SPRINTING);
             if (serverSprint == isStartingSprint) {
                 if (enableSprint.get()) {
                     event.cancel();

@@ -111,7 +111,10 @@ public class ConnectionProxy extends BaseModule {
                 220);
         ListModifyWidget listSelect = new ListModifyWidget(controller, 0, 0, 320, 260);
         ConfirmingWidgetScreen confirmScreen = new ConfirmingWidgetScreen(
-                Component.translatable("widget.connection-proxy.proxy-list-editor.title"), listSelect, () -> true, () -> {
+                Component.translatable("widget.connection-proxy.proxy-list-editor.title"),
+                listSelect,
+                () -> true,
+                () -> {
                     List<ProxyEntry> newProxies = currentList.stream()
                             .map(s -> s.toRecord(ProxyEntry.class))
                             .toList();

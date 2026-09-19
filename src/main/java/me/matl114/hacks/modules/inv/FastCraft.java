@@ -26,8 +26,8 @@ import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.MerchantScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.AbstractCraftingMenu;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -51,7 +51,8 @@ public class FastCraft extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onCraftScreenInitialize);
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class),
+                this::onCraftScreenInitialize);
         registerListener(Listener.getPostToggleRecipeBook(), this::onRecipeBookToggle);
         registerListener(Listener.getClickCraftingRecipe(), this::onRecipeClicked);
         TaskManagers.getToggleManager().register(TaskManagers.PREFIX_BUTTON_TOGGLE + "." + "drop-craft", dropCraft);

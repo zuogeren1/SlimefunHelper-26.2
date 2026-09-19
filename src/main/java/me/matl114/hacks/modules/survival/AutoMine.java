@@ -96,7 +96,8 @@ public class AutoMine extends BaseModule {
             flagBuilder(root.add("enable-baritone")).defaultValue(true).build();
 
     public final NBTRef<EntrySet<Block>> blockWhitelist = builder(root.add("whitelist"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(sand|red_sand|gravel|clay|dirt|grass_block)$"), BuiltInRegistries.BLOCK))
+            .defaultValue(new EntrySet<>(
+                    new Regex("^(sand|red_sand|gravel|clay|dirt|grass_block)$"), BuiltInRegistries.BLOCK))
             .build();
 
     public final IntRef startDownOffset = intBuilder(root.add("start-down-offset"))

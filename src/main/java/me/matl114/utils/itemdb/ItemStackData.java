@@ -28,25 +28,42 @@ public interface ItemStackData {
 
     public ItemStack getIcon();
 
-    static ItemStack FAILURE = CustomItemStackBuilder.builder()
-            .type(Items.BARRIER)
-            .amount(1)
-            .name("&c物品解析失败")
-            .lore()
-            .append("")
-            .append("&7详细信息请检查日志")
-            .endLore()
-            .build();
+    /** 26.2: ItemStack 必须在组件绑定之后构造。接口字段不能是可变 private static，
+     * 因此用嵌套持有类做惰性缓存。 */
+    final class Icons {
+        static ItemStack failure = null;
+        static ItemStack missing = null;
+    }
 
-    static ItemStack MISSING = CustomItemStackBuilder.builder()
-            .type(Items.STRUCTURE_VOID)
-            .amount(1)
-            .name("&c物品索引缺失")
-            .lore()
-            .append("")
-            .append("&7请修复item-database.json")
-            .endLore()
-            .build();
+    public static ItemStack failure() {
+        if (Icons.failure == null) {
+            Icons.failure = CustomItemStackBuilder.builder()
+                    .type(Items.BARRIER)
+                    .amount(1)
+                    .name("&c物品解析失败")
+                    .lore()
+                    .append("")
+                    .append("&7详细信息请检查日志")
+                    .endLore()
+                    .build();
+        }
+        return Icons.failure;
+    }
+
+    public static ItemStack missing() {
+        if (Icons.missing == null) {
+            Icons.missing = CustomItemStackBuilder.builder()
+                    .type(Items.STRUCTURE_VOID)
+                    .amount(1)
+                    .name("&c物品索引缺失")
+                    .lore()
+                    .append("")
+                    .append("&7请修复item-database.json")
+                    .endLore()
+                    .build();
+        }
+        return Icons.missing;
+    }
 
     public static ItemStack deserialize(JsonElement json) {
         if (json.isJsonObject()) {
@@ -242,7 +259,7 @@ public interface ItemStackData {
             if (valid) {
                 return stack;
             } else {
-                return FAILURE;
+                return failure();
             }
         }
 
@@ -353,7 +370,7 @@ public interface ItemStackData {
 
         @Override
         public ItemStack getIcon() {
-            return MISSING;
+            return missing();
         }
 
         public boolean equals(Object obj) {

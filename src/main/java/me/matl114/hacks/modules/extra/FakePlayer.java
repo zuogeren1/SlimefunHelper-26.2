@@ -32,6 +32,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ServerboundAttackPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Mth;
@@ -94,10 +95,16 @@ public class FakePlayer extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class),
-                this::onHit,
+                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onHit, Integer.MAX_VALUE);
+        // 1.21.11 监听的是 PlayerInteractEntityC2SPacket（攻击/交互/交互带位置三种），
+        // 对假人一律 cancel。26.2 拆成 ServerboundAttackPacket + ServerboundInteractPacket，
+        // 只注册攻击会让右键假人的包真的发出去，这里补上交互通道。
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class),
+                this::onInteract,
                 Integer.MAX_VALUE);
-        registerListener(Listener.getPacketPreHandlePoint().getChannel(ClientboundExplodePacket.class), this::onExplode);
+        registerListener(
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundExplodePacket.class), this::onExplode);
         registerListener(Listener.getPreGameTick(), this::onTickKinetic);
     }
 
@@ -163,20 +170,14 @@ public class FakePlayer extends BaseModule {
     private FakePlayerEntity createNewFakePlayer() {
         FakePlayerEntity fakePlayer = new FakePlayerEntity(mc.level, new GameProfile(UUID.randomUUID(), name.get()));
         fakePlayer.setFreeze(!hasPhysics.get());
-        fakePlayer
-                .getAttributes()
-                .getInstance(Attributes.MAX_HEALTH)
-                .setBaseValue(maxHealth.get());
+        fakePlayer.getAttributes().getInstance(Attributes.MAX_HEALTH).setBaseValue(maxHealth.get());
         fakePlayer.setTickTask(this::onFakePlayerTick);
         if (copyEquipment.get()) {
             fakePlayer.copyEquipmentFrom(mc.player);
         }
         fakePlayer.copyDataFrom(mc.player);
         // enable absorption
-        fakePlayer
-                .getAttributes()
-                .getInstance(Attributes.MAX_ABSORPTION)
-                .setBaseValue(1024);
+        fakePlayer.getAttributes().getInstance(Attributes.MAX_ABSORPTION).setBaseValue(1024);
         mc.level.addEntity(fakePlayer);
         return fakePlayer;
     }
@@ -228,11 +229,7 @@ public class FakePlayer extends BaseModule {
             log(hitLog.get()
                     .formatText(
                             fakePlayer.getDisplayName(),
-                            source.typeHolder()
-                                    .unwrapKey()
-                                    .get()
-                                    .identifier()
-                                    .getPath(),
+                            source.typeHolder().unwrapKey().get().identifier().getPath(),
                             rawDamage,
                             realDamage));
         }
@@ -244,6 +241,14 @@ public class FakePlayer extends BaseModule {
         if (mc.level.getEntity(attackPacket.context.entityId()) instanceof FakePlayerEntity fake) {
             attackPacket.cancel();
             onAttack(fake);
+        }
+    }
+
+    private void onInteract(Event<ServerboundInteractPacket> interactPacket) {
+        if (checkNull()) return;
+        // 右键假人：1.21.11 同样是 cancel（假人是客户端实体，服务端没有它）
+        if (mc.level.getEntity(interactPacket.context.entityId()) instanceof FakePlayerEntity) {
+            interactPacket.cancel();
         }
     }
 
@@ -318,10 +323,7 @@ public class FakePlayer extends BaseModule {
             float max = Math.max(0, hitboxMargin);
             for (var e : mc.level.getEntities(mc.player, box)) {
                 if (e instanceof FakePlayerEntity livingEntity) {
-                    if (livingEntity
-                            .getBoundingBox()
-                            .clip(startPoint, endPoint)
-                            .isPresent()) {
+                    if (livingEntity.getBoundingBox().clip(startPoint, endPoint).isPresent()) {
                         onSpearKinetic(livingEntity, direction);
                     } else if (max > 0) {
                         var box2 = livingEntity.getBoundingBox().inflate(hitboxMargin);
@@ -377,7 +379,8 @@ public class FakePlayer extends BaseModule {
         onDamage(
                 fakePlayer,
                 DamageUtils.createDirectDamageSource(
-                        ResourceKey.create(Registries.DAMAGE_TYPE, Identifier.withDefaultNamespace("spear")), mc.player),
+                        ResourceKey.create(Registries.DAMAGE_TYPE, Identifier.withDefaultNamespace("spear")),
+                        mc.player),
                 damage);
     }
 }

@@ -8,10 +8,10 @@ import me.matl114.hacks.modules.interact.InteractExtra;
 import me.matl114.hacks.modules.mine.*;
 import me.matl114.utils.*;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.*;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 

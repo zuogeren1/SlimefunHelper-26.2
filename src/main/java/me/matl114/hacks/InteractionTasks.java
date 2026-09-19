@@ -1,6 +1,7 @@
 package me.matl114.hacks;
 
 import com.google.common.util.concurrent.Runnables;
+import com.mojang.datafixers.util.Pair;
 import java.util.*;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
@@ -21,19 +22,15 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
-import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.state.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.tags.FluidTags;
-import com.mojang.datafixers.util.Pair;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -42,6 +39,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.AmethystClusterBlock;
 import net.minecraft.world.level.block.BellBlock;
 import net.minecraft.world.level.block.Block;
@@ -58,11 +56,13 @@ import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.WallHangingSignBlock;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -186,8 +186,9 @@ public class InteractionTasks {
                 if (catcher.getValue() != null) {
                     var pkt = catcher.getValue();
                     InteractionTasks.addPostRotationCorrectTask(
-                            Vec3.atCenterOf(result.getBlockPos()), bestEyePos, () -> mc.getConnection()
-                                    .send(pkt));
+                            Vec3.atCenterOf(result.getBlockPos()),
+                            bestEyePos,
+                            () -> mc.getConnection().send(pkt));
                 }
             }
             case LEGACY_SLIENT_ROT -> {
@@ -225,7 +226,8 @@ public class InteractionTasks {
                         selectedSlot = InventoryUtils.getSelectedSlot();
                         mc.gameMode.startPrediction(
                                 mc.level,
-                                (i) -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, i, rotation.y, rotation.x));
+                                (i) -> new ServerboundUseItemPacket(
+                                        InteractionHand.MAIN_HAND, i, rotation.y, rotation.x));
                     } else {
                         flushACPlaceQueue();
                     }
@@ -245,7 +247,8 @@ public class InteractionTasks {
                     var result = pair.getFirst();
                     InteractionTasks.interactBlock(hand, result, swingHand);
                 }
-                InteractionTasks.addPostRotationCorrectTask(targetCenter, mc.player.getEyePosition(), Runnables.doNothing());
+                InteractionTasks.addPostRotationCorrectTask(
+                        targetCenter, mc.player.getEyePosition(), Runnables.doNothing());
             }
             case LEGACY_SLIENT_ROT -> {
                 int selectedSlot = -1;
@@ -296,7 +299,11 @@ public class InteractionTasks {
     public static FlagEntry<BlockHitResult> getPlaceSupportingResult(
             BlockPos blockPos, boolean enableAirPlace, boolean enablePositionPlace) {
         return getPlaceSupportingResult(
-                mc.player.position(), blockPos, mc.player.getNearestViewDirection(), enableAirPlace, enablePositionPlace);
+                mc.player.position(),
+                blockPos,
+                mc.player.getNearestViewDirection(),
+                enableAirPlace,
+                enablePositionPlace);
     }
 
     public static FlagEntry<BlockHitResult> getPlaceSupportingResult(
@@ -514,7 +521,11 @@ public class InteractionTasks {
     public static FlagEntry<BlockHitResult> createSpecificStateHitResult(
             BlockPos placeTargetBlock, BlockState targetState, boolean enableAirPlace, boolean enablePositionPlace) {
         return createSpecificStateHitResult(
-                mc.player.getNearestViewDirection(), placeTargetBlock, targetState, enableAirPlace, enablePositionPlace);
+                mc.player.getNearestViewDirection(),
+                placeTargetBlock,
+                targetState,
+                enableAirPlace,
+                enablePositionPlace);
     }
 
     public static FlagEntry<BlockHitResult> createSpecificStateHitResult(
@@ -1137,18 +1148,18 @@ public class InteractionTasks {
         double maxZ = box.maxZ;
 
         switch (side) {
-            case DOWN -> addLiquidPlacementGrid(
-                    points, box.minY, minX, midX, maxX, minZ, midZ, maxZ, Direction.Axis.Y, true);
-            case UP -> addLiquidPlacementGrid(
-                    points, box.maxY, minX, midX, maxX, minZ, midZ, maxZ, Direction.Axis.Y, true);
-            case NORTH -> addLiquidPlacementGrid(
-                    points, box.minZ, minX, midX, maxX, minY, midY, maxY, Direction.Axis.Z, false);
-            case SOUTH -> addLiquidPlacementGrid(
-                    points, box.maxZ, minX, midX, maxX, minY, midY, maxY, Direction.Axis.Z, false);
-            case WEST -> addLiquidPlacementGrid(
-                    points, box.minX, minY, midY, maxY, minZ, midZ, maxZ, Direction.Axis.X, false);
-            case EAST -> addLiquidPlacementGrid(
-                    points, box.maxX, minY, midY, maxY, minZ, midZ, maxZ, Direction.Axis.X, false);
+            case DOWN ->
+                addLiquidPlacementGrid(points, box.minY, minX, midX, maxX, minZ, midZ, maxZ, Direction.Axis.Y, true);
+            case UP ->
+                addLiquidPlacementGrid(points, box.maxY, minX, midX, maxX, minZ, midZ, maxZ, Direction.Axis.Y, true);
+            case NORTH ->
+                addLiquidPlacementGrid(points, box.minZ, minX, midX, maxX, minY, midY, maxY, Direction.Axis.Z, false);
+            case SOUTH ->
+                addLiquidPlacementGrid(points, box.maxZ, minX, midX, maxX, minY, midY, maxY, Direction.Axis.Z, false);
+            case WEST ->
+                addLiquidPlacementGrid(points, box.minX, minY, midY, maxY, minZ, midZ, maxZ, Direction.Axis.X, false);
+            case EAST ->
+                addLiquidPlacementGrid(points, box.maxX, minY, midY, maxY, minZ, midZ, maxZ, Direction.Axis.X, false);
         }
     }
 

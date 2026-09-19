@@ -25,11 +25,10 @@ import me.matl114.utils.commands.params.SimpleCommandArgs;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -37,6 +36,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.*;
 
 public class SlimefunTasks {
     public static void init() {}
@@ -84,7 +84,7 @@ public class SlimefunTasks {
     public static ItemStack getSlimefunRecipeTypeIcon(String rid) {
         return getRecipeDatabase()
                 .getId2CraftType()
-                .getOrDefault(rid, RecipeDatabase.CraftingType.EMPTY)
+                .getOrDefault(rid, RecipeDatabase.CraftingType.empty())
                 .icon()
                 .getAsItemStack();
     }

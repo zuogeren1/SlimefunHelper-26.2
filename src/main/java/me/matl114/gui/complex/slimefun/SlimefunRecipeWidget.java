@@ -81,10 +81,7 @@ public class SlimefunRecipeWidget extends SubScreenWidget {
         // ExecutableWidget.instance()
         // creative give
         boolean displayGive = Minecraft.getInstance().gameMode != null
-                && Minecraft.getInstance()
-                        .gameMode
-                        .getPlayerMode()
-                        .isCreative();
+                && Minecraft.getInstance().gameMode.getPlayerMode().isCreative();
         int buttonAmount = 2 + (displayGive ? 1 : 0);
         // 中心在 123 - 14 + 9 =118
         // buttonAmount个, 相当于
@@ -96,9 +93,10 @@ public class SlimefunRecipeWidget extends SubScreenWidget {
         int index = 0;
         if (displayGive) {
             ExecutableWidget.instance(startX + index * 12, 44, 9, 9)
-                    .setElementHandler(new ButtonElement(TextProvider.of(Component.literal("G")), ButtonAction.run(() -> {
-                                InvTasks.creativeAddItem(output.copy(), 64);
-                            }))
+                    .setElementHandler(new ButtonElement(
+                                    TextProvider.of(Component.literal("G")), ButtonAction.run(() -> {
+                                        InvTasks.creativeAddItem(output.copy(), 64);
+                                    }))
                             .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                     "widget.gui.slimefun-recipe-widget.creative-give.tooltips", ""))))
                     .addToSub(this);

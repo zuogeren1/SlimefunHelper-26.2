@@ -25,10 +25,10 @@ import me.matl114.utils.commands.params.api.ArgumentType;
 import me.matl114.utils.commands.params.api.CommandExecution;
 import me.matl114.utils.commands.params.api.TabResult;
 import me.matl114.utils.commands.params.types.ExecutePos;
-import net.minecraft.resources.Identifier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.joml.Vector3d;
@@ -219,8 +219,8 @@ public class Warps extends BaseModule {
                         String val = type.substring(1);
                         Vec3 lookup = getCurrentWorldWarps().get().get(val);
                         if (lookup != null) {
-                            resolver.errMsg.accept(
-                                    Component.literal("使用传送点 " + type + " ").append(ChatUtils.getDisplayedLocation(lookup)));
+                            resolver.errMsg.accept(Component.literal("使用传送点 " + type + " ")
+                                    .append(ChatUtils.getDisplayedLocation(lookup)));
                             resolver.resolve = Optional.of(lookup);
                         } else {
                             resolver.errMsg.accept(
@@ -301,8 +301,9 @@ public class Warps extends BaseModule {
 
         if (mc.level != null && registerWarp(getCurrentWorldName().get(), warpName, vec3d)) {
             context.sendMessage("&a注册传送点 " + warpName + " 成功");
-            context.sendMessage(
-                    Component.literal("位置: ").withStyle(ChatFormatting.GREEN).append(ChatUtils.getDisplayedLocation(vec3d)));
+            context.sendMessage(Component.literal("位置: ")
+                    .withStyle(ChatFormatting.GREEN)
+                    .append(ChatUtils.getDisplayedLocation(vec3d)));
         } else {
             context.sendMessage("&c注册传送点失败!");
         }

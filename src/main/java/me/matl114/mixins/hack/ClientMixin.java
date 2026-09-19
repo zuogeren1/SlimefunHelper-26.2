@@ -16,8 +16,8 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
-import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.LocalPlayer;
@@ -75,8 +75,8 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
-                            ordinal = 1))
+                                    "Lnet/minecraft/client/gui/Gui;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
+                            ordinal = 0))
     public Screen onRedirectInventoryKeyPress(Screen screen) {
         if (InvExtra.INSTANCE.enableKeepInv.get()) {
             LocalPlayer player = Minecraft.getInstance().player;
@@ -134,11 +134,7 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
     // for attack when using shield
     @WrapOperation(
             method = "handleKeybinds",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z",
-                            ordinal = 0))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z", ordinal = 0))
     public boolean onAllowingPlayerAttackWhenUseItem(LocalPlayer instance, Operation<Boolean> original) {
         boolean flag = original.call(instance);
         if (flag && CombatExtra.INSTANCE.useAttack.get()) {
@@ -150,7 +146,7 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
             }
             // escape pickItemKey
             while (options.keyPickItem.consumeClick()) {
-                this.pickBlock();
+                this.pickBlockOrEntity();
             }
         }
         return flag;
@@ -158,11 +154,7 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
 
     @WrapOperation(
             method = "continueAttack",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z",
-                            ordinal = 0))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z", ordinal = 0))
     public boolean onAllowingPlayerBreakingWhenUseItem(LocalPlayer instance, Operation<Boolean> original) {
         if (CombatExtra.INSTANCE.useAttack.get()) {
             return false;
@@ -191,14 +183,10 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
     protected abstract void continueAttack(boolean b);
 
     @Shadow
-    protected abstract void pickBlock();
+    protected abstract void pickBlockOrEntity();
 
     @Shadow
     protected abstract boolean startAttack();
-
-    @Shadow
-    @Nullable
-    public Screen screen;
 
     @Shadow
     public int missTime;

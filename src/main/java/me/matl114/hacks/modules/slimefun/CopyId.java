@@ -62,7 +62,10 @@ public class CopyId extends BaseModule {
 
                 return true;
             } else {
-                String id = BuiltInRegistries.ITEM.getKey(heldItem.getItem()).getPath().toUpperCase(Locale.ROOT);
+                String id = BuiltInRegistries.ITEM
+                        .getKey(heldItem.getItem())
+                        .getPath()
+                        .toUpperCase(Locale.ROOT);
                 client.keyboardHandler.setClipboard(id);
                 Debug.chat(Component.literal("该物品不是Slimefun物品,拷贝原版ID!")
                         .withStyle(ChatFormatting.GREEN)

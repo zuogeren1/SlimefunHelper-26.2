@@ -8,7 +8,8 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 
-public abstract class IndexedSubScreen<T, W extends GuiEventListener & Renderable & NarratableEntry> extends SubScreenWidget {
+public abstract class IndexedSubScreen<T, W extends GuiEventListener & Renderable & NarratableEntry>
+        extends SubScreenWidget {
     protected List<T> list;
     protected ListUnmodifiableWidget selectedList;
     private ContentDelegateWidget<W> displayedList;

@@ -19,14 +19,14 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
+import net.minecraft.core.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
-import net.minecraft.core.*;
-import net.minecraft.world.phys.*;
 import net.minecraft.util.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -83,8 +83,7 @@ public class AutoCity extends BaseModule {
             targetPos = null;
         }
         if (targetEntity == null) {
-            Entity en =
-                    CombatTasks.getTargetSelector().searchAttackEntity(range, true, (pl) -> pl instanceof Player);
+            Entity en = CombatTasks.getTargetSelector().searchAttackEntity(range, true, (pl) -> pl instanceof Player);
             if (en instanceof Player pl && pl != mc.player) {
                 targetEntity = pl;
             }

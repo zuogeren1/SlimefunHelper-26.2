@@ -20,8 +20,7 @@ public abstract class KeyBindingMixin implements KeyBindAccess {
     public void resetKeyState() {
         var handle = mc.getWindow();
         int code = key.getValue();
-        if (key.getType() == InputConstants.Type.MOUSE)
-            setDown(GLFW.glfwGetMouseButton(handle.handle(), code) == 1);
+        if (key.getType() == InputConstants.Type.MOUSE) setDown(GLFW.glfwGetMouseButton(handle.handle(), code) == 1);
         else setDown(InputConstants.isKeyDown(handle, code));
     }
 

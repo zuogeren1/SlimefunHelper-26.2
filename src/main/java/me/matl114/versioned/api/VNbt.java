@@ -22,8 +22,7 @@ public interface VNbt {
 
     Codec<Tag> CODEC = Codec.PASSTHROUGH.comapFlatMap(
             (dynamic) -> {
-                Tag nbtElement =
-                        (Tag) dynamic.convert(NbtOps.INSTANCE).getValue();
+                Tag nbtElement = (Tag) dynamic.convert(NbtOps.INSTANCE).getValue();
                 return DataResult.success(nbtElement == dynamic.getValue() ? nbtElement.copy() : nbtElement);
             },
             (nbt) -> {

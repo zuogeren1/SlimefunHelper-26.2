@@ -17,7 +17,11 @@ public abstract class KeyBoardEvents {
     @Inject(
             method = "keyPress",
             cancellable = true,
-            at = @At(value = "FIELD", target = "Lnet/minecraft/client/KeyboardHandler;debugCrashKeyTime:J", ordinal = 0))
+            at =
+                    @At(
+                            value = "FIELD",
+                            target = "Lnet/minecraft/client/KeyboardHandler;debugCrashKeyTime:J",
+                            ordinal = 0))
     private void onKeyboardInput(long window, int action, KeyEvent input, CallbackInfo ci) {
         if (SimpleInputManager.getInstance().onKeyInput(input.key(), input.scancode(), input.modifiers(), action)) {
             ci.cancel();

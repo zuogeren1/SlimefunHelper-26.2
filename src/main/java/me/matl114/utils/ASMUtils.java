@@ -305,7 +305,7 @@ public class ASMUtils {
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Character", "charValue", "()C", false);
                 break;
             case "void":
-                // wtf?
+            // wtf?
             default:
                 throw new IllegalArgumentException("Unsupported primitive type: " + primitive);
         }
@@ -327,7 +327,7 @@ public class ASMUtils {
             return;
         }
         switch (primFrom + "->" + primTo) {
-                // int -> 其他类型
+            // int -> 其他类型
             case "int->long":
                 mv.visitInsn(Opcodes.I2L); // int 转 long
                 break;
@@ -347,7 +347,7 @@ public class ASMUtils {
                 mv.visitInsn(Opcodes.I2C); // int 转 char（无符号截断）
                 break;
 
-                // long -> 其他类型
+            // long -> 其他类型
             case "long->int":
                 mv.visitInsn(Opcodes.L2I); // long 转 int（截断）
                 break;
@@ -358,7 +358,7 @@ public class ASMUtils {
                 mv.visitInsn(Opcodes.L2D); // long 转 double
                 break;
 
-                // float -> 其他类型
+            // float -> 其他类型
             case "float->int":
                 mv.visitInsn(Opcodes.F2I); // float 转 int（截断）
                 break;
@@ -369,7 +369,7 @@ public class ASMUtils {
                 mv.visitInsn(Opcodes.F2D); // float 转 double
                 break;
 
-                // double -> 其他类型
+            // double -> 其他类型
             case "double->int":
                 mv.visitInsn(Opcodes.D2I); // double 转 int（截断）
                 break;
@@ -380,7 +380,7 @@ public class ASMUtils {
                 mv.visitInsn(Opcodes.D2F); // double 转 float
                 break;
 
-                // 其他类型（short/byte/char 通常先转 int）
+            // 其他类型（short/byte/char 通常先转 int）
             case "short->int":
             case "byte->int":
             case "char->int":

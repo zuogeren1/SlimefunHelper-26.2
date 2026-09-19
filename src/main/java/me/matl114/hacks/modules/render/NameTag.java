@@ -172,9 +172,7 @@ public class NameTag extends INameTag {
                 float width = (endI - i - 1);
                 for (var j = i; j < endI; j++) {
                     width += 9;
-                    width += mc.font
-                            .getSplitter()
-                            .stringWidth(line.get(j).getValue());
+                    width += mc.font.getSplitter().stringWidth(line.get(j).getValue());
                 }
                 vdraw.getMatrices().translate(0, -HEIGHT);
                 vdraw.getMatrices().pushMatrix();

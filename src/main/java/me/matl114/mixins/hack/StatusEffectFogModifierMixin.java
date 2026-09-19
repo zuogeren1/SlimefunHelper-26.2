@@ -24,8 +24,7 @@ public abstract class StatusEffectFogModifierMixin {
                             value = "INVOKE",
                             target =
                                     "Lnet/minecraft/world/entity/LivingEntity;hasEffect(Lnet/minecraft/core/Holder;)Z"))
-    private boolean onNoRenderEffect(
-            LivingEntity instance, Holder<MobEffect> effect, Operation<Boolean> original) {
+    private boolean onNoRenderEffect(LivingEntity instance, Holder<MobEffect> effect, Operation<Boolean> original) {
         if (NoRender.INSTANCE.noDarkNess() && Objects.equals(effect, MobEffects.DARKNESS)) {
             return false;
         }

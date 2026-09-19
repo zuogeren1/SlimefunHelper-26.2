@@ -130,7 +130,8 @@ public class NoFall extends BaseModule implements LegalMovementManager.MovementM
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
         registerListener(
                 Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onPlayerTickVelocity);
-        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMovePacketSend);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMovePacketSend);
         registerListener(Listener.getPlayerNotFlyJumpPoint(), this::onPlayerJump);
         registerListener(Listener.getPlayerWebSlowPoint(), this::onWeb);
     }

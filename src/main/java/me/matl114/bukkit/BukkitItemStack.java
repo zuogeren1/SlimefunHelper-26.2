@@ -132,7 +132,8 @@ public sealed class BukkitItemStack implements Cloneable, ConfigurationSerializa
     public Map<String, Object> serialize() {
         Map<String, Object> result = new LinkedHashMap();
         result.put("v", 0);
-        result.put("type", BuiltInRegistries.ITEM.getKey(this.getType()).getPath().toUpperCase(Locale.ROOT));
+        result.put(
+                "type", BuiltInRegistries.ITEM.getKey(this.getType()).getPath().toUpperCase(Locale.ROOT));
         if (this.getAmount() != 1) {
             result.put("amount", this.getAmount());
         }

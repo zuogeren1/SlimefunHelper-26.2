@@ -2,8 +2,8 @@ package xaero.map.gui;
 
 import java.util.ArrayList;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import xaero.map.MapProcessor;
 import xaero.map.gui.dropdown.rightclick.GuiRightClickMenu;

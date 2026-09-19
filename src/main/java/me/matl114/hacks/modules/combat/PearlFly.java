@@ -152,7 +152,10 @@ public class PearlFly extends BaseModule {
         if (pose == Pose.SWIMMING) {
             look = Vec3.atCenterOf(pos).subtract(mc.player.getEyePosition());
         } else {
-            look = Vec3.atCenterOf(pos).add(Vec3.atCenterOf(originPos)).scale(0.5).subtract(mc.player.getEyePosition());
+            look = Vec3.atCenterOf(pos)
+                    .add(Vec3.atCenterOf(originPos))
+                    .scale(0.5)
+                    .subtract(mc.player.getEyePosition());
         }
         return usePearl(look);
     }

@@ -6,14 +6,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
-import net.minecraft.advancements.predicates.entity.EntityTypePredicate;
+import net.minecraft.advancements.predicates.*;
 import net.minecraft.advancements.predicates.DamageSourcePredicate;
 import net.minecraft.advancements.predicates.entity.EntityPredicate;
+import net.minecraft.advancements.predicates.entity.EntityTypePredicate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.advancements.predicates.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.EntityTypeTags;
@@ -74,8 +74,7 @@ public class DamageUtils {
         double speed = player.getAttributeBaseValue(Attributes.ATTACK_SPEED);
         ItemAttributeModifiers modifiers = stack.get(DataComponents.ATTRIBUTE_MODIFIERS);
         if (modifiers != null && !modifiers.modifiers().isEmpty()) {
-            speed = applyOperations(
-                    modifiers.modifiers(), Attributes.ATTACK_SPEED, speed, EquipmentSlot.MAINHAND);
+            speed = applyOperations(modifiers.modifiers(), Attributes.ATTACK_SPEED, speed, EquipmentSlot.MAINHAND);
         }
         return speed;
     }
@@ -125,7 +124,9 @@ public class DamageUtils {
                 }
                 // 节肢杀手 (Bane of Arthropods)
                 else if (enchantment.is(Enchantments.BANE_OF_ARTHROPODS)
-                        && target.getType().builtInRegistryHolder().is(EntityTypeTags.SENSITIVE_TO_BANE_OF_ARTHROPODS)) {
+                        && target.getType()
+                                .builtInRegistryHolder()
+                                .is(EntityTypeTags.SENSITIVE_TO_BANE_OF_ARTHROPODS)) {
                     bonus += 2.5f * level;
                 }
                 // 穿刺 (Impaling) —— 仅对三叉戟且目标为水生生物生效
@@ -182,8 +183,7 @@ public class DamageUtils {
         return getAttackDamage(mc.player, livingEntity, stack);
     }
 
-    public static float getRealAttackDamage(
-            Player player, Entity livingEntity, ItemStack stack, double fallDistance) {
+    public static float getRealAttackDamage(Player player, Entity livingEntity, ItemStack stack, double fallDistance) {
         var attribute = AttributeUtils.getAttributeWith(player, Map.of(EquipmentSlot.MAINHAND, stack));
         float f = player.isAutoSpinAttack() ? 8.0F : (float) attribute.getValue(Attributes.ATTACK_DAMAGE);
         DamageSource damageSource = createDamageSource(player, player, stack);
@@ -372,8 +372,8 @@ public class DamageUtils {
             } else if (source.is(DamageTypeTags.BYPASSES_ENCHANTMENTS)) {
                 return currentVal;
             } else {
-                float k = getProtectionAmount(
-                        context.armorSlots, EnchantmentEffectComponents.DAMAGE_PROTECTION, source);
+                float k =
+                        getProtectionAmount(context.armorSlots, EnchantmentEffectComponents.DAMAGE_PROTECTION, source);
 
                 if (k > 0.0F) {
                     currentVal = CombatRules.getDamageAfterMagicAbsorb(currentVal, k);
@@ -547,8 +547,7 @@ public class DamageUtils {
             private float armor;
             private float armorToughness;
             private final Map<EquipmentSlot, ItemStack> armorSlots = new HashMap<>();
-            private final Map<Holder<net.minecraft.world.effect.MobEffect>, Integer> statusEffects =
-                    new HashMap<>();
+            private final Map<Holder<net.minecraft.world.effect.MobEffect>, Integer> statusEffects = new HashMap<>();
 
             private Builder() {
                 this.world = Minecraft.getInstance().level;
@@ -587,16 +586,14 @@ public class DamageUtils {
                 return this;
             }
 
-            public Builder withStatusEffect(
-                    Holder<net.minecraft.world.effect.MobEffect> effect, int amplifier) {
+            public Builder withStatusEffect(Holder<net.minecraft.world.effect.MobEffect> effect, int amplifier) {
                 if (effect != null && amplifier >= 0) {
                     this.statusEffects.merge(effect, amplifier, Math::max);
                 }
                 return this;
             }
 
-            public Builder withPotionEffect(
-                    Holder<net.minecraft.world.effect.MobEffect> effect, int amplifier) {
+            public Builder withPotionEffect(Holder<net.minecraft.world.effect.MobEffect> effect, int amplifier) {
                 return withStatusEffect(effect, amplifier);
             }
 

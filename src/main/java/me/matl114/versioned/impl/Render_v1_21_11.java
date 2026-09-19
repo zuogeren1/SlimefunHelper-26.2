@@ -103,26 +103,34 @@ public class Render_v1_21_11 implements VRender, VRender.WrapRenderOperation {
             "slimefunhelper:debug_lines",
             RenderSetup.builder(DEBUG_LINES)
                     .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
-                    .setOutputTarget(OutputTarget.ITEM_ENTITY_TARGET)
-                    .sortOnUpload()
+                    // 26.2: 世界里的线框要画到主帧缓冲；之前设成 ITEM_ENTITY_TARGET
+                    // 会被提交到物品/实体目标，导致世界中的方框完全不可见
+                    .setOutputTarget(OutputTarget.MAIN_TARGET)
+                    // 注意：LINES / LINE_STRIP 拓扑不能开 sortOnUpload ——
+                    // 26.2 的 StagedVertexBuffer.appendDraw 会直接抛
+                    // IllegalArgumentException: Cannot sort draw with LINES
                     .createRenderSetup());
 
-    public static final RenderPipeline DEBUG_LINES_STRIP = RenderPipelines.register(RenderPipeline.builder(
-                    RenderPipelines.LINES_SNIPPET)
-            .withLocation(Identifier.tryParse("slimefunhelper:pipeline/debug_lines_strip"))
-            .withDepthStencilState(NO_DEPTH_TEST_STATE)
-            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH)
+    public static final RenderPipeline DEBUG_LINES_STRIP =
+            RenderPipelines.register(RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
+                    .withLocation(Identifier.tryParse("slimefunhelper:pipeline/debug_lines_strip"))
+                    .withDepthStencilState(NO_DEPTH_TEST_STATE)
+                    .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH)
                     .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINE_STRIP)
-            .withCull(false)
-            .build());
+                    .withCull(false)
+                    .build());
 
     @ApiStatus.Experimental
     public static final RenderType LINES_STRIP = RenderType.create(
             "slimefunhelper:debug_lines_strip",
             RenderSetup.builder(DEBUG_LINES_STRIP)
                     .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
-                    .setOutputTarget(OutputTarget.ITEM_ENTITY_TARGET)
-                    .sortOnUpload()
+                    // 26.2: 世界里的线框要画到主帧缓冲；之前设成 ITEM_ENTITY_TARGET
+                    // 会被提交到物品/实体目标，导致世界中的方框完全不可见
+                    .setOutputTarget(OutputTarget.MAIN_TARGET)
+                    // 注意：LINES / LINE_STRIP 拓扑不能开 sortOnUpload ——
+                    // 26.2 的 StagedVertexBuffer.appendDraw 会直接抛
+                    // IllegalArgumentException: Cannot sort draw with LINES
                     .createRenderSetup());
 
     public static final RenderPipeline DEBUG_QUADS =
@@ -260,8 +268,14 @@ public class Render_v1_21_11 implements VRender, VRender.WrapRenderOperation {
             Vector3f prev = points.get(i - 1).toVector3f();
             Vector3f next = points.get(i).toVector3f();
             Vector3f normal = new Vector3f(next).sub(prev).normalize();
-            consumer.addVertex(entry, prev.x, prev.y, prev.z).setColor(color).setNormal(normal.x, normal.y, normal.z).setLineWidth(2);
-            consumer.addVertex(entry, next.x, next.y, next.z).setColor(color).setNormal(normal.x, normal.y, normal.z).setLineWidth(2);
+            consumer.addVertex(entry, prev.x, prev.y, prev.z)
+                    .setColor(color)
+                    .setNormal(normal.x, normal.y, normal.z)
+                    .setLineWidth(2);
+            consumer.addVertex(entry, next.x, next.y, next.z)
+                    .setColor(color)
+                    .setNormal(normal.x, normal.y, normal.z)
+                    .setLineWidth(2);
         }
     }
 
@@ -270,8 +284,14 @@ public class Render_v1_21_11 implements VRender, VRender.WrapRenderOperation {
         Vector3f next = nextV.toVector3f();
         Matrix4f entry = matrixStack.last().pose();
         Vector3f normal = new Vector3f(next).sub(prev).normalize();
-        consumer.addVertex(entry, prev.x, prev.y, prev.z).setColor(color).setNormal(normal.x, normal.y, normal.z).setLineWidth(1);
-        consumer.addVertex(entry, next.x, next.y, next.z).setColor(color).setNormal(normal.x, normal.y, normal.z).setLineWidth(1);
+        consumer.addVertex(entry, prev.x, prev.y, prev.z)
+                .setColor(color)
+                .setNormal(normal.x, normal.y, normal.z)
+                .setLineWidth(1);
+        consumer.addVertex(entry, next.x, next.y, next.z)
+                .setColor(color)
+                .setNormal(normal.x, normal.y, normal.z)
+                .setLineWidth(1);
     }
 
     public void drawOutlinedBox(

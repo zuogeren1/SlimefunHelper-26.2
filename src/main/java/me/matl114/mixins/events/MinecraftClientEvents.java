@@ -38,10 +38,6 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 @Environment(EnvType.CLIENT)
 public abstract class MinecraftClientEvents {
     @Shadow
-    @Nullable
-    public Screen screen;
-
-    @Shadow
     private int rightClickDelay;
 
     @Shadow
@@ -66,59 +62,9 @@ public abstract class MinecraftClientEvents {
     @Shadow
     protected abstract void handleKeybinds();
 
-    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
-    public void onPreSetScreen(Screen screen, CallbackInfo ci, @Local(argsOnly = true) LocalRef<Screen> screenRef) {
-        if (!Listener.getPreSetScreen().isEmpty()) {
-            Event<Screen> screenEvent = new Event<>(screen, true, true);
-            Listener.getPreSetScreen().handleValue(screenEvent);
-            if (screenEvent.isCancelled()) {
-                ci.cancel();
-            } else {
-                if (screenEvent.context != screen) {
-                    screenRef.set(screenEvent.context);
-                }
-            }
-        }
-    }
-
-    @Inject(
-            method = "setScreen",
-            at =
-                    @At(
-                            value = "FIELD",
-                            target =
-                                    "Lnet/minecraft/client/Minecraft;screen:Lnet/minecraft/client/gui/screens/Screen;",
-                            ordinal = 3,
-                            shift = At.Shift.BEFORE),
-            cancellable = true)
-    public void onPostSetScreen(Screen screen, CallbackInfo ci) {
-        if (!Listener.getMidSetScreen().isEmpty()) {
-            Event<Screen> screenEvent = new Event<>(this.screen, true, false);
-            Listener.getMidSetScreen().handleValue(screenEvent);
-            if (screenEvent.isCancelled()) {
-                ci.cancel();
-                // FIX: even if post set is cancelled , the screen must be initialized or exception will be thrown
-                if (this.screen != null) {
-                    (this.screen)
-                            .init(getWindow().getGuiScaledWidth(), getWindow().getGuiScaledHeight());
-                }
-                Listener.getPostSetScreen().broadcast(this.screen);
-                return;
-            }
-        }
-    }
-
-    @Inject(method = "setScreen", at = @At("RETURN"))
-    public void onPreSetScreen(Screen screen, CallbackInfo ci) {
-        Listener.getPostSetScreen().broadcast(this.screen);
-    }
-
     @Inject(
             method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;ZZ)V",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;close()V"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;close()V"))
     public void onServerDisconnect(
             Screen disconnectionScreen, boolean transferring, boolean stopSounds, CallbackInfo ci) {
         // origin exit
@@ -132,8 +78,9 @@ public abstract class MinecraftClientEvents {
         Listener.getServerLeavePoint().handleValue(new Event<>(null, false, false, false));
     }
 
+    // 26.2: GameRenderer.render(DeltaTracker, boolean) 的调用点从 runTick 搬到了 renderFrame
     @WrapWithCondition(
-            method = "runTick",
+            method = "renderFrame",
             at =
                     @At(
                             value = "INVOKE",
@@ -167,17 +114,16 @@ public abstract class MinecraftClientEvents {
     }
 
     @Inject(
-            method =
-                    "crash(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;)V",
+            method = "crash(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;I)V",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/Minecraft;saveReport(Ljava/io/File;Lnet/minecraft/CrashReport;)I",
+                                    "Lnet/minecraft/client/Minecraft;saveReportAndShutdownSoundManager(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;I)I",
                             shift = At.Shift.AFTER),
             cancellable = true)
     private static void onSystemExit(
-            Minecraft client, File runDirectory, CrashReport crashReport, CallbackInfo ci) {
+            Minecraft client, File runDirectory, CrashReport crashReport, int exitCode, CallbackInfo ci) {
         if (client == null) {
             return;
         }
@@ -268,8 +214,7 @@ public abstract class MinecraftClientEvents {
             at =
                     @At(
                             value = "FIELD",
-                            target =
-                                    "Lnet/minecraft/client/Minecraft;hitResult:Lnet/minecraft/world/phys/HitResult;",
+                            target = "Lnet/minecraft/client/Minecraft;hitResult:Lnet/minecraft/world/phys/HitResult;",
                             ordinal = 0,
                             shift = At.Shift.BEFORE))
     private void onMineBlock(boolean breaking, CallbackInfo ci) {
@@ -328,11 +273,10 @@ public abstract class MinecraftClientEvents {
             method = "tick",
             at =
                     @At(
-                            value = "FIELD",
+                            value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/Minecraft;overlay:Lnet/minecraft/client/gui/screens/Overlay;",
-                            shift = At.Shift.BEFORE,
-                            ordinal = 2))
+                                    "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
+                            shift = At.Shift.BEFORE))
     public void onInputEventIfScreenOpen(CallbackInfo ci, @Local ProfilerFiller profiler) {
         if (Minecraft.getInstance().gui.screen() != null
                 || Minecraft.getInstance().gui.overlay() != null) {
@@ -441,14 +385,10 @@ public abstract class MinecraftClientEvents {
         }
     }
 
-    @Inject(
-            method = "resizeDisplay",
-            at =
-                    @At(
-                            value = "INVOKE",
-                            target =
-                                    "Lnet/minecraft/client/renderer/GameRenderer;mainRenderTarget()Lcom/mojang/blaze3d/pipeline/RenderTarget;",
-                            shift = At.Shift.BEFORE))
+    // 1.21.11 是在 resize 之前（getFramebuffer() 调用前）触发；26.2 无该锚点，
+    // 改用 HEAD —— resizeGui 由窗口事件回调调用，此时 window 已经是新尺寸，
+    // 载荷与旧版一致，且时序更接近"resize 前"。
+    @Inject(method = "resizeGui", at = @At("HEAD"))
     public void onResolutionChanged(CallbackInfo ci) {
         Listener.getResolutionChange()
                 .handleValue(new Event<>(

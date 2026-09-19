@@ -96,7 +96,8 @@ public class ChatExtra extends BaseModule {
         registerListener(
                 Listener.getPostInitializeScreen().getChannel(ChatScreen.class), this::onChatScreenInitialized);
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onChatScreenInitialized);
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class),
+                this::onChatScreenInitialized);
         registerListener(Listener.getPostCloseScreen().getChannel(ChatScreen.class), this::onChatScreenClose);
         registerListener(Listener.getChatSend(), this::onChatPasswordEncrypt, -999);
         registerListener(Listener.getChatSend(), this::onStringReplace, Integer.MAX_VALUE - 10);

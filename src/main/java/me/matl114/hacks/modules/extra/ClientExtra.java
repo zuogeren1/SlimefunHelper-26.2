@@ -165,7 +165,8 @@ public class ClientExtra extends BaseModule {
                             }
                         }
                     }),
-                    QuestionScreen.Solution.of(Component.literal("我已知晓, 退出游戏").withStyle(ChatFormatting.RED), this::exitGame));
+                    QuestionScreen.Solution.of(
+                            Component.literal("我已知晓, 退出游戏").withStyle(ChatFormatting.RED), this::exitGame));
             QuestionScreen screen = new QuestionScreen(literal, crashSolutions);
             checkClientData(screen);
         }
@@ -282,11 +283,13 @@ public class ClientExtra extends BaseModule {
             Throwable exception = we.exception();
             if (packet instanceof ClientGamePacketListener playListener) {
                 if (mc.player != null) {
-                    Debug.chat(Component.literal("Error while decoding packet: ").withStyle(ChatFormatting.RED));
+                    Debug.chat(
+                            Component.literal("Error while decoding packet: ").withStyle(ChatFormatting.RED));
                     Debug.chat(
                             exception.getClass().getSimpleName(),
                             ":",
-                            Component.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
+                            Component.literal(
+                                    exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
                 }
                 Debug.info("Exception StackTrace:");
                 Debug.info(exception);
@@ -302,11 +305,13 @@ public class ClientExtra extends BaseModule {
             Throwable exception = we.exception();
             if (packet instanceof ClientGamePacketListener playListener) {
                 if (mc.player != null) {
-                    Debug.chat(Component.literal("Error while receiving packet: ").withStyle(ChatFormatting.RED));
+                    Debug.chat(
+                            Component.literal("Error while receiving packet: ").withStyle(ChatFormatting.RED));
                     Debug.chat(
                             exception.getClass().getSimpleName(),
                             ":",
-                            Component.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
+                            Component.literal(
+                                    exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
                 }
                 Debug.info("Exception StackTrace:");
                 Debug.info(exception);

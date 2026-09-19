@@ -72,8 +72,7 @@ public class AutoSteal extends BaseModule {
             String titleName = text == null ? "" : ChatUtils.textToPlainString(text);
             if (titleRegex.get().test(titleName)) {
                 var screenHandler = handle.getMenu();
-                if (screenHandler != null
-                        && !(screenHandler instanceof CreativeModeInventoryScreen.ItemPickerMenu)) {
+                if (screenHandler != null && !(screenHandler instanceof CreativeModeInventoryScreen.ItemPickerMenu)) {
                     for (var slot : screenHandler.slots) {
                         if (slot.container instanceof Inventory playerInventory) {
                             break;
@@ -82,7 +81,11 @@ public class AutoSteal extends BaseModule {
                             ItemStack stack = slot.getItem();
                             if (!stack.isEmpty() && itemFilter.get().test(stack.getItem())) {
                                 mc.gameMode.handleContainerInput(
-                                        screenHandler.containerId, slot.getContainerSlot(), 0, ContainerInput.QUICK_MOVE, mc.player);
+                                        screenHandler.containerId,
+                                        slot.getContainerSlot(),
+                                        0,
+                                        ContainerInput.QUICK_MOVE,
+                                        mc.player);
                             }
                         }
                     }

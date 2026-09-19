@@ -19,10 +19,10 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 import net.minecraft.client.input.KeyEvent;
@@ -93,15 +93,16 @@ public class ScreenUtils {
             int syncId = packet.getContainerId();
             if (currentSyncId != syncId && syncId != 0) {
                 if (mc.gui.screen() instanceof AbstractContainerScreen<?> handled) {
-                    Listener.addPostPacketCatcher(new PacketCatcherImpl<>(ClientboundContainerSetContentPacket.class, (packet2Event) -> {
-                        var packet2 = packet2Event.context();
-                        if (packet2.containerId() == syncId) {
-                            // execute immediately after the update of menu
-                            cf.complete(handled);
-                            return true;
-                        }
-                        return false;
-                    }));
+                    Listener.addPostPacketCatcher(
+                            new PacketCatcherImpl<>(ClientboundContainerSetContentPacket.class, (packet2Event) -> {
+                                var packet2 = packet2Event.context();
+                                if (packet2.containerId() == syncId) {
+                                    // execute immediately after the update of menu
+                                    cf.complete(handled);
+                                    return true;
+                                }
+                                return false;
+                            }));
                 } else {
                     cf.complete(null);
                 }

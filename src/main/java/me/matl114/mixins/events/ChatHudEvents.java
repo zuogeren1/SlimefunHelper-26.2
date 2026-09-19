@@ -12,9 +12,10 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
-import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessageSource;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
 import org.spongepowered.asm.mixin.Final;
@@ -53,12 +54,13 @@ public abstract class ChatHudEvents implements ChatHudAccess {
 
     @Inject(
             method =
-                    "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+                    "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
             at = @At("HEAD"),
             cancellable = true)
     private void onMessageAdd(
             Component message,
             MessageSignature signatureData,
+            GuiMessageSource source,
             GuiMessageTag indicator,
             CallbackInfo ci,
             @Local(argsOnly = true) LocalRef<Component> textLocalRef) {
@@ -74,7 +76,7 @@ public abstract class ChatHudEvents implements ChatHudAccess {
 
     @Inject(
             method =
-                    "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+                    "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
             at =
                     @At(
                             value = "INVOKE",
@@ -84,6 +86,7 @@ public abstract class ChatHudEvents implements ChatHudAccess {
     private void onChatHudLineCreate(
             Component message,
             MessageSignature signatureData,
+            GuiMessageSource source,
             GuiMessageTag indicator,
             CallbackInfo ci,
             @Local GuiMessage line) {
@@ -118,9 +121,8 @@ public abstract class ChatHudEvents implements ChatHudAccess {
                     @At(
                             value = "NEW",
                             target =
-                                    "(ILnet/minecraft/util/FormattedCharSequence;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;Z)Lnet/minecraft/client/multiplayer/chat/GuiMessage$Line;"))
-    private GuiMessage.Line onVisibleLineCreate(
-            GuiMessage.Line original, @Local(argsOnly = true) GuiMessage line) {
+                                    "(Lnet/minecraft/client/multiplayer/chat/GuiMessage;Lnet/minecraft/util/FormattedCharSequence;Z)Lnet/minecraft/client/multiplayer/chat/GuiMessage$Line;"))
+    private GuiMessage.Line onVisibleLineCreate(GuiMessage.Line original, @Local(argsOnly = true) GuiMessage line) {
         String unique = ChatHudLineAccess.of(line).getUniqueMessageId();
         if (unique != null) {
             ChatHudLineAccess.of(original).setUniqueMessageId(unique);

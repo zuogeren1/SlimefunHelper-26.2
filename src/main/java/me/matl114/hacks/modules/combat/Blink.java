@@ -118,7 +118,8 @@ public class Blink extends BaseModule {
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(
                 Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.FIREWORK_ROCKET), this::onFireworkOwner);
-        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityStatus);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityStatus);
     }
 
     @Override
@@ -320,10 +321,7 @@ public class Blink extends BaseModule {
     }
 
     public void onPacketVelocity(Event<ClientboundSetEntityMotionPacket> event) {
-        if (enable.get()
-                && mc.player != null
-                && event.context.id() == mc.player.getId()
-                && !event.isCancelled()) {
+        if (enable.get() && mc.player != null && event.context.id() == mc.player.getId() && !event.isCancelled()) {
             handleAction(onVelocityBehaviour.get());
         }
     }

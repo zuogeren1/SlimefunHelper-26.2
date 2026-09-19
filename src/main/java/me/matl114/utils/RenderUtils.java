@@ -218,14 +218,17 @@ public class RenderUtils {
         Quaternionf var10000;
         switch (renderState) {
             case FIXED -> var10000 = rotation.rotationYXZ(-0.017453292F * yaw, 0.017453292F * pitch, 0.0F);
-            case HORIZONTAL -> var10000 =
-                    rotation.rotationYXZ(-0.017453292F * yaw, 0.017453292F * getNegatedPitch(camera.xRot()), 0.0F);
-            case VERTICAL -> var10000 =
-                    rotation.rotationYXZ(-0.017453292F * getBackwardsYaw(camera.yRot()), 0.017453292F * pitch, 0.0F);
-            case CENTER -> var10000 = rotation.rotationYXZ(
-                    -0.017453292F * getBackwardsYaw(camera.yRot()),
-                    0.017453292F * getNegatedPitch(camera.xRot()),
-                    0.0F);
+            case HORIZONTAL ->
+                var10000 =
+                        rotation.rotationYXZ(-0.017453292F * yaw, 0.017453292F * getNegatedPitch(camera.xRot()), 0.0F);
+            case VERTICAL ->
+                var10000 = rotation.rotationYXZ(
+                        -0.017453292F * getBackwardsYaw(camera.yRot()), 0.017453292F * pitch, 0.0F);
+            case CENTER ->
+                var10000 = rotation.rotationYXZ(
+                        -0.017453292F * getBackwardsYaw(camera.yRot()),
+                        0.017453292F * getNegatedPitch(camera.xRot()),
+                        0.0F);
             default -> throw new MatchException((String) null, (Throwable) null);
         }
 
@@ -368,8 +371,8 @@ public class RenderUtils {
         Matrix4f modelView = new Matrix4f().rotation(rotation);
         // 26.2: GameRenderer 不再提供 getProjectionMatrix(float)，
         // 投影矩阵从 gameRenderState 的 cameraRenderState 取。
-        Matrix4f projView = new Matrix4f(
-                mc.gameRenderer.gameRenderState.levelRenderState.cameraRenderState.projectionMatrix);
+        Matrix4f projView =
+                new Matrix4f(mc.gameRenderer.gameRenderState.levelRenderState.cameraRenderState.projectionMatrix);
         Vec3 camera = getCameraPos();
         return translate3DTo2D(modelView, projView, camera, pos, true);
     }

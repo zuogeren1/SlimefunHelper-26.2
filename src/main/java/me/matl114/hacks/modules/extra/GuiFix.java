@@ -124,7 +124,9 @@ public class GuiFix extends BaseModule {
             try {
                 // filter title, only buttons
                 List<LayoutElement> widgets = screen.children().stream()
-                        .filter(s -> s instanceof LayoutElement && s instanceof NarratableEntry && !(s instanceof StringWidget))
+                        .filter(s -> s instanceof LayoutElement
+                                && s instanceof NarratableEntry
+                                && !(s instanceof StringWidget))
                         .map(LayoutElement.class::cast)
                         .filter(s -> s.getY() < 20)
                         .collect(Collectors.toCollection(ArrayList::new));

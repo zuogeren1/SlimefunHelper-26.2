@@ -99,7 +99,8 @@ public class AntiAXray extends BaseModule {
                         LegacySnapRotManager.INSTANCE.snapAt(shouldFacing.normalize(), false);
                     }
                     Vec3 shouldFacing = Vec3.atCenterOf(testPos).subtract(mc.player.getEyePosition());
-                    Direction dir = Direction.getApproximateNearest(shouldFacing).getOpposite();
+                    Direction dir =
+                            Direction.getApproximateNearest(shouldFacing).getOpposite();
                     if (legal.get()) {
                         mc.gameMode.startPrediction(mc.level, (sequence) -> {
                             // use real direction
