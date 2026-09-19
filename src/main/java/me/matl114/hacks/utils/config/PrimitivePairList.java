@@ -19,7 +19,7 @@ import me.matl114.utils.config.PairLikeFactory;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.AttrKeyValues;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 @Getter
 @Accessors(fluent = true)
@@ -202,11 +202,11 @@ public class PrimitivePairList<T, W> implements NBTParsable<PrimitivePairList<T,
                                     PairLikeFactory.of(Pair::of, Pair::getFirst, Pair::getSecond),
                                     (w) -> AttrKeyValue.CustomWidgetFactory.cutSizeXLeft(0.5)
                                             .apply(AttrKeyValue.CustomWidgetFactory.withLabel(
-                                                            Text.translatableWithFallback(firstName, firstName))
+                                                            Component.translatableWithFallback(firstName, firstName))
                                                     .apply((AttrKeyValue.CustomWidgetFactory) w)),
                                     (w) -> AttrKeyValue.CustomWidgetFactory.cutSizeXRight(0.5)
                                             .apply(AttrKeyValue.CustomWidgetFactory.withLabel(
-                                                            Text.translatableWithFallback(secondName, secondName))
+                                                            Component.translatableWithFallback(secondName, secondName))
                                                     .apply((AttrKeyValue.CustomWidgetFactory) w)));
                     AttrKeyValue.CustomWidgetFactory<List<Pair<Primitive<T>, Primitive<W>>>> widgetFactory =
                             (w1, x1, y1, dx1, dy1) -> NBTTypes.generateListModifyButton(

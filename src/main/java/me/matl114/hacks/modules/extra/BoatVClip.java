@@ -16,15 +16,15 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.CollisionUtil;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.InteractUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.vehicle.VehicleEntity;
-import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.vehicle.VehicleEntity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class BoatVClip extends BaseModule implements LegalMovementManager.MovementModifier {
     private static LegalMovementManager.DelegateMovementModifier instance;
@@ -55,13 +55,13 @@ public class BoatVClip extends BaseModule implements LegalMovementManager.Moveme
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(BlockUpdateS2CPacket.class), this::onBlockUpdate);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundBlockUpdatePacket.class), this::onBlockUpdate);
     }
 
     Map<BlockPos, BlockState> blockStateMap = new HashMap<>();
     Set<BlockPos> minedBlockPos = new HashSet<>();
 
-    public void onBlockUpdate(Event<BlockUpdateS2CPacket> update) {
+    public void onBlockUpdate(Event<ClientboundBlockUpdatePacket> update) {
         if (enable.get()) {
             // minedBlockPos.remove(update.context.getPos());
             BlockPos pos = update.context.getPos();
@@ -84,39 +84,39 @@ public class BoatVClip extends BaseModule implements LegalMovementManager.Moveme
 
     Entity lastVehicle;
     int cd = 0;
-    Vec3d vec3d = Vec3d.ZERO;
+    Vec3 vec3d = Vec3.ZERO;
 
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
         if (enable.get()) {
             if (!EntityUtils.isEntityValid(lastVehicle)
-                    || lastVehicle.getBoundingBox().squaredMagnitude(mc.player.getEyePos())
+                    || lastVehicle.getBoundingBox().distanceToSqr(mc.player.getEyePosition())
                             > CombatExtra.INSTANCE.getAttackRange()) {
                 lastVehicle = null;
             }
             if (lastVehicle == null) {
                 lastVehicle =
                         mc
-                                .world
-                                .getOtherEntities(
-                                        mc.player, mc.player.getBoundingBox().expand(1.5, 1.5, 1.5))
+                                .level
+                                .getEntities(
+                                        mc.player, mc.player.getBoundingBox().inflate(1.5, 1.5, 1.5))
                                 .stream()
                                 .filter(s -> s instanceof VehicleEntity)
                                 .findAny()
                                 .orElse(null);
             }
             if (lastVehicle != null) {
-                if (!mc.player.hasVehicle()) {
-                    if (vec3d == null || vec3d.squaredDistanceTo(lastVehicle.getPos()) > 0.25) {
-                        vec3d = lastVehicle.getPos();
+                if (!mc.player.isPassenger()) {
+                    if (vec3d == null || vec3d.distanceToSqr(lastVehicle.position()) > 0.25) {
+                        vec3d = lastVehicle.position();
                         blockStateMap.clear();
                         ;
-                        Box box = lastVehicle.getBoundingBox();
-                        Box expand = box.withMinY(box.minY - 0.5).withMaxY(box.minY + 0.5);
-                        List<BlockPos> boxes = CollisionUtil.getIntersectingBlockPositions(mc.world, expand, false);
+                        AABB box = lastVehicle.getBoundingBox();
+                        AABB expand = box.setMinY(box.minY - 0.5).setMaxY(box.minY + 0.5);
+                        List<BlockPos> boxes = CollisionUtil.getIntersectingBlockPositions(mc.level, expand, false);
                         for (BlockPos boxPos : boxes) {
-                            BlockState state = mc.world.getBlockState(boxPos);
-                            if (!state.isAir() && !state.isLiquid()) {
+                            BlockState state = mc.level.getBlockState(boxPos);
+                            if (!state.isAir() && !state.liquid()) {
                                 blockStateMap.put(boxPos, state);
                             }
                         }
@@ -135,9 +135,9 @@ public class BoatVClip extends BaseModule implements LegalMovementManager.Moveme
                     if (cd > 4) {
                         //
                         cd = 0;
-                        Box boxxx = lastVehicle.getBoundingBox();
+                        AABB boxxx = lastVehicle.getBoundingBox();
                         var re = new EntityHitResult(
-                                lastVehicle, boxxx.getCenter().add(0, boxxx.getLengthY() / 2, 0));
+                                lastVehicle, boxxx.getCenter().add(0, boxxx.getYsize() / 2, 0));
                         InteractUtils.simulateInteract(re);
                     } else {
                         cd += 1;
@@ -147,7 +147,7 @@ public class BoatVClip extends BaseModule implements LegalMovementManager.Moveme
                 }
                 for (var re : blockStateMap.entrySet()) {
                     BlockPos pos = re.getKey();
-                    mc.world.setBlockState(pos, Blocks.AIR.getDefaultState());
+                    mc.level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
                 }
             }
         }
@@ -157,7 +157,7 @@ public class BoatVClip extends BaseModule implements LegalMovementManager.Moveme
     public boolean postModify(Event<LegalMovementManager> movementManagerEvent, boolean enabledThisTick) {
         if (enable.get()) {
             //            for(var pos : blockStateMap.entrySet()){
-            //                mc.world.setBlockState(pos.getKey(), pos.getValue());
+            //                mc.level.setBlockState(pos.getKey(), pos.getValue());
             //            }
             //            blockStateMap.clear();
         }

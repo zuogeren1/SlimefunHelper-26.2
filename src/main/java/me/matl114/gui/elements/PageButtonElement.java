@@ -9,9 +9,9 @@ import me.matl114.gui.basic.TextProvider;
 import me.matl114.gui.basic.TooltipHandler;
 import me.matl114.utils.ChatUtils;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 
 public class PageButtonElement extends ButtonElement {
     private IntSupplier maxPage;
@@ -39,20 +39,20 @@ public class PageButtonElement extends ButtonElement {
     protected static final Identifier ARROW_LEFT_SPRITE = new Identifier("slimefunhelper", "gui/arrow_left");
     protected static final Identifier ARROW_RIGHT_SPRITE = new Identifier("slimefunhelper", "gui/arrow_right");
 
-    public PageButtonElement(List<Text> pageSwitch, int maxPage, AtomicInteger page, boolean left) {
+    public PageButtonElement(List<Component> pageSwitch, int maxPage, AtomicInteger page, boolean left) {
         this(pageSwitch, maxPage, page::get, page::set, left ? -1 : 1);
     }
 
     public PageButtonElement(
-            List<Text> pageSwitch, int maxPage, IntSupplier pageGetter, IntConsumer pageSetter, int delta) {
+            List<Component> pageSwitch, int maxPage, IntSupplier pageGetter, IntConsumer pageSetter, int delta) {
         this(pageSwitch, () -> maxPage, pageGetter, pageSetter, delta);
     }
 
     public PageButtonElement(
-            List<Text> pageSwitch, IntSupplier maxPage, IntSupplier pageGetter, IntConsumer pageSetter, int delta) {
+            List<Component> pageSwitch, IntSupplier maxPage, IntSupplier pageGetter, IntConsumer pageSetter, int delta) {
         super(TextProvider.of(null), ((element, widget, mouseButton) -> {
             int pageNow = pageGetter.getAsInt();
-            int nextPage = MathHelper.clamp(pageNow + delta, 1, maxPage.getAsInt());
+            int nextPage = Mth.clamp(pageNow + delta, 1, maxPage.getAsInt());
             pageSetter.accept(nextPage);
             return true;
         }));

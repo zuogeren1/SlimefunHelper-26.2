@@ -4,11 +4,11 @@ import me.matl114.hacks.utils.config.WrapColor;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.util.FormattedCharSequence;
 
 public abstract class IRender2DColoredModule extends IRender2DModule {
     public IRender2DColoredModule() {
@@ -20,34 +20,34 @@ public abstract class IRender2DColoredModule extends IRender2DModule {
     }
 
     public NBTRef<WrapColor> color = builder(hud.add("color"), WrapColor.class)
-            .defaultValue(new WrapColor(TextColor.parse("#F05BDA").getOrThrow()))
+            .defaultValue(new WrapColor(TextColor.parseColor("#F05BDA").getOrThrow()))
             .build();
 
     public FlagRef bold = flagBuilder(hud.add("bold")).defaultValue(true).build();
 
-    public void drawText(VDrawContext vdraw, OrderedText text) {
+    public void drawText(VDrawContext vdraw, FormattedCharSequence text) {
         int rgb = color.get().withAlpha(255);
         if (right.get()) {
-            int width = mc.textRenderer.getWidth(text);
-            vdraw.drawText(mc.textRenderer, text, -width, 0, rgb, true);
+            int width = mc.font.width(text);
+            vdraw.drawText(mc.font, text, -width, 0, rgb, true);
         } else {
-            vdraw.drawText(mc.textRenderer, text, 0, 0, rgb, true);
+            vdraw.drawText(mc.font, text, 0, 0, rgb, true);
         }
         vdraw.getMatrices().translate(0, HEIGHT);
     }
 
-    public void drawText(VDrawContext vdraw, Text text) {
+    public void drawText(VDrawContext vdraw, Component text) {
         if (bold.get()) {
-            text = text.copy().formatted(Formatting.BOLD);
+            text = text.copy().withStyle(ChatFormatting.BOLD);
         }
-        drawText(vdraw, text.asOrderedText());
+        drawText(vdraw, text.getVisualOrderText());
     }
 
     public void drawText(VDrawContext vdraw, String text) {
-        MutableText text0 = Text.literal(text);
+        MutableComponent text0 = Component.literal(text);
         if (bold.get()) {
-            text0 = text0.formatted(Formatting.BOLD);
+            text0 = text0.withStyle(ChatFormatting.BOLD);
         }
-        drawText(vdraw, text0.asOrderedText());
+        drawText(vdraw, text0.getVisualOrderText());
     }
 }

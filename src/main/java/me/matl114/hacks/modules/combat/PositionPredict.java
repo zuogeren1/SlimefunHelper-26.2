@@ -1,6 +1,7 @@
 package me.matl114.hacks.modules.combat;
 
 import com.google.common.hash.Hashing;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
@@ -33,19 +34,18 @@ import me.matl114.utils.config.kv.EnumAttrKeyValue;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.api.VRender;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.ShulkerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ShieldItem;
-import net.minecraft.network.packet.s2c.play.EntityPositionS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityPositionSyncS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityS2CPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;
+import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ShieldItem;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
 
 public class PositionPredict extends BaseModule {
@@ -82,7 +82,7 @@ public class PositionPredict extends BaseModule {
 
     public final FlagRef debugRender =
             flagBuilder(attack.add("debug-render-prediction")).build();
-    Int2ObjectArrayMap<List<Vec3d>> recordedPoints = new Int2ObjectArrayMap<>();
+    Int2ObjectArrayMap<List<Vec3>> recordedPoints = new Int2ObjectArrayMap<>();
 
     public final FlagRef placeRecorder = flagBuilder(attBot.add("place-recorder"))
             .updateListener(s -> this.recordedPoints.clear())
@@ -95,36 +95,36 @@ public class PositionPredict extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(EntityS2CPacket.class), this::onPostEntity);
+        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundMoveEntityPacket.class), this::onPostEntity);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntityPositionS2CPacket.class), this::onPostEntityPos);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundTeleportEntityPacket.class), this::onPostEntityPos);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntityPositionSyncS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityPositionSyncPacket.class),
                 this::onPostEntityTeleport);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (debugRender.get()) {
             RenderUtils.startDrawVirtual(event.context);
             try {
-                List<Box> boxes = new ArrayList<>();
-                Vec3d camera = RenderUtils.getCameraPos().negate();
-                for (var re : mc.world.getPlayers()) {
+                List<AABB> boxes = new ArrayList<>();
+                Vec3 camera = RenderUtils.getCameraPos().reverse();
+                for (var re : mc.level.players()) {
                     if (re != mc.getCameraEntity()) {
-                        Vec3d pos = flyPredictArgument
+                        Vec3 pos = flyPredictArgument
                                 .get()
                                 .predict(re); // predictFlyingPosition(re, 2, renderUseArgument1.get());
-                        boxes.add(mc.player.dimensions.getBoxAt(pos).offset(camera));
+                        boxes.add(mc.player.dimensions.makeBoundingBox(pos).move(camera));
                     }
                 }
                 VRender.getInstance().createLinesLayer(((operation, vertexConsumer) -> {
-                    for (Box box : boxes) {
+                    for (AABB box : boxes) {
                         operation.drawOutlinedBox(
                                 event.context,
                                 vertexConsumer,
-                                box.getMinPos(),
-                                box.getMaxPos(),
+                                box.getMinPosition(),
+                                box.getMaxPosition(),
                                 Color.MAGENTA.getRGB());
                     }
                 }));
@@ -133,7 +133,7 @@ public class PositionPredict extends BaseModule {
                     int hash = ColorUtils.withAlphaInt(
                             Hashing.sha256().hashInt(re.getIntKey()).hashCode(), 255);
                     VRender.getInstance().createLinesLayer(((operation, vertexConsumer) -> {
-                        for (Vec3d box : lst) {
+                        for (Vec3 box : lst) {
                             box = box.add(camera);
                             operation.drawOutlinedBox(
                                     event.context,
@@ -158,35 +158,35 @@ public class PositionPredict extends BaseModule {
     }
 
     // on player update events;
-    public void onPostEntity(Event<EntityS2CPacket> event) {
+    public void onPostEntity(Event<ClientboundMoveEntityPacket> event) {
         if (checkNull()) return;
-        if (event.context.getEntity(mc.world) instanceof PlayerInternalAccess internal) {
+        if (event.context.getEntity(mc.level) instanceof PlayerInternalAccess internal) {
             internal.getPredictorImpl().onEntityPositionMove(event);
-            onPlayerEntityUpdate((PlayerEntity) internal);
+            onPlayerEntityUpdate((Player) internal);
         }
     }
 
-    public void onPostEntityPos(Event<EntityPositionS2CPacket> event) {
+    public void onPostEntityPos(Event<ClientboundTeleportEntityPacket> event) {
         if (checkNull()) return;
-        if (mc.world.getEntityById(event.context.entityId()) instanceof PlayerInternalAccess internal) {
+        if (mc.level.getEntity(event.context.id()) instanceof PlayerInternalAccess internal) {
             internal.getPredictorImpl().onEntityPositionPost(event);
-            onPlayerEntityUpdate((PlayerEntity) internal);
+            onPlayerEntityUpdate((Player) internal);
         }
     }
 
-    public void onPostEntityTeleport(Event<EntityPositionSyncS2CPacket> event) {
+    public void onPostEntityTeleport(Event<ClientboundEntityPositionSyncPacket> event) {
         if (checkNull()) return;
-        if (mc.world.getEntityById(event.context.id()) instanceof PlayerInternalAccess internal) {
+        if (mc.level.getEntity(event.context.id()) instanceof PlayerInternalAccess internal) {
             internal.getPredictorImpl().onEntityPositionSyncPost(event);
-            onPlayerEntityUpdate((PlayerEntity) internal);
+            onPlayerEntityUpdate((Player) internal);
         }
     }
 
-    public void onPlayerEntityUpdate(PlayerEntity player) {
+    public void onPlayerEntityUpdate(Player player) {
         if (placeRecorder.get()) {
             recordedPoints
                     .computeIfAbsent(player.getId(), (v) -> new ArrayList<>())
-                    .add(player.getPos());
+                    .add(player.position());
         }
     }
 
@@ -194,28 +194,28 @@ public class PositionPredict extends BaseModule {
         return EntityInternalAccess.of(entity).getPositionPredictor();
     }
 
-    public Vec3d predictKnownMovement(Entity entity) {
+    public Vec3 predictKnownMovement(Entity entity) {
         return EntityInternalAccess.of(entity).getPositionPredictor().getKnownDeltaMovement();
     }
 
-    public Vec3d getExactAttackPosition(Entity target) {
+    public Vec3 getExactAttackPosition(Entity target) {
         if (mc.player == null) return null;
-        if (target instanceof ShulkerEntity) {
+        if (target instanceof Shulker) {
             // consider wtf shit , this entity collides with player
             // consider all collisions use bounding box not directions
-            Vec3d vec3 = target.getPos();
+            Vec3 vec3 = target.position();
             //            BlockPos posAt = BlockPos.ofFloored(vec3);
-            Box boundingBox = target.getBoundingBox();
+            AABB boundingBox = target.getBoundingBox();
             for (Direction dir : Direction.values()) {
 
-                Vec3d testPos =
+                Vec3 testPos =
                         switch (dir) {
-                            case UP -> vec3.withAxis(Direction.Axis.Y, boundingBox.maxY + 0.1);
-                            case DOWN -> vec3.withAxis(Direction.Axis.Y, boundingBox.minY - 2);
-                            case NORTH -> vec3.withAxis(Direction.Axis.Z, boundingBox.minZ - 0.5);
-                            case SOUTH -> vec3.withAxis(Direction.Axis.Z, boundingBox.maxZ + 0.5);
-                            case EAST -> vec3.withAxis(Direction.Axis.X, boundingBox.maxX + 0.5);
-                            case WEST -> vec3.withAxis(Direction.Axis.X, boundingBox.minX - 0.5);
+                            case UP -> vec3.with(Direction.Axis.Y, boundingBox.maxY + 0.1);
+                            case DOWN -> vec3.with(Direction.Axis.Y, boundingBox.minY - 2);
+                            case NORTH -> vec3.with(Direction.Axis.Z, boundingBox.minZ - 0.5);
+                            case SOUTH -> vec3.with(Direction.Axis.Z, boundingBox.maxZ + 0.5);
+                            case EAST -> vec3.with(Direction.Axis.X, boundingBox.maxX + 0.5);
+                            case WEST -> vec3.with(Direction.Axis.X, boundingBox.minX - 0.5);
                         };
 
                 if (!MovTasks.ENGIN.checkEnvironmentCollision(mc.player, testPos, true)) {
@@ -225,31 +225,31 @@ public class PositionPredict extends BaseModule {
             return null;
         } else {
             boolean considerAntiShield = considerAntiShield(target);
-            Vec3d deltaMovments;
+            Vec3 deltaMovments;
             if (considerAntiShield) {
-                deltaMovments = target.getRotationVector().normalize().multiply(-0.2);
-            } else if (target instanceof PlayerEntity playerEntity) {
+                deltaMovments = target.getLookAngle().normalize().scale(-0.2);
+            } else if (target instanceof Player playerEntity) {
                 var re = attackPredictArgument.get();
 
-                Vec3d predictedPosition = re.predict(
+                Vec3 predictedPosition = re.predict(
                         playerEntity); /// predictAttackPosition(playerEntity, re.ticksLater(), re.ticksHistory(),
                 // re.mode());
-                deltaMovments = predictedPosition.subtract(target.getPos());
+                deltaMovments = predictedPosition.subtract(target.position());
             } else {
-                Vec3d targetFacing = mc.player.getPos().subtract(target.getPos());
-                Vec3d targetFacingHorizontal = new Vec3d(targetFacing.x, 0.0d, targetFacing.z);
+                Vec3 targetFacing = mc.player.position().subtract(target.position());
+                Vec3 targetFacingHorizontal = new Vec3(targetFacing.x, 0.0d, targetFacing.z);
                 double multiply = 0.5;
-                deltaMovments = targetFacingHorizontal.normalize().multiply(multiply);
+                deltaMovments = targetFacingHorizontal.normalize().scale(multiply);
             }
 
-            Vec3d targetPos = target.getPos();
-            Vec3d actualMove = MovTasks.ENGIN.simulateMovement(mc.player, targetPos, deltaMovments);
+            Vec3 targetPos = target.position();
+            Vec3 actualMove = MovTasks.ENGIN.simulateMovement(mc.player, targetPos, deltaMovments);
             return targetPos.add(actualMove);
         }
     }
 
-    public Vec3d predictAimPositionForEntity(Entity entity, float finalVelocity) {
-        Vec3d estimatedDelta = entity.getPos().subtract(mc.player.getPos());
+    public Vec3 predictAimPositionForEntity(Entity entity, float finalVelocity) {
+        Vec3 estimatedDelta = entity.position().subtract(mc.player.position());
         double estimateSpeed = estimatedDelta.length() / (finalVelocity);
         int estimateTick;
         if (estimateSpeed < 2.0) {
@@ -260,9 +260,9 @@ public class PositionPredict extends BaseModule {
             estimateTick = (int) (estimateSpeed - 2.0D);
         }
 
-        return entity.getEyePos()
-                .subtract(entity.getPos())
-                .multiply(0.75)
+        return entity.getEyePosition()
+                .subtract(entity.position())
+                .scale(0.75)
                 .add(flyPredictArgument.get().predictWithExtraTicks(entity, estimateTick));
     }
 
@@ -270,15 +270,15 @@ public class PositionPredict extends BaseModule {
         return enableNoShield.get()
                 && target instanceof LivingEntity livingEntity
                 && livingEntity.isUsingItem()
-                && livingEntity.getActiveItem().getItem() instanceof ShieldItem;
+                && livingEntity.getUseItem().getItem() instanceof ShieldItem;
     }
 
-    public Vec3d predictPlayerMove(PlayerInputUtils.Input input) {
+    public Vec3 predictPlayerMove(PlayerInputUtils.Input input) {
         EntityMovementStatus<Entity> entityMovementStatus = new EntityMovementStatus<>(mc.player);
         if (mc.player.isFallFlying()) {
-            return mc.player.getVelocity();
-        } else if (mc.player.isInFluid()) {
-            return mc.player.getVelocity();
+            return mc.player.getDeltaMovement();
+        } else if (mc.player.isInLiquid()) {
+            return mc.player.getDeltaMovement();
         } else {
             return entityMovementStatus.calculateLastMoveVelocity(input.forwardSpeed(), input.sidewaysSpeed());
         }
@@ -326,7 +326,7 @@ public class PositionPredict extends BaseModule {
                     return subScreenWidget
                             .addDrawableChild(DisplayWidget.instance(0, 0, dy, dy)
                                     .setRenderHandler(new ButtonElement(
-                                                    TextProvider.of(Text.translatableWithFallback(
+                                                    TextProvider.of(Component.translatableWithFallback(
                                                             "widget.nbt-parsable.predict-argument.ticks", "F:")),
                                                     ButtonAction.empty())
                                             .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -335,7 +335,7 @@ public class PositionPredict extends BaseModule {
                                     .generateValueWidget(dy, 0, half - dy, dy))
                             .addDrawableChild(DisplayWidget.instance(half, 0, dy, dy)
                                     .setRenderHandler(new ButtonElement(
-                                                    TextProvider.of(Text.translatableWithFallback(
+                                                    TextProvider.of(Component.translatableWithFallback(
                                                             "widget.nbt-parsable.predict-argument.history", "H:")),
                                                     ButtonAction.empty())
                                             .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -344,7 +344,7 @@ public class PositionPredict extends BaseModule {
                                     .generateValueWidget(half + dy, 0, half - dy, dy))
                             .addDrawableChild(DisplayWidget.instance(2 * half, 0, dy, dy)
                                     .setRenderHandler(new ButtonElement(
-                                                    TextProvider.of(Text.translatableWithFallback(
+                                                    TextProvider.of(Component.translatableWithFallback(
                                                             "widget.nbt-parsable.predict-argument.mode", "M:")),
                                                     ButtonAction.empty())
                                             .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -363,24 +363,24 @@ public class PositionPredict extends BaseModule {
             return TYPE;
         }
 
-        public Vec3d predict(Entity entity) {
+        public Vec3 predict(Entity entity) {
             return predict0(entity, ticksLater);
         }
 
-        public Vec3d predict0(Entity entity, double ticksLater) {
+        public Vec3 predict0(Entity entity, double ticksLater) {
             int floor = (int) Math.floor(ticksLater);
-            Vec3d floorPos =
+            Vec3 floorPos =
                     EntityInternalAccess.of(entity).getPositionPredictor().predict(floor, mode.ordinal(), ticksHistory);
             if (Math.abs(floor - ticksLater) < 1E-2) {
                 return floorPos;
             }
-            Vec3d roofPos = EntityInternalAccess.of(entity)
+            Vec3 roofPos = EntityInternalAccess.of(entity)
                     .getPositionPredictor()
                     .predict(floor + 1, mode.ordinal(), ticksHistory);
-            return floorPos.multiply(floor + 1 - ticksLater).add(roofPos.multiply(ticksLater - floor));
+            return floorPos.scale(floor + 1 - ticksLater).add(roofPos.scale(ticksLater - floor));
         }
 
-        public Vec3d predictWithExtraTicks(Entity entity, int ticks) {
+        public Vec3 predictWithExtraTicks(Entity entity, int ticks) {
             return predict0(entity, ticksLater + ticks);
         }
     }

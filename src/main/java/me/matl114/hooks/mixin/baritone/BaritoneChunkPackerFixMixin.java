@@ -5,9 +5,9 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
@@ -18,10 +18,10 @@ import org.spongepowered.asm.mixin.injection.At;
 @Environment(EnvType.CLIENT)
 public abstract class BaritoneChunkPackerFixMixin {
     @Unique
-    private static final BlockState a = Blocks.AIR.getDefaultState();
+    private static final BlockState a = Blocks.AIR.defaultBlockState();
 
     @WrapOperation(
-            method = "a(Lnet/minecraft/world/chunk/WorldChunk;)Lbaritone/cache/CachedChunk;",
+            method = "a(Lnet/minecraft/world/level/chunk/LevelChunk;)Lbaritone/cache/CachedChunk;",
             at =
                     @At(
                             value = "INVOKE",
@@ -29,8 +29,8 @@ public abstract class BaritoneChunkPackerFixMixin {
                                     "Lbaritone/utils/BlockStateInterface;a(Lnet/minecraft/world/chunk/WorldChunk;III)Lnet/minecraft/block/BlockState;"),
             require = 0)
     private static BlockState fixWorldAccessIndexOutOfBound(
-            WorldChunk chunk, int x, int y, int z, Operation<BlockState> original) {
-        if (y < 0 || y >= (chunk.getSectionArray().length << 4)) {
+            LevelChunk chunk, int x, int y, int z, Operation<BlockState> original) {
+        if (y < 0 || y >= (chunk.getSections().length << 4)) {
             return a;
         }
         return original.call(chunk, x, y, z);

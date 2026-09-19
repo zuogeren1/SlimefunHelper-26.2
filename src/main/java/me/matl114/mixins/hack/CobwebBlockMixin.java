@@ -6,43 +6,43 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.CobwebBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityCollisionHandler;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.InsideBlockEffectApplier;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.WebBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(CobwebBlock.class)
+@Mixin(WebBlock.class)
 public abstract class CobwebBlockMixin {
     @Inject(
-            method = "onEntityCollision",
+            method = "entityInside",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/Entity;slowMovement(Lnet/minecraft/block/BlockState;Lnet/minecraft/util/math/Vec3d;)V",
+                                    "Lnet/minecraft/world/entity/Entity;makeStuckInBlock(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/phys/Vec3;)V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
     public void onEntityCollision(
             BlockState state,
-            World world,
+            Level world,
             BlockPos pos,
             Entity entity,
-            EntityCollisionHandler handler,
+            InsideBlockEffectApplier handler,
             boolean bl,
             CallbackInfo ci,
-            @Local Vec3d vec3d,
-            @Local LocalRef<Vec3d> vec3dLocalRef) {
-        if (entity == MinecraftClient.getInstance().player) {
-            Event<Vec3d> slowMovement = new Event<>(vec3d, true, true, pos);
+            @Local Vec3 vec3d,
+            @Local LocalRef<Vec3> vec3dLocalRef) {
+        if (entity == Minecraft.getInstance().player) {
+            Event<Vec3> slowMovement = new Event<>(vec3d, true, true, pos);
             Listener.getPlayerWebSlowPoint().handleValue(slowMovement);
             if (slowMovement.isCancelled()) {
                 ci.cancel();

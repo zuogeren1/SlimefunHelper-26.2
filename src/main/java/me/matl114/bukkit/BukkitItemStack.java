@@ -4,10 +4,10 @@ import com.google.common.base.Preconditions;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,7 +76,7 @@ public sealed class BukkitItemStack implements Cloneable, ConfigurationSerializa
 
     public String toString() {
         StringBuilder toString = (new StringBuilder("ItemStack{"))
-                .append(Registries.ITEM.getId(this.getType()).getPath().toUpperCase(Locale.ROOT))
+                .append(BuiltInRegistries.ITEM.getKey(this.getType()).getPath().toUpperCase(Locale.ROOT))
                 .append(" x ")
                 .append(this.getAmount());
         if (this.hasItemMeta()) {
@@ -132,7 +132,7 @@ public sealed class BukkitItemStack implements Cloneable, ConfigurationSerializa
     public Map<String, Object> serialize() {
         Map<String, Object> result = new LinkedHashMap();
         result.put("v", 0);
-        result.put("type", Registries.ITEM.getId(this.getType()).getPath().toUpperCase(Locale.ROOT));
+        result.put("type", BuiltInRegistries.ITEM.getKey(this.getType()).getPath().toUpperCase(Locale.ROOT));
         if (this.getAmount() != 1) {
             result.put("amount", this.getAmount());
         }
@@ -159,7 +159,7 @@ public sealed class BukkitItemStack implements Cloneable, ConfigurationSerializa
         }
         Item type;
         try {
-            type = Registries.ITEM.get(
+            type = BuiltInRegistries.ITEM.getValue(
                     new Identifier("minecraft", ((String) args.get("type")).toLowerCase(Locale.ROOT)));
 
         } catch (Throwable e) {

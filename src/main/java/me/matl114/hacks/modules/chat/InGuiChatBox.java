@@ -14,12 +14,12 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.DoubleRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 
 public class InGuiChatBox extends BaseModule {
     public final ModulePath chat = makePath(Configs.CHAT_CONFIG, "chat-helper");
@@ -49,8 +49,8 @@ public class InGuiChatBox extends BaseModule {
         registerListener(Listener.getPostInitializeScreen(), this::onScreenInitialize);
     }
 
-    public ClickableWidget createInputWidget(int x, int y, int width) {
-        return new ChatLikeInputWidget(mc.textRenderer, x, y, width, 12, (str) -> {
+    public AbstractWidget createInputWidget(int x, int y, int width) {
+        return new ChatLikeInputWidget(mc.font, x, y, width, 12, (str) -> {
             if (str != null && !str.isEmpty() && !Objects.equals(str, "/")) {
                 // do not let blanks or / shits into it
                 ChatTasks.sayMessage(str, true);
@@ -58,7 +58,7 @@ public class InGuiChatBox extends BaseModule {
         });
     }
 
-    public ClickableWidget createDefaultInputWidget() {
+    public AbstractWidget createDefaultInputWidget() {
         WidgetPos pos = otherScreenInputPos.get();
         double x = pos.getWindowX(mc.getWindow());
         double y = pos.getWindowY(mc.getWindow());
@@ -68,20 +68,20 @@ public class InGuiChatBox extends BaseModule {
 
     public void onScreenInitialize(Event<Screen> event) {
         if (event.context instanceof HandledScreenAccess access && enableGui.get()) {
-            ClickableWidget newChat = createInputWidget(
+            AbstractWidget newChat = createInputWidget(
                     access.getScreenX() + 2,
                     access.getScreenY()
                             + access.getScreenBackgroundY()
-                            + (access instanceof CreativeInventoryScreen ? 40 : 10),
+                            + (access instanceof CreativeModeInventoryScreen ? 40 : 10),
                     access.getScreenBackgroundX() - 4);
             access.addDrawableChildTo(newChat);
-        } else if (!(event.context instanceof HandledScreen<?>)) {
+        } else if (!(event.context instanceof AbstractContainerScreen<?>)) {
             if (checkNull()) return;
             if (enableOther.get()) {
-                if (event.context.getFocused() instanceof TextFieldWidget || event.context instanceof ChatScreen) {
+                if (event.context.getFocused() instanceof EditBox || event.context instanceof ChatScreen) {
                     return;
                 }
-                ClickableWidget newChat = createDefaultInputWidget();
+                AbstractWidget newChat = createDefaultInputWidget();
                 ScreenAccess.of(event.context).addDrawableChildTo(newChat);
             }
         }

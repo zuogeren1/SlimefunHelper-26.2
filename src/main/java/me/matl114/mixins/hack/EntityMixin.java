@@ -9,7 +9,7 @@ import me.matl114.hacks.utils.entity.Predictor;
 import me.matl114.hacks.utils.entity.SimpleEntityPredictor;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.entity.Entity;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -40,7 +40,7 @@ public abstract class EntityMixin<T extends Entity> implements EntityAccess<T>, 
         clientGlowEffect = glow;
     }
 
-    @Inject(method = "isGlowing", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "isCurrentlyGlowing", at = @At("HEAD"), cancellable = true)
     public void onGlowEffect(CallbackInfoReturnable<Boolean> cir) {
         if (clientGlowEffect) {
             cir.setReturnValue(true);
@@ -59,8 +59,8 @@ public abstract class EntityMixin<T extends Entity> implements EntityAccess<T>, 
     //    }
 
     @WrapWithCondition(
-            method = "pushAwayFrom",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;addVelocity(DDD)V"))
+            method = "push(Lnet/minecraft/world/entity/Entity;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;push(DDD)V"))
     public boolean onEntityNoPush(Entity instance, double deltaX, double deltaY, double deltaZ) {
         if (MovTasks.getVelocity().noEntityPush.get()) {
             return false;

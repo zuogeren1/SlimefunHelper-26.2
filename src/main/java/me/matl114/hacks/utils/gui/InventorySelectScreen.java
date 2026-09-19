@@ -19,15 +19,15 @@ import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.WorldUtils;
 import me.matl114.utils.config.ValueAccessor;
 import me.matl114.utils.world.ContainerPosition;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 public class InventorySelectScreen extends GenericBackGroundScreen {
-    private static final Text TITLE = Text.literal("缓存物品界面预览");
-    private static final List<Text> TITLE_RULE_TOOLTIPS = java.util.List.of();
+    private static final Component TITLE = Component.literal("缓存物品界面预览");
+    private static final List<Component> TITLE_RULE_TOOLTIPS = java.util.List.of();
 
     private final GridSelectSubScreen<ChestHistory.Entry> grid;
 
@@ -53,13 +53,13 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
                 this::makeIcon);
     }
 
-    private static final List<Text> RULE_ACCEPT_VIRTUAL =
-            List.of(Text.literal("点击切换容器过滤规则"), Text.empty(), Text.literal("当前过滤规则: 接受虚拟容器(即不存在实体方块的容器)"));
-    private static final List<Text> RULE_REJECT_VIRTUAL =
-            List.of(Text.literal("点击切换容器过滤规则"), Text.empty(), Text.literal("当前过滤规则: 拒绝虚拟容器(即不存在实体方块的容器)"));
+    private static final List<Component> RULE_ACCEPT_VIRTUAL =
+            List.of(Component.literal("点击切换容器过滤规则"), Component.empty(), Component.literal("当前过滤规则: 接受虚拟容器(即不存在实体方块的容器)"));
+    private static final List<Component> RULE_REJECT_VIRTUAL =
+            List.of(Component.literal("点击切换容器过滤规则"), Component.empty(), Component.literal("当前过滤规则: 拒绝虚拟容器(即不存在实体方块的容器)"));
     private boolean filterVirtual = true;
 
-    protected List<Text> provideTitleTooltips(DrawableWidget widget) {
+    protected List<Component> provideTitleTooltips(DrawableWidget widget) {
         return filterVirtual ? RULE_REJECT_VIRTUAL : RULE_ACCEPT_VIRTUAL;
     }
 
@@ -69,23 +69,23 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
     }
 
     protected DrawableWidget makeIcon(ChestHistory.Entry screen) {
-        List<Text> description = new ArrayList<>();
-        description.add(Text.literal("容器标题: ").append(screen.getTitle().orElse(Text.empty())));
-        description.add(Text.literal("左键点击预览容器内容"));
-        description.add(Text.literal("右键点击渲染容器位置(如果有)"));
-        description.add(Text.empty());
+        List<Component> description = new ArrayList<>();
+        description.add(Component.literal("容器标题: ").append(screen.getTitle().orElse(Component.empty())));
+        description.add(Component.literal("左键点击预览容器内容"));
+        description.add(Component.literal("右键点击渲染容器位置(如果有)"));
+        description.add(Component.empty());
         final ItemStack icon = screen.getChestType().map(ItemStack::new).orElse(InvTasks.INV_ICON_UNKNOWN);
 
         if (screen.getContainerPosition().isPresent()) {
             ContainerPosition containerPosition = screen.getContainerPosition().get();
             BlockPos pos = containerPosition.getFirst().getPos();
-            description.add(Text.literal("记录位置: ")
-                    .append(Text.literal("[%d, %d, %d]".formatted(pos.getX(), pos.getY(), pos.getZ()))
-                            .formatted(Formatting.GREEN)));
-            description.add(Text.literal("记录世界: ")
-                    .append(Text.literal(containerPosition.world().getValue().toString())));
+            description.add(Component.literal("记录位置: ")
+                    .append(Component.literal("[%d, %d, %d]".formatted(pos.getX(), pos.getY(), pos.getZ()))
+                            .withStyle(ChatFormatting.GREEN)));
+            description.add(Component.literal("记录世界: ")
+                    .append(Component.literal(containerPosition.world().identifier().toString())));
         } else {
-            description.add(Text.literal("虚拟容器").formatted(Formatting.YELLOW));
+            description.add(Component.literal("虚拟容器").withStyle(ChatFormatting.YELLOW));
         }
         return ExecutableWidget.instance(0, 0, 16, 16)
                 .setElementHandler(SlotElement.instance(icon == null ? InvTasks.INV_ICON_UNKNOWN : icon)
@@ -96,13 +96,13 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
                             } else if (screen instanceof TileInventory tile
                                     && !tile.isVirtual()
                                     && WorldUtils.areWorldEquals(
-                                            MinecraftClient.getInstance().world, tile.getWorld())) {
+                                            Minecraft.getInstance().level, tile.getWorld())) {
                                 ContainerPosition pos = tile.getContainerPosition();
                                 RenderTasks.registerVirtualRenderTask(new RenderTasks.RenderTask(
                                         120,
                                         new RenderTasks.BoxObject(pos.getBoundingBox(), Color.GREEN),
                                         new RenderTasks.LineToTargetObject(pos.getCenterPosition(), Color.RED)));
-                                this.close();
+                                this.onClose();
                             }
                         }))
                         .withTooltips(TooltipHandler.of(description)));
@@ -114,7 +114,7 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
         } else {
             ScreenAccess.of(new InventoryViewScreen(
                             screen.getInventory(),
-                            screen.getTitle().orElse(Text.empty()),
+                            screen.getTitle().orElse(Component.empty()),
                             screen.getChestType().map(ItemStack::new).orElse(InvTasks.INV_ICON_UNKNOWN)))
                     .openFromCurrent();
         }
@@ -124,13 +124,13 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
         return (!filterVirtual || (screen.getContainerPosition().isPresent()))
                 && (FilterService.nameMatch(
                                 screen.getTitle()
-                                        .orElse(Text.empty())
+                                        .orElse(Component.empty())
                                         .getString()
                                         .replace("§.", ""),
                                 value)
                         || InventoryUtils.streamInventory(screen.getInventory())
                                 .filter(i -> !i.isEmpty())
-                                .map(i -> i.getName().getString().replace("§.", ""))
+                                .map(i -> i.getHoverName().getString().replace("§.", ""))
                                 .anyMatch(i -> FilterService.nameMatch(i, value)));
     }
 

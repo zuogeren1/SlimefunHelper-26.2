@@ -6,16 +6,16 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.crash.CrashException;
+import net.minecraft.ReportedException;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientWorld.class)
+@Mixin(ClientLevel.class)
 public abstract class ClientWorldEvents {
-    @WrapOperation(method = "tickEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;tick()V"))
+    @WrapOperation(method = "tickEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;tick()V"))
     public void onEntityTick(Entity instance, Operation<Void> original) {
         Event<Entity> entityEvent = new Event<>(instance, true, false);
         Listener.getEntityPreTickListener().handleValue(entityEvent);
@@ -25,7 +25,7 @@ public abstract class ClientWorldEvents {
             try {
                 original.call(instance);
             } catch (Throwable e) {
-                if (e instanceof CrashException crashException
+                if (e instanceof ReportedException crashException
                         && crashException.getCause() instanceof OutOfMemoryError) {
                     throw e;
                 }

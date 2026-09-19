@@ -1,8 +1,8 @@
 package me.matl114.gui;
 
 import me.matl114.gui.basic.*;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 public class TestingScreen extends Screen {
     protected int backgroundWidth = 220;
@@ -10,7 +10,7 @@ public class TestingScreen extends Screen {
     protected int x;
     protected int y;
 
-    public TestingScreen(Text title) {
+    public TestingScreen(Component title) {
         super(title);
     }
 
@@ -127,7 +127,7 @@ public class TestingScreen extends Screen {
         //        addDrawableChild(element7);
         //        element8 = new ExecutableWidget(this.x +4, this.y+4, this.backgroundWidth-8,  16)
         //            .setElementHandler(
-        //                new LabelElement(Text.literal("这是一个基本标题"), Colors.WHITE,  0)
+        //                new LabelElement(Text.literal("这是一个基本标题"), CommonColors.WHITE,  0)
         //                    .combineAbsoluteRender(new
         // TooltipHandler(TooltipHandler.TooltipProvider.of(List.of(Text.literal("111"),Text.literal("222")))))
         //            )

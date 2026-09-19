@@ -10,7 +10,7 @@ import me.matl114.gui.presets.lists.ListEntryWidgetController;
 import me.matl114.gui.presets.lists.ListUnmodifiableWidget;
 import me.matl114.managers.task.TaskManager;
 import me.matl114.utils.CollectionUtils;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class TaskManageScreen extends IndexedScreen<Pair<String, TaskManager>, ListUnmodifiableWidget> {
     private static String selectingTaskManager;
@@ -33,7 +33,7 @@ public class TaskManageScreen extends IndexedScreen<Pair<String, TaskManager>, L
     @Override
     protected ElementHandler createIndexHandler(Pair<String, TaskManager> val) {
         return new ButtonElement(
-                        TextProvider.of(Text.literal(val.getFirst())), ButtonAction.run(() -> this.setGlobal(val)))
+                        TextProvider.of(Component.literal(val.getFirst())), ButtonAction.run(() -> this.setGlobal(val)))
                 .setInactiveId(ButtonElement.BUTTON)
                 .setActiveId(ButtonElement.BUTTON_HIGHLIGHT)
                 .setActivePredicate((el) -> Objects.equals(selectingTaskManager, val.getFirst()));

@@ -13,13 +13,13 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusEffectS2CPacket;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.ParticleType;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.Registries;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundUpdateMobEffectPacket;
+import net.minecraft.world.effect.MobEffect;
 
 public class NoRender extends BaseModule {
     public static NoRender INSTANCE;
@@ -89,9 +89,9 @@ public class NoRender extends BaseModule {
     public final FlagRef noEffectForce =
             flagBuilder(effectSetting.add("force-no")).build();
 
-    public final NBTRef<EntrySet<StatusEffect>> noEffectTypes = builder(
-                    effectSetting.add("types"), EntrySet.<StatusEffect>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(blindness|darkness|nausea)$"), Registries.STATUS_EFFECT))
+    public final NBTRef<EntrySet<MobEffect>> noEffectTypes = builder(
+                    effectSetting.add("types"), EntrySet.<MobEffect>parameter())
+            .defaultValue(new EntrySet<>(new Regex("^(blindness|darkness|nausea)$"), BuiltInRegistries.MOB_EFFECT))
             .build();
 
     public final FlagRef noFlyFov = flagBuilder(fovEffect.add("fly")).build();
@@ -114,14 +114,14 @@ public class NoRender extends BaseModule {
 
     public final NBTRef<EntrySet<ParticleType<?>>> particleTypes = builder(
                     particle.add("types"), EntrySet.<ParticleType<?>>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^()$"), Registries.PARTICLE_TYPE))
+            .defaultValue(new EntrySet<>(new Regex("^()$"), BuiltInRegistries.PARTICLE_TYPE))
             .build();
 
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(EntityStatusEffectS2CPacket.class), this::doCancelEffect);
-        registerListener(Listener.getPacketPoint().getChannel(EntitySpawnS2CPacket.class), this::doCancelSpawn);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundUpdateMobEffectPacket.class), this::doCancelEffect);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundAddEntityPacket.class), this::doCancelSpawn);
         registerListener(
                 Listener.getParticleCreateListener().getChannel(ParticleTypes.RAIN), this::doParticleSpawnWeather);
         registerListener(
@@ -129,18 +129,18 @@ public class NoRender extends BaseModule {
         registerListener(Listener.getParticleCreateListener(), this::doParticleSpawnTyped);
     }
 
-    public void doCancelEffect(Event<EntityStatusEffectS2CPacket> packet) {
+    public void doCancelEffect(Event<ClientboundUpdateMobEffectPacket> packet) {
         if (checkNull()) return;
         if (enable.get()
                 && noEffectForce.get()
-                && noEffectTypes.get().test(packet.context.getEffectId().value())) {
+                && noEffectTypes.get().test(packet.context.getEffect().value())) {
             packet.cancel();
         }
     }
 
-    public void doCancelSpawn(Event<EntitySpawnS2CPacket> packet) {
+    public void doCancelSpawn(Event<ClientboundAddEntityPacket> packet) {
         if (checkNull()) return;
-        if (enable.get() && ignoreSpawn.get() && types.get().test(packet.context.getEntityType())) {
+        if (enable.get() && ignoreSpawn.get() && types.get().test(packet.context.getType())) {
             packet.cancel();
         }
     }
@@ -148,7 +148,7 @@ public class NoRender extends BaseModule {
     public void doParticleSpawnWeather(Event<Particle> event) {
         if (checkNull()) return;
         if (enable.get() && noWeather.get()) {
-            if (mc.world.isRaining()) {
+            if (mc.level.isRaining()) {
                 event.cancel();
             }
         }
@@ -159,7 +159,7 @@ public class NoRender extends BaseModule {
             return;
         }
         if (enable.get() && ignoreParticle.get()) {
-            ParticleEffect p = event.getArgs(0);
+            ParticleOptions p = event.getArgs(0);
             if (particleTypes.get().test(p.getType())) {
                 event.cancel();
             }

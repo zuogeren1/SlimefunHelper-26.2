@@ -25,25 +25,27 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.WorldUtils;
 import me.matl114.versioned.api.VDataFlag;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.BiomeTags;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class SearchLabel extends BaseModule {
     public final ModulePath travellingControl = makePath(Configs.SURVIVAL_CONFIG, "travelling-control");
@@ -65,7 +67,7 @@ public class SearchLabel extends BaseModule {
 
     public final NBTRef<EntrySet<Block>> importantBlocks = builder(
                     searchControl.add("important-blocks"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(Registries.BLOCK, List.of(Blocks.CHEST, Blocks.SHULKER_BOX)))
+            .defaultValue(new EntrySet<>(BuiltInRegistries.BLOCK, List.of(Blocks.CHEST, Blocks.SHULKER_BOX)))
             .build();
 
     public final IntRef importantBlocksCount =
@@ -74,7 +76,7 @@ public class SearchLabel extends BaseModule {
     public final NBTRef<EntrySet<Block>> instantBlocks = builder(
                     searchControl.add("instant-blocks"), EntrySet.<Block>parameter())
             .defaultValue(
-                    new EntrySet<>(Registries.BLOCK, List.of(Blocks.SHULKER_BOX, Blocks.CRAFTER, Blocks.ENDER_CHEST)))
+                    new EntrySet<>(BuiltInRegistries.BLOCK, List.of(Blocks.SHULKER_BOX, Blocks.CRAFTER, Blocks.ENDER_CHEST)))
             .build();
 
     public final FlagRef labelImportantItems =
@@ -82,7 +84,7 @@ public class SearchLabel extends BaseModule {
 
     public final NBTRef<EntrySet<Item>> importantItems = builder(
                     searchControl.add("important-items"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(Registries.ITEM, List.of(Items.ELYTRA, Items.FILLED_MAP, Items.SHULKER_BOX)))
+            .defaultValue(new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.ELYTRA, Items.FILLED_MAP, Items.SHULKER_BOX)))
             .build();
 
     public final IntRef importantItemsCount =
@@ -94,8 +96,8 @@ public class SearchLabel extends BaseModule {
     public final NBTRef<EntrySet<EntityType<?>>> importantEntities = builder(
                     searchControl.add("important-entities"), EntrySet.<EntityType<?>>parameter())
             .defaultValue(new EntrySet<>(
-                    Registries.ENTITY_TYPE,
-                    List.of(EntityType.PLAYER, EntityType.CHEST_MINECART, EntityType.HOPPER_MINECART)))
+                    BuiltInRegistries.ENTITY_TYPE,
+                    List.of(EntityTypes.PLAYER, EntityTypes.CHEST_MINECART, EntityTypes.HOPPER_MINECART)))
             .build();
 
     public final IntRef importantEntitiesCount =
@@ -104,7 +106,7 @@ public class SearchLabel extends BaseModule {
     public final NBTRef<EntrySet<EntityType<?>>> instantEntities = builder(
                     searchControl.add("instant-entities"), EntrySet.<EntityType<?>>parameter())
             .defaultValue(
-                    new EntrySet<>(Registries.ENTITY_TYPE, List.of(EntityType.MINECART, EntityType.HOPPER_MINECART)))
+                    new EntrySet<>(BuiltInRegistries.ENTITY_TYPE, List.of(EntityTypes.MINECART, EntityTypes.HOPPER_MINECART)))
             .build();
 
     public final FlagRef labelInWorldMap = builder(searchControl.add("label-in-world-map"), Boolean.class)
@@ -168,7 +170,7 @@ public class SearchLabel extends BaseModule {
 
     private void loadCurrentData(IXWaypointAccess access) {
         currentWaypoints.clear();
-        var currentWorldMap = ServerStorage.getStorage().chunkStorageMap.get(mc.world.getRegistryKey());
+        var currentWorldMap = ServerStorage.getStorage().chunkStorageMap.get(mc.level.dimension());
         if (currentWorldMap == null) {
             return;
         }
@@ -208,18 +210,18 @@ public class SearchLabel extends BaseModule {
 
         int color;
         if (record.typeEntities.isPresent()) {
-            color = Formatting.RED.ordinal();
+            color = ChatFormatting.RED.ordinal();
         } else if (record.typeItem.isPresent()) {
-            color = Formatting.YELLOW.ordinal();
+            color = ChatFormatting.YELLOW.ordinal();
         } else {
-            color = Formatting.GREEN.ordinal();
+            color = ChatFormatting.GREEN.ordinal();
         }
-        double scale = mc.world.getDimension().coordinateScale();
+        double scale = mc.level.dimensionType().coordinateScale();
 
         return factory.createWaypoint(
-                (int) (pos.getCenterX() * scale),
+                (int) (pos.getMiddleBlockX() * scale),
                 64,
-                (int) (pos.getCenterZ() * scale),
+                (int) (pos.getMiddleBlockZ() * scale),
                 createLabel(record),
                 "L",
                 color,
@@ -242,11 +244,11 @@ public class SearchLabel extends BaseModule {
     }
 
     private void remove(IXWaypointAccess access, ChunkPos pos) {
-        double scale = mc.world.getDimension().coordinateScale();
+        double scale = mc.level.dimensionType().coordinateScale();
         access.removeIf(s -> {
-            return s.getX() == (int) (pos.getCenterX() * scale)
+            return s.getX() == (int) (pos.getMiddleBlockX() * scale)
                     && s.getY() == 64
-                    && s.getZ() == (int) (pos.getCenterZ() * scale)
+                    && s.getZ() == (int) (pos.getMiddleBlockZ() * scale)
                     && s.isTemp()
                     && Objects.equals(s.getInitials(), "L");
         });
@@ -318,24 +320,24 @@ public class SearchLabel extends BaseModule {
         registerListener(Listener.getServerEntitySpawnListener(), this::onEntitySpawn);
         registerListener(Listener.getChunkUpdateListener(), this::onChunkPostLoad);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityType.ITEM), this::handleItemEntityItemData);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.ITEM), this::handleItemEntityItemData);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityType.ITEM_FRAME), this::handleItemFrameItemData);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.ITEM_FRAME), this::handleItemFrameItemData);
     }
 
     ChunkPos lastChunkPos = null;
 
-    public void onPostTick(Event<ClientPlayerEntity> eventUpdate) {
+    public void onPostTick(Event<LocalPlayer> eventUpdate) {
         if (enable.get() && labelInWorldMap.get() && XaeroHooks.getInstance().getWaypointFactory() != null) {
             updateCurrentAccess();
         } else {
             destroyCurrentAccess();
         }
         if (enable.get()) {
-            if (!Objects.equals(lastChunkPos, mc.player.getChunkPos())) {
-                if (mc.player.isOnGround()) {
-                    lastChunkPos = mc.player.getChunkPos();
-                    markReached(mc.player.getChunkPos());
+            if (!Objects.equals(lastChunkPos, mc.player.chunkPosition())) {
+                if (mc.player.onGround()) {
+                    lastChunkPos = mc.player.chunkPosition();
+                    markReached(mc.player.chunkPosition());
                 }
             }
         }
@@ -344,8 +346,8 @@ public class SearchLabel extends BaseModule {
     public void onEntitySpawn(Event<Entity> entityEvent) {
         if (enable.get()
                 && labelImportantEntities.get()
-                && entityEvent.context.squaredDistanceTo(mc.player.getPos()) > 256) {
-            ChunkPos pos = entityEvent.context.getChunkPos();
+                && entityEvent.context.distanceToSqr(mc.player.position()) > 256) {
+            ChunkPos pos = entityEvent.context.chunkPosition();
             ChunkStorage storage = ServerStorage.getChunkStorage(pos);
             ChunkRecord record =
                     storage == null ? ChunkRecord.EMPTY : storage.get(KEY_CHUNK_LABEL_RECORD, ChunkRecord.CODEC);
@@ -374,7 +376,7 @@ public class SearchLabel extends BaseModule {
         }
     }
 
-    public void handleItemEntityItemData(Event<DataTracker.SerializedEntry<?>> entryUpdateEvent) {
+    public void handleItemEntityItemData(Event<SynchedEntityData.DataValue<?>> entryUpdateEvent) {
         if (enable.get() && labelImportantItems.get()) {
             var entry = entryUpdateEvent.context();
             if (entry.id() == VDataFlag.ID_ITEM_ITEMSTACK
@@ -385,12 +387,12 @@ public class SearchLabel extends BaseModule {
         }
     }
 
-    public void handleItemFrameItemData(Event<DataTracker.SerializedEntry<?>> entryUpdateEvent) {
+    public void handleItemFrameItemData(Event<SynchedEntityData.DataValue<?>> entryUpdateEvent) {
         if (enable.get() && labelImportantItems.get()) {
             var entry = entryUpdateEvent.context();
             if (entry.id() == VDataFlag.ID_ITEM_FRAME_ITEMSTACK
                     && entry.value() instanceof ItemStack stack
-                    && entryUpdateEvent.getArgs(0) instanceof ItemFrameEntity item) {
+                    && entryUpdateEvent.getArgs(0) instanceof ItemFrame item) {
                 onItemEntity(item, stack);
             }
         }
@@ -399,8 +401,8 @@ public class SearchLabel extends BaseModule {
     public void onItemEntity(Entity entity, ItemStack itemStack) {
         if (!itemStack.isEmpty()
                 && importantItems.get().test(itemStack.getItem())
-                && entity.getPos().squaredDistanceTo(mc.player.getPos()) > 256) {
-            ChunkPos pos = entity.getChunkPos();
+                && entity.position().distanceToSqr(mc.player.position()) > 256) {
+            ChunkPos pos = entity.chunkPosition();
             ChunkStorage storage = ServerStorage.getChunkStorage(pos);
             ChunkRecord oldRecord =
                     storage == null ? ChunkRecord.EMPTY : storage.get(KEY_CHUNK_LABEL_RECORD, ChunkRecord.CODEC);
@@ -408,20 +410,20 @@ public class SearchLabel extends BaseModule {
             if (!oldRecord.reached() && oldRecord.typeItem().isEmpty()) {
                 if (1 >= importantItemsCount.get()
                         || 1
-                                        + (int) collectCurrentChunk(entity.getChunkPos()).stream()
+                                        + (int) collectCurrentChunk(entity.chunkPosition()).stream()
                                                 .filter(s -> {
                                                     if (s instanceof ItemEntity item
-                                                            && !item.getStack().isEmpty()) {
+                                                            && !item.getItem().isEmpty()) {
                                                         return importantItems
                                                                 .get()
-                                                                .test(item.getStack()
+                                                                .test(item.getItem()
                                                                         .getItem());
-                                                    } else if (s instanceof ItemFrameEntity frame
-                                                            && !frame.getHeldItemStack()
+                                                    } else if (s instanceof ItemFrame frame
+                                                            && !frame.getItem()
                                                                     .isEmpty()) {
                                                         return importantItems
                                                                 .get()
-                                                                .test(frame.getHeldItemStack()
+                                                                .test(frame.getItem()
                                                                         .getItem());
                                                     } else {
                                                         return false;
@@ -458,7 +460,7 @@ public class SearchLabel extends BaseModule {
                                     {
                                         if (allStates == null) {
                                             allStates = WorldUtils.scannChunk(
-                                                    mc.world.getChunk(chunkPos.x, chunkPos.z), (bp, bs) -> !bs.isAir());
+                                                    mc.level.getChunk(chunkPos.x, chunkPos.z), (bp, bs) -> !bs.isAir());
                                         }
                                         Map<BlockPos, BlockState> filtered = new HashMap<>();
                                         for (var re : allStates.entrySet()) {
@@ -511,20 +513,20 @@ public class SearchLabel extends BaseModule {
 
     private Set<Entity> collectCurrentChunk(ChunkPos chunkPos) {
         Set<Entity> currentChunkEntities = new HashSet<>();
-        for (var re : mc.world.getEntities()) {
+        for (var re : mc.level.entitiesForRendering()) {
             if (MathUtils.intersectsXZ(
                     re.getBoundingBox(),
-                    chunkPos.getStartX(),
-                    chunkPos.getStartZ(),
-                    chunkPos.getStartX() + 16,
-                    chunkPos.getStartZ() + 16)) {
+                    chunkPos.getMinBlockX(),
+                    chunkPos.getMinBlockZ(),
+                    chunkPos.getMinBlockX() + 16,
+                    chunkPos.getMinBlockZ() + 16)) {
                 currentChunkEntities.add(re);
             }
         }
         return currentChunkEntities;
     }
 
-    private static final BlockState DEFAULT_STATE = Blocks.AIR.getDefaultState();
+    private static final BlockState DEFAULT_STATE = Blocks.AIR.defaultBlockState();
 
     private static final Set<Block> OVERWORLD_STRUCTURE_BLOCKS = Set.of(
             Blocks.MOSSY_COBBLESTONE,
@@ -548,16 +550,16 @@ public class SearchLabel extends BaseModule {
             Blocks.CHISELED_TUFF,
             Blocks.CHISELED_TUFF_BRICKS,
             Blocks.TERRACOTTA,
-            Blocks.WHITE_TERRACOTTA,
-            Blocks.ORANGE_TERRACOTTA,
-            Blocks.BLUE_TERRACOTTA,
-            Blocks.LIGHT_BLUE_TERRACOTTA,
-            Blocks.RED_TERRACOTTA,
-            Blocks.YELLOW_TERRACOTTA,
-            Blocks.BROWN_TERRACOTTA,
-            Blocks.GRAY_TERRACOTTA,
-            Blocks.GREEN_TERRACOTTA,
-            Blocks.BLACK_TERRACOTTA,
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.WHITE),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.BLUE),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.LIGHT_BLUE),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.RED),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.GRAY),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.GREEN),
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.BLACK),
             Blocks.OBSIDIAN,
             Blocks.CRYING_OBSIDIAN);
 
@@ -636,18 +638,18 @@ public class SearchLabel extends BaseModule {
                 continue;
             }
 
-            Block above = allBlocks.getOrDefault(pos.up(), DEFAULT_STATE).getBlock();
+            Block above = allBlocks.getOrDefault(pos.above(), DEFAULT_STATE).getBlock();
 
-            Block below = allBlocks.getOrDefault(pos.down(), DEFAULT_STATE).getBlock();
+            Block below = allBlocks.getOrDefault(pos.below(), DEFAULT_STATE).getBlock();
 
-            if (mc.world.getDimension().hasCeiling()) {
+            if (mc.level.dimensionType().hasCeiling()) {
                 if (isNetherStructureContainer(pos, above, below)) {
                     filteredValues.put(pos, entry.getValue());
                 }
                 continue;
             }
 
-            if (!mc.world.getDimension().hasSkyLight()) {
+            if (!mc.level.dimensionType().hasSkyLight()) {
                 if (isEndStructureContainer(pos, above, below)) {
                     filteredValues.put(pos, entry.getValue());
                 }
@@ -663,86 +665,86 @@ public class SearchLabel extends BaseModule {
     }
 
     private boolean isOverworldStructureContainer(BlockPos pos, Block above, Block below) {
-        RegistryEntry<Biome> biome = mc.world.getBiome(pos);
+        Holder<Biome> biome = mc.level.getBiome(pos);
 
-        if (biome.isIn(BiomeTags.DESERT_PYRAMID_HAS_STRUCTURE) && contains(DESERT_PYRAMID_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_DESERT_PYRAMID) && contains(DESERT_PYRAMID_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.JUNGLE_TEMPLE_HAS_STRUCTURE) && contains(JUNGLE_TEMPLE_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_JUNGLE_TEMPLE) && contains(JUNGLE_TEMPLE_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.OCEAN_MONUMENT_HAS_STRUCTURE) && contains(OCEAN_STRUCTURE_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_OCEAN_MONUMENT) && contains(OCEAN_STRUCTURE_BLOCKS, above, below)) {
             return true;
         }
 
-        if ((biome.isIn(BiomeTags.OCEAN_RUIN_COLD_HAS_STRUCTURE) || biome.isIn(BiomeTags.OCEAN_RUIN_WARM_HAS_STRUCTURE))
+        if ((biome.is(BiomeTags.HAS_OCEAN_RUIN_COLD) || biome.is(BiomeTags.HAS_OCEAN_RUIN_WARM))
                 && contains(OCEAN_STRUCTURE_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.STRONGHOLD_HAS_STRUCTURE) && contains(UNDERGROUND_STRUCTURE_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_STRONGHOLD) && contains(UNDERGROUND_STRUCTURE_BLOCKS, above, below)) {
             return true;
         }
 
-        if ((biome.isIn(BiomeTags.MINESHAFT_HAS_STRUCTURE) || biome.isIn(BiomeTags.MINESHAFT_MESA_HAS_STRUCTURE))
+        if ((biome.is(BiomeTags.HAS_MINESHAFT) || biome.is(BiomeTags.HAS_MINESHAFT_MESA))
                 && contains(UNDERGROUND_STRUCTURE_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.ANCIENT_CITY_HAS_STRUCTURE) && contains(ANCIENT_CITY_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_ANCIENT_CITY) && contains(ANCIENT_CITY_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.TRIAL_CHAMBERS_HAS_STRUCTURE) && contains(TRIAL_CHAMBER_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_TRIAL_CHAMBERS) && contains(TRIAL_CHAMBER_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.PILLAGER_OUTPOST_HAS_STRUCTURE) && contains(PILLAGER_OUTPOST_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_PILLAGER_OUTPOST) && contains(PILLAGER_OUTPOST_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.WOODLAND_MANSION_HAS_STRUCTURE) && contains(WOODLAND_MANSION_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_WOODLAND_MANSION) && contains(WOODLAND_MANSION_BLOCKS, above, below)) {
             return true;
         }
 
-        if ((biome.isIn(BiomeTags.SHIPWRECK_HAS_STRUCTURE) || biome.isIn(BiomeTags.SHIPWRECK_BEACHED_HAS_STRUCTURE))
+        if ((biome.is(BiomeTags.HAS_SHIPWRECK) || biome.is(BiomeTags.HAS_SHIPWRECK_BEACHED))
                 && contains(SHIPWRECK_BLOCKS, above, below)) {
             return true;
         }
 
-        if ((biome.isIn(BiomeTags.VILLAGE_DESERT_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.VILLAGE_PLAINS_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.VILLAGE_SAVANNA_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.VILLAGE_SNOWY_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.VILLAGE_TAIGA_HAS_STRUCTURE))
+        if ((biome.is(BiomeTags.HAS_VILLAGE_DESERT)
+                        || biome.is(BiomeTags.HAS_VILLAGE_PLAINS)
+                        || biome.is(BiomeTags.HAS_VILLAGE_SAVANNA)
+                        || biome.is(BiomeTags.HAS_VILLAGE_SNOWY)
+                        || biome.is(BiomeTags.HAS_VILLAGE_TAIGA))
                 && contains(VILLAGE_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.SWAMP_HUT_HAS_STRUCTURE) && contains(SWAMP_HUT_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_SWAMP_HUT) && contains(SWAMP_HUT_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.IGLOO_HAS_STRUCTURE) && contains(IGLOO_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_IGLOO) && contains(IGLOO_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.BURIED_TREASURE_HAS_STRUCTURE) && contains(BURIED_TREASURE_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_BURIED_TREASURE) && contains(BURIED_TREASURE_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.TRAIL_RUINS_HAS_STRUCTURE) && contains(OVERWORLD_STRUCTURE_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_TRAIL_RUINS) && contains(OVERWORLD_STRUCTURE_BLOCKS, above, below)) {
             return true;
         }
 
-        if ((biome.isIn(BiomeTags.RUINED_PORTAL_DESERT_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.RUINED_PORTAL_JUNGLE_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.RUINED_PORTAL_OCEAN_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.RUINED_PORTAL_SWAMP_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.RUINED_PORTAL_MOUNTAIN_HAS_STRUCTURE)
-                        || biome.isIn(BiomeTags.RUINED_PORTAL_STANDARD_HAS_STRUCTURE))
+        if ((biome.is(BiomeTags.HAS_RUINED_PORTAL_DESERT)
+                        || biome.is(BiomeTags.HAS_RUINED_PORTAL_JUNGLE)
+                        || biome.is(BiomeTags.HAS_RUINED_PORTAL_OCEAN)
+                        || biome.is(BiomeTags.HAS_RUINED_PORTAL_SWAMP)
+                        || biome.is(BiomeTags.HAS_RUINED_PORTAL_MOUNTAIN)
+                        || biome.is(BiomeTags.HAS_RUINED_PORTAL_STANDARD))
                 && contains(Set.of(Blocks.OBSIDIAN, Blocks.CRYING_OBSIDIAN), above, below)) {
             return true;
         }
@@ -751,24 +753,24 @@ public class SearchLabel extends BaseModule {
     }
 
     private boolean isNetherStructureContainer(BlockPos pos, Block above, Block below) {
-        RegistryEntry<Biome> biome = mc.world.getBiome(pos);
+        Holder<Biome> biome = mc.level.getBiome(pos);
 
-        if (biome.isIn(BiomeTags.NETHER_FORTRESS_HAS_STRUCTURE) && contains(NETHER_FORTRESS_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_NETHER_FORTRESS) && contains(NETHER_FORTRESS_BLOCKS, above, below)) {
             return true;
         }
 
-        if (biome.isIn(BiomeTags.BASTION_REMNANT_HAS_STRUCTURE) && contains(BASTION_BLOCKS, above, below)) {
+        if (biome.is(BiomeTags.HAS_BASTION_REMNANT) && contains(BASTION_BLOCKS, above, below)) {
             return true;
         }
 
-        return biome.isIn(BiomeTags.RUINED_PORTAL_NETHER_HAS_STRUCTURE)
+        return biome.is(BiomeTags.HAS_RUINED_PORTAL_NETHER)
                 && contains(NETHER_RUINED_PORTAL_BLOCKS, above, below);
     }
 
     private boolean isEndStructureContainer(BlockPos pos, Block above, Block below) {
-        RegistryEntry<Biome> biome = mc.world.getBiome(pos);
+        Holder<Biome> biome = mc.level.getBiome(pos);
 
-        return biome.isIn(BiomeTags.END_CITY_HAS_STRUCTURE) && contains(END_CITY_BLOCKS, above, below);
+        return biome.is(BiomeTags.HAS_END_CITY) && contains(END_CITY_BLOCKS, above, below);
     }
 
     private boolean contains(Set<Block> blocks, Block above, Block below) {
@@ -788,13 +790,13 @@ public class SearchLabel extends BaseModule {
                 new ChunkRecord(Optional.empty(), Optional.empty(), Optional.empty(), false);
         public static final Codec<ChunkRecord> CODEC = RecordCodecBuilder.create(oinstance -> oinstance
                 .group(
-                        Registries.BLOCK
-                                .getCodec()
+                        BuiltInRegistries.BLOCK
+                                .byNameCodec()
                                 .optionalFieldOf("type-block")
                                 .forGetter(ChunkRecord::typeBlock),
-                        Registries.ITEM.getCodec().optionalFieldOf("item-type").forGetter(ChunkRecord::typeItem),
-                        Registries.ENTITY_TYPE
-                                .getCodec()
+                        BuiltInRegistries.ITEM.byNameCodec().optionalFieldOf("item-type").forGetter(ChunkRecord::typeItem),
+                        BuiltInRegistries.ENTITY_TYPE
+                                .byNameCodec()
                                 .optionalFieldOf("entity-type")
                                 .forGetter(ChunkRecord::typeEntities),
                         Codec.BOOL.optionalFieldOf("reached", false).forGetter(ChunkRecord::reached))

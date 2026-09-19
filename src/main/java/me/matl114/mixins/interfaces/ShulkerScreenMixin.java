@@ -5,18 +5,18 @@ import me.matl114.hacks.InvTasks;
 import me.matl114.utils.world.ContainerPosition;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.Block;
-import net.minecraft.block.ChestBlock;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.block.enums.ChestType;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.ShulkerBoxScreen;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.screen.ShulkerBoxScreenHandler;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ShulkerBoxMenu;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,11 +25,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
 @Mixin(ShulkerBoxScreen.class)
-public abstract class ShulkerScreenMixin extends HandledScreen<ShulkerBoxScreenHandler> implements TileInventory {
+public abstract class ShulkerScreenMixin extends AbstractContainerScreen<ShulkerBoxMenu> implements TileInventory {
     @Unique
     private BlockPos pos;
 
-    public ShulkerScreenMixin(ShulkerBoxScreenHandler handler, PlayerInventory inventory, Text title) {
+    public ShulkerScreenMixin(ShulkerBoxMenu handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
     }
 
@@ -47,17 +47,17 @@ public abstract class ShulkerScreenMixin extends HandledScreen<ShulkerBoxScreenH
     }
 
     @Unique
-    public ClientWorld getWorld() {
+    public ClientLevel getWorld() {
         return this.world;
     }
 
     @Unique
-    public HandledScreen<?> castHandled() {
+    public AbstractContainerScreen<?> castHandled() {
         return this;
     }
 
     @Unique
-    private ClientWorld world;
+    private ClientLevel world;
 
     @Unique
     private ContainerPosition containerPosition;
@@ -73,23 +73,23 @@ public abstract class ShulkerScreenMixin extends HandledScreen<ShulkerBoxScreenH
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/screen/ingame/HandledScreen;<init>(Lnet/minecraft/screen/ScreenHandler;Lnet/minecraft/entity/player/PlayerInventory;Lnet/minecraft/text/Text;)V",
+                                    "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;<init>(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/network/chat/Component;)V",
                             shift = At.Shift.AFTER))
     private void tryInitBlockPos(
-            ShulkerBoxScreenHandler handler, PlayerInventory inventory, Text title, CallbackInfo ci) {
-        this.world = MinecraftClient.getInstance().world;
+            ShulkerBoxMenu handler, Inventory inventory, Component title, CallbackInfo ci) {
+        this.world = Minecraft.getInstance().level;
         // everything
         this.pos = InvTasks.predictScreenFrom((b) -> b instanceof ShulkerBoxBlock);
         if (this.pos != null && this.world != null) {
             var state = this.world.getBlockState(this.pos);
             cacheBlockType = state.getBlock();
-            if (this.cacheBlockType instanceof ChestBlock && state.get(ChestBlock.CHEST_TYPE) != ChestType.SINGLE) {
+            if (this.cacheBlockType instanceof ChestBlock && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
                 this.containerPosition = ContainerPosition.resolveDoubleChest(world, pos, state);
             } else {
                 this.containerPosition = ContainerPosition.ofSingle(world, pos);
             }
         }
-        if (this.handler instanceof TileInventory.Handler handler1) {
+        if (this.menu instanceof TileInventory.Handler handler1) {
             handler1.sync(this);
         }
     }

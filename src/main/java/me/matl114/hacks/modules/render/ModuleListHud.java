@@ -13,7 +13,7 @@ import me.matl114.managers.Configs;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class ModuleListHud extends IRender2DColoredModule {
     public final ModulePath hudRoot = makePath(Configs.RENDER_CONFIG, "in-game-hud");
@@ -48,7 +48,7 @@ public class ModuleListHud extends IRender2DColoredModule {
 
     private void sortModuleEntries() {
         moduleEntries.sort(Comparator.comparingDouble(
-                s -> -mc.textRenderer.getTextHandler().getWidth(s.getDisplay())));
+                s -> -mc.font.getSplitter().stringWidth(s.getDisplay())));
     }
 
     public void onUpdate(Event<Void> event) {
@@ -95,8 +95,8 @@ public class ModuleListHud extends IRender2DColoredModule {
             this.lastDisplay = moduleEntry.getDisplay();
         }
 
-        Text lastDisplay;
-        Text lastMeta;
+        Component lastDisplay;
+        Component lastMeta;
 
         public boolean tickUpdate() {
             boolean update = false;
@@ -112,12 +112,12 @@ public class ModuleListHud extends IRender2DColoredModule {
             if (!Objects.equals(lastMeta, moduleEntry.getMetaData())) {
                 lastMeta = moduleEntry.getMetaData();
                 lastDisplay =
-                        ((lastMeta != null && mc.textRenderer.getTextHandler().getWidth(lastMeta) > 0.0F)
+                        ((lastMeta != null && mc.font.getSplitter().stringWidth(lastMeta) > 0.0F)
                                 ? (moduleEntry
                                         .getDisplay()
-                                        .append(Text.literal("["))
+                                        .append(Component.literal("["))
                                         .append(lastMeta)
-                                        .append(Text.literal("]")))
+                                        .append(Component.literal("]")))
                                 : moduleEntry.getDisplay());
                 update = true;
             }
@@ -135,7 +135,7 @@ public class ModuleListHud extends IRender2DColoredModule {
         }
 
         @Override
-        public Text getDisplay() {
+        public Component getDisplay() {
             return lastDisplay;
         }
     }
@@ -153,7 +153,7 @@ public class ModuleListHud extends IRender2DColoredModule {
                 double height = text.getAnimationHeight();
                 if (height < 0 || i == size - 1) {
                     if (text.lastState) {
-                        Text display = text.getDisplay();
+                        Component display = text.getDisplay();
                         drawText(vdraw, display);
                         cnt += 1;
                     }

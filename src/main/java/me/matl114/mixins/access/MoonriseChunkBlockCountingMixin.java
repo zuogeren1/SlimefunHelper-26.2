@@ -5,11 +5,11 @@ import me.matl114.accessors.moonrise.MoonriseChunkBlockCountingAccess;
 import me.matl114.utils.CollisionUtil;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.BlockState;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.world.chunk.ChunkSection;
-import net.minecraft.world.chunk.PalettedContainer;
-import net.minecraft.world.chunk.PalettesFactory;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.PalettedContainerFactory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -21,10 +21,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
 // compat idiot lithium
-@Mixin(value = ChunkSection.class, priority = 3000)
+@Mixin(value = LevelChunkSection.class, priority = 3000)
 public abstract class MoonriseChunkBlockCountingMixin implements MoonriseChunkBlockCountingAccess {
     @Shadow
-    public abstract void calculateCounts();
+    public abstract void recalcBlockCounts();
 
     @Unique
     int specialCollidingBlocks = 0;
@@ -33,28 +33,28 @@ public abstract class MoonriseChunkBlockCountingMixin implements MoonriseChunkBl
         return specialCollidingBlocks;
     }
 
-    @Inject(method = "<init>(Lnet/minecraft/world/chunk/PalettesFactory;)V", at = @At("TAIL"))
-    private void calculateBlockCount(PalettesFactory palettesFactory, CallbackInfo ci) {
-        this.calculateCounts();
+    @Inject(method = "<init>(Lnet/minecraft/world/level/chunk/PalettedContainerFactory;)V", at = @At("TAIL"))
+    private void calculateBlockCount(PalettedContainerFactory palettesFactory, CallbackInfo ci) {
+        this.recalcBlockCounts();
     }
 
-    @Inject(method = "<init>(Lnet/minecraft/world/chunk/ChunkSection;)V", at = @At("RETURN"))
-    private void calculateBlockCount2(ChunkSection section, CallbackInfo ci) {
-        this.calculateCounts();
+    @Inject(method = "<init>(Lnet/minecraft/world/level/chunk/LevelChunkSection;)V", at = @At("RETURN"))
+    private void calculateBlockCount2(LevelChunkSection section, CallbackInfo ci) {
+        this.recalcBlockCounts();
     }
 
-    @Inject(method = "readDataPacket", at = @At(value = "RETURN"))
-    private void calculateBlockCount(PacketByteBuf buf, CallbackInfo ci) {
-        this.calculateCounts();
+    @Inject(method = "read", at = @At(value = "RETURN"))
+    private void calculateBlockCount(FriendlyByteBuf buf, CallbackInfo ci) {
+        this.recalcBlockCounts();
     }
 
     @Inject(
-            method = "setBlockState(IIILnet/minecraft/block/BlockState;Z)Lnet/minecraft/block/BlockState;",
+            method = "setBlockState(IIILnet/minecraft/world/level/block/state/BlockState;Z)Lnet/minecraft/world/level/block/state/BlockState;",
             at =
                     @At(
                             value = "INVOKE",
                             shift = At.Shift.BEFORE,
-                            target = "Lnet/minecraft/block/BlockState;getFluidState()Lnet/minecraft/fluid/FluidState;",
+                            target = "Lnet/minecraft/world/level/block/state/BlockState;getFluidState()Lnet/minecraft/world/level/material/FluidState;",
                             ordinal = 0))
     private void calculateSpecialCollidingBlocks(
             int x,
@@ -76,24 +76,24 @@ public abstract class MoonriseChunkBlockCountingMixin implements MoonriseChunkBl
     private int tmpSpecialCollidingBlocksCounter = 0;
 
     @Inject(
-            method = "calculateCounts",
+            method = "recalcBlockCounts",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/world/chunk/PalettedContainer;count(Lnet/minecraft/world/chunk/PalettedContainer$Counter;)V",
+                                    "Lnet/minecraft/world/level/chunk/PalettedContainer;count(Lnet/minecraft/world/level/chunk/PalettedContainer$CountConsumer;)V",
                             shift = At.Shift.BEFORE))
     private void preBlockCount(CallbackInfo ci) {
         tmpSpecialCollidingBlocksCounter = 0;
     }
 
     @Inject(
-            method = "calculateCounts",
+            method = "recalcBlockCounts",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/world/chunk/PalettedContainer;count(Lnet/minecraft/world/chunk/PalettedContainer$Counter;)V",
+                                    "Lnet/minecraft/world/level/chunk/PalettedContainer;count(Lnet/minecraft/world/level/chunk/PalettedContainer$CountConsumer;)V",
                             shift = At.Shift.AFTER))
     private void postBlockCount(CallbackInfo ci) {
         this.specialCollidingBlocks = tmpSpecialCollidingBlocksCounter;
@@ -101,14 +101,14 @@ public abstract class MoonriseChunkBlockCountingMixin implements MoonriseChunkBl
     }
 
     @ModifyArg(
-            method = "calculateCounts",
+            method = "recalcBlockCounts",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/world/chunk/PalettedContainer;count(Lnet/minecraft/world/chunk/PalettedContainer$Counter;)V"))
-    private PalettedContainer.Counter addCountingWrapper(PalettedContainer.Counter counter) {
-        return (PalettedContainer.Counter) (acc, i) -> {
+                                    "Lnet/minecraft/world/level/chunk/PalettedContainer;count(Lnet/minecraft/world/level/chunk/PalettedContainer$CountConsumer;)V"))
+    private PalettedContainer.CountConsumer addCountingWrapper(PalettedContainer.CountConsumer counter) {
+        return (PalettedContainer.CountConsumer) (acc, i) -> {
             counter.accept(acc, i);
             if (CollisionUtil.isSpecialCollidingBlock((BlockState) acc)) {
                 tmpSpecialCollidingBlocksCounter += i;

@@ -21,10 +21,10 @@ import me.matl114.managers.TaskManagers;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
 
 public class SlimefunGuide extends BaseModule {
     // todo: support big recipe
@@ -47,8 +47,8 @@ public class SlimefunGuide extends BaseModule {
         database.enable.set(true);
         database.saveData.set(true);
         Debug.chat("配方自动记录功能已开启,请使用ctrl+G打开Slimefun settings设置具体参数");
-        Debug.chat(Text.literal("注意: 在1.20.5以上的物品数据和1.20.4及以下不互通,如果你进入了via支持的服务器,请注意这一点!")
-                .formatted(Formatting.YELLOW));
+        Debug.chat(Component.literal("注意: 在1.20.5以上的物品数据和1.20.4及以下不互通,如果你进入了via支持的服务器,请注意这一点!")
+                .withStyle(ChatFormatting.YELLOW));
     }
 
     private boolean reject = false;
@@ -58,13 +58,13 @@ public class SlimefunGuide extends BaseModule {
         reject = true;
     }
 
-    private static final Text QUESTION_NOT_ENABLE = Text.literal("您当前并未启用配方记录功能,无法体验完整版GUIDE功能,请问您该如何选择?");
+    private static final Component QUESTION_NOT_ENABLE = Component.literal("您当前并未启用配方记录功能,无法体验完整版GUIDE功能,请问您该如何选择?");
     private final List<QuestionScreen.Solution> QUESTION_SOLUTIONS = List.of(
-            QuestionScreen.Solution.of(Text.literal("我已知晓该功能,一键启用"), this::handleAutoEnable),
-            QuestionScreen.Solution.of(Text.literal("我已知晓该功能,但不启用"), this::handleRejectEnable),
-            QuestionScreen.Solution.of(Text.literal("我已知晓该功能,一键启用"), this::handleAutoEnable),
-            QuestionScreen.Solution.of(Text.literal("我已知晓该功能,但不启用"), this::handleRejectEnable),
-            QuestionScreen.Solution.of(Text.literal("我已知晓该功能,一键启用"), this::handleAutoEnable));
+            QuestionScreen.Solution.of(Component.literal("我已知晓该功能,一键启用"), this::handleAutoEnable),
+            QuestionScreen.Solution.of(Component.literal("我已知晓该功能,但不启用"), this::handleRejectEnable),
+            QuestionScreen.Solution.of(Component.literal("我已知晓该功能,一键启用"), this::handleAutoEnable),
+            QuestionScreen.Solution.of(Component.literal("我已知晓该功能,但不启用"), this::handleRejectEnable),
+            QuestionScreen.Solution.of(Component.literal("我已知晓该功能,一键启用"), this::handleAutoEnable));
 
     public boolean handleNotEnable() {
         // 没有启用recipe或者没有启用
@@ -91,17 +91,17 @@ public class SlimefunGuide extends BaseModule {
                 .toList()));
     }
 
-    private static final Text TITLE_ALL_ITEM = Text.literal("全部记录物品");
-    public static final List<Text> TOOLTIPS_ITEM_RULE = List.of(
-            Text.literal("左键查看当前物品合成表"),
-            Text.literal("右键查看包含当前物品的合成表"),
-            Text.literal("Shift右键的时候会同时显示原版物品配方"),
-            Text.literal("中键的时候会尝试获取物品"));
-    private static final Text TITLE_ALL_TYPE = Text.literal("全部记录配方类型");
-    private static final Text TITLE_ALL_VANILLA = Text.literal("全部原版配方");
-    private static final Text TITLE_ALL_SAVED = Text.literal("全部保存物品");
-    public static final List<Text> TOOLTIPS_SAVED_RULE =
-            List.of(Text.literal("左键获得一组该物品(仅限创造)"), Text.literal("shift左键拷贝/give指令"), Text.literal("右键打开物品编辑器"));
+    private static final Component TITLE_ALL_ITEM = Component.literal("全部记录物品");
+    public static final List<Component> TOOLTIPS_ITEM_RULE = List.of(
+            Component.literal("左键查看当前物品合成表"),
+            Component.literal("右键查看包含当前物品的合成表"),
+            Component.literal("Shift右键的时候会同时显示原版物品配方"),
+            Component.literal("中键的时候会尝试获取物品"));
+    private static final Component TITLE_ALL_TYPE = Component.literal("全部记录配方类型");
+    private static final Component TITLE_ALL_VANILLA = Component.literal("全部原版配方");
+    private static final Component TITLE_ALL_SAVED = Component.literal("全部保存物品");
+    public static final List<Component> TOOLTIPS_SAVED_RULE =
+            List.of(Component.literal("左键获得一组该物品(仅限创造)"), Component.literal("shift左键拷贝/give指令"), Component.literal("右键打开物品编辑器"));
 
     public void openMainGuideMenu() {
         if (handleNotEnable()) return;
@@ -222,21 +222,21 @@ public class SlimefunGuide extends BaseModule {
 
     public void tryGetItemStack(ItemStack item) {
         if (ScreenUtils.hasShiftDown()) {
-            Debug.chat(Text.literal("拷贝了物品的Give指令到剪切板").formatted(Formatting.YELLOW));
+            Debug.chat(Component.literal("拷贝了物品的Give指令到剪切板").withStyle(ChatFormatting.YELLOW));
             InvTasks.copyGiveCommand(item.copy());
         } else {
-            if (mc.player != null && mc.interactionManager.getCurrentGameMode().isCreative()) {
+            if (mc.player != null && mc.gameMode.getPlayerMode().isCreative()) {
                 InvTasks.creativeAddItem(item.copy(), 64);
             } else {
-                Debug.chat(Text.literal("当前并不处于创造模式,无法获取保存物品!").formatted(Formatting.YELLOW));
-                Debug.chat(Text.literal("请使用Shift点击来获取物品的Give指令!").formatted(Formatting.YELLOW));
+                Debug.chat(Component.literal("当前并不处于创造模式,无法获取保存物品!").withStyle(ChatFormatting.YELLOW));
+                Debug.chat(Component.literal("请使用Shift点击来获取物品的Give指令!").withStyle(ChatFormatting.YELLOW));
             }
         }
     }
 
     public void onClickItemStack(ItemStack item, boolean isLeft) {
         if (handleNotEnable()) return;
-        if (item.isEmpty()) {
+        if (item.count() == 0) {
             return;
         }
         List<RecipeEntry> resultToDisplay = new ArrayList<>();
@@ -261,7 +261,7 @@ public class SlimefunGuide extends BaseModule {
             }
             for (var re : RecipeTasks.getAllRecipe().values()) {
                 if (shiftDown) {
-                    if (re.output().isOf(item.getItem())) {
+                    if (re.output().is(item.getItem())) {
                         resultToDisplay.add(re);
                         continue;
                     }
@@ -299,7 +299,7 @@ public class SlimefunGuide extends BaseModule {
                             continue search;
                         }
                     } else {
-                        if (!item.isEmpty()) {
+                        if (item.count() != 0) {
                             for (var matchingStack : ingre.matchingStack()) {
                                 if (ItemStackUtils.matchItemWithout(matchingStack, item, false, false, false)) {
                                     resultToDisplay.add(re);

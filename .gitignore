@@ -45,3 +45,11 @@ run*.bat
 scripts/
 
 .cursor/
+
+# workbuddy ai
+.workbuddy-ai/
+
+# 映射迁移中间产物
+remappedSrc-mojmap/
+remappedSrc-probe/
+remapped.accesswidener

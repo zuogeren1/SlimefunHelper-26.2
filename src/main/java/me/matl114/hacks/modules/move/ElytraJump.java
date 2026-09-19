@@ -22,13 +22,13 @@ import me.matl114.utils.CollisionUtil;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.RaycastUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.PacketType;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public class ElytraJump extends BaseModule implements LegalMovementManager.MovementModifier {
     static LegalMovementManager.DelegateMovementModifier instance;
@@ -103,7 +103,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getPreHandleInputEvents(), this::onPreInputEvent);
-        registerListener(PacketManager.getPacketQueueEvent().getChannel(NetworkSide.SERVERBOUND), this::onPacketQueue);
+        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND), this::onPacketQueue);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onPacketFlush);
     }
 
@@ -143,15 +143,15 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
         }
     }
 
-    private List<BlockPos> checkForObstacles(Vec3d horizontalDirection, double min, double max, int baseY, int height) {
-        Vec3d center = mc.player.getPos().withAxis(Direction.Axis.Y, baseY);
-        Vec3d velocity = horizontalDirection.withAxis(Direction.Axis.Y, 0);
-        center = center.add(velocity.multiply(min));
-        Vec3d checkCenter = center.add(velocity.multiply(max - min)).add(0, 1, 0);
-        Vec3d center1 = center.add(-0.4, 0.1, -0.4);
-        Vec3d center2 = center.add(0.4, 0.1, 0.4);
-        Vec3d checkCenter1 = checkCenter.add(-0.4, -0.1, -0.4);
-        Vec3d checkCenter2 = checkCenter.add(0.4, -0.1, 0.4);
+    private List<BlockPos> checkForObstacles(Vec3 horizontalDirection, double min, double max, int baseY, int height) {
+        Vec3 center = mc.player.position().with(Direction.Axis.Y, baseY);
+        Vec3 velocity = horizontalDirection.with(Direction.Axis.Y, 0);
+        center = center.add(velocity.scale(min));
+        Vec3 checkCenter = center.add(velocity.scale(max - min)).add(0, 1, 0);
+        Vec3 center1 = center.add(-0.4, 0.1, -0.4);
+        Vec3 center2 = center.add(0.4, 0.1, 0.4);
+        Vec3 checkCenter1 = checkCenter.add(-0.4, -0.1, -0.4);
+        Vec3 checkCenter2 = checkCenter.add(0.4, -0.1, 0.4);
         Set<BlockPos> basePoses = new HashSet<>();
         List<BlockPos> checkPoses = new ArrayList<>();
         for (var re : RaycastUtils.createRaycastBlockPoses(center1, checkCenter1)) {
@@ -162,12 +162,12 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
         }
         for (var re : basePoses) {
             for (var i = 0; i < height; ++i) {
-                BlockPos testPos = re.add(0, i, 0);
-                if (!mc.world
+                BlockPos testPos = re.offset(0, i, 0);
+                if (!mc.level
                         .getBlockState(testPos)
-                        .getCollisionShape(mc.world, testPos)
+                        .getCollisionShape(mc.level, testPos)
                         .isEmpty()) {
-                    checkPoses.add(re.add(0, i, 0));
+                    checkPoses.add(re.offset(0, i, 0));
                 }
             }
         }
@@ -176,8 +176,8 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
 
     public int searchRayLength(float newYaw) {
 
-        double currentSpeed = mc.player.getVelocity().horizontalLength();
-        Vec3d direction = EntityUtils.pitchYawToRotation(0, newYaw).normalize().multiply(currentSpeed);
+        double currentSpeed = mc.player.getDeltaMovement().horizontalDistance();
+        Vec3 direction = EntityUtils.pitchYawToRotation(0, newYaw).normalize().scale(currentSpeed);
         for (var i = 0; i < predictTicks.get(); ++i) {
             List<BlockPos> obs = checkForObstacles(direction, i, i + 1, currentLandingBlock.getY() + 1, 3);
             if (!obs.isEmpty()) {
@@ -200,7 +200,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
         if (enable.get()) {
             // set the pitch first to avoid conflict with other mode
             List<BlockPos> groundings = CollisionUtil.getIntersectingBlockPositions(
-                    mc.world, mc.player.getBoundingBox().stretch(0, -groundHeight.get(), 0), false);
+                    mc.level, mc.player.getBoundingBox().expandTowards(0, -groundHeight.get(), 0), false);
             workThisTick = !groundings.isEmpty();
             if (workThisTick) {
                 currentLandingBlock = groundings.stream()
@@ -210,13 +210,13 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                 currentLandingBlock = null;
             }
             if (workThisTick) {
-                Vec3d velocity = mc.player.getVelocity().withAxis(Direction.Axis.Y, 0);
+                Vec3 velocity = mc.player.getDeltaMovement().with(Direction.Axis.Y, 0);
 
                 var b = checkForObstacles(velocity, -1, 3, currentLandingBlock.getY() + 1, 3);
                 List<BlockPos> miningBlocks = new ArrayList<>();
                 for (var re : b) {
-                    BlockState state = mc.world.getBlockState(re);
-                    if (!state.isAir() && !state.isLiquid() && state.getHardness(mc.world, re) < 3.0) {
+                    BlockState state = mc.level.getBlockState(re);
+                    if (!state.isAir() && !state.liquid() && state.getDestroySpeed(mc.level, re) < 3.0) {
                         miningBlocks.add(re);
                     }
                 }
@@ -230,11 +230,11 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                 lastStableHeight = currentLandingBlock.getY();
             }
             if (lastStableHeight == currentLandingBlock.getY()) {
-                lastStableBlockTarget = BlockPos.ofFloored(Vec3d.of(currentLandingBlock)
+                lastStableBlockTarget = BlockPos.containing(Vec3.atLowerCornerOf(currentLandingBlock)
                         .add(PlayerStateManager.INSTANCE
                                 .lastKnownClientVelocity
-                                .withAxis(Direction.Axis.Y, 0)
-                                .multiply(4.0)));
+                                .with(Direction.Axis.Y, 0)
+                                .scale(4.0)));
             }
             if (lastLanding == currentLandingBlock.getY()) {
                 stableHeightCounter += 1;
@@ -257,17 +257,17 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
         // 2 blocks lower
         if (workThisTick) {
             if (mc.player.isFallFlying() || lastFallFly) {
-                if (mc.player.getVelocity().y >= 0) {
-                    mc.player.setPitch((float) pitch.get());
+                if (mc.player.getDeltaMovement().y >= 0) {
+                    mc.player.setXRot((float) pitch.get());
                 } else {
-                    mc.player.setPitch((float) pitch.get());
+                    mc.player.setXRot((float) pitch.get());
                 }
             }
             if (axisStrict.get()) {
-                PlayerStateManager.setPlayerYawSafe(mc.player, axis(mc.player.getYaw()));
+                PlayerStateManager.setPlayerYawSafe(mc.player, axis(mc.player.getYRot()));
             }
             if (autoAvoidObstacle.get()) {
-                float yaw = mc.player.getYaw();
+                float yaw = mc.player.getYRot();
                 float maxYaw = yaw;
                 int maxLen = 0;
 
@@ -294,7 +294,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                         maxYaw = newYaw;
                     }
                 }
-                mc.player.setYaw(maxYaw);
+                mc.player.setYRot(maxYaw);
             }
             movementManagerEvent.context.markForResetRot();
         }
@@ -302,30 +302,30 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                 && lastStableHeight >= currentLandingBlock.getY()
                 && avoidHoles.get()
                 && CollisionUtil.isBoxCollided(
-                        mc.world,
+                        mc.level,
                         mc.player,
                         mc.player
                                 .dimensions
-                                .getBoxAt(
-                                        currentLandingBlock.toBottomCenterPos().add(0, 1, 0))
-                                .offset(EntityUtils.pitchYawToRotation(0, mc.player.getYaw())))) {
+                                .makeBoundingBox(
+                                        Vec3.atBottomCenterOf(currentLandingBlock).add(0, 1, 0))
+                                .move(EntityUtils.pitchYawToRotation(0, mc.player.getYRot())))) {
             // check horizontal collision
-            Vec3d simulationMove = MovTasks.simulateMovement(
+            Vec3 simulationMove = MovTasks.simulateMovement(
                     mc.player,
-                    mc.player.getPos().withAxis(Direction.Axis.Y, currentLandingBlock.getY() + 1),
-                    EntityUtils.pitchYawToRotation(0, mc.player.getYaw()),
+                    mc.player.position().with(Direction.Axis.Y, currentLandingBlock.getY() + 1),
+                    EntityUtils.pitchYawToRotation(0, mc.player.getYRot()),
                     false);
-            if (simulationMove.lengthSquared() < 1E-2) {
+            if (simulationMove.lengthSqr() < 1E-2) {
                 autoWalkAvoidObstacle = true;
                 workThisTick = false;
                 List<BlockPos> checkBox = CollisionUtil.getBoxCollision(
-                        mc.world,
+                        mc.level,
                         mc.player,
                         mc.player
                                 .dimensions
-                                .getBoxAt(
-                                        currentLandingBlock.toBottomCenterPos().add(0, 1, 0))
-                                .offset(EntityUtils.pitchYawToRotation(0, mc.player.getYaw())));
+                                .makeBoundingBox(
+                                        Vec3.atBottomCenterOf(currentLandingBlock).add(0, 1, 0))
+                                .move(EntityUtils.pitchYawToRotation(0, mc.player.getYRot())));
                 if (!checkBox.isEmpty()) {
                     // climb up 1 block
                     checkBox.stream()
@@ -402,18 +402,18 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
             re.jump(true).sprint(true).forward(true).sneak(false).applyInput(mc.player);
         }
         if (workThisTick) {
-            if (mc.player.isOnGround()) {
+            if (mc.player.onGround()) {
                 re.jump(true).sprint(true).forward(true).sneak(sneak.get()).applyInput(mc.player);
 
                 mc.player.setSprinting(true);
 
             } else {
                 if (!mc.player.isFallFlying()) {
-                    if (mc.player.checkGliding()) {
+                    if (mc.player.tryToStartFallFlying()) {
                         MovTasks.getMovExtra().sendPacketsForPreStartFallFlying();
-                        mc.getNetworkHandler()
-                                .sendPacket(new ClientCommandC2SPacket(
-                                        mc.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                        mc.getConnection()
+                                .send(new ServerboundPlayerCommandPacket(
+                                        mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                         MovTasks.getMovExtra().sendPacketsForPostStartFallFlying();
                     }
                 }
@@ -421,7 +421,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
             }
         }
         if (workThisTick && usePacketQueue.get()) {
-            if (mc.player.isOnGround()) {
+            if (mc.player.onGround()) {
                 flushImmediately();
             }
             if (re.jump()) {
@@ -431,7 +431,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
             flushImmediately();
             ;
         }
-        lastOnGround = mc.player.isOnGround();
+        lastOnGround = mc.player.onGround();
         lastFallFly = mc.player.isFallFlying();
     }
 

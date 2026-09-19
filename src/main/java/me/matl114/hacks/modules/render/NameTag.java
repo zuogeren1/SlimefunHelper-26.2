@@ -13,13 +13,13 @@ import me.matl114.managers.config.DoubleRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector2d;
 
@@ -61,7 +61,7 @@ public class NameTag extends INameTag {
             var stack = event.context;
             Matrix4f cam = RenderListener.getWorldModelViewMatrix();
             Matrix4f proj = RenderListener.getWorldBasicProjectionMatrix();
-            Function<Vec3d, Vector2d> projector = RenderUtils.createProjector(cam, proj);
+            Function<Vec3, Vector2d> projector = RenderUtils.createProjector(cam, proj);
             for (var entity : nameTagInfos) {
                 if (entity.player != mc.getCameraEntity()) {
                     onRenderPlayer(entity, stack, projector, (event.<Float>getArgs(0)));
@@ -71,8 +71,8 @@ public class NameTag extends INameTag {
     }
 
     public void onRenderPlayer(
-            PlayerNameTagInfo player, VDrawContext vdraw, Function<Vec3d, Vector2d> projector, float tick) {
-        Vec3d pos = player.player.getLerpedPos(tick).add(0, player.player.getHeight() + 0.5, 0);
+            PlayerNameTagInfo player, VDrawContext vdraw, Function<Vec3, Vector2d> projector, float tick) {
+        Vec3 pos = player.player.getPosition(tick).add(0, player.player.getBbHeight() + 0.5, 0);
         Vector2d screenPos = projector.apply(pos);
         if (screenPos != null) {
             vdraw.pushMatrix();
@@ -106,7 +106,7 @@ public class NameTag extends INameTag {
             float length = player.nameLength;
             float lengthHalf = length / 2.0F;
             vdraw.getMatrices().translate(0, -HEIGHT);
-            vdraw.drawText(mc.textRenderer, player.nameDisplay.asOrderedText(), (int) -lengthHalf, 0, -1, true);
+            vdraw.drawText(mc.font, player.nameDisplay.getVisualOrderText(), (int) -lengthHalf, 0, -1, true);
         }
     }
 
@@ -124,18 +124,18 @@ public class NameTag extends INameTag {
                 } else {
                     vdraw.drawItem(stacks[i], startX + i * 18, -17, 999, 0);
                     ItemStack stackOverride = stacks[i];
-                    vdraw.drawItemInSlot(mc.textRenderer, stackOverride, startX + i * 18, -17, null);
+                    vdraw.drawItemInSlot(mc.font, stackOverride, startX + i * 18, -17, null);
                     if (equipmentPercentage.get().isNotIn(ItemStackDisplayUtils.DamageDisplay.NONE)
                             && stackOverride.getCount() == 1
-                            && stackOverride.isDamageable()) {
+                            && stackOverride.isDamageableItem()) {
                         hasDurability = true;
-                        OrderedText dur = ItemStackDisplayUtils.getDamageShowText(
+                        FormattedCharSequence dur = ItemStackDisplayUtils.getDamageShowText(
                                         stackOverride, equipmentPercentage.get())
-                                .asOrderedText();
-                        float width = mc.textRenderer.getTextHandler().getWidth(dur);
+                                .getVisualOrderText();
+                        float width = mc.font.getSplitter().stringWidth(dur);
                         int color = ItemStackDisplayUtils.getDamageDisplayColor(stackOverride);
                         vdraw.drawText(
-                                mc.textRenderer,
+                                mc.font,
                                 dur,
                                 startX + i * 18 + 9 + (int) ((-width - 1) / 2),
                                 -16 - (int) HEIGHT,
@@ -156,14 +156,14 @@ public class NameTag extends INameTag {
             vdraw.getMatrices().translate(0, -HEIGHT * 0.75F);
             vdraw.getMatrices().pushMatrix();
             vdraw.getMatrices().scale(0.75F, 0.75F);
-            vdraw.drawText(mc.textRenderer, player.otherInfoDisplay.asOrderedText(), (int) -lengthHalf, 0, -1, true);
+            vdraw.drawText(mc.font, player.otherInfoDisplay.getVisualOrderText(), (int) -lengthHalf, 0, -1, true);
             vdraw.popMatrix();
         }
     }
 
     public void handleEffectDisplayPlayer(VDrawContext vdraw, PlayerNameTagInfo player) {
         if (player.visibleEffects != null) {
-            List<Map.Entry<RegistryEntry<StatusEffect>, Text>> line =
+            List<Map.Entry<Holder<MobEffect>, Component>> line =
                     player.visibleEffects.entrySet().stream().toList();
             int size = line.size();
             for (var i = 0; i < size; i += 3) {
@@ -172,9 +172,9 @@ public class NameTag extends INameTag {
                 float width = (endI - i - 1);
                 for (var j = i; j < endI; j++) {
                     width += 9;
-                    width += mc.textRenderer
-                            .getTextHandler()
-                            .getWidth(line.get(j).getValue());
+                    width += mc.font
+                            .getSplitter()
+                            .stringWidth(line.get(j).getValue());
                 }
                 vdraw.getMatrices().translate(0, -HEIGHT);
                 vdraw.getMatrices().pushMatrix();
@@ -191,17 +191,17 @@ public class NameTag extends INameTag {
                         vdraw.getMatrices().popMatrix();
                         vdraw.getMatrices().translate(9, 0);
                         vdraw.drawText(
-                                mc.textRenderer,
-                                entry.getValue().asOrderedText(),
+                                mc.font,
+                                entry.getValue().getVisualOrderText(),
                                 0,
                                 0,
                                 potionColor.get().withAlpha(255),
                                 true);
                         vdraw.getMatrices()
                                 .translate(
-                                        mc.textRenderer
-                                                        .getTextHandler()
-                                                        .getWidth(line.get(j).getValue())
+                                        mc.font
+                                                        .getSplitter()
+                                                        .stringWidth(line.get(j).getValue())
                                                 + 1,
                                         0);
                     }

@@ -12,22 +12,22 @@ import me.matl114.utils.ColorUtils;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.config.ValueAccessor;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.util.CommonColors;
 
 public class ColorSelectIcon extends BoxElement {
     public static final TextColor[] FORMAT_COLORS;
 
     static {
         List<TextColor> colors = new ArrayList<TextColor>();
-        for (var formatColor : Formatting.values()) {
-            if (formatColor.isColor()) {
-                colors.add(TextColor.fromFormatting(formatColor));
+        for (var formatColor : ChatFormatting.values()) {
+            if ((formatColor.ordinal() < 16)) {
+                colors.add(TextColor.fromLegacyFormat(formatColor));
             }
         }
-        colors.sort(Comparator.comparingInt(TextColor::getRgb));
+        colors.sort(Comparator.comparingInt(TextColor::getValue));
         FORMAT_COLORS = colors.toArray(TextColor[]::new);
     }
 
@@ -43,10 +43,10 @@ public class ColorSelectIcon extends BoxElement {
         }));
         this.color = color;
         combineAbsoluteRender(TooltipHandler.of(() -> {
-            List<Text> tooltip = new ArrayList<>();
-            tooltip.add(Text.translatable(
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable(
                     "widget.gui.color-select-icon.current-color",
-                    color.getValue().getName()));
+                    color.getValue().serialize()));
             tooltip.addAll(ChatUtils.parseTooltipsTranslation("widget.gui.color-select-icon.swap-color.tooltips", ""));
             return tooltip;
         }));
@@ -56,9 +56,9 @@ public class ColorSelectIcon extends BoxElement {
         super(buttonAction);
         this.color = color;
         combineAbsoluteRender(TooltipHandler.of(() -> {
-            return List.of(Text.translatable(
+            return List.of(Component.translatable(
                     "widget.gui.color-select-icon.current-color",
-                    color.getValue().getName()));
+                    color.getValue().serialize()));
         }));
     }
 
@@ -72,19 +72,19 @@ public class ColorSelectIcon extends BoxElement {
             boolean shouldHighlight) {
         // float[] shaders = RenderSystem.getShaderColor()
         RenderHandler.drawHighlightFrame(
-                context, 0, 0, element.getTextureWidth(), element.getTextureHeight(), Colors.WHITE);
+                context, 0, 0, element.getTextureWidth(), element.getTextureHeight(), CommonColors.WHITE);
         TextColor color = this.color.getValue();
         context.fill(
                 1,
                 1,
                 element.getTextureWidth() - 1,
                 element.getTextureHeight() - 1,
-                ColorUtils.withAlphaInt(color.getRgb(), 255));
+                ColorUtils.withAlphaInt(color.getValue(), 255));
     }
 
     public static void swapToNearestColorSwitch(ValueAccessor<TextColor> colorAcc, boolean forward) {
         TextColor color = colorAcc.getValue();
-        int idx = Arrays.binarySearch(FORMAT_COLORS, color, Comparator.comparingInt(TextColor::getRgb));
+        int idx = Arrays.binarySearch(FORMAT_COLORS, color, Comparator.comparingInt(TextColor::getValue));
         int targetIdx;
         if (forward) {
             // 找大于 color 的最小颜色

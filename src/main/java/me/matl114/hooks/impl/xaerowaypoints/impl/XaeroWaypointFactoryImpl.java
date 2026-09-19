@@ -4,8 +4,8 @@ import javax.annotation.Nullable;
 import me.matl114.hooks.impl.xaerowaypoints.IXWaypoint;
 import me.matl114.hooks.impl.xaerowaypoints.IXWaypointAccess;
 import me.matl114.hooks.impl.xaerowaypoints.IXWaypointFactory;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import xaero.common.minimap.waypoints.Waypoint;
 import xaero.hud.minimap.BuiltInHudModules;
 
@@ -32,7 +32,7 @@ public class XaeroWaypointFactoryImpl implements IXWaypointFactory {
 
     @Nullable
     @Override
-    public RegistryKey<World> getCurrentWorld() {
+    public ResourceKey<Level> getCurrentWorld() {
         var world = BuiltInHudModules.MINIMAP.getCurrentSession().getWorldManager();
         if (world == null) return null;
         var acc = world.getCurrentWorld();

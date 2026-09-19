@@ -4,30 +4,37 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Objects;
 import me.matl114.utils.MathUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ChestBlock;
-import net.minecraft.block.enums.ChestType;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.math.*;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
-public record ContainerPosition(RegistryKey<World> world, int doubleX, int y, int doubleZ) {
+public record ContainerPosition(ResourceKey<Level> world, int doubleX, int y, int doubleZ) {
     public static final Codec<ContainerPosition> CODEC = RecordCodecBuilder.create(obj -> obj.group(
-                    RegistryKey.createCodec(RegistryKeys.WORLD).fieldOf("world").forGetter(ContainerPosition::world),
+                    ResourceKey.codec(Registries.DIMENSION).fieldOf("world").forGetter(ContainerPosition::world),
                     Codec.INT.fieldOf("double-x").forGetter(ContainerPosition::doubleX),
                     Codec.INT.fieldOf("y").forGetter(ContainerPosition::y),
                     Codec.INT.fieldOf("double-z").forGetter(ContainerPosition::doubleZ))
             .apply(obj, ContainerPosition::new));
 
-    public Vec3d getCenterPosition() {
-        return new Vec3d((doubleX + 1) / 2.0F, y + 0.5, (doubleZ + 1) / 2.0F);
+    public Vec3 getCenterPosition() {
+        return new Vec3((doubleX + 1) / 2.0F, y + 0.5, (doubleZ + 1) / 2.0F);
     }
 
-    public Box getBoundingBox() {
+    public AABB getBoundingBox() {
         BlockLocation first = getFirst();
         BlockLocation second = getSecond();
-        return new Box(
+        return new AABB(
                 Math.min(first.x(), second.x()), // minX
                 y, // minY
                 Math.min(first.z(), second.z()), // minZ
@@ -50,19 +57,19 @@ public record ContainerPosition(RegistryKey<World> world, int doubleX, int y, in
         return new ContainerPosition(location.world(), 2 * location.x(), location.y(), 2 * location.z());
     }
 
-    public static ContainerPosition ofSingle(World world, BlockPos pos) {
-        return new ContainerPosition(world.getRegistryKey(), 2 * pos.getX(), pos.getY(), 2 * pos.getZ());
+    public static ContainerPosition ofSingle(Level world, BlockPos pos) {
+        return new ContainerPosition(world.dimension(), 2 * pos.getX(), pos.getY(), 2 * pos.getZ());
     }
 
-    public static ContainerPosition ofDouble(World world, BlockPos pos1, BlockPos pos2) {
+    public static ContainerPosition ofDouble(Level world, BlockPos pos1, BlockPos pos2) {
         return new ContainerPosition(
-                world.getRegistryKey(), pos1.getX() + pos2.getX(), pos1.getY(), pos1.getZ() + pos2.getZ());
+                world.dimension(), pos1.getX() + pos2.getX(), pos1.getY(), pos1.getZ() + pos2.getZ());
     }
 
-    public static ContainerPosition resolve(World world, BlockPos pos) {
-        if (world.getChunkManager().isChunkLoaded(pos.getX() >> 4, pos.getZ() >> 4)) {
+    public static ContainerPosition resolve(Level world, BlockPos pos) {
+        if (world.getChunkSource().hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) {
             BlockState state = world.getBlockState(pos);
-            if (state.getBlock() instanceof ChestBlock && state.get(ChestBlock.CHEST_TYPE) != ChestType.SINGLE) {
+            if (state.getBlock() instanceof ChestBlock && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
                 return resolveDoubleChest(world, pos, state);
             } else {
                 return ContainerPosition.ofSingle(world, pos);
@@ -72,13 +79,13 @@ public record ContainerPosition(RegistryKey<World> world, int doubleX, int y, in
         }
     }
 
-    public static ContainerPosition resolveDoubleChest(World world, BlockPos pos, BlockState state) {
-        Direction direction = ChestBlock.getFacing(state);
+    public static ContainerPosition resolveDoubleChest(Level world, BlockPos pos, BlockState state) {
+        Direction direction = ChestBlock.getConnectedDirection(state);
         return new ContainerPosition(
-                world.getRegistryKey(),
-                pos.getX() * 2 + direction.getOffsetX(),
+                world.dimension(),
+                pos.getX() * 2 + direction.getStepX(),
                 pos.getY(),
-                pos.getZ() * 2 + direction.getOffsetZ());
+                pos.getZ() * 2 + direction.getStepZ());
     }
 
     public boolean isDouble() {

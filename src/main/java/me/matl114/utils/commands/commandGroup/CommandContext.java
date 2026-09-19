@@ -5,7 +5,7 @@ import java.util.function.*;
 import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.ArgumentReader;
 import me.matl114.utils.commands.params.api.CommandExecution;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.entity.player.Player;
 import org.apache.commons.lang3.function.TriFunction;
 
 public interface CommandContext {
@@ -15,7 +15,7 @@ public interface CommandContext {
         return List.of();
     }
 
-    public static CommandContext run(TriFunction<PlayerEntity, ArgumentInputStream, ArgumentReader, Boolean> delegate) {
+    public static CommandContext run(TriFunction<Player, ArgumentInputStream, ArgumentReader, Boolean> delegate) {
         return ((var1, streamArgs, argsReader) -> {
             if (var1.isPlayer()) {
                 return delegate.apply(var1.getExecutor(), streamArgs, argsReader);
@@ -44,7 +44,7 @@ public interface CommandContext {
         });
     }
 
-    public static CommandContext run(BiConsumer<PlayerEntity, ArgumentInputStream> var) {
+    public static CommandContext run(BiConsumer<Player, ArgumentInputStream> var) {
         return ((var1, streamArgs, argsReader) -> {
             if (var1.isPlayer()) {
                 var.accept(var1.getExecutor(), streamArgs);
@@ -54,7 +54,7 @@ public interface CommandContext {
         });
     }
 
-    public static CommandContext run(BiPredicate<PlayerEntity, ArgumentInputStream> var) {
+    public static CommandContext run(BiPredicate<Player, ArgumentInputStream> var) {
         return (var1, streamArgs, argsReader) -> {
             if (var1.isPlayer()) {
                 return var.test(var1.getExecutor(), streamArgs);

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
 import it.unimi.dsi.fastutil.doubles.DoubleList;
@@ -26,15 +27,19 @@ import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.*;
 import me.matl114.utils.*;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.packet.c2s.play.ClientTickEndC2SPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class SpearAttack extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath spearModule = makePath(Configs.COMBAT_CONFIG, "spear-module");
@@ -84,7 +89,7 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
     public void registerAll() {
         super.registerAll();
         registerListener(RenderListener.getRender3DEvent(), this::renderPlayerSpearTarget);
-        registerListener(Listener.getPacketPoint().getChannel(ClientTickEndC2SPacket.class), this::onClientTickEnd);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class), this::onClientTickEnd);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
     //
@@ -120,23 +125,23 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
             currentWaitBackTick = 0;
             return true;
         }
-        Vec3d playerPos = mc.player.getPos();
-        Vec2f playerPy = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
-        Vec3d targetPos = CombatTasks.getPositionPredict()
+        Vec3 playerPos = mc.player.position();
+        Vec2 playerPy = new Vec2(mc.player.getXRot(), mc.player.getYRot());
+        Vec3 targetPos = CombatTasks.getPositionPredict()
                 .spearPredictArgument
                 .get()
                 .predict(target); // .predictAttackPosition(target);
-        Vec3d direction =
-                targetPos.add(0, target.getEyeHeight(target.getPose()), 0).subtract(mc.player.getEyePos());
+        Vec3 direction =
+                targetPos.add(0, target.getEyeHeight(target.getPose()), 0).subtract(mc.player.getEyePosition());
         if (RenderTasks.DEBUG_RENDER_SPEAR) {
             RenderTasks.registerVirtualRenderTask(new RenderTasks.RenderTask(
                     RenderTasks.DEBUG_TICK,
-                    new RenderTasks.LineObject(mc.player.getEyePos(), direction).color(Color.MAGENTA)));
+                    new RenderTasks.LineObject(mc.player.getEyePosition(), direction).color(Color.MAGENTA)));
         }
         double distance = direction.length();
         direction = direction.normalize();
-        Vec3d tpDirection = direction.multiply(-1);
-        Vec3d horizontalLine = MathUtils.getVerticalWithSameXZ(direction);
+        Vec3 tpDirection = direction.scale(-1);
+        Vec3 horizontalLine = MathUtils.getVerticalWithSameXZ(direction);
 
         var re = findValidTpPosition(
                 playerPos, tpDirection, horizontalLine, spearMaxTp.get(), spearDistance.get(), distance);
@@ -145,11 +150,11 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
             var to = re.getFirst();
             var from = re.getSecond();
             List<MovTasks.MovInfo> toList = new ArrayList<>();
-            Vec2f py = EntityUtils.rotationToPitchYaw(direction);
+            Vec2 py = EntityUtils.rotationToPitchYaw(direction);
             for (var i = 0; i < to.size() - 1; i++) {
                 toList.add(new MovTasks.MovInfo(to.get(i), false, false, null));
             }
-            Vec3d targetTpPos = to.get(to.size() - 1);
+            Vec3 targetTpPos = to.get(to.size() - 1);
             if (RenderTasks.DEBUG_RENDER_SPEAR) {
                 RenderTasks.registerVirtualRenderTask(new RenderTasks.RenderTask(
                         RenderTasks.DEBUG_TICK,
@@ -159,20 +164,20 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
                         RenderTasks.DEBUG_TICK, new RenderTasks.LineToTargetObject(targetTpPos, Color.MAGENTA)));
             }
             toList.add(new MovTasks.MovInfo(targetTpPos, false, false, py));
-            Vec3d backpos = re.getSecond().get(1);
+            Vec3 backpos = re.getSecond().get(1);
             toList.add(new MovTasks.MovInfo(backpos, false, false, py));
             // DO NOT CONSIDER NOFALL, it may send extra packets
             MovTasks.scheduleMoveSequence(MovTasks.createPlayerMovContext(), toList, false, true);
             // DO NOT SEND PACKET HERE
             ClientPlayerAccess.of(mc.player).setForceNoFall(false);
 
-            Debug.chat(Text.literal("[Spear] simulate delay %.2f"
-                            .formatted(playerPos.subtract(targetTpPos).dotProduct(direction)))
-                    .formatted(Formatting.GREEN));
+            Debug.chat(Component.literal("[Spear] simulate delay %.2f"
+                            .formatted(playerPos.subtract(targetTpPos).dot(direction)))
+                    .withStyle(ChatFormatting.GREEN));
             // Debug.info("target", targetTpPos);
             currentWaitBackTick = delay.get() + 1;
-            mc.player.setPitch(playerPy.x);
-            mc.player.setYaw(playerPy.y);
+            mc.player.setXRot(playerPy.x);
+            mc.player.setYRot(playerPy.y);
             MovTasks.setupAutoResync();
             return true;
             // todo: check if we can do 1tick move
@@ -183,10 +188,10 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
         }
     }
 
-    public Pair<List<Vec3d>, List<Vec3d>> isValidTpLocation(
-            MovTasks.CollisionContext context, Vec3d playerLocation, Vec3d tpLocation, double maxDistance) {
-        Vec3d currentSimulateMovement = playerLocation.subtract(tpLocation);
-        List<Vec3d> back;
+    public Pair<List<Vec3>, List<Vec3>> isValidTpLocation(
+            MovTasks.CollisionContext context, Vec3 playerLocation, Vec3 tpLocation, double maxDistance) {
+        Vec3 currentSimulateMovement = playerLocation.subtract(tpLocation);
+        List<Vec3> back;
         if (MovTasks.validMoveTo(context, tpLocation, currentSimulateMovement)) {
             back = List.of(tpLocation, playerLocation);
         } else return null;
@@ -203,7 +208,7 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
     //        {
     //            RenderUtils.startDrawVirtual(stack);
     //            try {
-    //                for (var entity : mc.world.getEntities()) {
+    //                for (var entity : mc.level.getEntities()) {
     //                    if (entity instanceof LivingEntity livingEntity
     //                            && livingEntity.isUsingItem()
     //                            && VItem.getInstance().isSpear(livingEntity.getActiveItem())) {
@@ -220,12 +225,12 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
     // == 0 can move, can Start next Spear
     int currentWaitBackTick = 0;
 
-    private void renderPlayerSpearTarget(Event<MatrixStack> event) {
+    private void renderPlayerSpearTarget(Event<PoseStack> event) {
         if (!enable.get()) return;
         //        if (RenderTasks.DEBUG_RENDER_SPEAR) {
         //            onSpearAttackRender(event);
         //        }
-        MatrixStack stack = event.context();
+        PoseStack stack = event.context();
         float tickDelta = event.getArgs(0);
         if (spearRender.get()) {
             RenderUtils.startDrawVirtual(stack);
@@ -236,9 +241,9 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
                     if (spearEntity != null) {
                         float dist = spearEntity.distanceTo(mc.player);
                         float opacity = Math.min(0.6F, 0.10F + dist * 0.02F);
-                        Box box = RenderUtils.getLerpedBox(spearEntity, tickDelta);
+                        AABB box = RenderUtils.getLerpedBox(spearEntity, tickDelta);
                         RenderUtils.drawSolidBox(
-                                stack, box.getMinPos(), box.getMaxPos(), ColorUtils.withAlpha(Color.GREEN, opacity));
+                                stack, box.getMinPosition(), box.getMaxPosition(), ColorUtils.withAlpha(Color.GREEN, opacity));
                     }
                 }
             } finally {
@@ -266,7 +271,7 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
     //        RenderUtils.drawOutlinedBox(stack, box.getMinPos(), box.getMaxPos(), Color.MAGENTA);
     //        RenderUtils.drawLineVirtual(stack, startPoint, endPoint, Color.MAGENTA);
     //        float max = Math.max(0, hitboxMargin);
-    //        for (var e : mc.world.getOtherEntities(entity, box)) {
+    //        for (var e : mc.level.getOtherEntities(entity, box)) {
     //            if (e instanceof LivingEntity livingEntity) {
     //                if (livingEntity.getBoundingBox().raycast(startPoint, endPoint).isPresent()) {
     //                    RenderUtils.drawSolidBox(
@@ -298,15 +303,15 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
 
     public static boolean isSpearable(Entity entity) {
         // Vec3d pos = mc.player.getEyePos();
-        if (mc.player.getEyePos().subtract(entity.getEyePos()).lengthSquared()
-                <= MathUtils.s2(mc.player.getAttackRange().getEffectiveMinRange(mc.player))) {
+        if (mc.player.getEyePosition().subtract(entity.getEyePosition()).lengthSqr()
+                <= MathUtils.s2(mc.player.getAttackRangeWith(mc.player.getMainHandItem()).effectiveMinRange(mc.player))) {
             return false;
         }
-        BlockHitResult blockHitResult = mc.world.raycast(new RaycastContext(
-                mc.player.getEyePos(),
-                entity.getEyePos(),
-                RaycastContext.ShapeType.COLLIDER,
-                RaycastContext.FluidHandling.NONE,
+        BlockHitResult blockHitResult = mc.level.clip(new ClipContext(
+                mc.player.getEyePosition(),
+                entity.getEyePosition(),
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE,
                 mc.player));
         if (blockHitResult.getType() != HitResult.Type.MISS) {
             return false;
@@ -330,10 +335,10 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
         }
     }
 
-    public Pair<List<Vec3d>, List<Vec3d>> findValidTpPosition(
-            Vec3d currentPlayerPos,
-            Vec3d tpDirection,
-            Vec3d expandDirection,
+    public Pair<List<Vec3>, List<Vec3>> findValidTpPosition(
+            Vec3 currentPlayerPos,
+            Vec3 tpDirection,
+            Vec3 expandDirection,
             double maxDistance,
             double distance,
             double minDistance) {
@@ -343,13 +348,13 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
         //            currentPlayerPos.add(- maxDistance , -maxDistance, -maxDistance),
         //            currentPlayerPos.add(maxDistance, maxDistance, maxDistance),
         //            true);
-        Pair<List<Vec3d>, List<Vec3d>> result = null;
+        Pair<List<Vec3>, List<Vec3>> result = null;
 
         for (double search = distance; search > minDistance; search -= 2.0D) {
             for (var i : searchOrder) {
-                Vec3d searchTpPos =
-                        currentPlayerPos.add(tpDirection.multiply(search)).add(expandDirection.multiply(i));
-                if (searchTpPos.squaredDistanceTo(currentPlayerPos) > MathUtils.s2(maxDistance)) {
+                Vec3 searchTpPos =
+                        currentPlayerPos.add(tpDirection.scale(search)).add(expandDirection.scale(i));
+                if (searchTpPos.distanceToSqr(currentPlayerPos) > MathUtils.s2(maxDistance)) {
                     break;
                 }
                 if (!context.checkEnvironmentCollision(mc.player, searchTpPos, true)
@@ -394,7 +399,7 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
         this.applyBeforeMovementPacketModify(movementManagerEvent);
     }
 
-    public void onClientTickEnd(Event<ClientTickEndC2SPacket> tickEndPacket) {
+    public void onClientTickEnd(Event<ServerboundClientTickEndPacket> tickEndPacket) {
         if (currentWaitBackTick > 1) {
             tickEndPacket.cancel();
         }

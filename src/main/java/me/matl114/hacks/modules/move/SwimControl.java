@@ -12,8 +12,8 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.Vec3;
 
 public class SwimControl extends BaseModule implements LegalMovementManager.MovementModifier {
     public static SwimControl INSTANCE;
@@ -54,9 +54,9 @@ public class SwimControl extends BaseModule implements LegalMovementManager.Move
     public void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {}
 
     @Override
-    public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {
-        ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
-        if (enable.get() && !player.isFallFlying() && player.isTouchingWater() && player.shouldSwimInFluids()) {
+    public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {
+        LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
+        if (enable.get() && !player.isFallFlying() && player.isInWater() && player.isAffectedByFluids()) {
             PlayerInputUtils.Input input = PlayerInputUtils.of(player);
             if (!input.hasMovementControl()) {
                 if (mode.get().isIn(Mode.GRIM)) {

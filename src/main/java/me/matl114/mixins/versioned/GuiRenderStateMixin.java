@@ -7,7 +7,7 @@ import java.util.List;
 import me.matl114.versioned.accessors.GuiRenderStateLayerAccess;
 import me.matl114.versioned.accessors.GuiRendererStateAccess;
 import me.matl114.versioned.impl.DrawContext_v1_21_11;
-import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -20,19 +20,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class GuiRenderStateMixin implements GuiRendererStateAccess {
     @Shadow
     @Final
-    private List<GuiRenderState.Layer> rootLayers;
+    private List<GuiRenderState.Node> strata;
 
     @Shadow
-    public GuiRenderState.Layer currentLayer;
+    public GuiRenderState.Node current;
 
     @Shadow
-    public abstract void createNewRootLayer();
+    public abstract void nextStratum();
 
     @Unique
     boolean hasDepth = false;
 
     @WrapWithCondition(
-            method = "createNewRootLayer",
+            method = "nextStratum",
             at = @At(value = "INVOKE", target = "Ljava/util/List;add(Ljava/lang/Object;)Z"))
     private <E> boolean createNewRootLayer(List instance, E e) {
         if (!hasDepth && e instanceof GuiRenderStateLayerAccess layerAccess && layerAccess.getDepth() != 0) {
@@ -58,10 +58,10 @@ public abstract class GuiRenderStateMixin implements GuiRendererStateAccess {
     @Unique
     public void setLayerToDepth() {
         int depth = DrawContext_v1_21_11.getCurrentDepthLevel();
-        int size = this.rootLayers.size();
+        int size = this.strata.size();
         int idx = -1;
         for (int i = 0; i < size; i++) {
-            GuiRenderStateLayerAccess layer = (GuiRenderStateLayerAccess) this.rootLayers.get(i);
+            GuiRenderStateLayerAccess layer = (GuiRenderStateLayerAccess) this.strata.get(i);
             if (layer.getDepth() < depth) {
                 continue;
             } else if (layer.getDepth() == depth) {
@@ -71,29 +71,29 @@ public abstract class GuiRenderStateMixin implements GuiRendererStateAccess {
             }
         }
         if (idx != -1) {
-            this.currentLayer = this.rootLayers.get(idx);
+            this.current = this.strata.get(idx);
         } else {
-            createNewRootLayer();
+            nextStratum();
         }
     }
 
-    @Inject(method = "clear", at = @At("RETURN"))
+    @Inject(method = "reset", at = @At("RETURN"))
     private void clear(CallbackInfo ci) {
         hasDepth = false;
     }
 
-    @Inject(method = "findAndGoToLayerIntersecting", at = @At("HEAD"))
+    @Inject(method = "navigateToAboveHighestElementWithIntersectingBounds", at = @At("HEAD"))
     private void findAndGoToLayerIntersecting(CallbackInfo ci) {
         if (hasDepth) {
             int depth = DrawContext_v1_21_11.getCurrentDepthLevel();
-            if (depth != GuiRenderStateLayerAccess.of(this.currentLayer).getDepth()) {
+            if (depth != GuiRenderStateLayerAccess.of(this.current).getDepth()) {
                 setLayerToDepth();
             }
         }
     }
 
     @WrapOperation(
-            method = "findAndGoToLayerIntersecting",
+            method = "navigateToAboveHighestElementWithIntersectingBounds",
             at = @At(value = "INVOKE", target = "Ljava/util/List;getLast()Ljava/lang/Object;"))
     private <E> E findAndGoToLayerIntersecting(List<E> instance, Operation<E> original) {
         if (!hasDepth) {
@@ -103,7 +103,7 @@ public abstract class GuiRenderStateMixin implements GuiRendererStateAccess {
             int depth = DrawContext_v1_21_11.getCurrentDepthLevel();
             int size = instance.size();
             for (int i = size - 1; i >= 0; --i) {
-                GuiRenderStateLayerAccess layer = (GuiRenderStateLayerAccess) this.rootLayers.get(i);
+                GuiRenderStateLayerAccess layer = (GuiRenderStateLayerAccess) this.strata.get(i);
                 if (layer.getDepth() == depth) {
                     return (E) layer;
                 } else if (layer.getDepth() > depth) {
@@ -113,8 +113,8 @@ public abstract class GuiRenderStateMixin implements GuiRendererStateAccess {
                     break;
                 }
             }
-            createNewRootLayer();
-            return (E) this.currentLayer;
+            nextStratum();
+            return (E) this.current;
         }
     }
 }

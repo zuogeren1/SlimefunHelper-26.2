@@ -16,25 +16,33 @@ import me.matl114.events.Listener;
 import me.matl114.events.impl.Teleportation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.listener.PacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.s2c.play.*;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.TagGroupLoader;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketListener;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
+import net.minecraft.tags.TagLoader;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -44,11 +52,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientPlayNetworkHandler.class)
+@Mixin(ClientPacketListener.class)
 public abstract class ClientPlayNetworkHandlerEvents {
-    @Inject(method = "onOpenScreen", at = @At("RETURN"))
-    private void onPostInventoryOpen(OpenScreenS2CPacket packet, CallbackInfo ci) {
-        if (MinecraftClient.getInstance().currentScreen instanceof HandledScreen<?> screen) {
+    @Inject(method = "handleOpenScreen", at = @At("RETURN"))
+    private void onPostInventoryOpen(ClientboundOpenScreenPacket packet, CallbackInfo ci) {
+        if (Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> screen) {
             Listener.getPostOpenHandledScreen().broadcast(screen);
         }
     }
@@ -56,7 +64,7 @@ public abstract class ClientPlayNetworkHandlerEvents {
     @Unique
     boolean escapeSendEvent = false;
 
-    @Inject(method = "sendChatCommand", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "sendCommand", at = @At("HEAD"), cancellable = true)
     private void onChat0(String command, CallbackInfo ci, @Local(argsOnly = true) LocalRef<String> commandRef) {
         if (escapeSendEvent) {
             escapeSendEvent = false;
@@ -81,12 +89,12 @@ public abstract class ClientPlayNetworkHandlerEvents {
                 // change a command to a chat message
                 ci.cancel();
                 escapeSendEvent = true;
-                sendChatMessage(valueChange);
+                sendChat(valueChange);
             }
         }
     }
 
-    @Inject(method = "sendChatMessage", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "sendChat", at = @At("HEAD"), cancellable = true)
     private void onChat2(String content, CallbackInfo ci, @Local(argsOnly = true) LocalRef<String> contentRef) {
         if (escapeSendEvent) {
             escapeSendEvent = false;
@@ -110,36 +118,36 @@ public abstract class ClientPlayNetworkHandlerEvents {
             } else {
                 ci.cancel();
                 escapeSendEvent = true;
-                sendChatCommand(valueChange.substring(1));
+                sendCommand(valueChange.substring(1));
             }
         }
     }
 
     @Shadow
-    private ClientWorld world;
+    private ClientLevel level;
 
     @Unique
     private boolean playerRecreateOnJoin = false;
 
     @Inject(
-            method = "onGameJoin",
+            method = "handleLogin",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;createPlayer(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/stat/StatHandler;Lnet/minecraft/client/recipebook/ClientRecipeBook;)Lnet/minecraft/client/network/ClientPlayerEntity;",
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;createPlayer(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/stats/StatsCounter;Lnet/minecraft/client/ClientRecipeBook;)Lnet/minecraft/client/player/LocalPlayer;",
                             shift = At.Shift.AFTER))
-    private void onGameJoinCreatePlayer0(GameJoinS2CPacket packet, CallbackInfo ci) {
+    private void onGameJoinCreatePlayer0(ClientboundLoginPacket packet, CallbackInfo ci) {
         playerRecreateOnJoin = true;
     }
 
-    @Inject(method = "onGameJoin", at = @At("RETURN"))
-    private void onGameJoinEntryPoint(GameJoinS2CPacket packet, CallbackInfo ci) {
-        Listener.getGameJoinPoint().broadcast(MinecraftClient.getInstance().player);
-        Listener.getWorldSwitchPoint().broadcast(this.world);
+    @Inject(method = "handleLogin", at = @At("RETURN"))
+    private void onGameJoinEntryPoint(ClientboundLoginPacket packet, CallbackInfo ci) {
+        Listener.getGameJoinPoint().broadcast(Minecraft.getInstance().player);
+        Listener.getWorldSwitchPoint().broadcast(this.level);
         if (playerRecreateOnJoin) {
             playerRecreateOnJoin = false;
-            Listener.getThisPlayerSpawnPoint().broadcast(MinecraftClient.getInstance().player);
+            Listener.getThisPlayerSpawnPoint().broadcast(Minecraft.getInstance().player);
         }
     }
 
@@ -147,108 +155,108 @@ public abstract class ClientPlayNetworkHandlerEvents {
     private boolean worldChangeOnRespawn = false;
 
     @Inject(
-            method = "onPlayerRespawn",
+            method = "handleRespawn",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/world/ClientWorld;<init>(Lnet/minecraft/client/network/ClientPlayNetworkHandler;Lnet/minecraft/client/world/ClientWorld$Properties;Lnet/minecraft/registry/RegistryKey;Lnet/minecraft/registry/entry/RegistryEntry;IILnet/minecraft/client/render/WorldRenderer;ZJI)V",
+                                    "Lnet/minecraft/client/multiplayer/ClientLevel;<init>(Lnet/minecraft/client/multiplayer/ClientPacketListener;Lnet/minecraft/client/multiplayer/ClientLevel$ClientLevelData;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/core/Holder;IILnet/minecraft/client/renderer/LevelRenderer;ZJI)V",
                             shift = At.Shift.AFTER))
-    private void onPlayerSwitchDimension0(PlayerRespawnS2CPacket packet, CallbackInfo ci) {
+    private void onPlayerSwitchDimension0(ClientboundRespawnPacket packet, CallbackInfo ci) {
         worldChangeOnRespawn = true;
     }
 
-    @Inject(method = "onPlayerRespawn", at = @At("RETURN"))
-    private void onPlayerSwitchDimension(PlayerRespawnS2CPacket packet, CallbackInfo ci) {
+    @Inject(method = "handleRespawn", at = @At("RETURN"))
+    private void onPlayerSwitchDimension(ClientboundRespawnPacket packet, CallbackInfo ci) {
         if (worldChangeOnRespawn) {
             worldChangeOnRespawn = false;
-            Listener.getWorldSwitchPoint().broadcast(this.world);
+            Listener.getWorldSwitchPoint().broadcast(this.level);
         }
-        Listener.getThisPlayerSpawnPoint().broadcast(MinecraftClient.getInstance().player);
+        Listener.getThisPlayerSpawnPoint().broadcast(Minecraft.getInstance().player);
     }
 
     @Shadow
-    public abstract ClientConnection getConnection();
+    public abstract Connection getConnection();
 
     @Shadow
-    public abstract void sendChatMessage(String content);
+    public abstract void sendChat(String content);
 
     @Shadow
-    public abstract void sendChatCommand(String command);
+    public abstract void sendCommand(String command);
 
     @WrapOperation(
-            method = "onPlayerPositionLook",
+            method = "handleMovePlayer",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/network/ClientConnection;send(Lnet/minecraft/network/packet/Packet;)V",
+                                    "Lnet/minecraft/network/Connection;send(Lnet/minecraft/network/protocol/Packet;)V",
                             ordinal = 1))
     private void onTeleportConfirmResponse(
-            ClientConnection instance,
+            Connection instance,
             Packet<?> packet,
             Operation<Void> original,
-            @Local(argsOnly = true) PlayerPositionLookS2CPacket posLook) {
-        if (packet instanceof PlayerMoveC2SPacket.Full fullPacket) {
+            @Local(argsOnly = true) ClientboundPlayerPositionPacket posLook) {
+        if (packet instanceof ServerboundMovePlayerPacket.PosRot fullPacket) {
             packet = PlayerMoveC2SPacketAccess.setCause(fullPacket, PlayerMoveC2SPacketAccess.Cause.SET_BACK);
             Listener.getTeleportationConfirm()
                     .broadcast(new Teleportation(
-                            posLook.teleportId(),
+                            posLook.id(),
                             fullPacket.getX(0.0D),
                             fullPacket.getY(0.0D),
                             fullPacket.getZ(0.0D),
-                            fullPacket.getPitch(0.0F),
-                            fullPacket.getYaw(0.0F)));
+                            fullPacket.getXRot(0.0F),
+                            fullPacket.getYRot(0.0F)));
         }
         original.call(instance, packet);
     }
 
     @Inject(
-            method = "onPlayerList",
+            method = "handlePlayerInfoUpdate",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/SocialInteractionsManager;setPlayerOnline(Lnet/minecraft/client/network/PlayerListEntry;)V",
+                                    "Lnet/minecraft/client/gui/screens/social/PlayerSocialManager;addPlayer(Lnet/minecraft/client/multiplayer/PlayerInfo;)V",
                             shift = At.Shift.AFTER),
             locals = LocalCapture.CAPTURE_FAILHARD)
     private void onOtherPlayerJoin(
-            PlayerListS2CPacket packet, CallbackInfo ci, @Local PlayerListEntry playerListEntry) {
+            ClientboundPlayerInfoUpdatePacket packet, CallbackInfo ci, @Local PlayerInfo playerListEntry) {
         Listener.getOtherPlayerJoinPoint().broadcast(playerListEntry);
     }
 
     @Inject(
-            method = "onPlayerRemove",
+            method = "handlePlayerInfoRemove",
             at = @At(value = "INVOKE", target = "Ljava/util/Set;remove(Ljava/lang/Object;)Z", shift = At.Shift.AFTER))
     private void onOtherPlayerExit(
-            PlayerRemoveS2CPacket packet, CallbackInfo ci, @Local PlayerListEntry playerListEntry) {
+            ClientboundPlayerInfoRemovePacket packet, CallbackInfo ci, @Local PlayerInfo playerListEntry) {
         Listener.getOtherPlayerExitPoint().broadcast(playerListEntry);
     }
 
-    @Inject(method = "handlePlayerListAction", at = @At("RETURN"))
+    @Inject(method = "applyPlayerInfoUpdate", at = @At("RETURN"))
     private void onPlayerListUpdate(
-            PlayerListS2CPacket.Action action,
-            PlayerListS2CPacket.Entry receivedEntry,
-            PlayerListEntry currentEntry,
+            ClientboundPlayerInfoUpdatePacket.Action action,
+            ClientboundPlayerInfoUpdatePacket.Entry receivedEntry,
+            PlayerInfo currentEntry,
             CallbackInfo ci) {
         Listener.getOtherPlayerEntryUpdate().broadcast(currentEntry, action);
     }
 
     @WrapOperation(
-            method = "onEntityVelocityUpdate",
+            method = "handleSetEntityMotion",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/Entity;setVelocityClient(Lnet/minecraft/util/math/Vec3d;)V"))
-    private void onEntityVelocityUpdate(Entity instance, Vec3d clientVelocity, Operation<Void> original) {
+                                    "Lnet/minecraft/world/entity/Entity;lerpMotion(Lnet/minecraft/world/phys/Vec3;)V"))
+    private void onEntityVelocityUpdate(Entity instance, Vec3 clientVelocity, Operation<Void> original) {
         if (!Listener.getEntityClientVelocityUpdate().isEmpty()) {
-            Event<Vec3d> vcUpdate = new Event<>(clientVelocity, true, true, instance);
+            Event<Vec3> vcUpdate = new Event<>(clientVelocity, true, true, instance);
             Listener.getEntityClientVelocityUpdate().handleValue(vcUpdate);
             if (vcUpdate.isCancelled()) {
                 return;
             } else {
-                Vec3d vec3d1 = vcUpdate.context();
+                Vec3 vec3d1 = vcUpdate.context();
                 original.call(instance, vec3d1);
             }
         } else {
@@ -257,13 +265,13 @@ public abstract class ClientPlayNetworkHandlerEvents {
     }
 
     @WrapOperation(
-            method = "onExplosion",
+            method = "handleExplosion",
             at = @At(value = "INVOKE", target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"))
     private void onExplosionVelocityUpdate(
-            Optional instance, Consumer<? super Vec3d> action, Operation<Void> original) {
+            Optional instance, Consumer<? super Vec3> action, Operation<Void> original) {
         if (instance.isPresent()) {
-            Vec3d vec3d = (Vec3d) instance.get();
-            Event<Vec3d> updateDeltaEvent = new Event<>(vec3d, true, true);
+            Vec3 vec3d = (Vec3) instance.get();
+            Event<Vec3> updateDeltaEvent = new Event<>(vec3d, true, true);
             Listener.getPlayerExplosionVelocity().handleValue(updateDeltaEvent);
             if (!updateDeltaEvent.isCancelled()) {
                 original.call(
@@ -277,15 +285,15 @@ public abstract class ClientPlayNetworkHandlerEvents {
     }
 
     @Inject(
-            method = "onEntitySpawn",
+            method = "handleAddEntity",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/world/ClientWorld;addEntity(Lnet/minecraft/entity/Entity;)V",
+                                    "Lnet/minecraft/client/multiplayer/ClientLevel;addEntity(Lnet/minecraft/world/entity/Entity;)V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
-    private void onEntitySpawn(EntitySpawnS2CPacket packet, CallbackInfo ci, @Local Entity playerEntity) {
+    private void onEntitySpawn(ClientboundAddEntityPacket packet, CallbackInfo ci, @Local Entity playerEntity) {
         if (!Listener.getServerEntitySpawnListener().isEmpty()) {
             Event<Entity> entityAdd = new Event<>(playerEntity, true, false);
             Listener.getServerEntitySpawnListener().handleValue(entityAdd);
@@ -296,15 +304,15 @@ public abstract class ClientPlayNetworkHandlerEvents {
     }
 
     @WrapOperation(
-            method = "onBundle",
+            method = "handleBundlePacket",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/network/packet/Packet;apply(Lnet/minecraft/network/listener/PacketListener;)V"))
+                                    "Lnet/minecraft/network/protocol/Packet;handle(Lnet/minecraft/network/PacketListener;)V"))
     private void wrapBundledPacket(Packet instance, PacketListener t, Operation<Void> original) {
         // do not handle serverbound packet
-        if (t.getSide() == NetworkSide.SERVERBOUND) {
+        if (t.flow() == PacketFlow.SERVERBOUND) {
             original.call(instance, t);
             return;
         }
@@ -312,34 +320,34 @@ public abstract class ClientPlayNetworkHandlerEvents {
     }
 
     @ModifyExpressionValue(
-            method = "startTagReload",
+            method = "updateTags",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/registry/tag/TagPacketSerializer$Serialized;toRegistryTags(Lnet/minecraft/registry/Registry;)Lnet/minecraft/registry/tag/TagGroupLoader$RegistryTags;"))
-    private <T> TagGroupLoader.RegistryTags<T> onRegistryTagReload(
-            TagGroupLoader.RegistryTags<T> original,
-            @Local(argsOnly = true) RegistryKey<? extends Registry<? extends T>> registryKey) {
-        Map<TagKey<T>, List<RegistryEntry<T>>> tagMap = original.tags();
-        Event<Map<TagKey<T>, List<RegistryEntry<T>>>> event = new Event<>(tagMap, false, true, original.key());
+                                    "Lnet/minecraft/tags/TagNetworkSerialization$NetworkPayload;resolve(Lnet/minecraft/core/Registry;)Lnet/minecraft/tags/TagLoader$LoadResult;"))
+    private <T> TagLoader.LoadResult<T> onRegistryTagReload(
+            TagLoader.LoadResult<T> original,
+            @Local(argsOnly = true) ResourceKey<? extends Registry<? extends T>> registryKey) {
+        Map<TagKey<T>, List<Holder<T>>> tagMap = original.tags();
+        Event<Map<TagKey<T>, List<Holder<T>>>> event = new Event<>(tagMap, false, true, original.key());
         Listener.getRegistryTagKeyReload().handleValue((Event) event);
         if (event.context != tagMap) {
-            return new TagGroupLoader.RegistryTags<>(original.key(), event.context);
+            return new TagLoader.LoadResult<>(original.key(), event.context);
         }
         return original;
     }
 
     @Inject(
-            method = "onChunkData",
+            method = "handleLevelChunkWithLight",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayNetworkHandler;loadChunk(IILnet/minecraft/network/packet/s2c/play/ChunkData;)V",
+                                    "Lnet/minecraft/client/multiplayer/ClientPacketListener;updateLevelChunk(IILnet/minecraft/network/protocol/game/ClientboundLevelChunkPacketData;)V",
                             shift = At.Shift.AFTER))
-    private void onLoadChunkPost(ChunkDataS2CPacket packet, CallbackInfo ci) {
-        ChunkPos pos = new ChunkPos(packet.getChunkX(), packet.getChunkZ());
+    private void onLoadChunkPost(ClientboundLevelChunkWithLightPacket packet, CallbackInfo ci) {
+        ChunkPos pos = new ChunkPos(packet.getX(), packet.getZ());
         Listener.getChunkUpdateListener().broadcast(pos);
     }
 }

@@ -13,23 +13,23 @@ import me.matl114.events.impl.UseItem;
 import me.matl114.events.impl.UseItemOnBlock;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.network.SequencedPacketCreator;
-import net.minecraft.client.recipebook.ClientRecipeBook;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.recipe.NetworkRecipeId;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.stat.StatHandler;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.client.ClientRecipeBook;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.multiplayer.prediction.PredictiveAction;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.stats.StatsCounter;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.display.RecipeDisplayId;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.spongepowered.asm.mixin.Final;
@@ -42,28 +42,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public abstract class ClientPlayerInteractionManagerEvents {
 
     @Shadow
     @Final
-    private MinecraftClient client;
+    private Minecraft minecraft;
 
-    @Inject(method = "clickRecipe", at = @At("HEAD"))
-    public void onClickRecipe(int syncId, NetworkRecipeId recipeId, boolean craftAll, CallbackInfo ci) {
+    @Inject(method = "handlePlaceRecipe", at = @At("HEAD"))
+    public void onClickRecipe(int syncId, RecipeDisplayId recipeId, boolean craftAll, CallbackInfo ci) {
         Listener.getClickCraftingRecipe().broadcast(recipeId);
     }
 
     @Inject(
-            method = "interactItem",
+            method = "useItem",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/ClientPlayerInteractionManager;syncSelectedSlot()V",
+                            target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
-    private void onCancelSend(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
-        Event<UseItem> handEvent = new Event<>(new UseItem(ActionResult.PASS, hand), true, true);
+    private void onCancelSend(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+        Event<UseItem> handEvent = new Event<>(new UseItem(InteractionResult.PASS, hand), true, true);
         Listener.getPrePlayerUseItem().handleValue(handEvent);
         if (handEvent.isCancelled()) {
             cir.setReturnValue(handEvent.context.actionResult());
@@ -72,26 +72,26 @@ public abstract class ClientPlayerInteractionManagerEvents {
 
     @Inject(method = "method_41929", at = @At("RETURN"))
     public void onInteractItem(
-            Hand hand,
-            PlayerEntity playerEntity,
-            MutableObject<ActionResult> mutableObject,
+            InteractionHand hand,
+            Player playerEntity,
+            MutableObject<InteractionResult> mutableObject,
             int sequence,
             CallbackInfoReturnable<Packet> cir) {
-        ActionResult acc = mutableObject.getValue();
+        InteractionResult acc = mutableObject.getValue();
         Event<UseItem> eventResult = new Event<>(new UseItem(acc, hand), false, true);
         Listener.getPostPlayerUseItem().handleValue(eventResult);
         mutableObject.setValue(eventResult.context.actionResult());
     }
 
-    @Inject(method = "interactBlock", at = @At(value = "HEAD"), cancellable = true)
+    @Inject(method = "useItemOn", at = @At(value = "HEAD"), cancellable = true)
     public void onPreInteractBlock(
-            ClientPlayerEntity player,
-            Hand hand,
+            LocalPlayer player,
+            InteractionHand hand,
             BlockHitResult hitResult,
-            CallbackInfoReturnable<ActionResult> cir,
+            CallbackInfoReturnable<InteractionResult> cir,
             @Local(argsOnly = true) LocalRef<BlockHitResult> hand2) {
         Event<UseItemOnBlock> blockHitResultEvent =
-                new Event<>(new UseItemOnBlock(hitResult, ActionResult.SUCCESS, false, hand), true, true);
+                new Event<>(new UseItemOnBlock(hitResult, InteractionResult.SUCCESS, false, hand), true, true);
         Listener.getPrePlayerUseItemAtBlock().handleValue(blockHitResultEvent);
         if (blockHitResultEvent.isCancelled()) {
             cir.setReturnValue(blockHitResultEvent.context.actionResult());
@@ -108,24 +108,24 @@ public abstract class ClientPlayerInteractionManagerEvents {
     private final ArrayDeque<MutableBoolean> lastInteractCaptureBlockPlace = new ArrayDeque<>(4);
 
     @WrapOperation(
-            method = "interactBlock",
+            method = "useItemOn",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;sendSequencedPacket(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/client/network/SequencedPacketCreator;)V"))
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V"))
     private void onInteractBlockAction(
-            ClientPlayerInteractionManager instance,
-            ClientWorld world,
-            SequencedPacketCreator packetCreator,
+            MultiPlayerGameMode instance,
+            ClientLevel world,
+            PredictiveAction packetCreator,
             Operation<Void> original,
-            @Local(argsOnly = true) Hand hand,
+            @Local(argsOnly = true) InteractionHand hand,
             @Local(argsOnly = true) BlockHitResult hitResult,
-            @Local MutableObject<ActionResult> actionResult) {
-        ItemStack stackCopy = client.player.getStackInHand(hand).copy();
-        BlockState state = client.world.getBlockState(hitResult.getBlockPos());
+            @Local MutableObject<InteractionResult> actionResult) {
+        ItemStack stackCopy = minecraft.player.getItemInHand(hand).copy();
+        BlockState state = minecraft.level.getBlockState(hitResult.getBlockPos());
         MutableBoolean placeBlock = new MutableBoolean(false);
-        original.call(instance, world, (SequencedPacketCreator) (seq) -> {
+        original.call(instance, world, (PredictiveAction) (seq) -> {
             lastInteractCaptureBlockPlace.addLast(placeBlock);
             try {
                 var packet = packetCreator.predict(seq);
@@ -138,7 +138,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
                 lastInteractCaptureBlockPlace.removeLast();
             }
         });
-        ActionResult acc = actionResult.getValue();
+        InteractionResult acc = actionResult.getValue();
         Event<UseItemOnBlock> eventResult =
                 new Event<>(new UseItemOnBlock(hitResult, acc, placeBlock.getValue(), hand), false, true);
         Listener.getPostPlayerUseItemAtBlock().handleValue(eventResult);
@@ -146,23 +146,23 @@ public abstract class ClientPlayerInteractionManagerEvents {
     }
 
     @Inject(
-            method = "interactBlockInternal",
+            method = "performUseItemOn",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/item/ItemStack;useOnBlock(Lnet/minecraft/item/ItemUsageContext;)Lnet/minecraft/util/ActionResult;"))
+                                    "Lnet/minecraft/world/item/ItemStack;useOn(Lnet/minecraft/world/item/context/UseOnContext;)Lnet/minecraft/world/InteractionResult;"))
     private void onInteractBlockInternalCaptureBlockPlace(
-            ClientPlayerEntity player, Hand hand, BlockHitResult hitResult, CallbackInfoReturnable<ActionResult> cir) {
+            LocalPlayer player, InteractionHand hand, BlockHitResult hitResult, CallbackInfoReturnable<InteractionResult> cir) {
         var re = lastInteractCaptureBlockPlace.peekLast();
         if (re != null) {
             re.setValue(true);
         }
     }
 
-    @Inject(method = "clickSlot", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "handleInventoryMouseClick", at = @At("HEAD"), cancellable = true)
     public void onClickSlot(
-            int syncId, int slotId, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo ci) {
+            int syncId, int slotId, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
         Event<SlotClickAction> eventClickSlot =
                 new Event<>(new SlotClickAction(actionType, syncId, slotId, button), true, false);
         Listener.getPreClickSlot().handleValue(eventClickSlot);
@@ -172,24 +172,24 @@ public abstract class ClientPlayerInteractionManagerEvents {
         }
     }
 
-    @Inject(method = "clickSlot", at = @At("RETURN"))
+    @Inject(method = "handleInventoryMouseClick", at = @At("RETURN"))
     public void onClickSlotPost(
-            int syncId, int slotId, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo ci) {
+            int syncId, int slotId, int button, ContainerInput actionType, Player player, CallbackInfo ci) {
         Listener.getPostClickSlot().broadcast(new SlotClickAction(actionType, syncId, slotId, button));
     }
 
     @Inject(
             method =
-                    "createPlayer(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/stat/StatHandler;Lnet/minecraft/client/recipebook/ClientRecipeBook;Lnet/minecraft/util/PlayerInput;Z)Lnet/minecraft/client/network/ClientPlayerEntity;",
+                    "createPlayer(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/stats/StatsCounter;Lnet/minecraft/client/ClientRecipeBook;Lnet/minecraft/world/entity/player/Input;Z)Lnet/minecraft/client/player/LocalPlayer;",
             at = @At("RETURN"))
     public void onCreatePlayer(
-            ClientWorld world,
-            StatHandler statHandler,
+            ClientLevel world,
+            StatsCounter statHandler,
             ClientRecipeBook recipeBook,
-            PlayerInput lastPlayerInput,
+            Input lastPlayerInput,
             boolean lastSprinting,
-            CallbackInfoReturnable<ClientPlayerEntity> cir) {
-        ClientPlayerEntity player = cir.getReturnValue();
+            CallbackInfoReturnable<LocalPlayer> cir) {
+        LocalPlayer player = cir.getReturnValue();
         Listener.getPlayerInitConfiguration().broadcast(player);
     }
 }

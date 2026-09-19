@@ -8,12 +8,12 @@ import me.matl114.hacks.api.BaseModule;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.utils.EntityUtils;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class LegacySnapRotManager extends BaseModule {
     public static LegacySnapRotManager INSTANCE;
@@ -26,17 +26,17 @@ public class LegacySnapRotManager extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getEntityPreTickListener().getChannel(EntityType.PLAYER), this::onPrePlayerTick);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerInteractItemC2SPacket.class), this::onInteractItem);
+        registerListener(Listener.getEntityPreTickListener().getChannel(EntityTypes.PLAYER), this::onPrePlayerTick);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onInteractItem);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class),
                 this::onSendPlayerPosRotPacket,
                 Integer.MIN_VALUE);
     }
 
-    Vec2f lastSnapPitchYaw;
+    Vec2 lastSnapPitchYaw;
 
-    public void onPrePlayerTick(Event<PlayerEntity> eventPre) {
+    public void onPrePlayerTick(Event<Player> eventPre) {
         if (mc.player != null && eventPre.context == mc.player) {
             resyncSnap();
         }
@@ -44,23 +44,23 @@ public class LegacySnapRotManager extends BaseModule {
 
     public boolean betweenViaPacket;
 
-    public void onSendPlayerPosRotPacket(Event<PlayerMoveC2SPacket> event) {
+    public void onSendPlayerPosRotPacket(Event<ServerboundMovePlayerPacket> event) {
         if (betweenViaPacket
                 && ViaFabricPlusHooks.isSupportDupRot()
-                && event.context instanceof PlayerMoveC2SPacket.Full move
+                && event.context instanceof ServerboundMovePlayerPacket.PosRot move
                 && move instanceof PlayerMoveC2SPacketAccess acc) {
             acc.setCause(PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP);
         }
         // reset snap packets because there are other rot packets
-        if (event.context.changesLook()) {
+        if (event.context.hasRotation()) {
             lastSnapPitchYaw = null;
         }
     }
 
-    public void onInteractItem(Event<PlayerInteractItemC2SPacket> eventInteract) {
+    public void onInteractItem(Event<ServerboundUseItemPacket> eventInteract) {
         if (false && lastSnapPitchYaw != null) {
-            float pitch = eventInteract.context.getPitch();
-            float yaw = eventInteract.context.getYaw();
+            float pitch = eventInteract.context.getXRot();
+            float yaw = eventInteract.context.getYRot();
             if (EntityUtils.isRotationDifferent(lastSnapPitchYaw.x, pitch, lastSnapPitchYaw.y, yaw)
                     && PlayerStateManager.INSTANCE.isRotationDifferent(pitch, yaw)) {
                 snapAt(pitch, yaw, false);
@@ -76,29 +76,29 @@ public class LegacySnapRotManager extends BaseModule {
         lastSnapPitchYaw = null;
     }
 
-    public void snapAt(Vec3d look, boolean force) {
-        Vec2f py = EntityUtils.rotationToPitchYaw(look.normalize());
+    public void snapAt(Vec3 look, boolean force) {
+        Vec2 py = EntityUtils.rotationToPitchYaw(look.normalize());
         snapAt(py.x, py.y, force);
     }
 
     public void snapAt(float pitch, float yaw, boolean force) {
         if (force || PlayerStateManager.INSTANCE.isRotationDifferent(pitch, yaw)) {
-            mc.getNetworkHandler().sendPacket(createSnapAt(pitch, yaw));
+            mc.getConnection().send(createSnapAt(pitch, yaw));
         }
-        lastSnapPitchYaw = new Vec2f(pitch, yaw);
+        lastSnapPitchYaw = new Vec2(pitch, yaw);
     }
 
-    public PlayerMoveC2SPacket createSnapAt(Vec3d look) {
-        Vec2f py = EntityUtils.rotationToPitchYaw(look.normalize());
+    public ServerboundMovePlayerPacket createSnapAt(Vec3 look) {
+        Vec2 py = EntityUtils.rotationToPitchYaw(look.normalize());
         return createSnapAt(py.x, py.y);
     }
 
-    public PlayerMoveC2SPacket createSnapAt(Vec3d look, boolean onGroundOverride) {
-        Vec2f py = EntityUtils.rotationToPitchYaw(look.normalize());
+    public ServerboundMovePlayerPacket createSnapAt(Vec3 look, boolean onGroundOverride) {
+        Vec2 py = EntityUtils.rotationToPitchYaw(look.normalize());
         return createSnapAt(py.x, py.y, onGroundOverride);
     }
 
-    public PlayerMoveC2SPacket createSnapAt(float pitch, float yaw) {
+    public ServerboundMovePlayerPacket createSnapAt(float pitch, float yaw) {
         float lastYaw = PlayerStateManager.INSTANCE.lastYaw;
         return PlayerMoveC2SPacketAccess.setCause(
                 VPacket.newFull(
@@ -112,7 +112,7 @@ public class LegacySnapRotManager extends BaseModule {
                 PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP);
     }
 
-    public PlayerMoveC2SPacket createSnapAt(float pitch, float yaw, boolean onGroundOverride) {
+    public ServerboundMovePlayerPacket createSnapAt(float pitch, float yaw, boolean onGroundOverride) {
         float lastYaw = PlayerStateManager.INSTANCE.lastYaw;
         return PlayerMoveC2SPacketAccess.setCause(
                 VPacket.newFull(
@@ -126,7 +126,7 @@ public class LegacySnapRotManager extends BaseModule {
                 PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP);
     }
 
-    public PlayerMoveC2SPacket createAsSnap(PlayerMoveC2SPacket full) {
+    public ServerboundMovePlayerPacket createAsSnap(ServerboundMovePlayerPacket full) {
         var pkt = VPacket.newFull(
                 full.getX(PlayerStateManager.INSTANCE.lastX),
                 full.getY(PlayerStateManager.INSTANCE.lastY),
@@ -139,8 +139,8 @@ public class LegacySnapRotManager extends BaseModule {
         return pkt;
     }
 
-    public void sendAsSnap(PlayerMoveC2SPacket full) {
-        PlayerMoveC2SPacket recreateFull = createAsSnap(full);
-        mc.getNetworkHandler().sendPacket(recreateFull);
+    public void sendAsSnap(ServerboundMovePlayerPacket full) {
+        ServerboundMovePlayerPacket recreateFull = createAsSnap(full);
+        mc.getConnection().send(recreateFull);
     }
 }

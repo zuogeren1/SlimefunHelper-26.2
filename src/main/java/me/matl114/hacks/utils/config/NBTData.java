@@ -7,16 +7,16 @@ import me.matl114.utils.config.BaseAttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.AttrKeyValues;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 
-public record NBTData(NbtElement nbtElement) implements NBTParsable<NBTData> {
+public record NBTData(Tag nbtElement) implements NBTParsable<NBTData> {
     public static final NBTType<NBTData> TYPE = new NBTType<NBTData>(
             "nbtdata",
             VNbt.CODEC.xmap(NBTData::new, NBTData::nbtElement),
             BaseAttrKeyValue.getWidgetFactory(),
-            AttrKeyValues.NBT_FACTORY.concat(WrapperFactory.of(s -> new NBTData((NbtCompound) s), NBTData::nbtElement)),
-            new NBTData(new NbtCompound()));
+            AttrKeyValues.NBT_FACTORY.concat(WrapperFactory.of(s -> new NBTData((CompoundTag) s), NBTData::nbtElement)),
+            new NBTData(new CompoundTag()));
 
     @Override
     public NBTType<NBTData> type() {
@@ -24,7 +24,7 @@ public record NBTData(NbtElement nbtElement) implements NBTParsable<NBTData> {
     }
 
     @Nullable
-    public NbtCompound compound() {
-        return nbtElement instanceof NbtCompound compound ? (NbtCompound) nbtElement : null;
+    public CompoundTag compound() {
+        return nbtElement instanceof CompoundTag compound ? (CompoundTag) nbtElement : null;
     }
 }

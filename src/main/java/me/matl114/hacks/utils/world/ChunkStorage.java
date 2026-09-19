@@ -6,15 +6,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 
 @Getter
 public class ChunkStorage extends IStorage {
     public static final Codec<ChunkStorage> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                    World.CODEC.fieldOf("dim").forGetter(ChunkStorage::getDimension),
+                    Level.RESOURCE_KEY_CODEC.fieldOf("dim").forGetter(ChunkStorage::getDimension),
                     ChunkPos.CODEC.fieldOf("chunk-pos").forGetter(ChunkStorage::getChunkPos),
                     Codec.unboundedMap(Codec.STRING, VNbt.CODEC)
                             .fieldOf("storage")
@@ -27,11 +27,11 @@ public class ChunkStorage extends IStorage {
         this.chunkPos = chunkPos;
     }
 
-    public ChunkStorage(RegistryKey<World> dimension, ChunkPos chunkPos) {
+    public ChunkStorage(ResourceKey<Level> dimension, ChunkPos chunkPos) {
         this(dimension, chunkPos, new ConcurrentHashMap<>());
     }
 
-    public ChunkStorage(RegistryKey<World> dimension, ChunkPos chunkPos, Map<String, NbtElement> storage) {
+    public ChunkStorage(ResourceKey<Level> dimension, ChunkPos chunkPos, Map<String, Tag> storage) {
         super(dimension, storage);
         this.chunkPos = chunkPos;
     }

@@ -4,8 +4,8 @@ import java.awt.*;
 import java.util.List;
 import me.matl114.hacks.RenderTasks;
 import me.matl114.utils.ApiMethod;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 @ApiMethod
 public class RenderHelper {
@@ -19,7 +19,7 @@ public class RenderHelper {
 
     public static RenderTasks.RenderObject createBox(
             double x, double y, double z, double x1, double y1, double z1, Color color) {
-        return createBox(new Vec3d(x, y, z), new Vec3d(x1, y1, z1), color);
+        return createBox(new Vec3(x, y, z), new Vec3(x1, y1, z1), color);
     }
 
     public static RenderTasks.RenderObject createBox(Object vec3d1, Object vec3d2, Color color) {

@@ -3,14 +3,14 @@ package me.matl114.gui.complex.config;
 import me.matl114.gui.GenericScreen;
 import me.matl114.managers.config.Config;
 import me.matl114.managers.config.StringRef;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class ConfigureScreen extends GenericScreen {
     private Config config;
     //    private HashMap<String,Object> originValue;
     // private HashMap<String,Object> values;
     @Deprecated
-    public ConfigureScreen(Config config, Text title) {
+    public ConfigureScreen(Config config, Component title) {
         super(title, 400, 320);
         loadConfig(config);
         // this.values=new HashMap<>(this.originValue);
@@ -51,7 +51,7 @@ public class ConfigureScreen extends GenericScreen {
                 this.width - 20,
                 this.height - 40,
                 filterWidget);
-        addDrawableChild(configs);
+        addRenderableWidget(configs);
         //        List<DrawableWidget> drawableWidgets = originValue.entrySet().stream().map((entry)->{
         //            var subscreen = new SubScreenWidget(0, 0, 2 *buttonWidth + 20, buttonHeight)
         //                .addDrawableChild(
@@ -98,8 +98,8 @@ public class ConfigureScreen extends GenericScreen {
         super.resize(width, height);
     }
 
-    public void close() {
-        super.close();
+    public void onClose() {
+        super.onClose();
         saveEntryToValues();
         // totol save
 

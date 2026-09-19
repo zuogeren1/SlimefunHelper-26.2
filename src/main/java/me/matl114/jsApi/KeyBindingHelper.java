@@ -4,23 +4,23 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import me.matl114.utils.ApiMethod;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
 
 @ApiMethod
 public class KeyBindingHelper {
-    public static GameOptions options = MinecraftClient.getInstance().options;
-    private static final Map<String, KeyBinding> keyBindings = new HashMap<String, KeyBinding>();
+    public static Options options = Minecraft.getInstance().options;
+    private static final Map<String, KeyMapping> keyBindings = new HashMap<String, KeyMapping>();
 
     static {
         try {
-            Class<?> clazz = GameOptions.class;
+            Class<?> clazz = Options.class;
             for (Field field : clazz.getDeclaredFields()) {
-                if (field.getType() == KeyBinding.class) {
+                if (field.getType() == KeyMapping.class) {
                     field.setAccessible(true);
-                    KeyBinding keyBinding = (KeyBinding) field.get(options);
-                    keyBindings.put(keyBinding.getId(), keyBinding);
+                    KeyMapping keyBinding = (KeyMapping) field.get(options);
+                    keyBindings.put(keyBinding.getName(), keyBinding);
                 }
             }
         } catch (Throwable e) {
@@ -28,72 +28,72 @@ public class KeyBindingHelper {
         }
     }
 
-    public static KeyBinding getKeyBinding(String key) {
+    public static KeyMapping getKeyBinding(String key) {
         return keyBindings.get(key);
     }
 
-    public static KeyBinding getFowardKeyBinding() {
+    public static KeyMapping getFowardKeyBinding() {
         return getKeyBinding("key.forward");
     }
 
-    public static KeyBinding getBackwardKeyBinding() {
+    public static KeyMapping getBackwardKeyBinding() {
         return getKeyBinding("key.back");
     }
 
-    public static KeyBinding getLeftKeyBinding() {
+    public static KeyMapping getLeftKeyBinding() {
         return getKeyBinding("key.left");
     }
 
-    public static KeyBinding getRightKeyBinding() {
+    public static KeyMapping getRightKeyBinding() {
         return getKeyBinding("key.right");
     }
 
-    public static KeyBinding getJumpKeyBinding() {
+    public static KeyMapping getJumpKeyBinding() {
         return getKeyBinding("key.jump");
     }
 
-    public static KeyBinding getSneakKeyBinding() {
+    public static KeyMapping getSneakKeyBinding() {
         return getKeyBinding("key.sneak");
     }
 
-    public static KeyBinding getSprintBinding() {
+    public static KeyMapping getSprintBinding() {
         return getKeyBinding("key.sprint");
     }
 
-    public static KeyBinding getSwapKeyBinding() {
+    public static KeyMapping getSwapKeyBinding() {
         return getKeyBinding("key.swapOffhand");
     }
 
-    public static KeyBinding getInventoryKeyBinding() {
+    public static KeyMapping getInventoryKeyBinding() {
         return getKeyBinding("key.inventory");
     }
 
-    public static KeyBinding getUseKeyBinding() {
+    public static KeyMapping getUseKeyBinding() {
         return getKeyBinding("key.use");
     }
 
-    public static KeyBinding getAttackKeyBinding() {
+    public static KeyMapping getAttackKeyBinding() {
         return getKeyBinding("key.attack");
     }
 
-    public static KeyBinding getDropKeyBinding() {
+    public static KeyMapping getDropKeyBinding() {
         return getKeyBinding("key.drop");
     }
 
-    public static void setPress(KeyBinding keyBinding, boolean pressed) {
-        keyBinding.setPressed(pressed);
+    public static void setPress(KeyMapping keyBinding, boolean pressed) {
+        keyBinding.setDown(pressed);
     }
 
-    public static boolean isPressed(KeyBinding keyBinding) {
-        return keyBinding.isPressed();
+    public static boolean isPressed(KeyMapping keyBinding) {
+        return keyBinding.isDown();
     }
 
-    public static boolean wasPressed(KeyBinding keyBinding) {
-        return keyBinding.wasPressed();
+    public static boolean wasPressed(KeyMapping keyBinding) {
+        return keyBinding.consumeClick();
     }
 
-    public static void reset(KeyBinding keyBinding) {
-        while (keyBinding.wasPressed()) {}
-        keyBinding.setPressed(false);
+    public static void reset(KeyMapping keyBinding) {
+        while (keyBinding.consumeClick()) {}
+        keyBinding.setDown(false);
     }
 }

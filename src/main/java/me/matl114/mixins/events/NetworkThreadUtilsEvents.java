@@ -5,26 +5,26 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.PacketApplyBatcher;
-import net.minecraft.network.listener.PacketListener;
-import net.minecraft.network.packet.Packet;
+import net.minecraft.network.PacketListener;
+import net.minecraft.network.PacketProcessor;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(PacketApplyBatcher.Entry.class)
+@Mixin(PacketProcessor.ListenerAndPacket.class)
 public abstract class NetworkThreadUtilsEvents {
     @WrapOperation(
-            method = "apply",
+            method = "handle",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/network/packet/Packet;apply(Lnet/minecraft/network/listener/PacketListener;)V"))
+                                    "Lnet/minecraft/network/protocol/Packet;handle(Lnet/minecraft/network/PacketListener;)V"))
     private void wrapPacketHandle(Packet instance, PacketListener t, Operation<Void> original) {
         // do not handle serverbound packet
-        if (t.getSide() == NetworkSide.SERVERBOUND) {
+        if (t.flow() == PacketFlow.SERVERBOUND) {
             original.call(instance, t);
             return;
         }

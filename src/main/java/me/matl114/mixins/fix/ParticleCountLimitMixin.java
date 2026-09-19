@@ -2,30 +2,30 @@ package me.matl114.mixins.fix;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.network.packet.s2c.play.ParticleS2CPacket;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientPlayNetworkHandler.class)
+@Mixin(ClientPacketListener.class)
 public abstract class ParticleCountLimitMixin {
 
-    @ModifyVariable(method = "onParticle", at = @At("HEAD"), index = 1, argsOnly = true)
-    private ParticleS2CPacket onParticle(ParticleS2CPacket packet) {
+    @ModifyVariable(method = "handleParticleEvent", at = @At("HEAD"), index = 1, argsOnly = true)
+    private ClientboundLevelParticlesPacket onParticle(ClientboundLevelParticlesPacket packet) {
         if (packet.getCount() > 1000) {
-            return new ParticleS2CPacket(
-                    packet.getParameters(),
-                    packet.shouldForceSpawn(),
-                    packet.isImportant(),
+            return new ClientboundLevelParticlesPacket(
+                    packet.getParticle(),
+                    packet.isOverrideLimiter(),
+                    packet.alwaysShow(),
                     packet.getX(),
                     packet.getY(),
                     packet.getZ(),
-                    packet.getOffsetX(),
-                    packet.getOffsetY(),
-                    packet.getOffsetZ(),
-                    packet.getSpeed(),
+                    packet.getXDist(),
+                    packet.getYDist(),
+                    packet.getZDist(),
+                    packet.getMaxSpeed(),
                     1000);
         }
         return packet;

@@ -15,36 +15,36 @@ import me.matl114.gui.basic.ExecutableWidget;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.config.PropertyTracker;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.StringHelper;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
+import net.minecraft.util.StringUtil;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 
 @Accessors(chain = true)
 public class TextFieldElement extends AbstractElement {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
-    private static final Identifier TEXT_FIELD_TEXTURE = Identifier.ofVanilla("widget/text_field");
+    private static final Minecraft mc = Minecraft.getInstance();
+    private static final Identifier TEXT_FIELD_TEXTURE = Identifier.withDefaultNamespace("widget/text_field");
     private static final Identifier TEXT_FIELD_HIGHLIGHTED_TEXTURE =
-            Identifier.ofVanilla("widget/text_field_highlighted");
+            Identifier.withDefaultNamespace("widget/text_field_highlighted");
     private static final long DOUBLE_CLICK_INTERVAL = 250L;
     private static final int DEFAULT_EDITABLE_COLOR = -2039584;
     private static final int DEFAULT_UNEDITABLE_COLOR = -9408400;
     private static final String HORIZONTAL_CURSOR = "_";
-    public static final Style PLACEHOLDER_STYLE = Style.EMPTY.withColor(Formatting.DARK_GRAY);
-    public static final Style SEARCH_STYLE = Style.EMPTY.withFormatting(Formatting.GRAY, Formatting.ITALIC);
+    public static final Style PLACEHOLDER_STYLE = Style.EMPTY.withColor(ChatFormatting.DARK_GRAY);
+    public static final Style SEARCH_STYLE = Style.EMPTY.applyFormats(ChatFormatting.GRAY, ChatFormatting.ITALIC);
 
-    private final TextRenderer textRenderer;
+    private final Font textRenderer;
     private final TextFieldAccess accessBridge = new TextFieldAccess() {
         @Override
         public void setListener(PropertyTracker<TextFieldAccess, String> tracker) {
@@ -72,7 +72,7 @@ public class TextFieldElement extends AbstractElement {
         }
     };
 
-    private Text message;
+    private Component message;
     private String text = "";
     private int maxLength = 32;
     private boolean drawsBackground = true;
@@ -92,8 +92,8 @@ public class TextFieldElement extends AbstractElement {
     private PropertyTracker<TextFieldAccess, String> tracker;
     private Predicate<String> textPredicate = Objects::nonNull;
     private final List<Formatter> formatters = new ArrayList<>();
-    private Text placeholder;
-    private long lastSwitchFocusTime = Util.getMeasuringTimeMs();
+    private Component placeholder;
+    private long lastSwitchFocusTime = Util.getMillis();
     private int textX;
     private int textY;
     private int width;
@@ -109,38 +109,38 @@ public class TextFieldElement extends AbstractElement {
         return new TextFieldElement();
     }
 
-    public static TextFieldElement instance(Text message) {
+    public static TextFieldElement instance(Component message) {
         return new TextFieldElement(message);
     }
 
     public TextFieldElement() {
-        this(Text.empty());
+        this(Component.empty());
     }
 
-    public TextFieldElement(Text message) {
-        this.textRenderer = mc.textRenderer;
-        this.message = message == null ? Text.empty() : message;
+    public TextFieldElement(Component message) {
+        this.textRenderer = mc.font;
+        this.message = message == null ? Component.empty() : message;
         this.updateTextPosition();
     }
 
-    public TextFieldElement(TextFieldWidget textFieldWidget) {
-        this(textFieldWidget == null ? Text.empty() : textFieldWidget.getMessage());
+    public TextFieldElement(EditBox textFieldWidget) {
+        this(textFieldWidget == null ? Component.empty() : textFieldWidget.getMessage());
         if (textFieldWidget != null) {
-            this.text = textFieldWidget.getText();
-            this.drawsBackground = textFieldWidget.drawsBackground();
-            this.selectionStart = MathHelper.clamp(textFieldWidget.getCursor(), 0, this.text.length());
+            this.text = textFieldWidget.getValue();
+            this.drawsBackground = textFieldWidget.isBordered();
+            this.selectionStart = Mth.clamp(textFieldWidget.getCursorPosition(), 0, this.text.length());
             this.selectionEnd = this.selectionStart;
             this.updateFirstCharacterIndex(this.selectionStart);
             this.updateTextPosition();
         }
     }
 
-    public Text getMessage() {
+    public Component getMessage() {
         return this.message;
     }
 
-    public TextFieldElement setMessage(Text message) {
-        this.message = message == null ? Text.empty() : message;
+    public TextFieldElement setMessage(Component message) {
+        this.message = message == null ? Component.empty() : message;
         return this;
     }
 
@@ -213,12 +213,12 @@ public class TextFieldElement extends AbstractElement {
         return this;
     }
 
-    public TextFieldElement setPlaceholder(Text placeholder) {
+    public TextFieldElement setPlaceholder(Component placeholder) {
         if (placeholder == null) {
             this.placeholder = null;
         } else {
             boolean emptyStyle = placeholder.getStyle().equals(Style.EMPTY);
-            this.placeholder = emptyStyle ? placeholder.copy().fillStyle(PLACEHOLDER_STYLE) : placeholder;
+            this.placeholder = emptyStyle ? placeholder.copy().withStyle(PLACEHOLDER_STYLE) : placeholder;
         }
         return this;
     }
@@ -294,7 +294,7 @@ public class TextFieldElement extends AbstractElement {
             if (this.focused != nextFocused) {
                 this.focused = nextFocused;
                 if (nextFocused) {
-                    this.lastSwitchFocusTime = Util.getMeasuringTimeMs();
+                    this.lastSwitchFocusTime = Util.getMillis();
                 } else {
                     this.resetSelection();
                 }
@@ -342,7 +342,7 @@ public class TextFieldElement extends AbstractElement {
         if (k <= 0) {
             return;
         }
-        String string = StringHelper.stripInvalidChars(value);
+        String string = StringUtil.filterText(value);
         int l = string.length();
         if (k < l) {
             if (k > 0 && Character.isHighSurrogate(string.charAt(k - 1))) {
@@ -443,7 +443,7 @@ public class TextFieldElement extends AbstractElement {
     }
 
     protected int getCursorPosWithOffset(int offset) {
-        return Util.moveCursor(this.text, this.selectionStart, offset);
+        return Util.offsetByCodepoints(this.text, this.selectionStart, offset);
     }
 
     protected void setCursor(int cursor, boolean select) {
@@ -455,12 +455,12 @@ public class TextFieldElement extends AbstractElement {
     }
 
     protected void setSelectionStart(int cursor) {
-        this.selectionStart = MathHelper.clamp(cursor, 0, this.text.length());
+        this.selectionStart = Mth.clamp(cursor, 0, this.text.length());
         this.updateFirstCharacterIndex(this.selectionStart);
     }
 
     protected void setSelectionEnd(int index) {
-        this.selectionEnd = MathHelper.clamp(index, 0, this.text.length());
+        this.selectionEnd = Mth.clamp(index, 0, this.text.length());
         this.updateFirstCharacterIndex(this.selectionEnd);
     }
 
@@ -478,7 +478,7 @@ public class TextFieldElement extends AbstractElement {
         if (!this.focused) {
             return false;
         }
-        if (mc.options.inventoryKey.matchesKey(new KeyInput(keyCode, scanCode, modifiers))) {
+        if (mc.options.keyInventory.matches(new KeyEvent(keyCode, scanCode, modifiers))) {
             return true;
         }
         boolean ctrlOrCmd = hasCtrlOrCmd(modifiers);
@@ -527,17 +527,17 @@ public class TextFieldElement extends AbstractElement {
                     return true;
                 }
                 if (ctrlOrCmd && keyCode == GLFW.GLFW_KEY_C) {
-                    mc.keyboard.setClipboard(this.getSelectedText());
+                    mc.keyboardHandler.setClipboard(this.getSelectedText());
                     return true;
                 }
                 if (ctrlOrCmd && keyCode == GLFW.GLFW_KEY_V) {
                     if (this.editable) {
-                        this.write(mc.keyboard.getClipboard());
+                        this.write(mc.keyboardHandler.getClipboard());
                     }
                     return true;
                 }
                 if (ctrlOrCmd && keyCode == GLFW.GLFW_KEY_X) {
-                    mc.keyboard.setClipboard(this.getSelectedText());
+                    mc.keyboardHandler.setClipboard(this.getSelectedText());
                     if (this.editable) {
                         this.write("");
                     }
@@ -552,7 +552,7 @@ public class TextFieldElement extends AbstractElement {
         if (!this.isActive()) {
             return false;
         }
-        if (!StringHelper.isValidChar(chr)) {
+        if (!StringUtil.isAllowedChatCharacter(chr)) {
             return false;
         }
         this.write(Character.toString(chr));
@@ -560,10 +560,10 @@ public class TextFieldElement extends AbstractElement {
     }
 
     protected int calculateCursorPos(double mouseX) {
-        int innerX = Math.min(MathHelper.floor(mouseX) - this.textX, this.getInnerWidth());
+        int innerX = Math.min(Mth.floor(mouseX) - this.textX, this.getInnerWidth());
         String string = this.text.substring(this.firstCharacterIndex);
         return this.firstCharacterIndex
-                + this.textRenderer.trimToWidth(string, innerX).length();
+                + this.textRenderer.plainSubstrByWidth(string, innerX).length();
     }
 
     protected void selectWord(int cursor) {
@@ -583,12 +583,12 @@ public class TextFieldElement extends AbstractElement {
             innerX -= 4;
         }
         String string =
-                this.textRenderer.trimToWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
+                this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
         this.setCursor(
-                this.textRenderer.trimToWidth(string, innerX).length() + this.firstCharacterIndex, shiftDownAction);
+                this.textRenderer.plainSubstrByWidth(string, innerX).length() + this.firstCharacterIndex, shiftDownAction);
     }
 
-    public void drawSelection(DrawContext context, int x1, int y1, int x2, int y2, boolean invert) {
+    public void drawSelection(GuiGraphicsExtractor context, int x1, int y1, int x2, int y2, boolean invert) {
         if (invert) {
             context.fill(RenderPipelines.GUI_INVERT, x1, y1, x2, y2, -1);
         }
@@ -611,7 +611,7 @@ public class TextFieldElement extends AbstractElement {
         }
         int translatedMouseX = translateRenderMouseX(element, mouseX);
         int translatedMouseY = translateRenderMouseY(element, mouseY);
-        DrawContext drawContext = context.pushMatrix();
+        GuiGraphicsExtractor drawContext = context.pushMatrix();
         try {
             if (this.drawsBackground()) {
                 if (this.borderColorProvider != null) {
@@ -637,19 +637,19 @@ public class TextFieldElement extends AbstractElement {
             int color = this.editable ? this.editableColor : this.uneditableColor;
             int cursorOffset = this.selectionStart - this.firstCharacterIndex;
             String visibleText =
-                    this.textRenderer.trimToWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
+                    this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
             boolean cursorInVisibleRange = cursorOffset >= 0 && cursorOffset <= visibleText.length();
             boolean showBlink = this.focused
-                    && (Util.getMeasuringTimeMs() - this.lastSwitchFocusTime) / 300L % 2L == 0L
+                    && (Util.getMillis() - this.lastSwitchFocusTime) / 300L % 2L == 0L
                     && cursorInVisibleRange;
             int drawX = this.textX;
             int selectionOffset =
-                    MathHelper.clamp(this.selectionEnd - this.firstCharacterIndex, 0, visibleText.length());
+                    Mth.clamp(this.selectionEnd - this.firstCharacterIndex, 0, visibleText.length());
             if (!visibleText.isEmpty()) {
                 String beforeCursor = cursorInVisibleRange ? visibleText.substring(0, cursorOffset) : visibleText;
-                OrderedText orderedText = this.format(beforeCursor, this.firstCharacterIndex);
-                drawContext.drawText(this.textRenderer, orderedText, drawX, this.textY, color, this.textShadow);
-                drawX += this.textRenderer.getWidth(orderedText) + 1;
+                FormattedCharSequence orderedText = this.format(beforeCursor, this.firstCharacterIndex);
+                drawContext.text(this.textRenderer, orderedText, drawX, this.textY, color, this.textShadow);
+                drawX += this.textRenderer.width(orderedText) + 1;
             }
 
             boolean hasMoreChars = this.selectionStart < this.text.length() || this.text.length() >= this.maxLength;
@@ -662,7 +662,7 @@ public class TextFieldElement extends AbstractElement {
             }
 
             if (!visibleText.isEmpty() && cursorInVisibleRange && cursorOffset < visibleText.length()) {
-                drawContext.drawText(
+                drawContext.text(
                         this.textRenderer,
                         this.format(visibleText.substring(cursorOffset), this.selectionStart),
                         drawX,
@@ -672,16 +672,16 @@ public class TextFieldElement extends AbstractElement {
             }
 
             if (this.placeholder != null && visibleText.isEmpty() && !this.focused) {
-                drawContext.drawTextWithShadow(this.textRenderer, this.placeholder, drawX, this.textY, color);
+                drawContext.text(this.textRenderer, this.placeholder, drawX, this.textY, color);
             }
 
             if (!hasMoreChars && this.suggestion != null) {
-                drawContext.drawText(
+                drawContext.text(
                         this.textRenderer, this.suggestion, cursorX - 1, this.textY, -8355712, this.textShadow);
             }
 
             if (selectionOffset != cursorOffset) {
-                int selectionX = this.textX + this.textRenderer.getWidth(visibleText.substring(0, selectionOffset));
+                int selectionX = this.textX + this.textRenderer.width(visibleText.substring(0, selectionOffset));
                 drawSelection(
                         drawContext,
                         Math.min(cursorX, this.width),
@@ -695,7 +695,7 @@ public class TextFieldElement extends AbstractElement {
                 if (hasMoreChars) {
                     drawContext.fill(cursorX, this.textY - 1, cursorX + 1, this.textY + 10, color);
                 } else {
-                    drawContext.drawText(
+                    drawContext.text(
                             this.textRenderer, HORIZONTAL_CURSOR, cursorX, this.textY, color, this.textShadow);
                 }
             }
@@ -727,7 +727,7 @@ public class TextFieldElement extends AbstractElement {
                     yield false;
                 }
                 int cursor = this.calculateCursorPos(translatedMouseX);
-                long now = Util.getMeasuringTimeMs();
+                long now = Util.getMillis();
                 boolean doubled = this.lastClickButton == button
                         && this.lastClickCursor == cursor
                         && now - this.lastClickTime <= DOUBLE_CLICK_INTERVAL;
@@ -783,21 +783,21 @@ public class TextFieldElement extends AbstractElement {
         return super.onTyped(widget, chr, modifiers);
     }
 
-    protected OrderedText format(String value, int firstCharacterIndex) {
+    protected FormattedCharSequence format(String value, int firstCharacterIndex) {
         for (Formatter formatter : this.formatters) {
-            OrderedText orderedText = formatter.format(value, firstCharacterIndex);
+            FormattedCharSequence orderedText = formatter.format(value, firstCharacterIndex);
             if (orderedText != null) {
                 return orderedText;
             }
         }
-        return OrderedText.styledForwardsVisitedString(value, Style.EMPTY);
+        return FormattedCharSequence.forward(value, Style.EMPTY);
     }
 
     protected void updateTextPosition() {
         String visibleText =
-                this.textRenderer.trimToWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
+                this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), this.getInnerWidth());
         this.textX = this.centered
-                ? (this.width - this.textRenderer.getWidth(visibleText)) / 2
+                ? (this.width - this.textRenderer.width(visibleText)) / 2
                 : (this.drawsBackground ? 4 : 0);
         this.textY = this.drawsBackground ? (this.height - 8) / 2 : 0;
     }
@@ -805,18 +805,18 @@ public class TextFieldElement extends AbstractElement {
     protected void updateFirstCharacterIndex(int cursor) {
         this.firstCharacterIndex = Math.min(this.firstCharacterIndex, this.text.length());
         int innerWidth = this.getInnerWidth();
-        String visibleText = this.textRenderer.trimToWidth(this.text.substring(this.firstCharacterIndex), innerWidth);
+        String visibleText = this.textRenderer.plainSubstrByWidth(this.text.substring(this.firstCharacterIndex), innerWidth);
         int visibleEnd = visibleText.length() + this.firstCharacterIndex;
         if (cursor == this.firstCharacterIndex) {
             this.firstCharacterIndex -=
-                    this.textRenderer.trimToWidth(this.text, innerWidth, true).length();
+                    this.textRenderer.plainSubstrByWidth(this.text, innerWidth, true).length();
         }
         if (cursor > visibleEnd) {
             this.firstCharacterIndex += cursor - visibleEnd;
         } else if (cursor <= this.firstCharacterIndex) {
             this.firstCharacterIndex -= this.firstCharacterIndex - cursor;
         }
-        this.firstCharacterIndex = MathHelper.clamp(this.firstCharacterIndex, 0, this.text.length());
+        this.firstCharacterIndex = Mth.clamp(this.firstCharacterIndex, 0, this.text.length());
     }
 
     protected boolean hasCtrlOrCmd(int modifiers) {
@@ -829,6 +829,6 @@ public class TextFieldElement extends AbstractElement {
 
     @FunctionalInterface
     public interface Formatter {
-        OrderedText format(String string, int firstCharacterIndex);
+        FormattedCharSequence format(String string, int firstCharacterIndex);
     }
 }

@@ -7,9 +7,9 @@ import me.matl114.gui.elements.PageButtonElement;
 import me.matl114.gui.presets.single.IntFastInputWidget;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
+import net.minecraft.util.Mth;
 
 public class PageSwitchSubScreen extends SubScreenWidget {
     protected int maxPage = 1;
@@ -22,14 +22,14 @@ public class PageSwitchSubScreen extends SubScreenWidget {
 
     public final void updateMaxPage(int val) {
         this.maxPage = val;
-        this.page = MathHelper.clamp(this.page, 1, maxPage);
+        this.page = Mth.clamp(this.page, 1, maxPage);
     }
     //
     //    public final void updateMaxPage(int page, int maxPage){
     //
     //    }
     public final void updatePage(int page) {
-        this.page = MathHelper.clamp(page, 1, maxPage);
+        this.page = Mth.clamp(page, 1, maxPage);
     }
 
     public int getPage() {
@@ -38,7 +38,7 @@ public class PageSwitchSubScreen extends SubScreenWidget {
 
     protected void setPage(int page) {
 
-        this.page = MathHelper.clamp(page, 1, maxPage);
+        this.page = Mth.clamp(page, 1, maxPage);
         this.pageSwitchCallback.accept(this.page);
     }
 
@@ -74,9 +74,9 @@ public class PageSwitchSubScreen extends SubScreenWidget {
                 .setElementHandler(new AbstractElement()
                         .combineRender(new LabelElement(
                                 (i) -> {
-                                    return Text.literal(this.page + "/" + this.maxPage);
+                                    return Component.literal(this.page + "/" + this.maxPage);
                                 },
-                                Colors.WHITE,
+                                CommonColors.WHITE,
                                 0))
                         .withInputHandler(InputHandler.scroller((w, a) -> {
                             setPage(getPage() + (a > 0 ? -1 : 1));

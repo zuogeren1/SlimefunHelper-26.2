@@ -15,10 +15,10 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public class InvHud extends BaseModule {
     public InvHud() {
@@ -44,7 +44,7 @@ public class InvHud extends BaseModule {
 
     public NBTRef<RegistryRegex<Item>> whiteList = builder(
                     invHud.add("show-items"), NBTType.<RegistryRegex<Item>>parameter(RegistryRegex.class))
-            .defaultValue(new RegistryRegex<>(new Regex("^(.*)$"), Registries.ITEM))
+            .defaultValue(new RegistryRegex<>(new Regex("^(.*)$"), BuiltInRegistries.ITEM))
             .build();
 
     public IntRef line =
@@ -63,7 +63,7 @@ public class InvHud extends BaseModule {
 
     List<ItemStack> toShow;
 
-    public void onPostTick(Event<ClientPlayerEntity> event) {
+    public void onPostTick(Event<LocalPlayer> event) {
         if (enable.get()) {
             toShow = new ArrayList<>();
             Map<ItemStackSample, Integer> map;
@@ -85,8 +85,8 @@ public class InvHud extends BaseModule {
     }
 
     public void handleRenderPosition(VDrawContext vdraw) {
-        int sizeX = mc.getWindow().getScaledWidth();
-        int sizeY = mc.getWindow().getScaledHeight();
+        int sizeX = mc.getWindow().getGuiScaledWidth();
+        int sizeY = mc.getWindow().getGuiScaledHeight();
         //        vdraw.pushMatrix();
         //        vdraw.drawTexturedQuad(Identifier.tryParse("slimefunhelper:textures/custom/genshin_impact.png"), sizeX
         // - 30,sizeX, sizeY - 20, sizeY, 0, 0,1,0 , 1);
@@ -103,7 +103,7 @@ public class InvHud extends BaseModule {
         int startX = right.get() ? (-18 * x - 18) : (18 * x);
         int startY = down.get() ? (-18 * totalLine + 18 * y) : (18 * y);
         vdraw.drawItem(stack, startX + 1, startY + 1, 999, 0);
-        vdraw.drawItemInSlot(mc.textRenderer, stack, startX + 1, startY + 1, null);
+        vdraw.drawItemInSlot(mc.font, stack, startX + 1, startY + 1, null);
     }
 
     public void onRender2D(Event<VDrawContext> event) {

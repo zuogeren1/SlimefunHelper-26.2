@@ -12,10 +12,10 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -35,12 +35,12 @@ public abstract class ElytraCommandMixin extends Command {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/world/World;getRegistryKey()Lnet/minecraft/registry/RegistryKey;"),
+                            target = "Lnet/minecraft/world/level/Level;dimension()Lnet/minecraft/resources/ResourceKey;"),
             require = 0)
-    private RegistryKey<World> onExecuteNetherSupport(RegistryKey<World> original) {
-        if (BaritoneFix.INSTANCE.enableDimensionFix.get() && original != World.NETHER) {
+    private ResourceKey<Level> onExecuteNetherSupport(ResourceKey<Level> original) {
+        if (BaritoneFix.INSTANCE.enableDimensionFix.get() && original != Level.NETHER) {
             BaritoneFix.INSTANCE.logI18N("message.module.baritone-fix.ignore-dimension-limit");
-            return World.NETHER;
+            return Level.NETHER;
         }
         return original;
     }
@@ -53,7 +53,7 @@ public abstract class ElytraCommandMixin extends Command {
                 long seed = seedOre.getCurrentSeed();
                 if (seed != BaritoneAPI.getSettings().elytraNetherSeed.value && SeedOre.isSeedValid(seed)) {
                     Debug.chat(
-                            Text.literal("[BaritoneFix]").formatted(Formatting.RED),
+                            Component.literal("[BaritoneFix]").withStyle(ChatFormatting.RED),
                             "Auto import the cached world seed",
                             ChatUtils.getDisplayedLong(seed));
                     BaritoneAPI.getSettings().elytraNetherSeed.value = (Long) seed;

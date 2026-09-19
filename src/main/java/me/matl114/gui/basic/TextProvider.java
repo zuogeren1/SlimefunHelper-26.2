@@ -1,17 +1,17 @@
 package me.matl114.gui.basic;
 
-import net.minecraft.text.OrderedText;
+import net.minecraft.util.FormattedCharSequence;
 
 public interface TextProvider {
-    public net.minecraft.text.Text getText(DrawableWidget el);
+    public net.minecraft.network.chat.Component getText(DrawableWidget el);
 
     // DO NO CALL
-    default OrderedText getLabel(DrawableWidget element) {
-        net.minecraft.text.Text text = getText(element);
-        return text == null ? null : text.asOrderedText();
+    default FormattedCharSequence getLabel(DrawableWidget element) {
+        net.minecraft.network.chat.Component text = getText(element);
+        return text == null ? null : text.getVisualOrderText();
     }
 
-    static TextProvider of(net.minecraft.text.Text text) {
+    static TextProvider of(net.minecraft.network.chat.Component text) {
         return ((b) -> text);
     }
 }

@@ -19,14 +19,14 @@ import me.matl114.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.collections.FPoint;
 import me.matl114.utils.collections.IndexEntry;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import xaeroplus.feature.highlights.ChunkHighlightCache;
 import xaeroplus.module.ModuleManager;
 import xaeroplus.module.impl.LavaColumns;
@@ -66,7 +66,7 @@ public class XaeroMapScanner extends BaseModule {
     public final FlagRef render =
             builder(root.add("render"), Boolean.class).defaultValue(true).build();
     public final NBTRef<WrapColor> color = builder(root.add("render-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.RED)))
+            .defaultValue(new WrapColor((ChatFormatting.RED)))
             .build();
 
     @Override
@@ -107,7 +107,7 @@ public class XaeroMapScanner extends BaseModule {
         }
     }
 
-    public List<LineWrapper<?>> supplyLoadedChunkLines(int x, int y, int w, RegistryKey<World> dimension) {
+    public List<LineWrapper<?>> supplyLoadedChunkLines(int x, int y, int w, ResourceKey<Level> dimension) {
         if (enable.get() && render.get()) {
             return currentGoals.get(mode.get()).supplyGoalInfo();
         } else {
@@ -138,13 +138,13 @@ public class XaeroMapScanner extends BaseModule {
         currentGoals.values().forEach(Goal::reset);
     }
 
-    public void onWorldSwitch(Event<World> event) {
+    public void onWorldSwitch(Event<Level> event) {
         reset();
     }
 
     Map<Mode, Goal> currentGoals;
 
-    public void onTickPost(Event<ClientPlayerEntity> event) {
+    public void onTickPost(Event<LocalPlayer> event) {
         if (enable.get()) {
             if (!XaeroHooks.getInstance().isXaeroWorldMapEnable()
                     || !XaeroHooks.getInstance().isXaeroPlusEnable()
@@ -158,10 +158,10 @@ public class XaeroMapScanner extends BaseModule {
                 currentGoals.get(mode.get()).reset();
             }
 
-            ChunkPos chunkPos = mc.player.getChunkPos();
+            ChunkPos chunkPos = mc.player.chunkPosition();
             if (lastGoal == null
                     || lastChunkPos == null
-                    || lastChunkPos.getSquaredDistance(chunkPos) > MathUtils.s2(rescheduleRange.get())) {
+                    || lastChunkPos.distanceSquared(chunkPos) > MathUtils.s2(rescheduleRange.get())) {
                 lastChunkPos = chunkPos;
                 BlockPos goal = currentGoals.get(mode.get()).tickGoal(lastGoal, lastChunkPos);
                 if (!Objects.equals(goal, lastGoal)) {
@@ -206,13 +206,13 @@ public class XaeroMapScanner extends BaseModule {
         XaeroMapScanner scanner;
 
         private Set<ChunkPos> extractNearbyHighlights(ChunkHighlightCache cache, ChunkPos pos) {
-            Long2LongMap chunkMap = cache.getCacheMap(mc.world.getRegistryKey());
+            Long2LongMap chunkMap = cache.getCacheMap(mc.level.dimension());
             if (chunkMap == null) return Set.of();
             Set<ChunkPos> ret = new HashSet<>();
             int range = scanner.chunkRange.get();
             for (var x = -range; x <= range; ++x) {
                 for (var z = -range; z <= range; ++z) {
-                    long longValue = ChunkPos.toLong(pos.x + x, pos.z + z);
+                    long longValue = ChunkPos.pack(pos.x + x, pos.z + z);
                     if (chunkMap.containsKey(longValue)) {
                         ret.add(new ChunkPos(pos.x + x, pos.z + z));
                     }
@@ -222,13 +222,13 @@ public class XaeroMapScanner extends BaseModule {
         }
 
         private Set<ChunkPos> extractNearbyHighlightsLavaColumn(ChunkHighlightCache cache, ChunkPos pos) {
-            Long2LongMap chunkMap = cache.getCacheMap(mc.world.getRegistryKey());
+            Long2LongMap chunkMap = cache.getCacheMap(mc.level.dimension());
             if (chunkMap == null) return Set.of();
             Set<ChunkPos> ret = new HashSet<>();
             int range = scanner.chunkRange.get();
             for (var x = -range; x <= range; ++x) {
                 for (var z = -range; z <= range; ++z) {
-                    long longValue = ChunkPos.toLong(pos.x + x, pos.z + z);
+                    long longValue = ChunkPos.pack(pos.x + x, pos.z + z);
                     if (chunkMap.get(longValue) > 5) {
                         ret.add(new ChunkPos(pos.x + x, pos.z + z));
                     }
@@ -247,7 +247,7 @@ public class XaeroMapScanner extends BaseModule {
 
         private static final double RED_SIDE_CORRECTION_DISTANCE = 80.0;
         private FitResult result = null;
-        private Vec3d lastDirection = null;
+        private Vec3 lastDirection = null;
         private Double lastSignedDistance = null;
 
         @Override
@@ -261,7 +261,7 @@ public class XaeroMapScanner extends BaseModule {
         public BlockPos tickGoal(BlockPos lastGoal, ChunkPos chunkPos) {
             if (lastDirection == null && lastGoal != null) {
                 lastDirection =
-                        lastGoal.toCenterPos().subtract(mc.player.getPos()).withAxis(Direction.Axis.Y, 0);
+                        Vec3.atCenterOf(lastGoal).subtract(mc.player.position()).with(Direction.Axis.Y, 0);
             }
             Set<ChunkPos> chunkWithLavaColumns =
                     new HashSet<>(extractNearbyHighlightsLavaColumn(lavaColumns.lavaColumnsCache.get(), chunkPos));
@@ -272,7 +272,7 @@ public class XaeroMapScanner extends BaseModule {
             }
             chunkWithLavaColumns.removeAll(chunkWithNewChunks);
             double ratio = scanner.unloadedRatio.get();
-            Vec3d playerPos = mc.player.getPos();
+            Vec3 playerPos = mc.player.position();
             if (result != null) {
                 double signedDistance = signedDistance(result, playerPos.x, playerPos.z);
                 if (lastSignedDistance != null) {
@@ -294,67 +294,67 @@ public class XaeroMapScanner extends BaseModule {
                 // all loaded, just continue
                 if (lastGoal != null) {
                     if (lastDirection != null) {
-                        return BlockPos.ofFloored(mc.player.getPos().add(lastDirection.multiply(goalDistance())));
-                    } else if (lastGoal.toCenterPos()
-                                    .subtract(mc.player.getPos())
-                                    .horizontalLengthSquared()
+                        return BlockPos.containing(mc.player.position().add(lastDirection.scale(goalDistance())));
+                    } else if (Vec3.atCenterOf(lastGoal)
+                                    .subtract(mc.player.position())
+                                    .horizontalDistanceSqr()
                             > MathUtils.s2(minDistance())) {
                         return lastGoal;
                     } else {
-                        Vec3d direction = lastGoal.toCenterPos()
-                                .subtract(mc.player.getPos())
-                                .withAxis(Direction.Axis.Y, 0)
+                        Vec3 direction = Vec3.atCenterOf(lastGoal)
+                                .subtract(mc.player.position())
+                                .with(Direction.Axis.Y, 0)
                                 .normalize();
-                        return BlockPos.ofFloored(mc.player.getPos().add(direction.multiply(goalDistance())));
+                        return BlockPos.containing(mc.player.position().add(direction.scale(goalDistance())));
                     }
                 } else {
                     lastDirection = null;
-                    Vec3d horizontalLook = EntityUtils.pitchYawToRotation(0, mc.player.getYaw());
+                    Vec3 horizontalLook = EntityUtils.pitchYawToRotation(0, mc.player.getYRot());
                     lastDirection = horizontalLook;
-                    return BlockPos.ofFloored(mc.player.getPos().add(horizontalLook.multiply(goalDistance())));
+                    return BlockPos.containing(mc.player.position().add(horizontalLook.scale(goalDistance())));
                 }
             } else {
 
                 List<FPoint> red = toPoints(chunkWithNewChunks);
                 List<FPoint> blue = toPoints(chunkWithLavaColumns);
-                FitResult best = findBestLine(red, blue, mc.player.getPos());
+                FitResult best = findBestLine(red, blue, mc.player.position());
                 result = best;
                 if (best == null) {
                     return lastGoal;
                 }
 
                 double signedDistance = signedDistance(best, playerPos.x, playerPos.z);
-                Vec3d currentDirection;
+                Vec3 currentDirection;
                 if (lastDirection != null) {
                     currentDirection = lastDirection;
                 } else if (lastGoal != null) {
-                    Vec3d delta = lastGoal.toCenterPos().subtract(playerPos);
-                    delta = new Vec3d(delta.x, 0, delta.z);
-                    if (delta.lengthSquared() > EPS) {
+                    Vec3 delta = Vec3.atCenterOf(lastGoal).subtract(playerPos);
+                    delta = new Vec3(delta.x, 0, delta.z);
+                    if (delta.lengthSqr() > EPS) {
                         currentDirection = delta.normalize();
                     } else {
-                        currentDirection = EntityUtils.pitchYawToRotation(0, mc.player.getYaw());
-                        currentDirection = new Vec3d(currentDirection.x, 0, currentDirection.z).normalize();
+                        currentDirection = EntityUtils.pitchYawToRotation(0, mc.player.getYRot());
+                        currentDirection = new Vec3(currentDirection.x, 0, currentDirection.z).normalize();
                     }
                 } else {
-                    currentDirection = EntityUtils.pitchYawToRotation(0, mc.player.getYaw());
-                    currentDirection = new Vec3d(currentDirection.x, 0, currentDirection.z).normalize();
+                    currentDirection = EntityUtils.pitchYawToRotation(0, mc.player.getYRot());
+                    currentDirection = new Vec3(currentDirection.x, 0, currentDirection.z).normalize();
                 }
 
-                Vec3d tangent = chooseTangent(best, currentDirection);
+                Vec3 tangent = chooseTangent(best, currentDirection);
                 lastDirection = tangent;
                 if (signedDistance > RED_SIDE_CORRECTION_DISTANCE) {
                     lastSignedDistance = signedDistance;
-                    Vec3d projected = projectToLine(best, playerPos);
+                    Vec3 projected = projectToLine(best, playerPos);
                     // should revert fly
-                    Vec3d target = projected.multiply(2).subtract(playerPos).add(tangent.multiply(goalDistance()));
+                    Vec3 target = projected.scale(2).subtract(playerPos).add(tangent.scale(goalDistance()));
 
-                    return BlockPos.ofFloored(target);
+                    return BlockPos.containing(target);
                 }
 
-                Vec3d target = playerPos.add(tangent.multiply(goalDistance()));
+                Vec3 target = playerPos.add(tangent.scale(goalDistance()));
 
-                return BlockPos.ofFloored(target);
+                return BlockPos.containing(target);
             }
         }
 
@@ -439,7 +439,7 @@ public class XaeroMapScanner extends BaseModule {
         private static final double EPS = 1e-9;
 
         private IndexEntry<FitResult> evaluateCandidateLine(
-                FitResult base, List<FPoint> red, List<FPoint> blue, Vec3d playerPos) {
+                FitResult base, List<FPoint> red, List<FPoint> blue, Vec3 playerPos) {
 
             List<FPoint> all = new ArrayList<>(red.size() + blue.size());
 
@@ -506,7 +506,7 @@ public class XaeroMapScanner extends BaseModule {
          *     离玩家更近
          */
         private IndexEntry<FitResult> betterFit(
-                FitResult line1, int score1, FitResult line2, int score2, Vec3d playerPos) {
+                FitResult line1, int score1, FitResult line2, int score2, Vec3 playerPos) {
 
             if (score1 > score2) {
                 return new IndexEntry<>(score1, line1);
@@ -549,7 +549,7 @@ public class XaeroMapScanner extends BaseModule {
          *
          * n <= 100 时完全足够。
          */
-        private FitResult findBestLine(List<FPoint> red, List<FPoint> blue, Vec3d playerPos) {
+        private FitResult findBestLine(List<FPoint> red, List<FPoint> blue, Vec3 playerPos) {
 
             List<FPoint> all = new ArrayList<>(red.size() + blue.size());
 
@@ -598,27 +598,27 @@ public class XaeroMapScanner extends BaseModule {
             return best;
         }
 
-        private Vec3d projectToLine(FitResult line, Vec3d playerPos) {
+        private Vec3 projectToLine(FitResult line, Vec3 playerPos) {
 
             double d = signedDistance(line, playerPos.x, playerPos.z);
 
-            return new Vec3d(playerPos.x - line.a() * d, playerPos.y, playerPos.z - line.b() * d);
+            return new Vec3(playerPos.x - line.a() * d, playerPos.y, playerPos.z - line.b() * d);
         }
 
-        private Vec3d chooseTangent(FitResult line, Vec3d currentDirection) {
+        private Vec3 chooseTangent(FitResult line, Vec3 currentDirection) {
 
-            Vec3d d1 = new Vec3d(line.b(), 0, -line.a()).normalize();
+            Vec3 d1 = new Vec3(line.b(), 0, -line.a()).normalize();
 
-            Vec3d d2 = d1.multiply(-1);
+            Vec3 d2 = d1.scale(-1);
 
-            if (currentDirection.lengthSquared() < EPS) {
+            if (currentDirection.lengthSqr() < EPS) {
 
                 return d1;
             }
 
             currentDirection = currentDirection.normalize();
 
-            if (d1.dotProduct(currentDirection) >= 0) {
+            if (d1.dot(currentDirection) >= 0) {
 
                 return d1;
             }
@@ -653,7 +653,7 @@ public class XaeroMapScanner extends BaseModule {
 
         private static record FitResult(double a, double b, double c) {
             public float getKDegree() {
-                return EntityUtils.rotationToYaw(new Vec3d(b, 0, -a));
+                return EntityUtils.rotationToYaw(new Vec3(b, 0, -a));
             }
 
             public FitResult add(FitResult other) {

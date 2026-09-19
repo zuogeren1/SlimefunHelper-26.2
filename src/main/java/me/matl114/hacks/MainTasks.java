@@ -16,28 +16,27 @@ import me.matl114.hacks.api.ModuleGroup;
 import me.matl114.hacks.api.ModuleManager;
 import me.matl114.hacks.modules.HackModules;
 import me.matl114.hacks.modules.task.*;
-import me.matl114.hacks.modules.task.ConnectionProxy;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.Config;
 import me.matl114.managers.config.ConfigEnum;
 import me.matl114.utils.*;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ProgressScreen;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.BookUpdateC2SPacket;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableTextContent;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
+import net.minecraft.ChatFormatting;
+import net.minecraft.CrashReport;
+import net.minecraft.ReportedException;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ProgressScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.network.protocol.game.ServerboundEditBookPacket;
+import net.minecraft.world.item.Items;
 
 public class MainTasks {
     public static void init() {}
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static List<String> getSpecialTaskName() {
         return List.of(
@@ -85,11 +84,11 @@ public class MainTasks {
 
     public static void generateWritableBookContent(String[] args) {
         if (mc.player != null) {
-            if (mc.player.getMainHandStack().getItem() == Items.WRITABLE_BOOK) {
+            if (mc.player.getMainHandItem().getItem() == Items.WRITABLE_BOOK) {
                 Debug.chat("生成了书内容");
                 String generatedContent = "§b§k" + ("1a锕β".repeat(250));
-                mc.getNetworkHandler()
-                        .sendPacket(new BookUpdateC2SPacket(
+                mc.getConnection()
+                        .send(new ServerboundEditBookPacket(
                                 InventoryUtils.getSelectedSlot(),
                                 Collections.nCopies(100, generatedContent),
                                 args.length > 0 ? Optional.of(String.join("\n", args)) : Optional.empty()));
@@ -108,8 +107,8 @@ public class MainTasks {
     public static void clientCrash(String[] args) {
         Tasks.scheduleDelayed(
                 () -> {
-                    mc.world = null;
-                    throw new CrashException(new CrashReport("test crash", new NullPointerException()));
+                    mc.level = null;
+                    throw new ReportedException(new CrashReport("test crash", new NullPointerException()));
                 },
                 1);
     }
@@ -117,7 +116,7 @@ public class MainTasks {
     public static void clientLiteCrash(String[] args) {
         Tasks.scheduleDelayed(
                 () -> {
-                    throw new CrashException(new CrashReport("test crash", new NullPointerException()));
+                    throw new ReportedException(new CrashReport("test crash", new NullPointerException()));
                 },
                 1);
     }
@@ -176,24 +175,24 @@ public class MainTasks {
         }
 
         if (missingKeys.isEmpty()) {
-            Debug.chat(Text.literal("翻译检查完成，WrapperConfig=" + wrapperConfigCount + "，快捷键入口=" + moduleEntryCount
+            Debug.chat(Component.literal("翻译检查完成，WrapperConfig=" + wrapperConfigCount + "，快捷键入口=" + moduleEntryCount
                             + "，ConfigEnum=" + configEnumCount + "，ClickGui模块名=" + clickGuiModuleNameCount
                             + "，config.index=" + configIndexCount + "，未发现缺失翻译")
-                    .formatted(Formatting.GREEN));
+                    .withStyle(ChatFormatting.GREEN));
             return;
         }
-        Debug.chat(Text.literal("翻译检查完成，WrapperConfig=" + wrapperConfigCount + "，快捷键入口=" + moduleEntryCount
+        Debug.chat(Component.literal("翻译检查完成，WrapperConfig=" + wrapperConfigCount + "，快捷键入口=" + moduleEntryCount
                         + "，ConfigEnum=" + configEnumCount + "，ClickGui模块名=" + clickGuiModuleNameCount
                         + "，config.index=" + configIndexCount + "，共发现缺失翻译 " + missingKeys.size() + " 个")
-                .formatted(Formatting.YELLOW));
+                .withStyle(ChatFormatting.YELLOW));
         for (String key : missingKeys) {
-            Debug.chat(Text.literal(" - " + key).formatted(Formatting.RED));
+            Debug.chat(Component.literal(" - " + key).withStyle(ChatFormatting.RED));
         }
     }
 
-    private static void checkTranslationText(Text text, Set<String> checkedKeys, List<String> missingKeys) {
-        if (text instanceof MutableText mutableText
-                && mutableText.getContent() instanceof TranslatableTextContent translatableTextContent) {
+    private static void checkTranslationText(Component text, Set<String> checkedKeys, List<String> missingKeys) {
+        if (text instanceof MutableComponent mutableText
+                && mutableText.getContents() instanceof TranslatableContents translatableTextContent) {
             checkTranslationKey(translatableTextContent.getKey(), checkedKeys, missingKeys);
         }
     }
@@ -247,7 +246,7 @@ public class MainTasks {
         clickGui.openConfigurateScreen(module);
     }
 
-    public static final Text QUITTING_MULTIPLAYER_TEXT = Text.translatable("multiplayer.status.quitting");
+    public static final Component QUITTING_MULTIPLAYER_TEXT = Component.translatable("multiplayer.status.quitting");
 
     @ApiMethod
     public static void scheduleDisconnect() {
@@ -258,20 +257,20 @@ public class MainTasks {
     public static void disconnectImmediately() {
         disconnect();
         if (Listener.getClientConnection() != null
-                && Listener.getClientConnection().isOpen()) {
+                && Listener.getClientConnection().isConnected()) {
             Listener.getClientConnection().disconnect(QUITTING_MULTIPLAYER_TEXT);
         }
     }
 
     @ApiMethod
     public static void disconnect() {
-        if (mc.world != null) {
-            mc.world.disconnect(QUITTING_MULTIPLAYER_TEXT);
+        if (mc.level != null) {
+            mc.level.disconnect(QUITTING_MULTIPLAYER_TEXT);
         }
         mc.disconnect(new ProgressScreen(true), false);
 
         TitleScreen titleScreen = new TitleScreen();
-        mc.setScreen(new MultiplayerScreen(titleScreen));
+        mc.gui.setScreen(new JoinMultiplayerScreen(titleScreen));
     }
 
     @Getter

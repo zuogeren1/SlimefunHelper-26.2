@@ -1,5 +1,6 @@
 package me.matl114.hacks.utils.config;
 
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Optional;
@@ -23,10 +24,9 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.collections.FPoint;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 @Getter
 @AllArgsConstructor
@@ -42,7 +42,7 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
     public final int lengthX;
     public final int lengthY;
     public static final WidgetPos EMPTY = new WidgetPos(0, 0, 0, 0, 0);
-    public static final MinecraftClient mc = MinecraftClient.getInstance();
+    public static final Minecraft mc = Minecraft.getInstance();
     public static NBTType<WidgetPos> TYPE = new NBTType<>(
             "widgetpos",
             RecordCodecBuilder.<WidgetPos>create(oInstance -> oInstance
@@ -59,11 +59,11 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
                         .setElementHandler(new ButtonElement(
                                 (el) -> {
                                     return switch (w.getOriginValue().getType()) {
-                                        case 0 -> Text.translatableWithFallback(
+                                        case 0 -> Component.translatableWithFallback(
                                                 "widget.nbt-parsable.widget-pos.percentage", "Per");
-                                        case 1 -> Text.translatableWithFallback(
+                                        case 1 -> Component.translatableWithFallback(
                                                 "widget.nbt-parsable.widget-pos.absolute-length", "Abs");
-                                        default -> Text.empty();
+                                        default -> Component.empty();
                                     };
                                 },
                                 ButtonAction.run(() -> {
@@ -82,13 +82,13 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
                 percentage1.addDrawableChild(percentageSel.generateValueWidget(0, 0, dx - 3 * dy, dy));
                 percentage1.addDrawableChild(generateWidgetPosSelectScreenButton(
                         dx - 3 * dy, 0, dy, dy, () -> w.getOriginValue().getFPoint(), (el) -> {
-                            int width = mc.getWindow().getScaledWidth();
-                            int height = mc.getWindow().getScaledHeight();
+                            int width = mc.getWindow().getGuiScaledWidth();
+                            int height = mc.getWindow().getGuiScaledHeight();
                             double mulWidth = (el.x * 100) / width;
                             double mulHeight = (el.y * 100) / height;
                             Vec2 percentage2 = new Vec2(
-                                    MathHelper.clamp(Math.round(mulWidth) / 100.0D, 0, 1),
-                                    MathHelper.clamp(Math.round(mulHeight) / 100.0D, 0, 1));
+                                    Mth.clamp(Math.round(mulWidth) / 100.0D, 0, 1),
+                                    Mth.clamp(Math.round(mulHeight) / 100.0D, 0, 1));
                             percentageSel.valueChangeInternal(null, percentage2);
                         }));
                 TypeConvertAttrKeyValue<WidgetPos, Vec2> absoluteSel = new TypeConvertAttrKeyValue<>(
@@ -147,7 +147,7 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
 
     public int getWindowX(Window window) {
         if (type == 0) {
-            return (int) (window.getScaledWidth() * percentageX);
+            return (int) (window.getGuiScaledWidth() * percentageX);
         } else if (type == 1) {
             return lengthX;
         } else {
@@ -157,7 +157,7 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
 
     public double getWindowXFloat(Window window) {
         if (type == 0) {
-            return (window.getScaledWidth() * percentageX);
+            return (window.getGuiScaledWidth() * percentageX);
         } else if (type == 1) {
             return lengthX;
         } else {
@@ -171,7 +171,7 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
 
     public int getWindowY(Window window) {
         if (type == 0) {
-            return (int) (window.getScaledHeight() * percentageY);
+            return (int) (window.getGuiScaledHeight() * percentageY);
         } else if (type == 1) {
             return lengthY;
         } else {
@@ -181,7 +181,7 @@ public class WidgetPos implements NBTParsable<WidgetPos> {
 
     public double getWindowYFloat(Window window) {
         if (type == 0) {
-            return (window.getScaledHeight() * percentageY);
+            return (window.getGuiScaledHeight() * percentageY);
         } else if (type == 1) {
             return lengthY;
         } else {

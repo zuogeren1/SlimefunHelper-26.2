@@ -1,7 +1,6 @@
 package me.matl114.bridge;
 
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.Item;
 
 public class ItemBridge {
     public static void init() {}
@@ -9,6 +8,8 @@ public class ItemBridge {
     public static Item TESTITEM;
 
     static {
-        TESTITEM = Items.register("myitem", Item::new);
+        // 26.2: Items.registerItem 已改为 private，外部无法注册测试物品。
+        // 该 TESTITEM 仅用于开发期占位，此处置空（不影响运行期逻辑）。
+        TESTITEM = null;
     }
 }

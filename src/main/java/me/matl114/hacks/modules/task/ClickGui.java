@@ -5,7 +5,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.lang.ref.WeakReference;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -49,16 +48,16 @@ import me.matl114.managers.input.*;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.algorithms.SerialExecutor;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.SimpleOption;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.OptionInstance;
+import net.minecraft.client.Options;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
 
@@ -107,7 +106,7 @@ public class ClickGui extends BaseModule {
             .build();
 
     public NBTRef<WrapColor> textColor = builder(clickGui.add("gui-text-style"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.WHITE)))
+            .defaultValue(new WrapColor((ChatFormatting.WHITE)))
             .build();
 
     public final FlagRef enableConfigSubGroup = builder(clickGui.add("enable-config-subgroup"), Boolean.class)
@@ -118,8 +117,8 @@ public class ClickGui extends BaseModule {
         if (HotKeyUtils.isValidState()) {
             openClickGui();
             return true;
-        } else if (mc.currentScreen instanceof ClickGuiMainScreen gui) {
-            gui.close();
+        } else if (mc.gui.screen() instanceof ClickGuiMainScreen gui) {
+            gui.onClose();
             return true;
         } else return false;
     }
@@ -128,7 +127,7 @@ public class ClickGui extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(MultiplayerScreen.class), this::onScreenInitialize);
+                Listener.getPostInitializeScreen().getChannel(JoinMultiplayerScreen.class), this::onScreenInitialize);
     }
 
     public void openConfigScreen(Config config) {
@@ -136,13 +135,13 @@ public class ClickGui extends BaseModule {
     }
 
     public void openGameOptionsMenu() {
-        GameOptions options = mc.options;
-        List<SimpleOption<?>> options1 = new ArrayList<>();
-        for (var field : GameOptions.class.getDeclaredFields()) {
+        Options options = mc.options;
+        List<OptionInstance<?>> options1 = new ArrayList<>();
+        for (var field : Options.class.getDeclaredFields()) {
             field.setAccessible(true);
-            if (field.getType().isAssignableFrom(SimpleOption.class)) {
+            if (field.getType().isAssignableFrom(OptionInstance.class)) {
                 try {
-                    SimpleOption<?> option = (SimpleOption<?>) field.get(options);
+                    OptionInstance<?> option = (OptionInstance<?>) field.get(options);
                     if (option != null) {
                         options1.add(option);
                     }
@@ -154,7 +153,7 @@ public class ClickGui extends BaseModule {
         ScrollableListWidget widget = new ScrollableListWidget(20, 20, 360, 280);
         int yLevel = 0;
         for (var sim : options1) {
-            var re = sim.createWidget(mc.options);
+            var re = sim.createButton(mc.options);
             widget.addScrollingWidget(new ContentDelegateWidget<>(20, yLevel, 320, 40).setContentDelegate(re));
             //                SubScreenWidget.instance(20, 0 , 320, 40)
             //                    .addDrawableChild(
@@ -166,7 +165,7 @@ public class ClickGui extends BaseModule {
             //            )
             yLevel += re.getHeight();
         }
-        SimpleScreen screen = new SimpleScreen(Text.literal("Options Screen"), 400, 320, widget);
+        SimpleScreen screen = new SimpleScreen(Component.literal("Options Screen"), 400, 320, widget);
 
         ScreenAccess.of(screen).openFromCurrent();
     }
@@ -177,12 +176,12 @@ public class ClickGui extends BaseModule {
 
     private WeakReference<ContentDelegateWidget<ExecutableWidget>> delegateWidget = null;
 
-    public void onScreenInitialize(Event<MultiplayerScreen> screenEvent) {
-        if (screenEvent.context() instanceof MultiplayerScreen mp) {
+    public void onScreenInitialize(Event<JoinMultiplayerScreen> screenEvent) {
+        if (screenEvent.context() instanceof JoinMultiplayerScreen mp) {
             // todo: add
             ExecutableWidget executableWidget = ExecutableWidget.instance(0, 0, 100, 20)
                     .setElementHandler(new ButtonElement(
-                            TextProvider.of(Text.literal("SlimefunHelper")), ButtonAction.run(this::openClickGui)));
+                            TextProvider.of(Component.literal("SlimefunHelper")), ButtonAction.run(this::openClickGui)));
             if (delegateWidget != null && delegateWidget.get() != null) {
                 ScreenAccess.of(mp).removeChildFrom(delegateWidget.get());
             }
@@ -196,10 +195,10 @@ public class ClickGui extends BaseModule {
     }
 
     public void resetGui() {
-        if (mc.currentScreen instanceof ClickGuiMainScreen guiMain) {
-            guiMain.close();
+        if (mc.gui.screen() instanceof ClickGuiMainScreen guiMain) {
+            guiMain.onClose();
         }
-        internalGuiData.write(new NbtCompound(), NbtOps.INSTANCE);
+        internalGuiData.write(new CompoundTag(), NbtOps.INSTANCE);
     }
 
     public List<String> getModules() {
@@ -209,7 +208,7 @@ public class ClickGui extends BaseModule {
     private static final String SEARCH_MODULE = "Search";
 
     public ClickGuiMetaData getClickGuiMetadata() {
-        NbtCompound data = internalGuiData.asReadOnly(NbtOps.INSTANCE);
+        CompoundTag data = internalGuiData.asReadOnly(NbtOps.INSTANCE);
         var result = ClickGuiMetaData.CODEC.decode(NbtOps.INSTANCE, data);
         ClickGuiMetaData meta;
         if (result.isSuccess()) {
@@ -227,7 +226,7 @@ public class ClickGui extends BaseModule {
     }
 
     public void setClickGuiMeta(ClickGuiMetaData meta) {
-        NbtElement element =
+        Tag element =
                 ClickGuiMetaData.CODEC.encodeStart(NbtOps.INSTANCE, meta).getOrThrow();
         internalGuiData.write(element, NbtOps.INSTANCE);
     }
@@ -303,22 +302,22 @@ public class ClickGui extends BaseModule {
         return subScreen;
     }
 
-    public Text getModuleName(BaseModule baseModule) {
-        return Text.translatableWithFallback(
+    public Component getModuleName(BaseModule baseModule) {
+        return Component.translatableWithFallback(
                 "widget.click-gui.module-name." + baseModule.getModuleManager().getName() + "." + baseModule.getName(),
                 baseModule.getName());
     }
 
-    private static final List<Text> TOOLTIP_HAS_BIND = List.of(Text.literal("左键切换模块是否启用"), Text.literal("右键打开模块配置界面"));
-    private static final List<Text> TOOLTIPS_NO_BIND = List.of(Text.literal("点击打开模块配置界面"));
+    private static final List<Component> TOOLTIP_HAS_BIND = List.of(Component.literal("左键切换模块是否启用"), Component.literal("右键打开模块配置界面"));
+    private static final List<Component> TOOLTIPS_NO_BIND = List.of(Component.literal("点击打开模块配置界面"));
 
-    public List<Text> getModuleButtonTooltips(BaseModule baseModule) {
-        List<Text> texts = new ArrayList<>(ChatUtils.parseTooltipsTranslation(
+    public List<Component> getModuleButtonTooltips(BaseModule baseModule) {
+        List<Component> texts = new ArrayList<>(ChatUtils.parseTooltipsTranslation(
                 "widget.click-gui.module-name." + baseModule.getModuleManager().getName() + "." + baseModule.getName()
                         + ".tooltips",
                 ""));
         if (!texts.isEmpty()) {
-            texts.add(Text.empty());
+            texts.add(Component.empty());
         }
         if (baseModule.getBindFlag() != null) {
             texts.addAll(TOOLTIP_HAS_BIND);
@@ -328,7 +327,7 @@ public class ClickGui extends BaseModule {
         return texts;
     }
 
-    public List<Text> getModuleDescriptionTooltips(BaseModule baseModule) {
+    public List<Component> getModuleDescriptionTooltips(BaseModule baseModule) {
         return ChatUtils.parseTooltipsTranslation(
                 "widget.click-gui.module-name." + baseModule.getModuleManager().getName() + "." + baseModule.getName()
                         + ".tooltips",
@@ -476,8 +475,8 @@ public class ClickGui extends BaseModule {
         return subScreen;
     }
 
-    private Text getConfigSubGroupTitle(String prefix) {
-        return Text.translatable("config.index." + prefix);
+    private Component getConfigSubGroupTitle(String prefix) {
+        return Component.translatable("config.index." + prefix);
     }
 
     private String getConfigSubGroupMetaKey(BaseModule baseModule, String prefix) {
@@ -570,7 +569,7 @@ public class ClickGui extends BaseModule {
             }
         };
 
-        ContentDelegateWidget<TextFieldWidget> inputWidget = McWidgetHelpers.createTextFieldEditBox(
+        ContentDelegateWidget<EditBox> inputWidget = McWidgetHelpers.createTextFieldEditBox(
                 0,
                 0,
                 buttonWidth,
@@ -600,7 +599,7 @@ public class ClickGui extends BaseModule {
                 .addToSub(subScreen);
         DisplayWidget.instance(0, 0, buttonWidth - buttonHeight, buttonHeight)
                 .setRenderHandler(new ColorSplitterElement(
-                        TextProvider.of(Text.literal(group)),
+                        TextProvider.of(Component.literal(group)),
                         this.textColor.get().withAlpha(255),
                         () -> backGroundColor.get().withAlpha(192)))
                 .addToSub(subScreen);
@@ -681,7 +680,7 @@ public class ClickGui extends BaseModule {
                             }
                         })
                         .combineRender(new ColorLabelTextElement(
-                                TextProvider.of(Text.translatableWithFallback(
+                                TextProvider.of(Component.translatableWithFallback(
                                         "widget.click-gui.module-group-name." + module, module)),
                                 () -> textColor.get().withAlpha(255),
                                 () -> moduleListColor.get().withAlpha(255)))
@@ -698,7 +697,7 @@ public class ClickGui extends BaseModule {
                                     element.getTextureHeight() - 4);
                             context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
                         }))
-                        .withTooltips(TooltipHandler.of(List.of(Text.literal("拖动或鼠标滚轮以修改位置")))));
+                        .withTooltips(TooltipHandler.of(List.of(Component.literal("拖动或鼠标滚轮以修改位置")))));
     }
 
     private DrawableWidget createBaseSettings(Screen screen, ClickGuiMetaData meta) {
@@ -724,7 +723,7 @@ public class ClickGui extends BaseModule {
                 .flatMap(s -> s.getEditableConfig().stream())
                 .toList();
         DrawableWidget widget = createConfigScreen(
-                Text.translatable("widget.click-gui.selection.CmdMacros"),
+                Component.translatable("widget.click-gui.selection.CmdMacros"),
                 List::of,
                 configRefs,
                 WidgetUtils.DEFAULT_CONFIG_SCREEN_LAYOUT,
@@ -740,7 +739,7 @@ public class ClickGui extends BaseModule {
                 .filter(s -> s.ref() instanceof KeyBindRef)
                 .toList();
         DrawableWidget widget = createConfigScreen(
-                Text.translatable("widget.click-gui.selection.Hotkeys"),
+                Component.translatable("widget.click-gui.selection.Hotkeys"),
                 List::of,
                 allKeyBinds,
                 WidgetUtils.DEFAULT_CONFIG_SCREEN_LAYOUT,
@@ -755,7 +754,7 @@ public class ClickGui extends BaseModule {
 
     private DrawableWidget createConfig(ClickGuiMetaData meta) {
         var screen = new ConfigurateNewStyleScreen(Config.getConfigs().stream().toList());
-        screen.init(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+        screen.init(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
         return new ContentDelegateWidget<>(0, 0, 0, 0).setContentDelegate(screen);
     }
 
@@ -764,7 +763,7 @@ public class ClickGui extends BaseModule {
                 .map(s -> Pair.of("widget.click-gui.baritone." + s.getKey(), (ValueAccessor) s.getValue()))
                 .toList();
         var widget = WidgetUtils.createValueAccessorsEditScreen(
-                Text.translatable("widget.click-gui.selection.Baritone"),
+                Component.translatable("widget.click-gui.selection.Baritone"),
                 List::of,
                 (List) baritones,
                 WidgetUtils.DEFAULT_CONFIG_SCREEN_LAYOUT,
@@ -775,8 +774,8 @@ public class ClickGui extends BaseModule {
     }
 
     public static DynamicListWidget createConfigScreen(
-            Text title,
-            Supplier<List<Text>> titleTooltips,
+            Component title,
+            Supplier<List<Component>> titleTooltips,
             List<BaseModule.WrapperConfigRef<?>> configs,
             WidgetUtils.ConfigScreenLayout layout,
             WidgetUtils.ConfigScreenPalette palette) {
@@ -860,7 +859,7 @@ public class ClickGui extends BaseModule {
             int yLevel = 0;
             for (int i = 0; i < sze; ++i, ++cntY) {
                 int idx = cntY * (wX + DEFAULT_GAP);
-                if (idx + wX > mc.getWindow().getScaledWidth()) {
+                if (idx + wX > mc.getWindow().getGuiScaledWidth()) {
                     cntY = 0;
                     idx = 0;
                     yLevel += 1;

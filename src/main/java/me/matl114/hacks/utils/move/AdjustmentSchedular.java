@@ -1,5 +1,6 @@
 package me.matl114.hacks.utils.move;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.List;
 import java.util.function.Supplier;
 import lombok.Getter;
@@ -13,18 +14,17 @@ import me.matl114.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 @Accessors(fluent = true, chain = true)
 public class AdjustmentSchedular {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     private static final double EDGE_STEP = 1E-2;
     private static final double LINE_LENGTH = 0.8;
 
@@ -34,7 +34,7 @@ public class AdjustmentSchedular {
 
     @Setter
     @Getter
-    Supplier<Vec3d> center;
+    Supplier<Vec3> center;
 
     @Setter
     @Getter
@@ -48,12 +48,12 @@ public class AdjustmentSchedular {
     @Getter
     double availableRange = 0.05;
 
-    ClientPlayerEntity player;
-    RenderCollector<List<Vec3d>> renderCollector = RenderCollectors.createLinesCollector();
+    LocalPlayer player;
+    RenderCollector<List<Vec3>> renderCollector = RenderCollectors.createLinesCollector();
 
     public AdjustmentSchedular() {}
 
-    public void tickAdjustment(ClientPlayerEntity player) {
+    public void tickAdjustment(LocalPlayer player) {
         renderCollector.clear();
         this.player = player;
         if (player == null || center == null) {
@@ -64,14 +64,14 @@ public class AdjustmentSchedular {
             return;
         }
 
-        Vec3d target = center.get();
+        Vec3 target = center.get();
         if (target == null) {
             return;
         }
 
-        Vec3d playerCenter = player.getPos();
+        Vec3 playerCenter = player.position();
         renderCollector.submit(
-                List.of(player.getPos(), target),
+                List.of(player.position(), target),
                 SchedularSettings.INSTANCE.colorLines.get().withAlpha(255));
         if (MathUtils.isInBox(playerCenter, target, availableRange)) {
 
@@ -83,20 +83,20 @@ public class AdjustmentSchedular {
             return;
         }
 
-        Vec3d direction = opposite ? playerCenter.subtract(target) : target.subtract(playerCenter);
-        Vec3d flatDirection = new Vec3d(direction.x, 0, direction.z);
-        if (flatDirection.lengthSquared() < 1.0E-8) {
+        Vec3 direction = opposite ? playerCenter.subtract(target) : target.subtract(playerCenter);
+        Vec3 flatDirection = new Vec3(direction.x, 0, direction.z);
+        if (flatDirection.lengthSqr() < 1.0E-8) {
             return;
         }
 
         int collisionCount = countAdjacentXZCollisions(player, flatDirection);
         PlayerInputManager.Modifier modifier;
-        Vec3d renderDirection;
+        Vec3 renderDirection;
         if (collisionCount >= 2) {
             modifier = null;
-            renderDirection = Vec3d.ZERO;
+            renderDirection = Vec3.ZERO;
         } else if (collisionCount == 1) {
-            Vec2f pitchYaw = EntityUtils.rotationToPitchYaw(target.subtract(player.getPos()));
+            Vec2 pitchYaw = EntityUtils.rotationToPitchYaw(target.subtract(player.position()));
             renderDirection = flatDirection.normalize();
             modifier = PlayerInputManager.Modifier.empty(0)
                     .forward(true)
@@ -114,10 +114,10 @@ public class AdjustmentSchedular {
         }
     }
 
-    private int countAdjacentXZCollisions(ClientPlayerEntity player, Vec3d direction) {
-        Vec3d step = direction.normalize().multiply(EDGE_STEP);
-        Box movedBox = player.getBoundingBox().offset(step);
-        BlockPos basePos = player.getBlockPos();
+    private int countAdjacentXZCollisions(LocalPlayer player, Vec3 direction) {
+        Vec3 step = direction.normalize().scale(EDGE_STEP);
+        AABB movedBox = player.getBoundingBox().move(step);
+        BlockPos basePos = player.blockPosition();
         int minY = (int) Math.floor(movedBox.minY);
         int maxY = (int) Math.ceil(movedBox.maxY) - 1;
         int collisions = 0;
@@ -131,13 +131,13 @@ public class AdjustmentSchedular {
                 boolean collided = false;
                 for (int y = minY; y <= maxY; y++) {
                     BlockPos pos = new BlockPos(basePos.getX() + dx, y, basePos.getZ() + dz);
-                    VoxelShape shape = mc.world.getBlockState(pos).getCollisionShape(mc.world, pos);
+                    VoxelShape shape = mc.level.getBlockState(pos).getCollisionShape(mc.level, pos);
                     if (shape.isEmpty()) {
                         continue;
                     }
 
-                    for (Box box : shape.getBoundingBoxes()) {
-                        if (movedBox.intersects(box.offset(pos))) {
+                    for (AABB box : shape.toAabbs()) {
+                        if (movedBox.intersects(box.move(pos))) {
                             collided = true;
                             break;
                         }
@@ -158,8 +158,8 @@ public class AdjustmentSchedular {
         return collisions;
     }
 
-    private PlayerInputManager.Modifier buildWasdModifier(ClientPlayerEntity player, Vec3d direction) {
-        double yawRad = Math.toRadians(player.getYaw());
+    private PlayerInputManager.Modifier buildWasdModifier(LocalPlayer player, Vec3 direction) {
+        double yawRad = Math.toRadians(player.getYRot());
         double forwardAmount = -direction.x * Math.sin(yawRad) + direction.z * Math.cos(yawRad);
         double sidewaysAmount = direction.x * Math.cos(yawRad) + direction.z * Math.sin(yawRad);
 
@@ -175,7 +175,7 @@ public class AdjustmentSchedular {
         return modifier;
     }
 
-    public void renderAdjustment(Event<MatrixStack> event) {
+    public void renderAdjustment(Event<PoseStack> event) {
         if (!SchedularSettings.INSTANCE.enableRender.get()) {
             return;
         }

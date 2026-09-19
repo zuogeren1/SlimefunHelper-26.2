@@ -1,6 +1,6 @@
 package xaeroplus.feature.render.line;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 public record Line(int x1, int z1, int x2, int z2) {
     public double length() {
@@ -98,6 +98,6 @@ public record Line(int x1, int z1, int x2, int z2) {
         int dz = z2() - z1();
         double angleRadians = Math.atan2(dz, dx);
         double degrees = Math.toDegrees(angleRadians) - 90;
-        return MathHelper.wrapDegrees(degrees);
+        return Mth.wrapDegrees(degrees);
     }
 }

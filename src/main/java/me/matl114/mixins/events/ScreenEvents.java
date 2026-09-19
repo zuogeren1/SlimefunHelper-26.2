@@ -11,12 +11,12 @@ import me.matl114.events.Listener;
 import me.matl114.gui.basic.DisplayWidget;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.AbstractParentElement;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Environment(EnvType.CLIENT)
 @Mixin(Screen.class)
-public abstract class ScreenEvents extends AbstractParentElement implements MetadataHolder, ScreenAccess {
+public abstract class ScreenEvents extends AbstractContainerEventHandler implements MetadataHolder, ScreenAccess {
     @Unique
     List<Consumer<Screen>> initializeTasks;
 
@@ -49,9 +49,9 @@ public abstract class ScreenEvents extends AbstractParentElement implements Meta
         screenCloseFuture.add(runnable);
     }
 
-    @Inject(method = "close", at = @At(value = "RETURN"))
+    @Inject(method = "onClose", at = @At(value = "RETURN"))
     private void onScreenClsoe(CallbackInfo ci) {
-        Listener.getPostCloseScreen().broadcast((Screen) (AbstractParentElement) this);
+        Listener.getPostCloseScreen().broadcast((Screen) (AbstractContainerEventHandler) this);
         if (screenCloseFuture != null) {
             for (Runnable runnable : screenCloseFuture) {
                 runnable.run();
@@ -64,14 +64,14 @@ public abstract class ScreenEvents extends AbstractParentElement implements Meta
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/gui/screen/Screen;setInitialFocus()V",
+                            target = "Lnet/minecraft/client/gui/screens/Screen;setInitialFocus()V",
                             shift = At.Shift.AFTER))
     public void onPostInitialization(int width, int height, CallbackInfo ci) {
         // first initialize
-        Listener.getPostInitializeScreen().broadcast((Screen) (AbstractParentElement) this);
+        Listener.getPostInitializeScreen().broadcast((Screen) (AbstractContainerEventHandler) this);
         if (initializeTasks != null) {
             for (Consumer<Screen> runnable : initializeTasks) {
-                runnable.accept((Screen) (AbstractParentElement) this);
+                runnable.accept((Screen) (AbstractContainerEventHandler) this);
             }
         }
     }
@@ -81,13 +81,13 @@ public abstract class ScreenEvents extends AbstractParentElement implements Meta
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/gui/screen/Screen;refreshWidgetPositions()V",
+                            target = "Lnet/minecraft/client/gui/screens/Screen;repositionElements()V",
                             shift = At.Shift.AFTER))
     public void onClearAndInit(CallbackInfo ci) {
-        Listener.getPostInitializeScreen().broadcast((Screen) (AbstractParentElement) this);
+        Listener.getPostInitializeScreen().broadcast((Screen) (AbstractContainerEventHandler) this);
         if (initializeTasks != null) {
             for (Consumer<Screen> runnable : initializeTasks) {
-                runnable.accept((Screen) (AbstractParentElement) this);
+                runnable.accept((Screen) (AbstractContainerEventHandler) this);
             }
         }
     }
@@ -97,39 +97,39 @@ public abstract class ScreenEvents extends AbstractParentElement implements Meta
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/gui/screen/Screen;refreshWidgetPositions()V",
+                            target = "Lnet/minecraft/client/gui/screens/Screen;repositionElements()V",
                             shift = At.Shift.AFTER))
     public void onResize(int width, int height, CallbackInfo ci) {
-        Listener.getPostInitializeScreen().broadcast((Screen) (AbstractParentElement) this);
+        Listener.getPostInitializeScreen().broadcast((Screen) (AbstractContainerEventHandler) this);
         if (initializeTasks != null) {
             for (Consumer<Screen> runnable : initializeTasks) {
-                runnable.accept((Screen) (AbstractParentElement) this);
+                runnable.accept((Screen) (AbstractContainerEventHandler) this);
             }
         }
     }
 
     @Shadow
-    protected abstract <T extends Element & Drawable & Selectable> T addDrawableChild(T drawableElement);
+    protected abstract <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(T drawableElement);
 
     @Shadow
-    protected void remove(Element child) {}
+    protected void removeWidget(GuiEventListener child) {}
 
     @Shadow
-    protected abstract <T extends Drawable> T addDrawable(T drawable);
+    protected abstract <T extends Renderable> T addRenderableOnly(T drawable);
 
     @Unique
-    public <T extends Element & Drawable & Selectable> T addDrawableChildTo(T drawable) {
+    public <T extends GuiEventListener & Renderable & NarratableEntry> T addDrawableChildTo(T drawable) {
         if (drawable instanceof DisplayWidget display) {
-            addDrawable(display);
+            addRenderableOnly(display);
             return drawable;
         } else {
-            return addDrawableChild(drawable);
+            return addRenderableWidget(drawable);
         }
     }
 
     @Unique
-    public void removeChildFrom(Element val) {
-        remove(val);
+    public void removeChildFrom(GuiEventListener val) {
+        removeWidget(val);
     }
 
     @Getter
@@ -139,12 +139,12 @@ public abstract class ScreenEvents extends AbstractParentElement implements Meta
 
     @Unique
     public void open() {
-        MinecraftClient.getInstance().setScreen((Screen) (Object) this);
+        Minecraft.getInstance().gui.setScreen((Screen) (Object) this);
     }
 
     @Unique
     public void openFromCurrent() {
-        parent = MinecraftClient.getInstance().currentScreen;
+        parent = Minecraft.getInstance().gui.screen();
         open();
     }
 
@@ -159,18 +159,18 @@ public abstract class ScreenEvents extends AbstractParentElement implements Meta
         Screen p = this.parent;
         this.parent = null;
         ScreenAccess.of(anotherScreen).setParent(p);
-        MinecraftClient.getInstance().setScreen(anotherScreen);
+        Minecraft.getInstance().gui.setScreen(anotherScreen);
     }
 
     public void switchFromCurrent() {
-        Screen current = MinecraftClient.getInstance().currentScreen;
+        Screen current = Minecraft.getInstance().gui.screen();
         if (current == null) {
             this.parent = null;
         } else {
             this.parent = ((ScreenEvents) (Object) current).parent;
             ((ScreenEvents) (Object) current).parent = null;
         }
-        MinecraftClient.getInstance().setScreen((Screen) (Object) this);
+        Minecraft.getInstance().gui.setScreen((Screen) (Object) this);
     }
 
     @ModifyArgs(
@@ -179,7 +179,7 @@ public abstract class ScreenEvents extends AbstractParentElement implements Meta
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
+                                    "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
     public void onRedirectReturnScreen(Args args) {
         if (parent != null) {
             args.set(0, parent);

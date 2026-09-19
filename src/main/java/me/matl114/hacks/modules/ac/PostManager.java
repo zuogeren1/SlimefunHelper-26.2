@@ -7,11 +7,11 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.managers.Tasks;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.network.packet.c2s.common.CommonPongC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientTickEndC2SPacket;
-import net.minecraft.network.packet.s2c.common.CommonPingS2CPacket;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.common.ClientboundPingPacket;
+import net.minecraft.network.protocol.common.ServerboundPongPacket;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 
 public class PostManager extends BaseModule {
     public static PostManager INSTANCE;
@@ -23,16 +23,16 @@ public class PostManager extends BaseModule {
 
     private int peekPingRequest;
     private int lastPingTick;
-    private final Deque<Consumer<ClientPlayNetworkHandler>> postTickHandlers = new ArrayDeque<>(33);
-    private final Deque<Consumer<ClientPlayNetworkHandler>> queuePackets = new ArrayDeque<>(33);
+    private final Deque<Consumer<ClientPacketListener>> postTickHandlers = new ArrayDeque<>(33);
+    private final Deque<Consumer<ClientPacketListener>> queuePackets = new ArrayDeque<>(33);
 
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(CommonPingS2CPacket.class), this::peekPingPacketIn);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundPingPacket.class), this::peekPingPacketIn);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(CommonPingS2CPacket.class), this::postPongPacketOut);
-        registerListener(Listener.getPacketPostSendPoint().getChannel(ClientTickEndC2SPacket.class), this::postTickEnd);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPingPacket.class), this::postPongPacketOut);
+        registerListener(Listener.getPacketPostSendPoint().getChannel(ServerboundClientTickEndPacket.class), this::postTickEnd);
         registerListener(Listener.getServerLeavePoint(), this::onDisconnectReset);
         registerListener(Listener.getPostGameTick(), this::onWatchPingLongTimeNoSent);
         registerListener(Listener.getPreTick(), this::onPreTick);
@@ -63,16 +63,16 @@ public class PostManager extends BaseModule {
     //
     // shit, it doesn't work
     // private boolean hasHandledPongPacket = false;
-    private Deque<CommonPongC2SPacket> delayedPingPackets = new ArrayDeque<>(33);
+    private Deque<ServerboundPongPacket> delayedPingPackets = new ArrayDeque<>(33);
 
-    public void addPostTickAction(Consumer<ClientPlayNetworkHandler> handler) {
+    public void addPostTickAction(Consumer<ClientPacketListener> handler) {
         postTickHandlers.add(handler);
     }
 
-    public void addNextPreTickAction(Consumer<ClientPlayNetworkHandler> packet) {
+    public void addNextPreTickAction(Consumer<ClientPacketListener> packet) {
         if (lastPingTick < Tasks.getTick() - 10) {
-            if (mc.getNetworkHandler() != null) {
-                packet.accept(mc.getNetworkHandler());
+            if (mc.getConnection() != null) {
+                packet.accept(mc.getConnection());
             }
         } else {
             queuePackets.addLast(packet);
@@ -80,17 +80,17 @@ public class PostManager extends BaseModule {
     }
 
     public void onPreTick(Event<Void> tick) {
-        runAllQueuePackets(mc.getNetworkHandler());
+        runAllQueuePackets(mc.getConnection());
     }
 
-    public void peekPingPacketIn(Event<CommonPingS2CPacket> packetPing) {
+    public void peekPingPacketIn(Event<ClientboundPingPacket> packetPing) {
         peekPingRequest += 1;
         lastPingTick = Tasks.getTick();
         //        Debug.info("in", packetPing.getPacketId(), peekPingRequest);
     }
 
-    public void postTickEnd(Event<ClientTickEndC2SPacket> event) {
-        runAllPostTickPackets(mc.getNetworkHandler());
+    public void postTickEnd(Event<ServerboundClientTickEndPacket> event) {
+        runAllPostTickPackets(mc.getConnection());
         // flush pong packets
         //        for(var pongPacket : delayedPingPackets) {
         //            Listener.sendPacketNoEvents(pongPacket);
@@ -99,7 +99,7 @@ public class PostManager extends BaseModule {
         //        hasHandledPongPacket = false;
     }
 
-    public void postPongPacketOut(Event<CommonPingS2CPacket> event) {
+    public void postPongPacketOut(Event<ClientboundPingPacket> event) {
         // we sent the Common Pong in Ping's handle
 
         // end transaction,
@@ -110,15 +110,15 @@ public class PostManager extends BaseModule {
         // fix anything wrong wtf
         if (peekPingRequest < 0) peekPingRequest = 0;
         // anyway ,flush
-        // runAllQueuePackets(mc.getNetworkHandler());
+        // runAllQueuePackets(mc.getConnection());
     }
 
-    private void runAllPostTickPackets(ClientPlayNetworkHandler handler) {
+    private void runAllPostTickPackets(ClientPacketListener handler) {
         runQueue(handler, postTickHandlers);
     }
 
     private void runQueue(
-            ClientPlayNetworkHandler handler, Deque<Consumer<ClientPlayNetworkHandler>> postTickHandlers) {
+            ClientPacketListener handler, Deque<Consumer<ClientPacketListener>> postTickHandlers) {
         if (!postTickHandlers.isEmpty()) {
 
             if (handler != null) {
@@ -133,7 +133,7 @@ public class PostManager extends BaseModule {
         }
     }
 
-    private void runAllQueuePackets(ClientPlayNetworkHandler handler) {
+    private void runAllQueuePackets(ClientPacketListener handler) {
         runQueue(handler, queuePackets);
     }
 
@@ -142,11 +142,11 @@ public class PostManager extends BaseModule {
         //        hasHandledPongPacket = false;
     }
 
-    private void onWatchPingLongTimeNoSent(Event<ClientPlayerEntity> v) {
+    private void onWatchPingLongTimeNoSent(Event<LocalPlayer> v) {
         if (peekPingRequest > 0 && lastPingTick + 20 < Tasks.getTick()) {
             peekPingRequest = 0;
             lastPingTick = Tasks.getTick();
-            runAllQueuePackets(mc.getNetworkHandler());
+            runAllQueuePackets(mc.getConnection());
         }
     }
 

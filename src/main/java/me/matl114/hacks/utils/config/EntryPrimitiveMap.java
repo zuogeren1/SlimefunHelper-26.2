@@ -15,8 +15,8 @@ import me.matl114.utils.CodecUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Getter
 @Accessors(fluent = true)
@@ -77,7 +77,7 @@ public class EntryPrimitiveMap<T, W> extends PrimitiveMap<Holder<T>, W> {
         for (var entry : map.entrySet()) {
             Holder<T> key = entry.getKey();
             Primitive<W> value = entry.getValue();
-            Preconditions.checkArgument(registry.getKey() == key.registry().getKey());
+            Preconditions.checkArgument(registry.key() == key.registry().key());
             Preconditions.checkArgument(value.valueType() == type);
             if (key.entry() != null) {
                 result.put(key.entry(), value.value());
@@ -95,7 +95,7 @@ public class EntryPrimitiveMap<T, W> extends PrimitiveMap<Holder<T>, W> {
         for (var entry : map.entrySet()) {
             Holder<T> key = entry.getKey();
             Primitive<W> value = entry.getValue();
-            Preconditions.checkArgument(registry.getKey() == key.registry().getKey());
+            Preconditions.checkArgument(registry.key() == key.registry().key());
             Preconditions.checkArgument(value.valueType() == type);
             if (key.entry() == null) {
                 legacyDefaultPrimitive = value;
@@ -161,7 +161,7 @@ public class EntryPrimitiveMap<T, W> extends PrimitiveMap<Holder<T>, W> {
                                         Primitive.TYPE.<Primitive<W>>cast().typeCodec())
                                 .fieldOf("data")
                                 .forGetter(EntryPrimitiveMap::toLegacyMap),
-                        ((Codec<Registry<T>>) Registries.REGISTRIES.getCodec())
+                        ((Codec<Registry<T>>) BuiltInRegistries.REGISTRY.byNameCodec())
                                 .fieldOf("key_type")
                                 .forGetter(EntryPrimitiveMap::registry),
                         NBTTypes.<W>codec().fieldOf("value_type").forGetter(EntryPrimitiveMap::valueType),
@@ -183,7 +183,7 @@ public class EntryPrimitiveMap<T, W> extends PrimitiveMap<Holder<T>, W> {
                 "entryprimitivemap",
                 Codec.withAlternative(factory.wrapCodecXmap(parentType.typeCodec()), legacyCodec()),
                 widgetFactory,
-                (EntryPrimitiveMap<T, W>) new EntryPrimitiveMap<>(Registries.BLOCK, NBTTypes.STRING_TYPE, Map.of()));
+                (EntryPrimitiveMap<T, W>) new EntryPrimitiveMap<>(BuiltInRegistries.BLOCK, NBTTypes.STRING_TYPE, Map.of()));
     }
 
     public static final NBTType<EntryPrimitiveMap<Object, Object>> TYPE = createEntry();

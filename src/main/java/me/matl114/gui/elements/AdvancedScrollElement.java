@@ -5,7 +5,7 @@ import lombok.experimental.Accessors;
 import me.matl114.gui.basic.*;
 import me.matl114.utils.config.ValueAccessor;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.util.Colors;
+import net.minecraft.util.CommonColors;
 
 @Accessors(chain = true)
 public class AdvancedScrollElement extends AbstractElement {
@@ -139,9 +139,9 @@ public class AdvancedScrollElement extends AbstractElement {
                 y2 = (int) (currentStartX + currentBarHeight);
             }
 
-            context.fill(1, y1 + 1, element.getTextureWidth() - 1, y2 - 1, Colors.GRAY);
+            context.fill(1, y1 + 1, element.getTextureWidth() - 1, y2 - 1, CommonColors.GRAY);
             if (element.isDragging() || (element.isMouseOver(mouseX, mouseY) && isMouseOverBar(element, mouseY))) {
-                RenderHandler.drawHighlightFrame(context, 0, y1, element.getTextureWidth(), y2 - y1, Colors.WHITE);
+                RenderHandler.drawHighlightFrame(context, 0, y1, element.getTextureWidth(), y2 - y1, CommonColors.WHITE);
             }
         }
     }

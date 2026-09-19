@@ -5,9 +5,9 @@ import me.matl114.gui.basic.DrawableWidget;
 import me.matl114.gui.basic.RenderHandler;
 import me.matl114.gui.basic.TextProvider;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.OrderedText;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 
 public class ButtonElement extends IconElement.SimpleIconElement {
     private final TextProvider provider;
@@ -31,17 +31,17 @@ public class ButtonElement extends IconElement.SimpleIconElement {
             boolean shouldHighlight) {
         super.renderCentered0(element, context, mouseX, mouseY, delta, alpha, shouldHighlight);
         int i = 16777215;
-        OrderedText a = provider.getLabel(element);
+        FormattedCharSequence a = provider.getLabel(element);
         if (a != null) {
             RenderHandler.drawScaledText0(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     a,
                     0,
                     0,
                     element.getTextureWidth(),
                     element.getTextureHeight(),
-                    i | MathHelper.ceil(alpha * 255.0F) << 24,
+                    i | Mth.ceil(alpha * 255.0F) << 24,
                     0);
         }
     }

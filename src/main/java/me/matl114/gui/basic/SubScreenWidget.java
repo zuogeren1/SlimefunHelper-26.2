@@ -6,7 +6,7 @@ import lombok.Setter;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.collections.UnmodifiableListMappingIterator;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screens.Screen;
 import org.apache.commons.compress.utils.Lists;
 
 public class SubScreenWidget extends DrawableWidget implements SubSelectable {

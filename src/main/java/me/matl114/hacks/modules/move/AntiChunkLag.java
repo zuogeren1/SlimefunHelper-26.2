@@ -12,7 +12,13 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.WorldUtils;
-import net.minecraft.util.math.*;
+import net.minecraft.core.Direction;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class AntiChunkLag extends BaseModule implements LegalMovementManager.MovementModifier {
     public static AntiChunkLag INSTANCE;
@@ -60,8 +66,8 @@ public class AntiChunkLag extends BaseModule implements LegalMovementManager.Mov
         if (enable.get()) {
             int chunkSize = 1 + (velocity.get() / 16);
             boolean hasUnloadedChunk = false;
-            ChunkPos playerChunkPos = mc.player.getChunkPos();
-            Vec3d playerHorizontalPos = mc.player.getPos().withAxis(Direction.Axis.Y, 0);
+            ChunkPos playerChunkPos = mc.player.chunkPosition();
+            Vec3 playerHorizontalPos = mc.player.position().with(Direction.Axis.Y, 0);
             double distanceS2 = MathUtils.s2(velocity.get());
             search:
             for (var x = -chunkSize; x <= chunkSize; x++) {
@@ -70,8 +76,8 @@ public class AntiChunkLag extends BaseModule implements LegalMovementManager.Mov
                     if (WorldUtils.isChunkLoaded(chunkPos.x, chunkPos.z)) {
                         continue;
                     }
-                    Vec3d startPos = new Vec3d(chunkPos.getStartX(), 0, chunkPos.getStartZ());
-                    Box chunkBox = new Box(startPos, startPos.add(16, 0, 16));
+                    Vec3 startPos = new Vec3(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ());
+                    AABB chunkBox = new AABB(startPos, startPos.add(16, 0, 16));
                     double distance = Math.max(
                             MathUtils.getBoxDistance(playerHorizontalPos.x, chunkBox.minX, chunkBox.maxX),
                             MathUtils.getBoxDistance(playerHorizontalPos.z, chunkBox.minZ, chunkBox.maxZ));
@@ -92,9 +98,9 @@ public class AntiChunkLag extends BaseModule implements LegalMovementManager.Mov
             }
 
             if (currentMayFaceLagChunk && freeze.get()) {
-                Vec3d currentPos = mc.player.getPos();
-                Vec3d oldPos = movementManagerEvent.context.playerStatus.pos;
-                Vec3d movement = currentPos.subtract(oldPos);
+                Vec3 currentPos = mc.player.position();
+                Vec3 oldPos = movementManagerEvent.context.playerStatus.pos;
+                Vec3 movement = currentPos.subtract(oldPos);
                 int movementSgnX = (int) MathUtils.sgn(movement.x);
                 int movementSgnZ = (int) MathUtils.sgn(movement.z);
                 if (movementSgnZ != 0 || movementSgnX != 0) {
@@ -107,8 +113,8 @@ public class AntiChunkLag extends BaseModule implements LegalMovementManager.Mov
                             if (WorldUtils.isChunkLoaded(chunkPos.x, chunkPos.z)) {
                                 continue;
                             }
-                            Vec3d startPos = new Vec3d(chunkPos.getStartX(), 0, chunkPos.getStartZ());
-                            Box chunkBox = new Box(startPos, startPos.add(16, 0, 16));
+                            Vec3 startPos = new Vec3(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ());
+                            AABB chunkBox = new AABB(startPos, startPos.add(16, 0, 16));
                             double distance = Math.max(
                                     MathUtils.getBoxDistance(playerHorizontalPos.x, chunkBox.minX, chunkBox.maxX),
                                     MathUtils.getBoxDistance(playerHorizontalPos.z, chunkBox.minZ, chunkBox.maxZ));

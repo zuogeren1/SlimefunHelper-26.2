@@ -4,20 +4,20 @@ import java.util.Iterator;
 import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
 @Data
 @AllArgsConstructor
-public class Quad implements Iterable<Vec3d> {
-    Vec3d vec3d1;
-    Vec3d vec3d2;
-    Vec3d vec3d3;
-    Vec3d vec3d4;
+public class Quad implements Iterable<Vec3> {
+    Vec3 vec3d1;
+    Vec3 vec3d2;
+    Vec3 vec3d3;
+    Vec3 vec3d4;
 
     @NotNull
     @Override
-    public Iterator<Vec3d> iterator() {
+    public Iterator<Vec3> iterator() {
         return Stream.of(vec3d1, vec3d2, vec3d3, vec3d4).iterator();
     }
 
@@ -29,8 +29,8 @@ public class Quad implements Iterable<Vec3d> {
      *   1 <- 4
      * @return
      */
-    public static Quad rectangularXY(Vec3d min, Vec3d max) {
-        return new Quad(min, new Vec3d(min.x, max.y, min.z), max, new Vec3d(max.x, min.y, max.z));
+    public static Quad rectangularXY(Vec3 min, Vec3 max) {
+        return new Quad(min, new Vec3(min.x, max.y, min.z), max, new Vec3(max.x, min.y, max.z));
     }
     /**
      * create a quick rectangular for drawing
@@ -41,7 +41,7 @@ public class Quad implements Iterable<Vec3d> {
      * @return
      */
     public static Quad rectangularXY(int x1, int y1, int x2, int y2, int z) {
-        return new Quad(new Vec3d(x1, y1, z), new Vec3d(x1, y2, z), new Vec3d(x2, y2, z), new Vec3d(x2, y1, z));
+        return new Quad(new Vec3(x1, y1, z), new Vec3(x1, y2, z), new Vec3(x2, y2, z), new Vec3(x2, y1, z));
     }
 
     /**
@@ -54,8 +54,8 @@ public class Quad implements Iterable<Vec3d> {
      *     2 -> 3
      * @return
      */
-    public static Quad textureXY(Vec3d min, Vec3d max) {
-        return new Quad(new Vec3d(max.x, min.y, max.z), min, new Vec3d(min.x, max.y, min.z), max);
+    public static Quad textureXY(Vec3 min, Vec3 max) {
+        return new Quad(new Vec3(max.x, min.y, max.z), min, new Vec3(min.x, max.y, min.z), max);
     }
     /**
      * drawing a picture in the world,
@@ -68,10 +68,10 @@ public class Quad implements Iterable<Vec3d> {
      * @return
      */
     public static Quad textureXY(int x1, int y1, int x2, int y2, int z) {
-        return new Quad(new Vec3d(x1, y2, z), new Vec3d(x1, y1, z), new Vec3d(x2, y1, z), new Vec3d(x2, y2, z));
+        return new Quad(new Vec3(x1, y2, z), new Vec3(x1, y1, z), new Vec3(x2, y1, z), new Vec3(x2, y2, z));
     }
 
-    public Vec3d get(int index) {
+    public Vec3 get(int index) {
         return switch (index & 3) {
             case 0 -> vec3d1;
             case 1 -> vec3d2;

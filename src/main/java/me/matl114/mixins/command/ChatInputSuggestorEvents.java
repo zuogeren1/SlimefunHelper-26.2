@@ -5,8 +5,8 @@ import java.util.concurrent.CompletableFuture;
 import me.matl114.commands.MainCommand;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.screen.ChatInputSuggestor;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.components.CommandSuggestions;
+import net.minecraft.client.gui.components.EditBox;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -15,42 +15,42 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ChatInputSuggestor.class)
+@Mixin(CommandSuggestions.class)
 public abstract class ChatInputSuggestorEvents {
     @Shadow
     @Final
-    TextFieldWidget textField;
+    EditBox input;
 
     @Shadow
     private CompletableFuture<Suggestions> pendingSuggestions;
 
     @Shadow
-    protected abstract void showCommandSuggestions();
+    protected abstract void updateUsageInfo();
 
     @Shadow
-    public abstract void show(boolean a);
+    public abstract void showSuggestions(boolean a);
 
     @Shadow
-    private boolean completingSuggestions;
+    private boolean keepSuggestions;
 
     @Inject(
-            method = "refresh",
+            method = "updateCommandInfo",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/gui/widget/TextFieldWidget;getCursor()I",
+                            target = "Lnet/minecraft/client/gui/components/EditBox;getCursorPosition()I",
                             shift = At.Shift.BEFORE),
             cancellable = true)
     private void parseClientCommandsTabComplete(CallbackInfo ci) {
-        if (MainCommand.isClientCommand(textField.getText())) {
-            if (!this.completingSuggestions) {
+        if (MainCommand.isClientCommand(input.getValue())) {
+            if (!this.keepSuggestions) {
                 CompletableFuture<Suggestions> suggestionCompletableFuture =
-                        MainCommand.tabCompleteClientCommand(textField.getText(), textField.getCursor());
+                        MainCommand.tabCompleteClientCommand(input.getValue(), input.getCursorPosition());
                 if (suggestionCompletableFuture != null) {
                     this.pendingSuggestions = suggestionCompletableFuture;
                     this.pendingSuggestions.thenRun(() -> {
                         if (this.pendingSuggestions.isDone()) {
-                            show(true);
+                            showSuggestions(true);
                         }
                     });
                 }

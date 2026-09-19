@@ -2,35 +2,35 @@ package me.matl114.mixins.events;
 
 import me.matl114.events.Listener;
 import me.matl114.events.impl.RecipeBookToggle;
-import net.minecraft.client.gui.screen.ingame.RecipeBookScreen;
-import net.minecraft.client.gui.screen.recipebook.RecipeBookProvider;
-import net.minecraft.client.gui.screen.recipebook.RecipeBookWidget;
-import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractRecipeBookScreen;
+import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
+import net.minecraft.client.gui.screens.recipebook.RecipeUpdateListener;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
-@Mixin(RecipeBookScreen.class)
-public abstract class RecipeBookScreenEvents implements RecipeBookProvider {
+@Mixin(AbstractRecipeBookScreen.class)
+public abstract class RecipeBookScreenEvents implements RecipeUpdateListener {
     @Shadow
     @Final
-    private RecipeBookWidget<?> recipeBook;
+    private RecipeBookComponent<?> recipeBookComponent;
 
     @ModifyArg(
-            method = "addRecipeBook",
+            method = "initButton",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/widget/TexturedButtonWidget;<init>(IIIILnet/minecraft/client/gui/screen/ButtonTextures;Lnet/minecraft/client/gui/widget/ButtonWidget$PressAction;)V"),
+                                    "Lnet/minecraft/client/gui/components/ImageButton;<init>(IIIILnet/minecraft/client/gui/components/WidgetSprites;Lnet/minecraft/client/gui/components/Button$OnPress;)V"),
             index = 5)
-    public ButtonWidget.PressAction modifyPressAction(ButtonWidget.PressAction pressAction) {
+    public Button.OnPress modifyPressAction(Button.OnPress pressAction) {
         return (button -> {
             pressAction.onPress(button);
             if (!Listener.getPostToggleRecipeBook().isEmpty()) {
-                Listener.getPostToggleRecipeBook().broadcast(new RecipeBookToggle(this, this.recipeBook, button));
+                Listener.getPostToggleRecipeBook().broadcast(new RecipeBookToggle(this, this.recipeBookComponent, button));
             }
         });
     }

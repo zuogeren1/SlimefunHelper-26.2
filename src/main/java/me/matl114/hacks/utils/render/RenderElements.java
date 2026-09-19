@@ -2,9 +2,9 @@ package me.matl114.hacks.utils.render;
 
 import java.util.List;
 import me.matl114.versioned.api.VRender;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class RenderElements {
     private static final int POSITION_FLAG = VRender.createTextPositionFlag(0, 1);
@@ -25,18 +25,18 @@ public class RenderElements {
         return Double.compare(normalizeZero(min), normalizeZero(max)) == 0;
     }
 
-    public static record Text(net.minecraft.text.Text text, Vec3d position, int offSetFlag, float scale) {
-        public Text(net.minecraft.text.Text text, Vec3d position) {
+    public static record Text(net.minecraft.network.chat.Component text, Vec3 position, int offSetFlag, float scale) {
+        public Text(net.minecraft.network.chat.Component text, Vec3 position) {
             this(text, position, POSITION_FLAG, 1.0F);
         }
 
-        public Text(net.minecraft.text.Text text, Vec3d position, float scale) {
+        public Text(net.minecraft.network.chat.Component text, Vec3 position, float scale) {
             this(text, position, POSITION_FLAG, scale);
         }
     }
 
     public static record Line(double x0, double y0, double z0, double x1, double y1, double z1) {
-        public Line(Vec3d from, Vec3d to) {
+        public Line(Vec3 from, Vec3 to) {
             this(from.x, from.y, from.z, to.x, to.y, to.z);
         }
 
@@ -60,47 +60,47 @@ public class RenderElements {
             }
         }
 
-        public Line offset(Vec3d delta) {
+        public Line offset(Vec3 delta) {
             return new Line(x0 + delta.x, y0 + delta.y, z0 + delta.z, x1 + delta.x, y1 + delta.y, z1 + delta.z);
         }
     }
 
     public static record Quad(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
-        public Quad(Vec3d min, Vec3d max) {
+        public Quad(Vec3 min, Vec3 max) {
             this(min.x, min.y, min.z, max.x, max.y, max.z);
         }
 
-        public Quad(Box box, Direction direction) {
+        public Quad(AABB box, Direction direction) {
             this(
                     switch (direction) {
-                        case WEST -> box.getMinPos().x;
-                        case EAST -> box.getMaxPos().x;
-                        default -> box.getMinPos().x;
+                        case WEST -> box.getMinPosition().x;
+                        case EAST -> box.getMaxPosition().x;
+                        default -> box.getMinPosition().x;
                     },
                     switch (direction) {
-                        case DOWN -> box.getMinPos().y;
-                        case UP -> box.getMaxPos().y;
-                        default -> box.getMinPos().y;
+                        case DOWN -> box.getMinPosition().y;
+                        case UP -> box.getMaxPosition().y;
+                        default -> box.getMinPosition().y;
                     },
                     switch (direction) {
-                        case NORTH -> box.getMinPos().z;
-                        case SOUTH -> box.getMaxPos().z;
-                        default -> box.getMinPos().z;
+                        case NORTH -> box.getMinPosition().z;
+                        case SOUTH -> box.getMaxPosition().z;
+                        default -> box.getMinPosition().z;
                     },
                     switch (direction) {
-                        case WEST -> box.getMinPos().x;
-                        case EAST -> box.getMaxPos().x;
-                        default -> box.getMaxPos().x;
+                        case WEST -> box.getMinPosition().x;
+                        case EAST -> box.getMaxPosition().x;
+                        default -> box.getMaxPosition().x;
                     },
                     switch (direction) {
-                        case DOWN -> box.getMinPos().y;
-                        case UP -> box.getMaxPos().y;
-                        default -> box.getMaxPos().y;
+                        case DOWN -> box.getMinPosition().y;
+                        case UP -> box.getMaxPosition().y;
+                        default -> box.getMaxPosition().y;
                     },
                     switch (direction) {
-                        case NORTH -> box.getMinPos().z;
-                        case SOUTH -> box.getMaxPos().z;
-                        default -> box.getMaxPos().z;
+                        case NORTH -> box.getMinPosition().z;
+                        case SOUTH -> box.getMaxPosition().z;
+                        default -> box.getMaxPosition().z;
                     });
         }
 
@@ -113,7 +113,7 @@ public class RenderElements {
             maxZ = normalizeZero(Math.max(minZ, maxZ));
         }
 
-        public Quad offset(Vec3d delta) {
+        public Quad offset(Vec3 delta) {
             return new Quad(
                     minX + delta.x, minY + delta.y, minZ + delta.z, maxX + delta.x, maxY + delta.y, maxZ + delta.z);
         }
@@ -122,34 +122,34 @@ public class RenderElements {
             if (isFlat(minX, maxX)) {
                 double x = minX;
                 return new me.matl114.utils.render.Quad(
-                        new Vec3d(x, minY, minZ),
-                        new Vec3d(x, maxY, minZ),
-                        new Vec3d(x, maxY, maxZ),
-                        new Vec3d(x, minY, maxZ));
+                        new Vec3(x, minY, minZ),
+                        new Vec3(x, maxY, minZ),
+                        new Vec3(x, maxY, maxZ),
+                        new Vec3(x, minY, maxZ));
             }
             if (isFlat(minY, maxY)) {
                 double y = minY;
                 return new me.matl114.utils.render.Quad(
-                        new Vec3d(minX, y, minZ),
-                        new Vec3d(maxX, y, minZ),
-                        new Vec3d(maxX, y, maxZ),
-                        new Vec3d(minX, y, maxZ));
+                        new Vec3(minX, y, minZ),
+                        new Vec3(maxX, y, minZ),
+                        new Vec3(maxX, y, maxZ),
+                        new Vec3(minX, y, maxZ));
             }
             if (isFlat(minZ, maxZ)) {
                 double z = minZ;
                 return new me.matl114.utils.render.Quad(
-                        new Vec3d(minX, minY, z),
-                        new Vec3d(maxX, minY, z),
-                        new Vec3d(maxX, maxY, z),
-                        new Vec3d(minX, maxY, z));
+                        new Vec3(minX, minY, z),
+                        new Vec3(maxX, minY, z),
+                        new Vec3(maxX, maxY, z),
+                        new Vec3(minX, maxY, z));
             }
             throw new IllegalStateException("Quad is not a face");
         }
     }
 
-    public static List<Line> boxOutline(Box box) {
-        Vec3d min = box.getMinPos();
-        Vec3d max = box.getMaxPos();
+    public static List<Line> boxOutline(AABB box) {
+        Vec3 min = box.getMinPosition();
+        Vec3 max = box.getMaxPosition();
         boolean flatX = isFlat(min.x, max.x);
         boolean flatY = isFlat(min.y, max.y);
         boolean flatZ = isFlat(min.z, max.z);
@@ -171,43 +171,43 @@ public class RenderElements {
         if (flatCount == 1) {
             if (flatX) {
                 return List.of(
-                        new Line(new Vec3d(min.x, min.y, min.z), new Vec3d(min.x, max.y, min.z)),
-                        new Line(new Vec3d(min.x, max.y, min.z), new Vec3d(min.x, max.y, max.z)),
-                        new Line(new Vec3d(min.x, max.y, max.z), new Vec3d(min.x, min.y, max.z)),
-                        new Line(new Vec3d(min.x, min.y, max.z), new Vec3d(min.x, min.y, min.z)));
+                        new Line(new Vec3(min.x, min.y, min.z), new Vec3(min.x, max.y, min.z)),
+                        new Line(new Vec3(min.x, max.y, min.z), new Vec3(min.x, max.y, max.z)),
+                        new Line(new Vec3(min.x, max.y, max.z), new Vec3(min.x, min.y, max.z)),
+                        new Line(new Vec3(min.x, min.y, max.z), new Vec3(min.x, min.y, min.z)));
             }
             if (flatY) {
                 return List.of(
-                        new Line(new Vec3d(min.x, min.y, min.z), new Vec3d(max.x, min.y, min.z)),
-                        new Line(new Vec3d(max.x, min.y, min.z), new Vec3d(max.x, min.y, max.z)),
-                        new Line(new Vec3d(max.x, min.y, max.z), new Vec3d(min.x, min.y, max.z)),
-                        new Line(new Vec3d(min.x, min.y, max.z), new Vec3d(min.x, min.y, min.z)));
+                        new Line(new Vec3(min.x, min.y, min.z), new Vec3(max.x, min.y, min.z)),
+                        new Line(new Vec3(max.x, min.y, min.z), new Vec3(max.x, min.y, max.z)),
+                        new Line(new Vec3(max.x, min.y, max.z), new Vec3(min.x, min.y, max.z)),
+                        new Line(new Vec3(min.x, min.y, max.z), new Vec3(min.x, min.y, min.z)));
             }
             return List.of(
-                    new Line(new Vec3d(min.x, min.y, min.z), new Vec3d(max.x, min.y, min.z)),
-                    new Line(new Vec3d(max.x, min.y, min.z), new Vec3d(max.x, max.y, min.z)),
-                    new Line(new Vec3d(max.x, max.y, min.z), new Vec3d(min.x, max.y, min.z)),
-                    new Line(new Vec3d(min.x, max.y, min.z), new Vec3d(min.x, min.y, min.z)));
+                    new Line(new Vec3(min.x, min.y, min.z), new Vec3(max.x, min.y, min.z)),
+                    new Line(new Vec3(max.x, min.y, min.z), new Vec3(max.x, max.y, min.z)),
+                    new Line(new Vec3(max.x, max.y, min.z), new Vec3(min.x, max.y, min.z)),
+                    new Line(new Vec3(min.x, max.y, min.z), new Vec3(min.x, min.y, min.z)));
         }
 
         return List.of(
-                new Line(new Vec3d(min.x, min.y, min.z), new Vec3d(max.x, min.y, min.z)),
-                new Line(new Vec3d(max.x, min.y, min.z), new Vec3d(max.x, min.y, max.z)),
-                new Line(new Vec3d(max.x, min.y, max.z), new Vec3d(min.x, min.y, max.z)),
-                new Line(new Vec3d(min.x, min.y, max.z), new Vec3d(min.x, min.y, min.z)),
-                new Line(new Vec3d(min.x, max.y, min.z), new Vec3d(max.x, max.y, min.z)),
-                new Line(new Vec3d(max.x, max.y, min.z), new Vec3d(max.x, max.y, max.z)),
-                new Line(new Vec3d(max.x, max.y, max.z), new Vec3d(min.x, max.y, max.z)),
-                new Line(new Vec3d(min.x, max.y, max.z), new Vec3d(min.x, max.y, min.z)),
-                new Line(new Vec3d(min.x, min.y, min.z), new Vec3d(min.x, max.y, min.z)),
-                new Line(new Vec3d(max.x, min.y, min.z), new Vec3d(max.x, max.y, min.z)),
-                new Line(new Vec3d(max.x, min.y, max.z), new Vec3d(max.x, max.y, max.z)),
-                new Line(new Vec3d(min.x, min.y, max.z), new Vec3d(min.x, max.y, max.z)));
+                new Line(new Vec3(min.x, min.y, min.z), new Vec3(max.x, min.y, min.z)),
+                new Line(new Vec3(max.x, min.y, min.z), new Vec3(max.x, min.y, max.z)),
+                new Line(new Vec3(max.x, min.y, max.z), new Vec3(min.x, min.y, max.z)),
+                new Line(new Vec3(min.x, min.y, max.z), new Vec3(min.x, min.y, min.z)),
+                new Line(new Vec3(min.x, max.y, min.z), new Vec3(max.x, max.y, min.z)),
+                new Line(new Vec3(max.x, max.y, min.z), new Vec3(max.x, max.y, max.z)),
+                new Line(new Vec3(max.x, max.y, max.z), new Vec3(min.x, max.y, max.z)),
+                new Line(new Vec3(min.x, max.y, max.z), new Vec3(min.x, max.y, min.z)),
+                new Line(new Vec3(min.x, min.y, min.z), new Vec3(min.x, max.y, min.z)),
+                new Line(new Vec3(max.x, min.y, min.z), new Vec3(max.x, max.y, min.z)),
+                new Line(new Vec3(max.x, min.y, max.z), new Vec3(max.x, max.y, max.z)),
+                new Line(new Vec3(min.x, min.y, max.z), new Vec3(min.x, max.y, max.z)));
     }
 
-    public static List<Quad> boxFaces(Box box) {
-        Vec3d min = box.getMinPos();
-        Vec3d max = box.getMaxPos();
+    public static List<Quad> boxFaces(AABB box) {
+        Vec3 min = box.getMinPosition();
+        Vec3 max = box.getMaxPosition();
         boolean flatX = isFlat(min.x, max.x);
         boolean flatY = isFlat(min.y, max.y);
         boolean flatZ = isFlat(min.z, max.z);

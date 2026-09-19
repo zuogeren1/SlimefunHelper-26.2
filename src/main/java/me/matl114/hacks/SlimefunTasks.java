@@ -22,32 +22,35 @@ import me.matl114.utils.commands.commandGroup.SubCommand;
 import me.matl114.utils.commands.commandGroup.TreeSubCommand;
 import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.SimpleCommandArgs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.*;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 
 public class SlimefunTasks {
     public static void init() {}
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static String generateId(ItemStack item) {
-        if (item == null || item.isEmpty()) {
+        if (item == null || item.count() == 0) {
             return "minecraft:air";
         }
         String optional = ItemStackUtils.getSfId(item);
         return optional != null
                 ? optional
-                : Registries.ITEM.getId(item.getItem()).toString();
+                : BuiltInRegistries.ITEM.getKey(item.getItem()).toString();
     }
 
     public static String getIdOrNull(ItemStack item) {
@@ -96,7 +99,7 @@ public class SlimefunTasks {
     }
 
     public static Collection<MultiBlockHelper.MultiBlockWithLocation> getOptionalMultiBlocks(
-            World world, BlockPos dispensor) {
+            Level world, BlockPos dispensor) {
         Collection<MultiBlockHelper.MultiBlockWithLocation> ans = new HashSet<>();
         for (var multi : getRecipeDatabase().getMultiBlockRegistry().values()) {
             var op = multi.lookup().lookup(world, dispensor);
@@ -110,7 +113,7 @@ public class SlimefunTasks {
     }
 
     public static Collection<RecipeDatabase.MultiBlockEntry> getOptionalMultiBlockTypes(
-            World world, BlockPos dispensor) {
+            Level world, BlockPos dispensor) {
         Collection<RecipeDatabase.MultiBlockEntry> ans = new HashSet<>();
         for (var multi : getRecipeDatabase().getMultiBlockRegistry().values()) {
             var op = multi.lookup().lookup(world, dispensor);
@@ -142,19 +145,19 @@ public class SlimefunTasks {
     // 加入了 switch功能 重写跳转方向
     public static void openOrSwitch(Screen sf) {
         ScreenAccess access = ScreenAccess.of(sf);
-        if (mc.currentScreen instanceof SlimefunEntryListScreen<?> sf2) {
+        if (mc.gui.screen() instanceof SlimefunEntryListScreen<?> sf2) {
             // 当前正在预览配方;,如果要切换到其他配方,使用水平切换
             if (sf instanceof SlimefunEntryListScreen<?>) {
                 // 同级之间水平切换
                 access.switchFromCurrent();
             } else if (sf instanceof SlimefunChoiceScreen<?> choosing) {
                 // 退出到上级,
-                sf2.close();
+                sf2.onClose();
                 openOrSwitch(sf);
             } else {
                 access.openFromCurrent();
             }
-        } else if (mc.currentScreen instanceof SlimefunChoiceScreen<?> sf3) {
+        } else if (mc.gui.screen() instanceof SlimefunChoiceScreen<?> sf3) {
             if (sf instanceof SlimefunChoiceScreen<?>) {
                 // 同级之间切换
                 access.switchFromCurrent();
@@ -178,15 +181,15 @@ public class SlimefunTasks {
     }
 
     public static List<RecipeEntry> getInventoryRelativeRecipes(Screen inventory, boolean hard) {
-        if (!(inventory instanceof HandledScreen<?> handled)) return List.of();
-        var handler = handled.getScreenHandler();
+        if (!(inventory instanceof AbstractContainerScreen<?> handled)) return List.of();
+        var handler = handled.getMenu();
         var slots = handler.slots;
         Set<String> relatedIds = new HashSet<>();
         int size = slots.size();
 
         for (int i = 0; i < size; ++i) {
-            ItemStack item = slots.get(i).getStack();
-            if (item != null && !item.isEmpty()) {
+            ItemStack item = slots.get(i).getItem();
+            if (item != null && item.count() != 0) {
                 String optionalItemId = getSfIdOrNull(item);
                 if (optionalItemId != null) {
                     relatedIds.add(optionalItemId);
@@ -228,7 +231,7 @@ public class SlimefunTasks {
 
     @ApiMethod
     public static InvTasks.SlotMatchingResult getItemStackMatchingSlot(
-            ScreenHandler screen, ItemStack stack, boolean weakMatch, int... slots) {
+            AbstractContainerMenu screen, ItemStack stack, boolean weakMatch, int... slots) {
         if (stack.isEmpty()) {
             return InvTasks.getEmptySlots(screen, slots);
         }
@@ -242,17 +245,17 @@ public class SlimefunTasks {
         for (int i : slots) {
             Slot slot = allSlots.get(i);
             if (slot != null
-                    && slot.inventory instanceof PlayerInventory
-                    && !slot.getStack().isEmpty()) {
+                    && slot.container instanceof Inventory
+                    && !slot.getItem().isEmpty()) {
                 if (realStack != null) {
-                    if (ItemStack.areItemsAndComponentsEqual(slot.getStack(), realStack)) {
+                    if (ItemStack.isSameItemSameComponents(slot.getItem(), realStack)) {
                         // all match
                         result.addMatchingSlot(i, slot);
                     }
                 } else {
                     // the first match itemStack will be the realStack template
-                    if (Objects.equals(sampleId, getSfIdOrNull(slot.getStack()))) {
-                        realStack = slot.getStack();
+                    if (Objects.equals(sampleId, getSfIdOrNull(slot.getItem()))) {
+                        realStack = slot.getItem();
                         result.setItemSample(realStack);
                         result.addMatchingSlot(i, slot);
                     }
@@ -264,13 +267,13 @@ public class SlimefunTasks {
 
     @ApiMethod
     public static void moveSlimefunRecipePatternToContainer(
-            RecipeEntry entry, ScreenHandler screen, int amount, boolean removeOrigin, int... acceptSlots) {
+            RecipeEntry entry, AbstractContainerMenu screen, int amount, boolean removeOrigin, int... acceptSlots) {
         Preconditions.checkArgument(acceptSlots.length == 9);
         ItemStack[] ingredients = new ItemStack[9];
         RecipeIngredient[] ingre = entry.ingredient();
         Preconditions.checkArgument(ingre.length <= 9);
         // try clear all items first;
-        //        var handler = screen.getScreenHandler();
+        //        var handler = screen.getMenu();
         //        DefaultedList<Slot> allSlots = handler.slots;
         //        for (var i : acceptSlots){
         //            Slot slot = allSlots.get(i);
@@ -385,9 +388,9 @@ public class SlimefunTasks {
                 Map<String, RecipeEntry> records = getAllRecipes();
                 for (var i : s) {
                     RecipeEntry entry = records.get(i);
-                    Text name = null;
+                    Component name = null;
                     if (entry != null) {
-                        name = entry.output().getName();
+                        name = entry.output().getHoverName();
                     }
                     if (name != null) {
                         Debug.chat(i, " (", name, ")");

@@ -4,9 +4,9 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import me.matl114.gui.basic.*;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
+import net.minecraft.util.FormattedCharSequence;
 
 @Accessors(chain = true)
 public class RawTextElement extends AbstractElement {
@@ -17,19 +17,19 @@ public class RawTextElement extends AbstractElement {
     @Setter
     protected int alignment;
 
-    public static RawTextElement instance(Text text) {
-        return new RawTextElement(text, Colors.WHITE);
+    public static RawTextElement instance(Component text) {
+        return new RawTextElement(text, CommonColors.WHITE);
     }
 
     public static RawTextElement instance(TextProvider text) {
-        return new RawTextElement(text, Colors.WHITE, 0);
+        return new RawTextElement(text, CommonColors.WHITE, 0);
     }
 
-    public RawTextElement(Text text, int color) {
+    public RawTextElement(Component text, int color) {
         this(text, color, 0);
     }
 
-    public RawTextElement(Text text, int color, int alignment) {
+    public RawTextElement(Component text, int color, int alignment) {
         this(TextProvider.of(text), color, alignment);
     }
 
@@ -53,11 +53,11 @@ public class RawTextElement extends AbstractElement {
             float delta,
             float alpha,
             boolean shouldHighlight) {
-        OrderedText text1 = text.getLabel(element);
+        FormattedCharSequence text1 = text.getLabel(element);
         if (text1 != null) {
             RenderHandler.drawScaledText0(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     text1,
                     0,
                     0,

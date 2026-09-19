@@ -10,16 +10,16 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -31,43 +31,43 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Entity.class)
 public abstract class EntityEvents<T extends Entity> implements EntityAccess<T> {
     @ModifyExpressionValue(
-            method = "updateVelocity",
+            method = "moveRelative",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/Entity;movementInputToVelocity(Lnet/minecraft/util/math/Vec3d;FF)Lnet/minecraft/util/math/Vec3d;"))
-    private Vec3d onModifyVelocity(Vec3d original) {
+                                    "Lnet/minecraft/world/entity/Entity;getInputVector(Lnet/minecraft/world/phys/Vec3;FF)Lnet/minecraft/world/phys/Vec3;"))
+    private Vec3 onModifyVelocity(Vec3 original) {
         if (!checkClientPlayer()) return original;
-        Event<Vec3d> vec3d = new Event<>(original, true, true);
+        Event<Vec3> vec3d = new Event<>(original, true, true);
         Listener.getPlayerVelocityTick().handleValue(vec3d);
         if (vec3d.isCancelled()) {
-            return Vec3d.ZERO;
+            return Vec3.ZERO;
         } else {
             return vec3d.context();
         }
     }
 
     @Shadow
-    protected abstract void setFlag(int index, boolean value);
+    protected abstract void setSharedFlag(int index, boolean value);
 
     @Shadow
-    protected abstract boolean getFlag(int index);
+    protected abstract boolean getSharedFlag(int index);
 
     @Shadow
-    protected abstract void fall(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition);
+    protected abstract void checkFallDamage(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition);
 
     @Shadow
-    public abstract ActionResult interact(PlayerEntity player, Hand hand);
+    public abstract InteractionResult interact(Player player, InteractionHand hand);
 
     @Unique
     public void setDataFlag(int index, boolean val) {
-        this.setFlag(index, val);
+        this.setSharedFlag(index, val);
     }
 
     @Unique
     public boolean getDataFlag(int index) {
-        return getFlag(index);
+        return getSharedFlag(index);
     }
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -76,8 +76,8 @@ public abstract class EntityEvents<T extends Entity> implements EntityAccess<T> 
         Listener.getEntityMidTickListener().broadcast(entity);
     }
 
-    @Inject(method = "onDataTrackerUpdate", at = @At("HEAD"))
-    public void onEntityDataUpdate(List<DataTracker.SerializedEntry<?>> dataEntries, CallbackInfo ci) {
+    @Inject(method = "onSyncedDataUpdated(Ljava/util/List;)V", at = @At("HEAD"))
+    public void onEntityDataUpdate(List<SynchedEntityData.DataValue<?>> dataEntries, CallbackInfo ci) {
         Entity entity = (Entity) (Object) (this);
         Listener.getEntityDataListener().broadcast(entity, dataEntries);
     }
@@ -88,17 +88,17 @@ public abstract class EntityEvents<T extends Entity> implements EntityAccess<T> 
     }
 
     @WrapOperation(
-            method = "updateMovementInFluid",
+            method = "updateFluidHeightAndDoFluidPushing",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/util/math/Vec3d;add(Lnet/minecraft/util/math/Vec3d;)Lnet/minecraft/util/math/Vec3d;",
+                                    "Lnet/minecraft/world/phys/Vec3;add(Lnet/minecraft/world/phys/Vec3;)Lnet/minecraft/world/phys/Vec3;",
                             ordinal = 1))
-    public Vec3d onEntityUpdateVelocity(
-            Vec3d instance, Vec3d vec, Operation<Vec3d> original, @Local(argsOnly = true) TagKey<Fluid> tagKey) {
+    public Vec3 onEntityUpdateVelocity(
+            Vec3 instance, Vec3 vec, Operation<Vec3> original, @Local(argsOnly = true) TagKey<Fluid> tagKey) {
         if (checkClientPlayer()) {
-            Event<Vec3d> eventVec3d = new Event<>(vec, true, true, tagKey);
+            Event<Vec3> eventVec3d = new Event<>(vec, true, true, tagKey);
             Listener.getPlayerFluidVelocityPoint().handleValue(eventVec3d);
             if (eventVec3d.isCancelled()) {
                 return instance;

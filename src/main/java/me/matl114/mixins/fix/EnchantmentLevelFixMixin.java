@@ -5,13 +5,13 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.*;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ItemEnchantmentsComponent.class)
+@Mixin(ItemEnchantments.class)
 public abstract class EnchantmentLevelFixMixin {
     @WrapOperation(
             method = "<init>",
@@ -21,7 +21,7 @@ public abstract class EnchantmentLevelFixMixin {
                             target = "Lit/unimi/dsi/fastutil/objects/Object2IntMap$Entry;getIntValue()I",
                             remap = false))
     public int init(Object2IntMap.Entry instance, Operation<Integer> original) {
-        return MathHelper.clamp(instance.getIntValue(), 0, 255);
+        return Mth.clamp(instance.getIntValue(), 0, 255);
     }
 
     @ModifyArg(

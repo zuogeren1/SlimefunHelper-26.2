@@ -13,14 +13,14 @@ import me.matl114.events.impl.KeyboardAction;
 import me.matl114.events.impl.MouseClickAction;
 import me.matl114.events.impl.MouseScrollAction;
 import me.matl114.managers.InputState;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
 public class SimpleInputManager implements IInputManager {
     protected static final SimpleInputManager instance = new SimpleInputManager();
 
     protected SimpleInputManager() {
-        this.mc = MinecraftClient.getInstance();
+        this.mc = Minecraft.getInstance();
     }
 
     protected final Map<String, IHotKey> hotkeyRegistry = new HashMap<>();
@@ -47,9 +47,9 @@ public class SimpleInputManager implements IInputManager {
         return instance;
     }
 
-    protected MinecraftClient mc;
+    protected Minecraft mc;
 
-    public MinecraftClient getClient() {
+    public Minecraft getClient() {
         return mc;
     }
 
@@ -99,7 +99,7 @@ public class SimpleInputManager implements IInputManager {
         boolean stateChange = onKeyInputPre(keyCode, scanCode, modifiers, action);
         // fire event to ask if the input is consumed
         Event<KeyboardAction> hardWareInput =
-                new Event<>(new KeyboardAction(this.mc.keyboard, keyCode, scanCode, action, modifiers), true, false);
+                new Event<>(new KeyboardAction(this.mc.keyboardHandler, keyCode, scanCode, action, modifiers), true, false);
         Listener.getKeyboardInput().handleValue(hardWareInput);
         boolean canceled = hardWareInput.isCancelled();
 
@@ -118,7 +118,7 @@ public class SimpleInputManager implements IInputManager {
             // Update the cached pressed keys status
             boolean stateChange = onKeyInputPre(transferedKeyCode, 0, 0, action);
             Event<MouseClickAction> hardWareInput =
-                    new Event<>(new MouseClickAction(mc.mouse, eventButton, action, mode), true, false);
+                    new Event<>(new MouseClickAction(mc.mouseHandler, eventButton, action, mode), true, false);
             Listener.getMouseButton().handleValue(hardWareInput);
             cancel = this.checkKeyBindsForChanges(transferedKeyCode, stateChange, isMouseClicked)
                     || hardWareInput.isCancelled();
@@ -128,7 +128,7 @@ public class SimpleInputManager implements IInputManager {
 
     public boolean onMouseScroll(double horizontal, double vertical) {
         Event<MouseScrollAction> scrollEvent =
-                new Event<>(new MouseScrollAction(mc.mouse, horizontal, vertical), true, false);
+                new Event<>(new MouseScrollAction(mc.mouseHandler, horizontal, vertical), true, false);
         Listener.getMouseScroll().handleValue(scrollEvent);
         if (scrollEvent.isCancelled()) {
             return true;

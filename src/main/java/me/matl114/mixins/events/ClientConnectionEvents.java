@@ -14,16 +14,16 @@ import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.handler.PacketSizeLogger;
-import net.minecraft.network.listener.ClientPacketListener;
-import net.minecraft.network.listener.PacketListener;
-import net.minecraft.network.listener.ServerPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.handshake.ConnectionIntent;
-import net.minecraft.network.state.NetworkState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.BandwidthDebugMonitor;
+import net.minecraft.network.ClientboundPacketListener;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketListener;
+import net.minecraft.network.ProtocolInfo;
+import net.minecraft.network.ServerboundPacketListener;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.handshake.ClientIntent;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -33,7 +33,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientConnection.class)
+@Mixin(Connection.class)
 public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler<Packet<?>>
         implements ClientConnectionAccess {
     @Shadow
@@ -44,33 +44,33 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
 
     @Shadow
     @Final
-    private NetworkSide side;
+    private PacketFlow receiving;
 
     @Shadow
     private volatile @Nullable PacketListener packetListener;
 
     @Shadow
-    private boolean errored;
+    private boolean handlingFault;
 
     @Shadow
-    private int packetsSentCounter;
+    private int sentPackets;
 
     @Unique
-    NetworkState<?> currentInBoundState;
+    ProtocolInfo<?> currentInBoundState;
 
     @Unique
-    NetworkState<?> currentOutBoundState;
+    ProtocolInfo<?> currentOutBoundState;
 
-    public NetworkState<?> getOutboundState() {
+    public ProtocolInfo<?> getOutboundState() {
         return currentOutBoundState;
     }
 
-    public NetworkState<?> getInboundState() {
+    public ProtocolInfo<?> getInboundState() {
         return currentInBoundState;
     }
 
     public void sendByteBuf(ByteBuf buf) {
-        ++this.packetsSentCounter;
+        ++this.sentPackets;
         if (this.channel.eventLoop().inEventLoop()) {
             this.channel.writeAndFlush(buf);
         } else {
@@ -80,27 +80,27 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
         }
     }
 
-    @Inject(method = "setPacketListener", at = @At("HEAD"))
-    private void onSetPacketListener(NetworkState<?> state, PacketListener listener, CallbackInfo ci) {
+    @Inject(method = "validateListener", at = @At("HEAD"))
+    private void onSetPacketListener(ProtocolInfo<?> state, PacketListener listener, CallbackInfo ci) {
         currentInBoundState = state;
     }
 
-    @Inject(method = "transitionOutbound", at = @At("HEAD"))
-    private void onTransitionOutbound(NetworkState<?> newState, CallbackInfo ci) {
+    @Inject(method = "setupOutboundProtocol", at = @At("HEAD"))
+    private void onTransitionOutbound(ProtocolInfo<?> newState, CallbackInfo ci) {
         currentOutBoundState = newState;
     }
 
     @Inject(
             method =
-                    "connect(Ljava/lang/String;ILnet/minecraft/network/state/NetworkState;Lnet/minecraft/network/state/NetworkState;Lnet/minecraft/network/listener/ClientPacketListener;Lnet/minecraft/network/packet/c2s/handshake/ConnectionIntent;)V",
+                    "initiateServerboundConnection(Ljava/lang/String;ILnet/minecraft/network/ProtocolInfo;Lnet/minecraft/network/ProtocolInfo;Lnet/minecraft/network/ClientboundPacketListener;Lnet/minecraft/network/protocol/handshake/ClientIntent;)V",
             at = @At("HEAD"))
     private void onConnection(
             String address,
             int port,
-            NetworkState outboundState,
-            NetworkState inboundState,
-            ClientPacketListener prePlayStateListener,
-            ConnectionIntent intent,
+            ProtocolInfo outboundState,
+            ProtocolInfo inboundState,
+            ClientboundPacketListener prePlayStateListener,
+            ClientIntent intent,
             CallbackInfo ci) {
         currentInBoundState = inboundState;
         currentOutBoundState = outboundState;
@@ -112,7 +112,7 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
                     @At(
                             value = "FIELD",
                             target =
-                                    "Lnet/minecraft/network/ClientConnection;packetListener:Lnet/minecraft/network/listener/PacketListener;",
+                                    "Lnet/minecraft/network/Connection;packetListener:Lnet/minecraft/network/PacketListener;",
                             shift = At.Shift.BEFORE),
             cancellable = true)
     private void onChannelException(ChannelHandlerContext context, Throwable ex, CallbackInfo ci) {
@@ -120,20 +120,20 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
             if (!Listener.handleException(
                     ex, Listener.ExceptionType.PACKET_DECODE_EXCEPTION, this.packetListener, this)) {
                 // cancel exception
-                errored = false;
+                handlingFault = false;
                 ci.cancel();
             }
         } else {
             if (!Listener.handleException(
                     ex, Listener.ExceptionType.UNKNOWN_CHANNEL_EXCEPTION, this.packetListener, this)) {
-                errored = false;
+                handlingFault = false;
                 ci.cancel();
             }
         }
     }
     // some sb mod inject at this point, we fix it by order = -999
     @Inject(
-            method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/packet/Packet;)V",
+            method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V",
             at = @At("HEAD"),
             cancellable = true,
             order = -999)
@@ -147,14 +147,14 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
             return;
         }
         // do not handle serverbound packet
-        if (this.side == NetworkSide.SERVERBOUND) {
+        if (this.receiving == PacketFlow.SERVERBOUND) {
             return;
         }
-        if (PacketManager.handleQueueInPacket(packet, (ClientConnection) (Object) this)) {
+        if (PacketManager.handleQueueInPacket(packet, (Connection) (Object) this)) {
             ci.cancel();
             return;
         }
-        Packet<?> packetToRecv = Listener.acceptS2CPacket((ClientConnection) (Object) this, packet);
+        Packet<?> packetToRecv = Listener.acceptS2CPacket((Connection) (Object) this, packet);
         if (packetToRecv != packet) {
             if (packetToRecv == null) {
                 ci.cancel();
@@ -166,23 +166,23 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
 
     @Inject(
             method =
-                    "connect(Ljava/lang/String;ILnet/minecraft/network/state/NetworkState;Lnet/minecraft/network/state/NetworkState;Lnet/minecraft/network/listener/ClientPacketListener;Lnet/minecraft/network/packet/c2s/handshake/ConnectionIntent;)V",
+                    "initiateServerboundConnection(Ljava/lang/String;ILnet/minecraft/network/ProtocolInfo;Lnet/minecraft/network/ProtocolInfo;Lnet/minecraft/network/ClientboundPacketListener;Lnet/minecraft/network/protocol/handshake/ClientIntent;)V",
             at = @At("RETURN"))
-    private <S extends ServerPacketListener, C extends ClientPacketListener> void onConnect(
+    private <S extends ServerboundPacketListener, C extends ClientboundPacketListener> void onConnect(
             String address,
             int port,
-            NetworkState<S> outboundState,
-            NetworkState<C> inboundState,
+            ProtocolInfo<S> outboundState,
+            ProtocolInfo<C> inboundState,
             C prePlayStateListener,
-            ConnectionIntent intent,
+            ClientIntent intent,
             CallbackInfo ci) {
         Listener.getConnectionEstablish()
                 .handleValue(new Event<>(
-                        (ClientConnection) (Object) this, false, false, inboundState.side(), prePlayStateListener));
+                        (Connection) (Object) this, false, false, inboundState.flow(), prePlayStateListener));
     }
 
     @Inject(
-            method = "send(Lnet/minecraft/network/packet/Packet;Lio/netty/channel/ChannelFutureListener;Z)V",
+            method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V",
             at = @At("HEAD"),
             cancellable = true)
     private void sendPacket(
@@ -197,14 +197,14 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
             return;
         }
         // do not handle serverbound packet
-        if (this.side == NetworkSide.SERVERBOUND) {
+        if (this.receiving == PacketFlow.SERVERBOUND) {
             return;
         }
-        if (PacketManager.handleQueueOutPacket(packet, (ClientConnection) (Object) this)) {
+        if (PacketManager.handleQueueOutPacket(packet, (Connection) (Object) this)) {
             ci.cancel();
             return;
         }
-        Packet<?> packetToSend = Listener.sendC2SPacket((ClientConnection) (Object) this, packet);
+        Packet<?> packetToSend = Listener.sendC2SPacket((Connection) (Object) this, packet);
         if (packetToSend != packet) {
             if (packetToSend == null) {
                 ci.cancel();
@@ -214,19 +214,19 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
         }
     }
 
-    @Inject(method = "sendImmediately", at = @At("RETURN"))
+    @Inject(method = "sendPacket", at = @At("RETURN"))
     private void sendImmediately(Packet<?> packet, ChannelFutureListener listener, boolean flush, CallbackInfo ci) {
         // do not handle serverbound packet
-        if (this.side == NetworkSide.SERVERBOUND) {
+        if (this.receiving == PacketFlow.SERVERBOUND) {
             return;
         }
         Listener.getPacketPostScheduleSendPoint().broadcast(packet, this);
     }
 
-    @Inject(method = "sendInternal", at = @At("RETURN"))
+    @Inject(method = "doSendPacket", at = @At("RETURN"))
     private void sendPacketPost(Packet<?> packet, ChannelFutureListener listener, boolean flush, CallbackInfo ci) {
         // do not handle serverbound packet
-        if (this.side == NetworkSide.SERVERBOUND) {
+        if (this.receiving == PacketFlow.SERVERBOUND) {
             return;
         }
         Listener.getPacketPostSendPoint().broadcast(packet, this);
@@ -234,19 +234,19 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
     }
 
     @WrapOperation(
-            method = "handlePacket",
+            method = "genericsFtw",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/network/packet/Packet;apply(Lnet/minecraft/network/listener/PacketListener;)V"))
+                                    "Lnet/minecraft/network/protocol/Packet;handle(Lnet/minecraft/network/PacketListener;)V"))
     private static void applyPacketMainThread(Packet instance, PacketListener t, Operation<Void> original) {
         // do not handle serverbound packet
-        if (t.getSide() == NetworkSide.SERVERBOUND) {
+        if (t.flow() == PacketFlow.SERVERBOUND) {
             original.call(instance, t);
             return;
         }
-        if (!MinecraftClient.getInstance().isOnThread() && !Listener.isAsyncImportantPacket(instance)) {
+        if (!Minecraft.getInstance().isSameThread() && !Listener.isAsyncImportantPacket(instance)) {
             original.call(instance, t);
             return;
         } else {
@@ -254,12 +254,12 @@ public abstract class ClientConnectionEvents extends SimpleChannelInboundHandler
         }
     }
 
-    @Inject(method = "addHandlers", at = @At("HEAD"))
+    @Inject(method = "configureSerialization", at = @At("HEAD"))
     private static void proxyChannelIp(
             ChannelPipeline pipeline,
-            NetworkSide side,
+            PacketFlow side,
             boolean local,
-            PacketSizeLogger packetSizeLogger,
+            BandwidthDebugMonitor packetSizeLogger,
             CallbackInfo ci) {
         Listener.getConnectionChannelInitialize().broadcast(pipeline, side, local);
     }

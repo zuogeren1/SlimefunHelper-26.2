@@ -3,10 +3,10 @@ package me.matl114.gui;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.complex.slimefun.SlimefunScreen;
 import me.matl114.utils.config.PropertyTracker;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class TestingScreen2 extends SlimefunScreen {
-    public TestingScreen2(Text text) {
+    public TestingScreen2(Component text) {
         super(text);
     }
 
@@ -51,7 +51,7 @@ public class TestingScreen2 extends SlimefunScreen {
                     int len = str.length();
                 }),
                 "byd");
-        addDrawableChild(((ContentDelegateWidget<?>) element3).getDelegate());
+        addRenderableWidget(((ContentDelegateWidget<?>) element3).getDelegate());
 
         //        element4 = new SlimefunDispensorSuggestBookWidget(this.x , this.y, null,  (shift, recipe)->{
         ////            Debug.info("click callback");
@@ -65,7 +65,7 @@ public class TestingScreen2 extends SlimefunScreen {
         //            this.x , this.y, width , 10 * height
         //        )
         //            .addTo(this);
-        //        element6 = new ListRegistrySelectScreen<>(Registries.ITEM, (item)->item.getName().getString(),
+        //        element6 = new ListRegistrySelectScreen<>(Registries.ITEM, (item)->item.getName(new ItemStack(item)).getString(),
         // (triplet)->{
         //            return new RegistryDisplayRender(new ItemStack(triplet.getC()), triplet.getC().getName(),
         // triplet.getB());

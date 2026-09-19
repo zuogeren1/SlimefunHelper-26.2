@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.survival;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -44,25 +45,24 @@ import me.matl114.utils.RegistryUtils;
 import me.matl114.utils.WorldUtils;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class AutoMine extends BaseModule {
     private static final int DEFAULT_MAX_INSTANT_MINE = 30;
@@ -96,7 +96,7 @@ public class AutoMine extends BaseModule {
             flagBuilder(root.add("enable-baritone")).defaultValue(true).build();
 
     public final NBTRef<EntrySet<Block>> blockWhitelist = builder(root.add("whitelist"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(sand|red_sand|gravel|clay|dirt|grass_block)$"), Registries.BLOCK))
+            .defaultValue(new EntrySet<>(new Regex("^(sand|red_sand|gravel|clay|dirt|grass_block)$"), BuiltInRegistries.BLOCK))
             .build();
 
     public final IntRef startDownOffset = intBuilder(root.add("start-down-offset"))
@@ -192,7 +192,7 @@ public class AutoMine extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (enable.get() && mode.get() == Mode.BATCH) {
             pathingSchedular.renderPathing(event);
         }
@@ -212,7 +212,7 @@ public class AutoMine extends BaseModule {
         if (anchorStandPos != null) {
             return;
         }
-        BlockPos currentStandPos = mc.player.getSteppingPos().add(0, 1, 0);
+        BlockPos currentStandPos = mc.player.getOnPos().offset(0, 1, 0);
         anchorStandPos =
                 new BlockPos(currentStandPos.getX(), resolveTargetStandY(currentStandPos), currentStandPos.getZ());
         route = buildBatchRoute(anchorStandPos);
@@ -222,11 +222,11 @@ public class AutoMine extends BaseModule {
     }
 
     private int resolveTargetStandY(BlockPos currentStandPos) {
-        int fixedY = Math.max(mc.world.getBottomY() + 1, currentStandPos.getY() - startDownOffset.get());
-        int minY = Math.max(mc.world.getBottomY(), fixedY - heightSearchLimit.get());
+        int fixedY = Math.max(mc.level.getMinY() + 1, currentStandPos.getY() - startDownOffset.get());
+        int minY = Math.max(mc.level.getMinY(), fixedY - heightSearchLimit.get());
         for (int y = fixedY - 1; y >= minY; --y) {
             BlockPos sample = new BlockPos(currentStandPos.getX(), y, currentStandPos.getZ());
-            if (!isMineable(mc.world.getBlockState(sample))) {
+            if (!isMineable(mc.level.getBlockState(sample))) {
                 return y + 1;
             }
         }
@@ -341,7 +341,7 @@ public class AutoMine extends BaseModule {
         if (routeIndex >= route.size()) {
             return true;
         }
-        return mc.player.getPos().squaredDistanceTo(route.get(routeIndex).toCenterPos())
+        return mc.player.position().distanceToSqr(Vec3.atCenterOf(route.get(routeIndex)))
                 > MathUtils.s2(collectEnterDistance.get());
     }
 
@@ -350,11 +350,11 @@ public class AutoMine extends BaseModule {
         collectRouteIndex = Math.min(route.size() - 1, Math.max(routeIndex - 1, 0));
         lockedCollectDrops.clear();
         if (!refreshCollectDrops.get()) {
-            Box box = mc.player
+            AABB box = mc.player
                     .getBoundingBox()
-                    .expand(collectSearchRadius.get(), SEARCH_VERTICAL_MARGIN, collectSearchRadius.get());
-            for (ItemEntity item : mc.world.getEntitiesByType(EntityType.ITEM, box, this::isCollectibleDrop)) {
-                lockedCollectDrops.add(item.getUuid());
+                    .inflate(collectSearchRadius.get(), SEARCH_VERTICAL_MARGIN, collectSearchRadius.get());
+            for (ItemEntity item : mc.level.getEntities(EntityTypes.ITEM, box, this::isCollectibleDrop)) {
+                lockedCollectDrops.add(item.getUUID());
             }
         }
     }
@@ -393,7 +393,7 @@ public class AutoMine extends BaseModule {
     private IPathGoal processCollectGoal() {
         ItemEntity target = findCollectTarget(refreshCollectDrops.get());
         if (target != null) {
-            return new GoalNear(target.getPos(), 1.25);
+            return new GoalNear(target.position(), 1.25);
         }
         while (collectRouteIndex >= 0) {
             BlockPos targetPos = route.get(collectRouteIndex);
@@ -413,7 +413,7 @@ public class AutoMine extends BaseModule {
     private int countEmptyInventorySlots() {
         int count = 0;
         for (int i = 0; i < 36; ++i) {
-            if (mc.player.getInventory().getStack(i).isEmpty()) {
+            if (mc.player.getInventory().getItem(i).isEmpty()) {
                 count++;
             }
         }
@@ -430,7 +430,7 @@ public class AutoMine extends BaseModule {
     private boolean isCollectibleDrop(ItemEntity itemEntity) {
         return itemEntity != null
                 && !itemEntity.isRemoved()
-                && !itemEntity.getStack().isEmpty();
+                && !itemEntity.getItem().isEmpty();
     }
 
     private boolean hasCollectTarget(boolean dynamic) {
@@ -438,19 +438,19 @@ public class AutoMine extends BaseModule {
     }
 
     private ItemEntity findCollectTarget(boolean dynamic) {
-        Box box = mc.player
+        AABB box = mc.player
                 .getBoundingBox()
-                .expand(collectSearchRadius.get(), SEARCH_VERTICAL_MARGIN, collectSearchRadius.get());
+                .inflate(collectSearchRadius.get(), SEARCH_VERTICAL_MARGIN, collectSearchRadius.get());
         return mc
-                .world
-                .getEntitiesByType(EntityType.ITEM, box, item -> {
+                .level
+                .getEntities(EntityTypes.ITEM, box, item -> {
                     if (!isCollectibleDrop(item)) {
                         return false;
                     }
-                    return dynamic || lockedCollectDrops.contains(item.getUuid());
+                    return dynamic || lockedCollectDrops.contains(item.getUUID());
                 })
                 .stream()
-                .min(Comparator.comparingDouble(item -> item.getPos().squaredDistanceTo(mc.player.getPos())))
+                .min(Comparator.comparingDouble(item -> item.position().distanceToSqr(mc.player.position())))
                 .orElse(null);
     }
 
@@ -469,7 +469,7 @@ public class AutoMine extends BaseModule {
     private BlockPos findMinePosAround(BlockPos standPos, boolean requireReachable) {
         for (int y = mineHeight.get() - 1; y >= 0; --y) {
             for (var plate : InteractExtra.INSTANCE.getPlatesAround()) {
-                BlockPos targetPos = standPos.add(plate.x, y, plate.y);
+                BlockPos targetPos = standPos.offset(plate.x, y, plate.y);
                 if (!isInsidePlan(targetPos)) {
                     continue;
                 }
@@ -477,7 +477,7 @@ public class AutoMine extends BaseModule {
                     if (!checkDistanceAndCondition(targetPos)) {
                         continue;
                     }
-                } else if (!isMineable(mc.world.getBlockState(targetPos))) {
+                } else if (!isMineable(mc.level.getBlockState(targetPos))) {
                     continue;
                 }
                 return targetPos;
@@ -497,33 +497,33 @@ public class AutoMine extends BaseModule {
     }
 
     private boolean isMineable(BlockState state) {
-        if (state == null || state.isAir() || state.isLiquid()) {
+        if (state == null || state.isAir() || state.liquid()) {
             return false;
         }
         Block block = state.getBlock();
-        return block.getHardness() >= 0.0F && blockWhitelist.get().test(block);
+        return block.defaultDestroyTime() >= 0.0F && blockWhitelist.get().test(block);
     }
 
     private boolean checkDistanceAndCondition(BlockPos newPos) {
         if (newPos == null) {
             return false;
         }
-        var access = PlayerInteractionAccess.of(mc.interactionManager);
+        var access = PlayerInteractionAccess.of(mc.gameMode);
         if (Objects.equals(access.getCurrentFailBreakPos(), newPos)) {
             return false;
         }
         if (!isInsidePlan(newPos)) {
             return false;
         }
-        if (!isMineable(mc.world.getBlockState(newPos))) {
+        if (!isMineable(mc.level.getBlockState(newPos))) {
             return false;
         }
-        return !MineTasks.distanceOutOfReach(newPos, mc.player.getEyePos());
+        return !MineTasks.distanceOutOfReach(newPos, mc.player.getEyePosition());
     }
 
     private int onMineCommon(Supplier<BlockPos> posFinder) {
         int tryMine = 0;
-        Vec2f originPy = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
+        Vec2 originPy = new Vec2(mc.player.getXRot(), mc.player.getYRot());
         do {
             if (!checkDistanceAndCondition(lastMinePos)) {
                 lastMinePos = posFinder.get();
@@ -534,9 +534,9 @@ public class AutoMine extends BaseModule {
             if (considerCooldown.get() && MineExtra.INSTANCE.getMiningPacketCooldown(1) > 0) {
                 break;
             }
-            PlayerInteractionAccess.of(mc.interactionManager).setMiningCooldown(0);
+            PlayerInteractionAccess.of(mc.gameMode).setMiningCooldown(0);
 
-            BlockState mineState = mc.world.getBlockState(lastMinePos);
+            BlockState mineState = mc.level.getBlockState(lastMinePos);
             IndexEntry<ItemStack> bestStack = autoSwap.get()
                     ? InventoryUtils.findBestPlayerItem(
                             stack -> {
@@ -561,43 +561,43 @@ public class AutoMine extends BaseModule {
             AttributeUtils.updateAttribute(mc.player);
             float speed = MineExtra.INSTANCE.predictBlockBreakingSpeedAt(lastMinePos);
             tryMine += 1;
-            Vec3d shouldFacing = lastMinePos.toCenterPos().subtract(mc.player.getEyePos());
-            Direction dir = Direction.getFacing(shouldFacing).getOpposite();
+            Vec3 shouldFacing = Vec3.atCenterOf(lastMinePos).subtract(mc.player.getEyePosition());
+            Direction dir = Direction.getApproximateNearest(shouldFacing).getOpposite();
             switch (legalMode.get()) {
                 case SWING_HAND_AND_ROT -> {
-                    Vec3d rotate2f = mc.player.getRotationVector();
-                    Vec3d rotateXZ = new Vec3d(rotate2f.x, 0, rotate2f.z);
-                    if (rotateXZ.dotProduct(shouldFacing) < 0) {
-                        PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYaw() + 180);
-                        mc.getNetworkHandler()
-                                .sendPacket(VPacket.newLookAndOnGround(
-                                        mc.player.getYaw(),
-                                        mc.player.getPitch(),
-                                        mc.player.isOnGround(),
+                    Vec3 rotate2f = mc.player.getLookAngle();
+                    Vec3 rotateXZ = new Vec3(rotate2f.x, 0, rotate2f.z);
+                    if (rotateXZ.dot(shouldFacing) < 0) {
+                        PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYRot() + 180);
+                        mc.getConnection()
+                                .send(VPacket.newLookAndOnGround(
+                                        mc.player.getYRot(),
+                                        mc.player.getXRot(),
+                                        mc.player.onGround(),
                                         mc.player.horizontalCollision));
                     }
                 }
                 case SWING_HAND_AND_TARGET -> {
-                    Vec3d facing = shouldFacing.normalize();
-                    Vec2f pitchYaw = EntityUtils.rotationToPitchYaw(facing);
-                    if (Math.abs(EntityUtils.getSafeYawDiff(mc.player.getYaw(), pitchYaw.y)) > 30) {
-                        mc.player.setPitch(pitchYaw.x);
-                        mc.player.setYaw(pitchYaw.y);
-                        mc.getNetworkHandler()
-                                .sendPacket(VPacket.newLookAndOnGround(
-                                        mc.player.getYaw(),
-                                        mc.player.getPitch(),
-                                        mc.player.isOnGround(),
+                    Vec3 facing = shouldFacing.normalize();
+                    Vec2 pitchYaw = EntityUtils.rotationToPitchYaw(facing);
+                    if (Math.abs(EntityUtils.getSafeYawDiff(mc.player.getYRot(), pitchYaw.y)) > 30) {
+                        mc.player.setXRot(pitchYaw.x);
+                        mc.player.setYRot(pitchYaw.y);
+                        mc.getConnection()
+                                .send(VPacket.newLookAndOnGround(
+                                        mc.player.getYRot(),
+                                        mc.player.getXRot(),
+                                        mc.player.onGround(),
                                         mc.player.horizontalCollision));
                     }
                 }
             }
-            mc.interactionManager.updateBlockBreakingProgress(lastMinePos, dir);
+            mc.gameMode.continueDestroyBlock(lastMinePos, dir);
             if (legalMode.get().hasSwing()) {
-                mc.player.swingHand(Hand.MAIN_HAND);
+                mc.player.swing(InteractionHand.MAIN_HAND);
             }
             if (!MineExtra.INSTANCE.shouldTreatAsInstantBreak(speed)) {
-                var access = PlayerInteractionAccess.of(mc.interactionManager);
+                var access = PlayerInteractionAccess.of(mc.gameMode);
                 if (doubleBreak.get()
                         && Objects.equals(access.getCurrentMiningPos(), lastMinePos)
                         && access.isFailBreakEmpty()) {
@@ -606,39 +606,39 @@ public class AutoMine extends BaseModule {
                     break;
                 }
             }
-        } while (!mc.interactionManager.isBreakingBlock() && tryMine < DEFAULT_MAX_INSTANT_MINE);
-        if (mc.player.getPitch() != originPy.x || mc.player.getYaw() != originPy.y) {
-            mc.player.setPitch(originPy.x);
-            mc.player.setYaw(originPy.y);
+        } while (!mc.gameMode.isDestroying() && tryMine < DEFAULT_MAX_INSTANT_MINE);
+        if (mc.player.getXRot() != originPy.x || mc.player.getYRot() != originPy.y) {
+            mc.player.setXRot(originPy.x);
+            mc.player.setYRot(originPy.y);
             ClientPlayerAccess.of(mc.player).resyncRot();
         }
         return tryMine;
     }
 
     private boolean isDurabilityOk(ItemStack item) {
-        if (item.isEmpty()) {
+        if (item.count() == 0) {
             return true;
         }
         int durabilityLimit;
-        if (item.get(DataComponentTypes.UNBREAKABLE) != null) {
+        if (item.get(DataComponents.UNBREAKABLE) != null) {
             durabilityLimit = 0;
-        } else if (item.get(DataComponentTypes.MAX_DAMAGE) != null) {
-            RegistryEntry<Enchantment> unbreaking =
+        } else if (item.get(DataComponents.MAX_DAMAGE) != null) {
+            Holder<Enchantment> unbreaking =
                     RegistryUtils.getRegistryEntry(ItemStackUtils.registry(), Enchantments.UNBREAKING);
             int multiply = 1;
             if (unbreaking != null) {
-                multiply = EnchantmentHelper.getLevel(unbreaking, item) + 1;
+                multiply = EnchantmentHelper.getItemEnchantmentLevel(unbreaking, item) + 1;
             }
             durabilityLimit = (DURABILITY_MULTIPLY * 2) / multiply;
         } else {
             return true;
         }
         int max = Math.max(MIN_DURABILITY_LIMIT, durabilityLimit);
-        return item.getDamage() <= item.getMaxDamage() - max;
+        return item.getDamageValue() <= item.getMaxDamage() - max;
     }
 
     private boolean isNear(BlockPos pos, double distance) {
-        return pos != null && mc.player.getPos().squaredDistanceTo(pos.toCenterPos()) <= MathUtils.s2(distance);
+        return pos != null && mc.player.position().distanceToSqr(Vec3.atCenterOf(pos)) <= MathUtils.s2(distance);
     }
 
     {

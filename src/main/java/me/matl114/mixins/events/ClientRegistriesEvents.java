@@ -6,32 +6,32 @@ import java.util.List;
 import java.util.Map;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
-import net.minecraft.client.network.ClientRegistries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.TagGroupLoader;
-import net.minecraft.registry.tag.TagKey;
+import net.minecraft.client.multiplayer.RegistryDataCollector;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
+import net.minecraft.tags.TagLoader;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(ClientRegistries.class)
+@Mixin(RegistryDataCollector.class)
 public abstract class ClientRegistriesEvents {
     @ModifyExpressionValue(
-            method = "startTagReload",
+            method = "resolveRegistryTags",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/registry/tag/TagPacketSerializer$Serialized;toRegistryTags(Lnet/minecraft/registry/Registry;)Lnet/minecraft/registry/tag/TagGroupLoader$RegistryTags;"))
-    private static <T> TagGroupLoader.RegistryTags<T> onRegistryTagload(
-            TagGroupLoader.RegistryTags<T> original,
-            @Local(argsOnly = true) RegistryKey<? extends Registry<? extends T>> registryKey) {
-        Map<TagKey<T>, List<RegistryEntry<T>>> tagMap = original.tags();
-        Event<Map<TagKey<T>, List<RegistryEntry<T>>>> event = new Event<>(tagMap, false, true, original.key());
+                                    "Lnet/minecraft/tags/TagNetworkSerialization$NetworkPayload;resolve(Lnet/minecraft/core/Registry;)Lnet/minecraft/tags/TagLoader$LoadResult;"))
+    private static <T> TagLoader.LoadResult<T> onRegistryTagload(
+            TagLoader.LoadResult<T> original,
+            @Local(argsOnly = true) ResourceKey<? extends Registry<? extends T>> registryKey) {
+        Map<TagKey<T>, List<Holder<T>>> tagMap = original.tags();
+        Event<Map<TagKey<T>, List<Holder<T>>>> event = new Event<>(tagMap, false, true, original.key());
         Listener.getRegistryTagKeyReload().handleValue((Event) event);
         if (event.context != tagMap) {
-            return new TagGroupLoader.RegistryTags<>(original.key(), event.context);
+            return new TagLoader.LoadResult<>(original.key(), event.context);
         }
         return original;
     }

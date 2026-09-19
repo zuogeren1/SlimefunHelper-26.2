@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import lombok.AllArgsConstructor;
 import me.matl114.commands.MainCommand;
@@ -21,27 +22,27 @@ import me.matl114.utils.*;
 import me.matl114.utils.render.RenderCollector;
 import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.EntitiesDestroyS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class EntityLog extends BaseModule {
     public final ModulePath entityLog = makePath(Configs.RENDER_CONFIG, "detect-entity.entity-log");
@@ -58,7 +59,7 @@ public class EntityLog extends BaseModule {
 
     public final NBTRef<EntrySet<EntityType<?>>> whiteList = builder(
                     entityLog.add("whitelist"), EntrySet.<EntityType<?>>parameter())
-            .defaultValue(new EntrySet<>(new Regex("player"), Registries.ENTITY_TYPE))
+            .defaultValue(new EntrySet<>(new Regex("player"), BuiltInRegistries.ENTITY_TYPE))
             .build();
 
     public final FlagRef chatLog = builder(entityLog.add("log-entity-to-chat"), Boolean.class)
@@ -76,7 +77,7 @@ public class EntityLog extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> color = builder(entityLog.add("render-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.LIGHT_PURPLE))
+            .defaultValue(new WrapColor(ChatFormatting.LIGHT_PURPLE))
             .build();
 
     public final FlagRef renderLog = builder(entityLog.add("render-reason-log"), Boolean.class)
@@ -135,9 +136,9 @@ public class EntityLog extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntitySpawnS2CPacket.class), this::onEntitySpawn);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundAddEntityPacket.class), this::onEntitySpawn);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(EntitiesDestroyS2CPacket.class), this::onEntityRemove);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundRemoveEntitiesPacket.class), this::onEntityRemove);
         registerListener(Listener.getServerDisconnectPoint(), this::onServerExit);
         registerListener(Listener.getPostTick(), this::onUpdate);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
@@ -147,21 +148,21 @@ public class EntityLog extends BaseModule {
         registerListener(RenderListener.getRender2DEvent(), this::onRender2D);
     }
 
-    public void onEntitySpawn(Event<EntitySpawnS2CPacket> packetEvent) {
-        // Debug.info("check entity", packet.getEntityType());
+    public void onEntitySpawn(Event<ClientboundAddEntityPacket> packetEvent) {
+        // Debug.info("check entity", packet.getType());
         if (checkNull()) return;
         if (loginServerCheck()) return;
         var packet = packetEvent.context();
         if (enable.get()) {
-            if (whiteList.get().test(packet.getEntityType())) {
-                EntityType<?> type = packet.getEntityType();
-                if (type == EntityType.PLAYER) {
+            if (whiteList.get().test(packet.getType())) {
+                EntityType<?> type = packet.getType();
+                if (type == EntityTypes.PLAYER) {
                     if (chatLog.get()) {
                         String name = null;
-                        if (MinecraftClient.getInstance().world != null) {
-                            PlayerListEntry entry = MinecraftClient.getInstance()
-                                    .getNetworkHandler()
-                                    .getPlayerListEntry(packet.getUuid());
+                        if (Minecraft.getInstance().level != null) {
+                            PlayerInfo entry = Minecraft.getInstance()
+                                    .getConnection()
+                                    .getPlayerInfo(packet.getUUID());
                             if (entry != null) {
                                 name = VRecord.getName(entry.getProfile());
                             }
@@ -177,9 +178,9 @@ public class EntityLog extends BaseModule {
                                                         packet.getX(), packet.getY(), packet.getZ()),
                                                 formatDistance(packet.getX(), packet.getY(), packet.getZ())));
                     }
-                    onPlayerAppear(packet.getUuid());
+                    onPlayerAppear(packet.getUUID());
                 } else {
-                    // if(LivingEntity.class.isAssignableFrom( packet.getEntityType().getBaseClass())){
+                    // if(LivingEntity.class.isAssignableFrom( packet.getType().getBaseClass())){
                     // only log the living Entity; the common Entities are mostly functional and are noisy
                     if (chatLog.get()) {
                         logSub(
@@ -188,7 +189,7 @@ public class EntityLog extends BaseModule {
                                         .get()
                                         .formatText(
                                                 "Entity",
-                                                packet.getEntityType().getName(),
+                                                packet.getType().getDescriptionId(),
                                                 ChatUtils.getDisplayedLocation(
                                                         packet.getX(), packet.getY(), packet.getZ()),
                                                 formatDistance(packet.getX(), packet.getY(), packet.getZ())));
@@ -199,9 +200,9 @@ public class EntityLog extends BaseModule {
     }
 
     private static double calculateDistance(double x1, double y1, double z1) {
-        if (MinecraftClient.getInstance().player != null) {
-            ClientPlayerEntity player = MinecraftClient.getInstance().player;
-            return Math.sqrt(player.getPos().squaredDistanceTo(x1, y1, z1));
+        if (Minecraft.getInstance().player != null) {
+            LocalPlayer player = Minecraft.getInstance().player;
+            return Math.sqrt(player.position().distanceToSqr(x1, y1, z1));
         }
         return -1.0f;
     }
@@ -210,15 +211,15 @@ public class EntityLog extends BaseModule {
         return "%.2f".formatted(calculateDistance(x1, y1, z1));
     }
 
-    public void onEntityRemove(Event<EntitiesDestroyS2CPacket> packetEvent) {
+    public void onEntityRemove(Event<ClientboundRemoveEntitiesPacket> packetEvent) {
         if (checkNull()) return;
         if (loginServerCheck()) return;
         if (enable.get()) {
             var packet = packetEvent.context();
-            if (mc.world != null) {
+            if (mc.level != null) {
                 Set<Entity> removing = new LinkedHashSet<>();
                 for (int i : packet.getEntityIds()) {
-                    Entity entity = mc.world.getEntityById(i);
+                    Entity entity = mc.level.getEntity(i);
                     if (entity == null) continue;
                     if (whiteList.get().test(entity.getType())) {
                         removing.add(entity);
@@ -226,7 +227,7 @@ public class EntityLog extends BaseModule {
                 }
 
                 for (var entity : removing) {
-                    if (entity instanceof PlayerEntity pl) {
+                    if (entity instanceof Player pl) {
                         if (chatLog.get()) {
                             logSub(
                                     "Entity",
@@ -263,31 +264,31 @@ public class EntityLog extends BaseModule {
         offLinePos.remove(playerUUID);
     }
 
-    public void onPlayerDisappear(PlayerEntity player) {
-        UUID playerUUID = player.getUuid();
-        if (player.isDead() || player.getHealth() <= 1E-6) {
+    public void onPlayerDisappear(Player player) {
+        UUID playerUUID = player.getUUID();
+        if (player.isDeadOrDying() || player.getHealth() <= 1E-6) {
             offLinePos.remove(playerUUID);
             return;
         }
-        ChunkPos playerLeaveChunk = player.getChunkPos();
+        ChunkPos playerLeaveChunk = player.chunkPosition();
         Entry entry = new Entry(
                 playerUUID,
                 player.getBoundingBox(),
-                player.getPos(),
+                player.position(),
                 playerLeaveChunk,
                 player.getPose(),
                 player.getDisplayName(),
-                player.getNameForScoreboard(),
-                mc.world.getRegistryKey(),
+                player.getScoreboardName(),
+                mc.level.dimension(),
                 0);
-        if (mc.player.getPos().subtract(player.getPos()).horizontalLengthSquared() > MathUtils.s2(48)) {
+        if (mc.player.position().subtract(player.position()).horizontalDistanceSqr() > MathUtils.s2(48)) {
             entry.exitCode = 1;
         } else {
             entry.exitCode = 2;
             Tasks.scheduleRepeated(
                     () -> {
                         if (checkNull()) return true;
-                        var pe = mc.getNetworkHandler().getPlayerListEntry(playerUUID);
+                        var pe = mc.getConnection().getPlayerInfo(playerUUID);
                         if (pe == null) {
                             entry.exitCode = 0;
                             if (logLog.get()) {
@@ -303,7 +304,7 @@ public class EntityLog extends BaseModule {
                                                         createTracking(entry.scoreboardName)));
                             }
                             return true;
-                        } else if (pe.getGameMode() == GameMode.SPECTATOR) {
+                        } else if (pe.getGameMode() == GameType.SPECTATOR) {
                             entry.exitCode = 0;
                             if (logLog.get()) {
                                 logSub(
@@ -336,9 +337,9 @@ public class EntityLog extends BaseModule {
 
     static final String[] LEAVE_REASON = {"Log", "Faraway", "Teleport", "Queuing", "ReLogin"};
 
-    RenderCollector<Box> boxing = RenderCollectors.createBoxCollector(false, true, false);
-    RenderCollector<Box> boxingFrame = RenderCollectors.createBoxCollector(true, false, false);
-    RenderCollector<Vec3d> tracing = RenderCollectors.createTracerCollector();
+    RenderCollector<AABB> boxing = RenderCollectors.createBoxCollector(false, true, false);
+    RenderCollector<AABB> boxingFrame = RenderCollectors.createBoxCollector(true, false, false);
+    RenderCollector<Vec3> tracing = RenderCollectors.createTracerCollector();
     RenderCollector<RenderElements.Text> texting = RenderCollectors.createTextCollector();
 
     public void onUpdate(Event<Void> eventUpdate) {
@@ -347,7 +348,7 @@ public class EntityLog extends BaseModule {
         texting.clear();
         if (checkNull()) return;
         if (enable.get() && renderLogPosition.get()) {
-            var worldKey = mc.world.getRegistryKey();
+            var worldKey = mc.level.dimension();
             var color = this.color.get();
             for (var re : offLinePos.values()) {
                 switch (re.exitCode) {
@@ -365,8 +366,8 @@ public class EntityLog extends BaseModule {
                     continue;
                 }
                 ChunkPos leaveChunk = re.leaveChunk;
-                if (mc.world.getChunkManager().isChunkLoaded(leaveChunk.x, leaveChunk.z)) {
-                    Box box = re.leaveBox;
+                if (mc.level.getChunkSource().hasChunk(leaveChunk.x, leaveChunk.z)) {
+                    AABB box = re.leaveBox;
                     TracingOption op = option.get();
                     if (op.line()) {
                         tracing.submit(box.getCenter(), color.withAlpha(255));
@@ -388,7 +389,7 @@ public class EntityLog extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> eventMatrixStack) {
+    public void onRender(Event<PoseStack> eventMatrixStack) {
         if (enable.get() && renderLogPosition.get()) {
             RenderUtils.startDrawVirtual(eventMatrixStack.context);
             try {
@@ -406,17 +407,17 @@ public class EntityLog extends BaseModule {
         }
     }
 
-    public void onPlayerListEntryAdd(Event<PlayerListEntry> event) {
+    public void onPlayerListEntryAdd(Event<PlayerInfo> event) {
         UUID uid = VRecord.getId(event.context.getProfile());
-        GameMode gameMode = event.context.getGameMode();
-        if (gameMode != GameMode.SPECTATOR) {
+        GameType gameMode = event.context.getGameMode();
+        if (gameMode != GameType.SPECTATOR) {
             Tasks.scheduleDelayed(
                     () -> {
                         if (checkNull()) return;
-                        var entry = mc.getNetworkHandler().getPlayerListEntry(uid);
+                        var entry = mc.getConnection().getPlayerInfo(uid);
                         if (entry == null) {
                             return;
-                        } else if (entry.getGameMode() == GameMode.SPECTATOR) {
+                        } else if (entry.getGameMode() == GameType.SPECTATOR) {
                             handleJoinServer(uid);
                         } else {
                             handleReLogin(uid);
@@ -426,11 +427,11 @@ public class EntityLog extends BaseModule {
         }
     }
 
-    public void onPlayerListEntryModify(Event<PlayerListEntry> event) {
-        if (event.getArgs(0) == PlayerListS2CPacket.Action.UPDATE_GAME_MODE) {
+    public void onPlayerListEntryModify(Event<PlayerInfo> event) {
+        if (event.getArgs(0) == ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE) {
             UUID uid = VRecord.getId(event.context.getProfile());
-            GameMode gameMode = event.context.getGameMode();
-            if (gameMode != GameMode.SPECTATOR) {
+            GameType gameMode = event.context.getGameMode();
+            if (gameMode != GameType.SPECTATOR) {
                 handleReLogin(uid);
             } else {
                 handleKickToQueue(uid);
@@ -438,7 +439,7 @@ public class EntityLog extends BaseModule {
         }
     }
 
-    public void onPlayerListEntryRemove(Event<PlayerListEntry> event) {
+    public void onPlayerListEntryRemove(Event<PlayerInfo> event) {
         UUID uid = VRecord.getId(event.context.getProfile());
         handleExit(uid);
     }
@@ -450,8 +451,8 @@ public class EntityLog extends BaseModule {
         if (entry != null && entry.exitCode == 0) {
             entry.exitCode = 3;
             if (logLogReconnect.get()) {
-                int count = (int) mc.getNetworkHandler().getPlayerList().stream()
-                        .filter(s -> s.getGameMode() == GameMode.SPECTATOR)
+                int count = (int) mc.getConnection().getOnlinePlayers().stream()
+                        .filter(s -> s.getGameMode() == GameType.SPECTATOR)
                         .count();
                 logSub(
                         "Entity",
@@ -467,10 +468,10 @@ public class EntityLog extends BaseModule {
         }
     }
 
-    private Text createTracking(String name) {
-        return ChatUtils.stringToText("&a&l[&aTrack&a&l]").styled(s -> s.withClickEvent(
+    private Component createTracking(String name) {
+        return ChatUtils.stringToText("&a&l[&aTrack&a&l]").withStyle(s -> s.withClickEvent(
                         ChatUtils.getSuggestCommand(MainCommand.getMainCommandPrefix() + "pqueue add " + name))
-                .withHoverEvent(ChatUtils.getHoverShowText(List.of(Text.literal("Click to track player in queue")))));
+                .withHoverEvent(ChatUtils.getHoverShowText(List.of(Component.literal("Click to track player in queue")))));
     }
 
     public void handleReLogin(UUID uuid) {
@@ -500,13 +501,13 @@ public class EntityLog extends BaseModule {
     }
 
     public boolean loginServerCheck() {
-        return mc.world.getWorldBorder().getSize() < 100;
+        return mc.level.getWorldBorder().getSize() < 100;
     }
 
-    private Text createEntityDisplayName(Entity entity) {
-        var text = Text.empty().append(entity.getType().getName().copy());
+    private Component createEntityDisplayName(Entity entity) {
+        var text = Component.empty().append(entity.getType().getDescription().copy());
         if (entity.hasCustomName() && entity.getCustomName() != null) {
-            text.append(Text.literal(" ")).append(entity.getCustomName().copy());
+            text.append(Component.literal(" ")).append(entity.getCustomName().copy());
         }
         return text;
     }
@@ -514,13 +515,13 @@ public class EntityLog extends BaseModule {
     @AllArgsConstructor
     public static class Entry {
         UUID uuid;
-        Box leaveBox;
-        Vec3d leavePos;
+        AABB leaveBox;
+        Vec3 leavePos;
         ChunkPos leaveChunk;
-        EntityPose leavePose;
-        Text displayName;
+        Pose leavePose;
+        Component displayName;
         String scoreboardName;
-        RegistryKey<World> leaveWorld;
+        ResourceKey<Level> leaveWorld;
         int exitCode;
     }
 }

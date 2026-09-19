@@ -5,38 +5,38 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.nbt.Tag;
 
 public class NBTUtils {
-    public static NbtElement getOrDefault(@Nonnull NbtCompound element, String key, NbtElement defaultValue) {
-        return element.entries.getOrDefault(key, defaultValue);
+    public static Tag getOrDefault(@Nonnull CompoundTag element, String key, Tag defaultValue) {
+        return element.tags.getOrDefault(key, defaultValue);
     }
 
-    public static void putIfAbsent(@Nonnull NbtCompound element, String key, NbtElement value) {
-        element.entries.putIfAbsent(key, value);
+    public static void putIfAbsent(@Nonnull CompoundTag element, String key, Tag value) {
+        element.tags.putIfAbsent(key, value);
     }
 
-    public static NbtElement getOrCreate(@Nonnull NbtCompound element, String key, Supplier<NbtElement> defaultValue) {
-        return element.entries.computeIfAbsent(key, (k) -> defaultValue.get());
+    public static Tag getOrCreate(@Nonnull CompoundTag element, String key, Supplier<Tag> defaultValue) {
+        return element.tags.computeIfAbsent(key, (k) -> defaultValue.get());
     }
 
-    public static NbtElement computeIfAbsent(
-            @Nonnull NbtCompound element, String key, Function<String, NbtElement> defaultValue) {
-        return element.entries.computeIfAbsent(key, defaultValue);
+    public static Tag computeIfAbsent(
+            @Nonnull CompoundTag element, String key, Function<String, Tag> defaultValue) {
+        return element.tags.computeIfAbsent(key, defaultValue);
     }
 
-    public static NbtCompound ensurePath(@Nonnull NbtCompound tag, String path) {
+    public static CompoundTag ensurePath(@Nonnull CompoundTag tag, String path) {
         String[] value = path.split("\\.");
-        NbtCompound current = tag;
+        CompoundTag current = tag;
         for (int i = 0; i < value.length; i++) {
-            current = (NbtCompound) current.entries.compute(value[i], (k, v) -> {
-                if (v instanceof NbtCompound nbtCompound) {
+            current = (CompoundTag) current.tags.compute(value[i], (k, v) -> {
+                if (v instanceof CompoundTag nbtCompound) {
                     return nbtCompound;
                 } else {
-                    return new NbtCompound();
+                    return new CompoundTag();
                 }
             });
         }
@@ -44,15 +44,15 @@ public class NBTUtils {
     }
 
     @Nullable
-    public static NbtElement resolvePath(@Nonnull NbtCompound tag, String path) {
+    public static Tag resolvePath(@Nonnull CompoundTag tag, String path) {
         String[] value = path.split("\\.");
         return resolve(tag, value);
     }
 
-    public static NbtElement resolve(@Nonnull NbtCompound tag, String... value) {
-        NbtCompound current = tag;
+    public static Tag resolve(@Nonnull CompoundTag tag, String... value) {
+        CompoundTag current = tag;
         for (int i = 0; i < value.length - 1; i++) {
-            if (current.get(value[i]) instanceof NbtCompound nbtCompound) {
+            if (current.get(value[i]) instanceof CompoundTag nbtCompound) {
                 current = nbtCompound;
             } else {
                 return null;
@@ -62,30 +62,30 @@ public class NBTUtils {
     }
 
     public static <W> void putValue(
-            @Nonnull NbtCompound tag, String key, W value, Codec<W> codec, RegistryWrapper.WrapperLookup lookup) {
-        tag.put(key, codec, lookup.getOps(NbtOps.INSTANCE), value);
+            @Nonnull CompoundTag tag, String key, W value, Codec<W> codec, HolderLookup.Provider lookup) {
+        tag.store(key, codec, lookup.createSerializationContext(NbtOps.INSTANCE), value);
     }
 
-    public static <W> void putValue(@Nonnull NbtCompound tag, String key, W value, Codec<W> codec) {
-        tag.put(key, codec, NbtOps.INSTANCE, value);
+    public static <W> void putValue(@Nonnull CompoundTag tag, String key, W value, Codec<W> codec) {
+        tag.store(key, codec, NbtOps.INSTANCE, value);
     }
 
-    public static <W> W getValue(@Nonnull NbtCompound tag, String key, Codec<W> codec) {
-        return tag.get(key, codec).orElse(null);
+    public static <W> W getValue(@Nonnull CompoundTag tag, String key, Codec<W> codec) {
+        return tag.read(key, codec).orElse(null);
     }
 
     public static <W> W getValue(
-            @Nonnull NbtCompound tag, String key, Codec<W> codec, RegistryWrapper.WrapperLookup lookup) {
-        return tag.get(key, codec, lookup.getOps(NbtOps.INSTANCE)).orElse(null);
+            @Nonnull CompoundTag tag, String key, Codec<W> codec, HolderLookup.Provider lookup) {
+        return tag.read(key, codec, lookup.createSerializationContext(NbtOps.INSTANCE)).orElse(null);
     }
 
-    public static <W> W toValue(NbtElement nbtElement, Codec<W> codec) {
+    public static <W> W toValue(Tag nbtElement, Codec<W> codec) {
         var re = codec.parse(NbtOps.INSTANCE, nbtElement);
         return re.isSuccess() ? re.getOrThrow() : null;
     }
 
-    public static <W> W toValue(NbtElement nbtElement, Codec<W> codec, RegistryWrapper.WrapperLookup lookup) {
-        var re = codec.parse(lookup.getOps(NbtOps.INSTANCE), nbtElement);
+    public static <W> W toValue(Tag nbtElement, Codec<W> codec, HolderLookup.Provider lookup) {
+        var re = codec.parse(lookup.createSerializationContext(NbtOps.INSTANCE), nbtElement);
         return re.isSuccess() ? re.getOrThrow() : null;
     }
 }

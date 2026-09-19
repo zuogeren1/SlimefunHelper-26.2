@@ -15,7 +15,7 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.PairLikeFactory;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 @With
 public record LabelVec2(String xLabel, String yLabel, Vec2 data) implements NBTParsable<LabelVec2> {
@@ -40,7 +40,7 @@ public record LabelVec2(String xLabel, String yLabel, Vec2 data) implements NBTP
                 return subScreenWidget
                         .addDrawableChild(DisplayWidget.instance(0, 0, 2 * dy, dy)
                                 .setRenderHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         originalLabel.xLabel(), originalLabel.xLabel())),
                                                 ButtonAction.empty())
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -50,7 +50,7 @@ public record LabelVec2(String xLabel, String yLabel, Vec2 data) implements NBTP
                                 .generateValueWidget(2 * dy, 0, half - 2 * dy, dy))
                         .addDrawableChild(DisplayWidget.instance(half, 0, 2 * dy, dy)
                                 .setRenderHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         originalLabel.yLabel(), originalLabel.yLabel())),
                                                 ButtonAction.empty())
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(

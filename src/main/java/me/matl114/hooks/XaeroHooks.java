@@ -10,9 +10,9 @@ import me.matl114.hooks.impl.xaeroplus.impl.MapDrawFactoryImpl;
 import me.matl114.hooks.impl.xaerowaypoints.IXWaypointFactory;
 import me.matl114.hooks.impl.xaerowaypoints.impl.XaeroWaypointFactoryImpl;
 import me.matl114.hooks.impl.xaeroworldmap.MapClickContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import xaero.hud.minimap.BuiltInHudModules;
 import xaero.map.WorldMap;
 import xaero.map.gui.GuiMap;
@@ -33,7 +33,7 @@ public class XaeroHooks implements IHooks {
 
     @Getter
     @Broadcast
-    @ExtraArgs({RegistryKey.class, BlockPos.class})
+    @ExtraArgs({ResourceKey.class, BlockPos.class})
     private static final EventChannel<ArrayList<MapClickContext>> worldMapRightClickOption = new EventChannel<>();
 
     public XaeroHooks() {

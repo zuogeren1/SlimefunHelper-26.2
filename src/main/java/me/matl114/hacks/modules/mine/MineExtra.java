@@ -1,12 +1,13 @@
 package me.matl114.hacks.modules.mine;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.awt.*;
 import java.util.*;
 import me.matl114.accessors.access.PlayerMoveC2SPacketAccess;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
-import me.matl114.events.*;
 import me.matl114.events.Event;
+import me.matl114.events.*;
 import me.matl114.events.impl.EventContainer;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
@@ -24,19 +25,25 @@ import me.matl114.utils.NetworkUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.WorldUtils;
 import me.matl114.utils.collections.IndexEntry;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.*;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.spongepowered.asm.mixin.Unique;
 
 public class MineExtra extends BaseModule {
@@ -137,16 +144,16 @@ public class MineExtra extends BaseModule {
             return defaultEntry;
         }
         BlockState calculatingState =
-                (currentState.isAir() || currentState.isLiquid()) ? Blocks.OBSIDIAN.getDefaultState() : currentState;
+                (currentState.isAir() || currentState.liquid()) ? Blocks.OBSIDIAN.defaultBlockState() : currentState;
         double defaultSpeed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
                 mc.player, calculatingState, defaultEntry.val());
         // only select speed > handItem, in the case that player holding a low dur tool
         IndexEntry<ItemStack> result = InventoryUtils.findBestPlayerItem(
                 item -> {
-                    if (item.isEmpty()
+                    if (item.count() == 0
                             || item.getMaxDamage() < 10
-                            || item.contains(DataComponentTypes.UNBREAKABLE)
-                            || item.getDamage() < item.getMaxDamage() - 10) {
+                            || item.has(DataComponents.UNBREAKABLE)
+                            || item.getDamageValue() < item.getMaxDamage() - 10) {
                         double speed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
                                 mc.player, calculatingState, item);
                         if (speed >= defaultSpeed) {
@@ -168,16 +175,16 @@ public class MineExtra extends BaseModule {
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
         registerListener(Listener.getGameJoinPoint(), this::onGameJoin);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onMine);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onMine);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onGrimSBFastBreakExplode);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onSilentBreak);
-        registerListener(Listener.getPacketPostSendPoint().getChannel(HandSwingC2SPacket.class), this::onLastSwing);
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onGrimSBFastBreakExplode);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onSilentBreak);
+        registerListener(Listener.getPacketPostSendPoint().getChannel(ServerboundSwingPacket.class), this::onLastSwing);
         registerListener(Listener.getPreGameTick(), this::onGrimCooldownResetPackets);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onPlayerMove);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMove);
     }
 
-    public void onGameJoin(Event<ClientPlayerEntity> gameJoin) {
+    public void onGameJoin(Event<LocalPlayer> gameJoin) {
         resetStatistics();
     }
 
@@ -185,7 +192,7 @@ public class MineExtra extends BaseModule {
     BlockPos lastGrimACWrongBreakCheck;
     BlockPos currentMiningBlock;
 
-    public void onLastSwing(Event<HandSwingC2SPacket> handSwingC2SPacketEvent) {
+    public void onLastSwing(Event<ServerboundSwingPacket> handSwingC2SPacketEvent) {
         lastSwingPacket = Tasks.getTick();
     }
 
@@ -194,13 +201,13 @@ public class MineExtra extends BaseModule {
     Direction lastServerDirection;
     boolean thisTickHasBroken;
 
-    public void onMine(Event<PlayerActionC2SPacket> packetEvent) {
-        PlayerActionC2SPacket packet = packetEvent.context();
+    public void onMine(Event<ServerboundPlayerActionPacket> packetEvent) {
+        ServerboundPlayerActionPacket packet = packetEvent.context();
         if (instaBreakGhostHand != null
-                && packet.getAction() == PlayerActionC2SPacket.Action.START_DESTROY_BLOCK
+                && packet.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
                 && ghostHandMine.get()
                 && mc.player != null
-                && mc.interactionManager != null
+                && mc.gameMode != null
                 && Objects.equals(packet.getPos(), instaBreakGhostHand.getSecond())) {
             if (instaBreakGhostHand.getFirst() != null) {
                 PacketManager.schedulePostScheduleCallback(packet, instaBreakGhostHand.getFirst());
@@ -241,9 +248,9 @@ public class MineExtra extends BaseModule {
             }
         }
         // statistic update
-        PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.interactionManager);
+        PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.gameMode);
 
-        if (packet.getAction() == PlayerActionC2SPacket.Action.START_DESTROY_BLOCK) {
+        if (packet.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
             // filter bad packets/ instant break
             if (Objects.equals(access.getCurrentMiningPos(), packet.getPos())) {
                 lastStartMineBreakingProgressResetTick = Tasks.getTick();
@@ -251,19 +258,19 @@ public class MineExtra extends BaseModule {
         }
         // swing packet fix
         if (swingFix.get()
-                && packet.getAction() == PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK
+                && packet.getAction() == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK
                 && Tasks.getTick() != lastSwingPacket
                 && Objects.equals(access.getCurrentMiningPos(), packet.getPos())) {
             // will set lastSwingPacket in the listener above
-            mc.player.swingHand(Hand.MAIN_HAND);
+            mc.player.swing(InteractionHand.MAIN_HAND);
         }
-        if (packet.getAction() != PlayerActionC2SPacket.Action.ABORT_DESTROY_BLOCK) {
+        if (packet.getAction() != ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK) {
             if (thisTickHasBroken
                     && (packet.getDirection() != lastServerDirection
                             || Objects.equals(lastServerPos, packet.getPos()))) {
                 if (multiBreakFix.get()) {
                     PacketManager.schedulePostScheduleCallback(packet, () -> {
-                        Listener.sendPacketNoEvents(new PlayerActionC2SPacket(
+                        Listener.sendPacketNoEvents(new ServerboundPlayerActionPacket(
                                 packet.getAction(),
                                 packet.getPos(),
                                 packet.getDirection(),
@@ -277,7 +284,7 @@ public class MineExtra extends BaseModule {
         }
     }
 
-    public void onPlayerMove(Event<PlayerMoveC2SPacket> packetEvent) {
+    public void onPlayerMove(Event<ServerboundMovePlayerPacket> packetEvent) {
         var pkt = PlayerMoveC2SPacketAccess.of(packetEvent.context);
         if (pkt.getCause() == PlayerMoveC2SPacketAccess.Cause.SET_BACK
                 || pkt.getCause() == PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP
@@ -287,24 +294,24 @@ public class MineExtra extends BaseModule {
         thisTickHasBroken = false;
     }
 
-    public void onGrimSBFastBreakExplode(Event<PlayerActionC2SPacket> event) {
+    public void onGrimSBFastBreakExplode(Event<ServerboundPlayerActionPacket> event) {
         if (quickMine.get() && fastBreakBypassMode.get() == Mode.BYPASS_GRIM_BAD_PACKETS && mc.player != null) {
             var packet = event.context();
-            if (packet.getAction() == PlayerActionC2SPacket.Action.START_DESTROY_BLOCK
+            if (packet.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
                     && packet.getPos().getY() < 1145
                     && Objects.equals(
-                            PlayerInteractionAccess.of(mc.interactionManager).getCurrentMiningPos(), packet.getPos())) {
-                if (mc.player.getAbilities().creativeMode) {
+                            PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(), packet.getPos())) {
+                if (mc.player.getAbilities().instabuild) {
                     gainedAdvantageCooldown = 150;
                     return;
                 }
-                BlockState state = mc.world.getBlockState(packet.getPos());
+                BlockState state = mc.level.getBlockState(packet.getPos());
                 // vanilla instant break
                 if (state.isAir()) {
                     return;
                 }
                 // hacking instant break
-                double currentBreakSpeed = WorldUtils.calcBlockBreakingDelta(state, mc.world, packet.getPos());
+                double currentBreakSpeed = WorldUtils.calcBlockBreakingDelta(state, mc.level, packet.getPos());
                 // instant break, no need to bypass fastbreak
                 if (currentBreakSpeed > 1.01) {
                     return;
@@ -316,15 +323,15 @@ public class MineExtra extends BaseModule {
                         : 1;
                 PacketManager.schedulePostScheduleCallback(packet, () -> {
                     for (var i = 0; i < duplicate; ++i) {
-                        //                    mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(
+                        //                    mc.getConnection().sendPacket(new PlayerActionC2SPacket(
                         //                        PlayerActionC2SPacket.Action.START_DESTROY_BLOCK,
                         //                        BlockPos.ofFloored(mc.player.getPos()).withY(9178),
                         //                        Direction.DOWN,
                         //                        packet.getSequence()));
-                        mc.interactionManager.sendSequencedPacket(mc.world, (seq) -> {
-                            return new PlayerActionC2SPacket(
-                                    PlayerActionC2SPacket.Action.START_DESTROY_BLOCK,
-                                    BlockPos.ofFloored(mc.player.getPos()).withY(9178),
+                        mc.gameMode.startPrediction(mc.level, (seq) -> {
+                            return new ServerboundPlayerActionPacket(
+                                    ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK,
+                                    BlockPos.containing(mc.player.position()).atY(9178),
                                     Direction.DOWN,
                                     seq);
                         });
@@ -339,15 +346,15 @@ public class MineExtra extends BaseModule {
         }
     }
 
-    public void onSilentBreak(Event<PlayerActionC2SPacket> eventPlayerAction) {
+    public void onSilentBreak(Event<ServerboundPlayerActionPacket> eventPlayerAction) {
         if (silent.get()
-                && eventPlayerAction.context.getAction() == PlayerActionC2SPacket.Action.START_DESTROY_BLOCK
+                && eventPlayerAction.context.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
                 && Objects.equals(
-                        PlayerInteractionAccess.of(mc.interactionManager).getCurrentMiningPos(),
+                        PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(),
                         eventPlayerAction.context.getPos())) {
             BlockPos pos = eventPlayerAction.context.getPos();
             PacketManager.schedulePostScheduleCallback(eventPlayerAction.context, () -> {
-                var acc = PlayerInteractionAccess.of(mc.interactionManager);
+                var acc = PlayerInteractionAccess.of(mc.gameMode);
                 if (Objects.equals(pos, acc.getCurrentMiningPos())) {
                     acc.sendAbortBreakPacket();
                 }
@@ -355,11 +362,11 @@ public class MineExtra extends BaseModule {
         }
     }
 
-    public void onGrimCooldownResetPackets(Event<ClientPlayerEntity> tickEvent) {
+    public void onGrimCooldownResetPackets(Event<LocalPlayer> tickEvent) {
         if (quickMine.get() && fastBreakBypassMode.get() == Mode.BYPASS_GRIM_BAD_PACKETS && mc.player != null) {
             // exact tick we send,
             if (currentMiningBlock != null && Tasks.getTick() - lastFinishBreakingTick >= 6) {
-                if (mc.player.getAbilities().creativeMode) {
+                if (mc.player.getAbilities().instabuild) {
                     gainedAdvantageCooldown = GRIM_BAD_PACKETS_DOUBLE_MINE_COOLDOWN_THRESHOLD;
                     return;
                 }
@@ -368,11 +375,11 @@ public class MineExtra extends BaseModule {
                 while (gainedAdvantageCooldown
                                 > (doubleBreak.get() ? 300 : GRIM_BAD_PACKETS_DOUBLE_MINE_COOLDOWN_THRESHOLD)
                         && --cnt >= 0) {
-                    mc.interactionManager.sendSequencedPacket(
-                            mc.world,
-                            (seq) -> new PlayerActionC2SPacket(
-                                    PlayerActionC2SPacket.Action.START_DESTROY_BLOCK,
-                                    BlockPos.ofFloored(mc.player.getPos()).withY(9178),
+                    mc.gameMode.startPrediction(
+                            mc.level,
+                            (seq) -> new ServerboundPlayerActionPacket(
+                                    ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK,
+                                    BlockPos.containing(mc.player.position()).atY(9178),
                                     Direction.DOWN,
                                     seq));
                     gainedAdvantageCooldown = (int) (gainedAdvantageCooldown * 0.9);
@@ -476,19 +483,19 @@ public class MineExtra extends BaseModule {
                 && mc.player != null) {
             // reset
             gainedAdvantageCooldown = 150;
-            if (!mc.player.getAbilities().creativeMode) {
-                ClientPlayerEntity player = MinecraftClient.getInstance().player;
-                Direction dir = Direction.getFacing(pos.toCenterPos().subtract(player.getEyePos()))
+            if (!mc.player.getAbilities().instabuild) {
+                LocalPlayer player = Minecraft.getInstance().player;
+                Direction dir = Direction.getApproximateNearest(Vec3.atCenterOf(pos).subtract(player.getEyePosition()))
                         .getOpposite();
                 for (int i = 0; i < 20; ++i) {
-                    mc.interactionManager.sendSequencedPacket(MinecraftClient.getInstance().world, (sequence -> {
-                        return new PlayerActionC2SPacket(
-                                PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, pos, dir, sequence);
+                    mc.gameMode.startPrediction(Minecraft.getInstance().level, (sequence -> {
+                        return new ServerboundPlayerActionPacket(
+                                ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, pos, dir, sequence);
                     }));
                 }
             }
         }
-        gainedAdvantageCooldown = MathHelper.clamp(gainedAdvantageCooldown, -1000, 1000);
+        gainedAdvantageCooldown = Mth.clamp(gainedAdvantageCooldown, -1000, 1000);
     }
 
     public void onPostStopMiningLegally(BlockPos pos) {
@@ -504,20 +511,20 @@ public class MineExtra extends BaseModule {
                     && mineExtra.fastBreakBypassMode.getValue() == Mode.BYPASS_GRIM_LEGIT
                     && mc.player != null) {
                 gainedAdvantageMining = 150;
-                if (!mc.player.getAbilities().creativeMode) {
-                    ClientPlayerEntity player = MinecraftClient.getInstance().player;
-                    Direction dir = Direction.getFacing(pos.toCenterPos().subtract(player.getEyePos()))
+                if (!mc.player.getAbilities().instabuild) {
+                    LocalPlayer player = Minecraft.getInstance().player;
+                    Direction dir = Direction.getApproximateNearest(Vec3.atCenterOf(pos).subtract(player.getEyePosition()))
                             .getOpposite();
                     for (int i = 0; i < 20; ++i) {
-                        mc.interactionManager.sendSequencedPacket(mc.world, (sequence -> {
-                            return new PlayerActionC2SPacket(
-                                    PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK, pos, dir, sequence);
+                        mc.gameMode.startPrediction(mc.level, (sequence -> {
+                            return new ServerboundPlayerActionPacket(
+                                    ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, dir, sequence);
                         }));
                     }
                 }
             }
         }
-        gainedAdvantageCooldown = MathHelper.clamp(gainedAdvantageCooldown, -1000, 1000);
+        gainedAdvantageCooldown = Mth.clamp(gainedAdvantageCooldown, -1000, 1000);
     }
 
     public void onPostStopMiningFastBreak(BlockPos pos, double speed, double currentProgress) {
@@ -531,7 +538,7 @@ public class MineExtra extends BaseModule {
         int diff = predictTick - tickUsed;
         gainedAdvantageMining += (diff + 1) * 50;
         int threshold = mineExtra.grimAcCounterThreshold.get();
-        gainedAdvantageMining = MathHelper.clamp(gainedAdvantageMining, -1000, 1000);
+        gainedAdvantageMining = Mth.clamp(gainedAdvantageMining, -1000, 1000);
         if (gainedAdvantageMining > threshold && mineExtra.fastBreakBypassMode.getValue() == Mode.BYPASS_GRIM_LEGIT) {
             // only when starting bypass will we do
             // trigger a common mine
@@ -597,13 +604,13 @@ public class MineExtra extends BaseModule {
 
     private boolean shouldRenderMine() {
         if (!renderOnlyWhenMine.get()) return true;
-        if (!mc.interactionManager.isBreakingBlock() && !PacketMine.INSTANCE.autoEnable.get()) {
+        if (!mc.gameMode.isDestroying() && !PacketMine.INSTANCE.autoEnable.get()) {
             if (!optimizeOneBlock.get()) {
                 return false;
             }
             BlockPos blockPos =
-                    PlayerInteractionAccess.of(mc.interactionManager).getCurrentMiningPos();
-            BlockState state = mc.world.getBlockState(blockPos);
+                    PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos();
+            BlockState state = mc.level.getBlockState(blockPos);
             if (state.isAir()) {
                 return false;
             }
@@ -611,54 +618,54 @@ public class MineExtra extends BaseModule {
         return true;
     }
 
-    public void onRender(Event<MatrixStack> renderEvent) {
+    public void onRender(Event<PoseStack> renderEvent) {
         if (mineRender.get()) {
 
             RenderUtils.startDrawVirtual(renderEvent.context);
             try {
-                if (mc.interactionManager != null && mc.player != null && mc.world != null) {
+                if (mc.gameMode != null && mc.player != null && mc.level != null) {
                     BlockPos blockPos =
-                            PlayerInteractionAccess.of(mc.interactionManager).getCurrentMiningPos();
-                    Vec3d pos = Vec3d.of(blockPos);
+                            PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos();
+                    Vec3 pos = Vec3.atLowerCornerOf(blockPos);
                     // 超过200格的不渲染
-                    if (mc.player.getPos().squaredDistanceTo(pos) < 40000 && shouldRenderMine()) {
+                    if (mc.player.position().distanceToSqr(pos) < 40000 && shouldRenderMine()) {
                         RenderUtils.drawOutlinedBox(
                                 renderEvent.context,
                                 pos,
                                 pos.add(1.0, 1.0, 1.0),
                                 ColorUtils.withAlpha(frameColor.get().color(), 1.0F));
-                        BlockState state = mc.world.getBlockState(blockPos);
+                        BlockState state = mc.level.getBlockState(blockPos);
                         var tool = getGhostHandMiningTool(state);
-                        float progress = PlayerInteractionAccess.of(mc.interactionManager)
+                        float progress = PlayerInteractionAccess.of(mc.gameMode)
                                 .getCurrentMiningProgress(tool.val());
                         if (progress > 0.0F) {
-                            Box box;
+                            AABB box;
                             if (state.isAir()) {
-                                box = new Box(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+                                box = new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
                             } else {
-                                VoxelShape shape = state.getOutlineShape(mc.world, blockPos);
-                                box = shape.isEmpty() ? new Box(0.0, 0.0, 0.0, 1.0, 1.0, 1.0) : shape.getBoundingBox();
+                                VoxelShape shape = state.getShape(mc.level, blockPos);
+                                box = shape.isEmpty() ? new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0) : shape.bounds();
                             }
-                            Vec3d vec3 =
-                                    box.getMaxPos().subtract(box.getMinPos()).multiply(0.5);
+                            Vec3 vec3 =
+                                    box.getMaxPosition().subtract(box.getMinPosition()).scale(0.5);
 
-                            Vec3d vec3d = pos.add(box.getCenter());
-                            float clamped = MathHelper.clamp(progress, 0.0F, 1.0F);
+                            Vec3 vec3d = pos.add(box.getCenter());
+                            float clamped = Mth.clamp(progress, 0.0F, 1.0F);
                             RenderUtils.drawSolidBox(
                                     renderEvent.context,
-                                    vec3d.add(vec3.multiply(-clamped)),
-                                    vec3d.add(vec3.multiply(clamped)),
+                                    vec3d.add(vec3.scale(-clamped)),
+                                    vec3d.add(vec3.scale(clamped)),
                                     ColorUtils.withAlpha(progressColor.get().color(), 0.25F));
                         }
                     }
 
                     BlockPos doubleMinePos =
-                            PlayerInteractionAccess.of(mc.interactionManager).getCurrentFailBreakPos();
+                            PlayerInteractionAccess.of(mc.gameMode).getCurrentFailBreakPos();
                     if (doubleMinePos != null) {
-                        Vec3d doubleMineVec = Vec3d.of(doubleMinePos);
-                        if (mc.player.getPos().squaredDistanceTo(doubleMineVec) < 40000
+                        Vec3 doubleMineVec = Vec3.atLowerCornerOf(doubleMinePos);
+                        if (mc.player.position().distanceToSqr(doubleMineVec) < 40000
                                 && !Objects.equals(doubleMineVec, pos)) {
-                            float progressFail = PlayerInteractionAccess.of(mc.interactionManager)
+                            float progressFail = PlayerInteractionAccess.of(mc.gameMode)
                                     .getFailBreakMiningProgress();
                             RenderUtils.drawOutlinedBox(
                                     renderEvent.context,
@@ -666,26 +673,26 @@ public class MineExtra extends BaseModule {
                                     doubleMineVec.add(1.0, 1.0, 1.0),
                                     ColorUtils.withAlpha(doubleBreakColor.get().color(), 1.0F));
                             if (progressFail > 0.0F) {
-                                BlockState state = mc.world.getBlockState(doubleMinePos);
-                                Box box;
+                                BlockState state = mc.level.getBlockState(doubleMinePos);
+                                AABB box;
                                 if (state.isAir()) {
-                                    box = new Box(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+                                    box = new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
                                 } else {
-                                    VoxelShape shape = state.getOutlineShape(mc.world, doubleMinePos);
+                                    VoxelShape shape = state.getShape(mc.level, doubleMinePos);
                                     box = shape.isEmpty()
-                                            ? new Box(0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
-                                            : shape.getBoundingBox();
+                                            ? new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+                                            : shape.bounds();
                                 }
-                                Vec3d vec3 = box.getMaxPos()
-                                        .subtract(box.getMinPos())
-                                        .multiply(0.5);
+                                Vec3 vec3 = box.getMaxPosition()
+                                        .subtract(box.getMinPosition())
+                                        .scale(0.5);
 
-                                Vec3d vec3d = doubleMineVec.add(box.getCenter());
-                                float clamped = MathHelper.clamp(progressFail, 0.0F, 1.0F);
+                                Vec3 vec3d = doubleMineVec.add(box.getCenter());
+                                float clamped = Mth.clamp(progressFail, 0.0F, 1.0F);
                                 RenderUtils.drawSolidBox(
                                         renderEvent.context,
-                                        vec3d.add(vec3.multiply(-clamped)),
-                                        vec3d.add(vec3.multiply(clamped)),
+                                        vec3d.add(vec3.scale(-clamped)),
+                                        vec3d.add(vec3.scale(clamped)),
                                         ColorUtils.withAlpha(progressColor.get().color(), 0.25F));
                             }
                         }
@@ -699,10 +706,10 @@ public class MineExtra extends BaseModule {
 
     public float predictBlockBreakingSpeedAt(BlockPos pos) {
         if (mc.player.isCreative()) return 10000.0F;
-        BlockState state = mc.world.getBlockState(pos);
+        BlockState state = mc.level.getBlockState(pos);
         IndexEntry<ItemStack> stackEntry = getGhostHandMiningTool(state);
         float speed1 = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(mc.player, state, stackEntry.val());
-        return WorldUtils.calcBlockBreakingDelta(state, MinecraftClient.getInstance().world, pos, speed1);
+        return WorldUtils.calcBlockBreakingDelta(state, Minecraft.getInstance().level, pos, speed1);
     }
 
     public void onPresetLoad(Event<EventContainer<ModulePreset>> presetEvent) {

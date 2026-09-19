@@ -19,17 +19,17 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.ListRef;
 import me.matl114.utils.ChatUtils;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.client.gui.hud.MessageIndicator;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.ChatMessageS2CPacket;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
-import net.minecraft.text.ObjectTextContent;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.text.object.PlayerTextObjectContents;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.contents.ObjectContents;
+import net.minecraft.network.chat.contents.objects.PlayerSprite;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundPlayerChatPacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.world.item.component.ResolvableProfile;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 
 public class PlayerChat extends BaseModule {
@@ -73,21 +73,21 @@ public class PlayerChat extends BaseModule {
         super.registerAll();
         registerListener(Listener.getMessageAddToHud(), this::onChatAdd);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(ChatMessageS2CPacket.class),
-                (Consumer<Event<ChatMessageS2CPacket>>) this::<ChatMessageS2CPacket>onPacketIn);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerChatPacket.class),
+                (Consumer<Event<ClientboundPlayerChatPacket>>) this::<ClientboundPlayerChatPacket>onPacketIn);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(GameMessageS2CPacket.class),
-                (Consumer<Event<GameMessageS2CPacket>>) this::<GameMessageS2CPacket>onPacketIn);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundSystemChatPacket.class),
+                (Consumer<Event<ClientboundSystemChatPacket>>) this::<ClientboundSystemChatPacket>onPacketIn);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ChatMessageS2CPacket.class),
-                (Consumer<Event<ChatMessageS2CPacket>>) this::<ChatMessageS2CPacket>onPacketInPost);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerChatPacket.class),
+                (Consumer<Event<ClientboundPlayerChatPacket>>) this::<ClientboundPlayerChatPacket>onPacketInPost);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(GameMessageS2CPacket.class),
-                (Consumer<Event<GameMessageS2CPacket>>) this::<GameMessageS2CPacket>onPacketInPost);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundSystemChatPacket.class),
+                (Consumer<Event<ClientboundSystemChatPacket>>) this::<ClientboundSystemChatPacket>onPacketInPost);
     }
 
-    public MessageIndicator systemIndicator() {
-        return mc.isConnectedToLocalServer() ? MessageIndicator.singlePlayer() : MessageIndicator.system();
+    public GuiMessageTag systemIndicator() {
+        return mc.isLocalServer() ? GuiMessageTag.systemSinglePlayer() : GuiMessageTag.system();
     }
 
     public Matcher matcher(String message) {
@@ -104,7 +104,7 @@ public class PlayerChat extends BaseModule {
 
     public <T extends Packet<?>> void onPacketIn(Event<T> packetEvent) {
         handleChatMsg = true;
-        if (packetEvent.context() instanceof ChatMessageS2CPacket chatMessagePacket) {
+        if (packetEvent.context() instanceof ClientboundPlayerChatPacket chatMessagePacket) {
             lastAcceptUUID = chatMessagePacket.sender();
         }
     }
@@ -114,13 +114,13 @@ public class PlayerChat extends BaseModule {
         lastAcceptUUID = null;
     }
 
-    public void onChatAdd(Event<Text> chatAdd) {
+    public void onChatAdd(Event<Component> chatAdd) {
         if (chatAdd.isCancelled() || safeFlag || !handleChatMsg || !hasAnyFunctionEnable()) {
             return;
         }
         safeFlag = true;
         try {
-            MessageIndicator indicator = chatAdd.getArgs(1);
+            GuiMessageTag indicator = chatAdd.getArgs(1);
             String text = ChatUtils.textToPlainString(chatAdd.context());
             Matcher matcher = matcher(text);
             if (matcher != null && matcher.groupCount() >= 2) {
@@ -129,21 +129,21 @@ public class PlayerChat extends BaseModule {
             } else {
                 String caughtName = null;
                 if (lastAcceptUUID != null) {
-                    PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(lastAcceptUUID);
+                    PlayerInfo entry = mc.getConnection().getPlayerInfo(lastAcceptUUID);
                     if (entry != null) {
                         caughtName = VRecord.getName(entry.getProfile());
                     }
                 }
                 if (caughtName == null && detectPlayerName.get()) {
                     String findingMsg = text;
-                    for (var playerListEntry : mc.getNetworkHandler().getPlayerList()) {
+                    for (var playerListEntry : mc.getConnection().getOnlinePlayers()) {
                         String playerName = VRecord.getName(playerListEntry.getProfile());
                         int index = findingMsg.indexOf(playerName);
                         if (index != -1) {
                             findingMsg = findingMsg.substring(0, index);
                             caughtName = playerName;
                         }
-                        Text displayName = playerListEntry.getDisplayName();
+                        Component displayName = playerListEntry.getTabListDisplayName();
                         if (displayName != null) {
                             String displayNameText = ChatUtils.textToPlainString(displayName);
                             int idx = findingMsg.indexOf(displayNameText);
@@ -169,8 +169,8 @@ public class PlayerChat extends BaseModule {
     }
 
     public void handleParsedChatMessage(
-            Event<Text> event, String message, @Nullable String capturedName, boolean isSystem) {
-        Text text = event.context();
+            Event<Component> event, String message, @Nullable String capturedName, boolean isSystem) {
+        Component text = event.context();
         MutableBoolean modified = new MutableBoolean(false);
         List<Consumer<ChatUtils.TextBuilder>> appendToFirst = new ArrayList<>();
         appendToFirst.add(handleChatHead(capturedName, modified));
@@ -199,22 +199,23 @@ public class PlayerChat extends BaseModule {
             return null;
         }
         if (lastAcceptUUID != null) {
-            ObjectTextContent content = new ObjectTextContent(
-                    new PlayerTextObjectContents(ProfileComponent.ofDynamic(lastAcceptUUID), false));
-            PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(lastAcceptUUID);
+            ObjectContents content = new ObjectContents(
+                    new PlayerSprite(ResolvableProfile.createUnresolved(lastAcceptUUID), false),
+                    java.util.Optional.empty());
+            PlayerInfo entry = mc.getConnection().getPlayerInfo(lastAcceptUUID);
             mutableBoolean.setTrue();
             return builder -> builder.withHoverEvent(ChatUtils.getHoverShowText(List.of(
-                            Text.literal("玩家:" + (entry == null ? "未知" : VRecord.getName(entry.getProfile()))),
-                            Text.literal("玩家UUID:" + lastAcceptUUID))))
+                            Component.literal("玩家:" + (entry == null ? "未知" : VRecord.getName(entry.getProfile()))),
+                            Component.literal("玩家UUID:" + lastAcceptUUID))))
                     .withContent(content)
                     .withStyle(Style.EMPTY);
         }
         if (playerName != null && pattern.matcher(playerName).matches()) {
-            ObjectTextContent content =
-                    new ObjectTextContent(new PlayerTextObjectContents(ProfileComponent.ofDynamic(playerName), false));
+            ObjectContents content =
+                    new ObjectContents(new PlayerSprite(ResolvableProfile.createUnresolved(playerName), false), java.util.Optional.empty());
             mutableBoolean.setTrue();
             return builder -> builder.withHoverEvent(
-                            ChatUtils.getHoverShowText(List.of(Text.literal("玩家:" + playerName))))
+                            ChatUtils.getHoverShowText(List.of(Component.literal("玩家:" + playerName))))
                     .withContent(content)
                     .withStyle(Style.EMPTY);
         }
@@ -225,7 +226,7 @@ public class PlayerChat extends BaseModule {
         if (timeStamp.get() && (capturedName != null || lastAcceptUUID != null)) {
             shouldModify.setTrue();
             String time = new SimpleDateFormat("[HH:mm:ss]").format(new Date());
-            return builder -> builder.withFormat(Formatting.GRAY).with(time).withStyle(Style.EMPTY);
+            return builder -> builder.withFormat(ChatFormatting.GRAY).with(time).withStyle(Style.EMPTY);
         }
         return null;
     }

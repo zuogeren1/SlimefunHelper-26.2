@@ -4,7 +4,7 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 import me.matl114.utils.ApiMethod;
 import me.matl114.utils.Debug;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 @ApiMethod
 public class JsHelper {
@@ -71,7 +71,7 @@ public class JsHelper {
     }
 
     public static void runOnMainThread(Runnable runnable) {
-        MinecraftClient.getInstance().execute(runnable);
+        Minecraft.getInstance().execute(runnable);
     }
 
     public static <T> T wrap(Object object) throws Throwable {

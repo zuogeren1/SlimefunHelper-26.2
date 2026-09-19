@@ -13,10 +13,10 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.InteractUtils;
 import me.matl114.utils.MathUtils;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.vehicle.VehicleEntity;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.Box;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.vehicle.VehicleEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
 
 public class AutoRide extends BaseModule {
     public AutoRide() {
@@ -43,12 +43,12 @@ public class AutoRide extends BaseModule {
     int cd1 = 0;
 
     public void handleInput(Event<Void> event) {
-        if (enable.get() && !mc.player.hasVehicle()) {
+        if (enable.get() && !mc.player.isPassenger()) {
             if (++cd1 > cd.get()) {
                 cd1 = 0;
                 double reach = CombatExtra.INSTANCE.getAttackRange();
-                Box box = mc.player.getBoundingBox().expand(reach + 3, reach + 3, reach + 3);
-                var entites = mc.world.getOtherEntities(mc.player, box, re -> re instanceof VehicleEntity);
+                AABB box = mc.player.getBoundingBox().inflate(reach + 3, reach + 3, reach + 3);
+                var entites = mc.level.getEntities(mc.player, box, re -> re instanceof VehicleEntity);
                 Entity selected = null;
                 for (var re : entites) {
                     if (re == lastEntity) {
@@ -57,7 +57,7 @@ public class AutoRide extends BaseModule {
                 }
                 if (selected == null) {
                     for (var re : entites) {
-                        if (re.getBoundingBox().squaredMagnitude(mc.player.getEyePos()) < MathUtils.s2(reach)) {
+                        if (re.getBoundingBox().distanceToSqr(mc.player.getEyePosition()) < MathUtils.s2(reach)) {
                             selected = re;
                         }
                     }
@@ -65,7 +65,7 @@ public class AutoRide extends BaseModule {
                 lastEntity = selected;
                 if (selected != null) {
                     var boxxx = lastEntity.getBoundingBox();
-                    var re = new EntityHitResult(lastEntity, boxxx.getCenter().add(0, boxxx.getLengthY() / 2, 0));
+                    var re = new EntityHitResult(lastEntity, boxxx.getCenter().add(0, boxxx.getYsize() / 2, 0));
                     InteractUtils.simulateInteract(re);
                 }
             }

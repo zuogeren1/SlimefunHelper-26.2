@@ -5,13 +5,13 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public class WorldStorage extends IStorage {
     public static final Codec<WorldStorage> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                    World.CODEC.fieldOf("dim").forGetter(WorldStorage::getDimension),
+                    Level.RESOURCE_KEY_CODEC.fieldOf("dim").forGetter(WorldStorage::getDimension),
                     Codec.unboundedMap(Codec.STRING, VNbt.CODEC)
                             .fieldOf("storage")
                             .forGetter(v -> v.storage))
@@ -21,11 +21,11 @@ public class WorldStorage extends IStorage {
         super();
     }
 
-    public WorldStorage(RegistryKey<World> dimension) {
+    public WorldStorage(ResourceKey<Level> dimension) {
         this(dimension, new ConcurrentHashMap<>());
     }
 
-    public WorldStorage(RegistryKey<World> dimension, Map<String, NbtElement> storage) {
+    public WorldStorage(ResourceKey<Level> dimension, Map<String, Tag> storage) {
         super(dimension, storage);
     }
 }

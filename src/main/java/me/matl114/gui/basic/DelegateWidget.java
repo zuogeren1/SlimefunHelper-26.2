@@ -3,7 +3,7 @@ package me.matl114.gui.basic;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screens.Screen;
 
 public class DelegateWidget extends DrawableWidget implements Draggable {
     @Getter
@@ -219,8 +219,8 @@ public class DelegateWidget extends DrawableWidget implements Draggable {
         return this.delegate != null && this.delegate.charTyped(chr, modifiers);
     }
 
-    public SelectionType getType() {
-        return this.delegate == null ? SelectionType.NONE : this.delegate.getType();
+    public NarrationPriority narrationPriority() {
+        return this.delegate == null ? NarrationPriority.NONE : this.delegate.narrationPriority();
     }
 
     @Override

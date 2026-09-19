@@ -13,11 +13,11 @@ import me.matl114.managers.config.NBTType;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 
 @Getter
 @Accessors(fluent = true)
@@ -28,13 +28,13 @@ public class WeakEntryPrimitiveMap<T, W> extends PrimitiveMap<WeakHolder<T>, W> 
         return (Class<WeakEntryPrimitiveMap<T, W>>) (Class) WeakEntryPrimitiveMap.class;
     }
 
-    public WeakEntryPrimitiveMap(RegistryKey<? extends Registry<T>> registry, NBTType<W> type, Map<Identifier, W> map) {
-        this(registry.getValue(), type, map, Optional.empty());
+    public WeakEntryPrimitiveMap(ResourceKey<? extends Registry<T>> registry, NBTType<W> type, Map<Identifier, W> map) {
+        this(registry.identifier(), type, map, Optional.empty());
     }
 
     public WeakEntryPrimitiveMap(
-            RegistryKey<? extends Registry<T>> registry, NBTType<W> type, Map<Identifier, W> map, W defaultValue) {
-        this(registry.getValue(), type, map, Optional.ofNullable(defaultValue));
+            ResourceKey<? extends Registry<T>> registry, NBTType<W> type, Map<Identifier, W> map, W defaultValue) {
+        this(registry.identifier(), type, map, Optional.ofNullable(defaultValue));
     }
 
     public WeakEntryPrimitiveMap(
@@ -143,11 +143,11 @@ public class WeakEntryPrimitiveMap<T, W> extends PrimitiveMap<WeakHolder<T>, W> 
                 .orElse(null);
     }
 
-    public Map<RegistryKey<T>, W> keyMap() {
-        RegistryKey<? extends Registry<T>> keyTypeKey = RegistryKey.ofRegistry(registry());
+    public Map<ResourceKey<T>, W> keyMap() {
+        ResourceKey<? extends Registry<T>> keyTypeKey = ResourceKey.createRegistryKey(registry());
         return map().entrySet().stream()
                 .collect(Collectors.toMap(
-                        entry -> RegistryKey.of(keyTypeKey, entry.getKey().location()), Map.Entry::getValue));
+                        entry -> ResourceKey.create(keyTypeKey, entry.getKey().location()), Map.Entry::getValue));
     }
 
     public Map<Identifier, W> idMap() {
@@ -163,13 +163,13 @@ public class WeakEntryPrimitiveMap<T, W> extends PrimitiveMap<WeakHolder<T>, W> 
     }
 
     @Nullable
-    public W getOrDefault(RegistryKey<T> value) {
-        return getOrDefault(value.getValue());
+    public W getOrDefault(ResourceKey<T> value) {
+        return getOrDefault(value.identifier());
     }
 
     @Nullable
-    public W getOrDefault(RegistryEntry<T> value) {
-        return value.getKey().map(this::getOrDefault).orElse(null);
+    public W getOrDefault(Holder<T> value) {
+        return value.unwrapKey().map(this::getOrDefault).orElse(null);
     }
 
     public W getOrWithDefault(Identifier value, W fallback) {
@@ -177,8 +177,8 @@ public class WeakEntryPrimitiveMap<T, W> extends PrimitiveMap<WeakHolder<T>, W> 
         return result == null ? fallback : result;
     }
 
-    public W getOrWithDefault(RegistryKey<T> value, W fallback) {
-        return getOrWithDefault(value.getValue(), fallback);
+    public W getOrWithDefault(ResourceKey<T> value, W fallback) {
+        return getOrWithDefault(value.identifier(), fallback);
     }
 
     public static <T, W> NBTType<WeakEntryPrimitiveMap<T, W>> createEntry() {
@@ -192,7 +192,7 @@ public class WeakEntryPrimitiveMap<T, W> extends PrimitiveMap<WeakHolder<T>, W> 
                 factory.wrapCodecXmap(parentType.typeCodec()),
                 widgetFactory,
                 (WeakEntryPrimitiveMap<T, W>)
-                        new WeakEntryPrimitiveMap<>(Map.of(), RegistryKeys.BLOCK.getValue(), NBTTypes.STRING_TYPE));
+                        new WeakEntryPrimitiveMap<>(Map.of(), Registries.BLOCK.identifier(), NBTTypes.STRING_TYPE));
     }
 
     public static final NBTType<WeakEntryPrimitiveMap<Object, Object>> TYPE = createEntry();

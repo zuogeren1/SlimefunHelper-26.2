@@ -3,14 +3,14 @@ package me.matl114.gui.basic;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.item.ItemStack;
 
 public interface RenderHandler {
     /**
@@ -243,14 +243,14 @@ public interface RenderHandler {
         });
     }
 
-    public static MinecraftClient mc = MinecraftClient.getInstance();
+    public static Minecraft mc = Minecraft.getInstance();
 
-    public static RenderHandler ofScrollableText(Text text, int color) {
+    public static RenderHandler ofScrollableText(Component text, int color) {
         final int color1 = color;
         return (element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
             drawScrollableText(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     text,
                     0,
                     0,
@@ -260,11 +260,11 @@ public interface RenderHandler {
         };
     }
 
-    public static RenderHandler ofAutoScaleText(Text text, int color) {
+    public static RenderHandler ofAutoScaleText(Component text, int color) {
         return (element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
             RenderHandler.drawScaledText0(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     text,
                     0,
                     0,
@@ -277,8 +277,8 @@ public interface RenderHandler {
 
     public static void drawScrollableText(
             VDrawContext context,
-            TextRenderer textRenderer,
-            Text text,
+            Font textRenderer,
+            Component text,
             int startX,
             int startY,
             int endX,
@@ -289,71 +289,71 @@ public interface RenderHandler {
 
     public static void drawScrollableText0(
             VDrawContext context,
-            TextRenderer textRenderer,
-            Text text,
+            Font textRenderer,
+            Component text,
             int centerX,
             int startX,
             int startY,
             int endX,
             int endY,
             int color) {
-        drawScrollableText0(context, textRenderer, text.asOrderedText(), centerX, startX, startY, endX, endY, color);
+        drawScrollableText0(context, textRenderer, text.getVisualOrderText(), centerX, startX, startY, endX, endY, color);
     }
 
     public static void drawScrollableText0(
             VDrawContext context,
-            TextRenderer textRenderer,
-            OrderedText text,
+            Font textRenderer,
+            FormattedCharSequence text,
             int centerX,
             int startX,
             int startY,
             int endX,
             int endY,
             int color) {
-        int i = textRenderer.getWidth(text);
+        int i = textRenderer.width(text);
         int var10000 = startY + endY;
         int j = (var10000 - 9) / 2 + 1;
         int k = endX - startX;
         int l;
         if (i > k) {
             l = i - k;
-            double d = (double) Util.getMeasuringTimeMs() / 1000.0;
+            double d = (double) Util.getMillis() / 1000.0;
             double e = Math.max((double) l * 0.5, 3.0);
             double f = Math.sin(1.5707963267948966 * Math.cos(6.283185307179586 * d / e)) / 2.0 + 0.5;
-            double g = MathHelper.lerp(f, 0.0, (double) l);
+            double g = Mth.lerp(f, 0.0, (double) l);
             context.enableScissor(startX, startY, endX, endY);
             context.drawText(textRenderer, text, startX - (int) g, j, color, true);
             context.disableScissor();
         } else {
-            l = MathHelper.clamp(centerX, startX + i / 2, endX - i / 2);
+            l = Mth.clamp(centerX, startX + i / 2, endX - i / 2);
             context.drawCenteredTextWithShadow(textRenderer, text, l, j, color);
         }
     }
 
     public static void drawScaledText0(
             VDrawContext context,
-            TextRenderer textRenderer,
-            Text text,
+            Font textRenderer,
+            Component text,
             int startX,
             int startY,
             int endX,
             int endY,
             int color,
             int alignment) {
-        drawScaledText0(context, textRenderer, text.asOrderedText(), startX, startY, endX, endY, color, alignment);
+        drawScaledText0(context, textRenderer, text.getVisualOrderText(), startX, startY, endX, endY, color, alignment);
     }
 
     public static void drawScaledText0(
             VDrawContext context,
-            TextRenderer textRenderer,
-            OrderedText text,
+            Font textRenderer,
+            FormattedCharSequence text,
             int startX,
             int startY,
             int endX,
             int endY,
             int color,
             int alignment) {
-        float i = textRenderer.getTextHandler().getWidth(text);
+        float i = textRenderer.getSplitter().stringWidth(text);
         int availableWidth = endX - startX;
         // 居中位置
         float j = (startY + endY - 9) / 2.0F;
@@ -403,7 +403,7 @@ public interface RenderHandler {
             context.getMatrices().pushMatrix();
             context.drawItem(stack, x, y, 114514, 0);
             if (inSlot) {
-                context.drawItemInSlot(mc.textRenderer, stack, x, y, null);
+                context.drawItemInSlot(mc.font, stack, x, y, null);
             }
             context.getMatrices().popMatrix();
         }

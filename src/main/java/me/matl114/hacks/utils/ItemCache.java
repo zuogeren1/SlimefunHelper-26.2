@@ -24,9 +24,9 @@ import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.codecs.NullCodec;
 import me.matl114.utils.itemdb.ItemStackData;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemCache {
     String fileName;
@@ -317,7 +317,7 @@ public class ItemCache {
             }
         } else {
             // use vanilla id for
-            Identifier identifier = Registries.ITEM.getId(stack.getItem());
+            Identifier identifier = BuiltInRegistries.ITEM.getKey(stack.getItem());
             return identifier == null ? "minecraft:air" : identifier.toString();
         }
     }
@@ -330,7 +330,7 @@ public class ItemCache {
             return this.getOrRegisterItem(item).getFirst();
         } else {
             // use vanilla id for
-            Identifier identifier = Registries.ITEM.getId(item.getIcon().getItem());
+            Identifier identifier = BuiltInRegistries.ITEM.getKey(item.getIcon().getItem());
             return identifier == null ? "minecraft:air" : identifier.toString();
         }
     }
@@ -341,7 +341,7 @@ public class ItemCache {
             return this.getOrRegisterItem(item).getFirst();
         } else {
             // use vanilla id for
-            Identifier identifier = Registries.ITEM.getId(item.getItem());
+            Identifier identifier = BuiltInRegistries.ITEM.getKey(item.getItem());
             return identifier == null ? "minecraft:air" : identifier.toString();
         }
     }
@@ -352,7 +352,7 @@ public class ItemCache {
             var re = this.getItem(id);
             return (re != null && re.isValid()) ? re.getItemStack().copy() : ItemStackData.MISSING;
         } else {
-            return new ItemStack(Registries.ITEM.get(Identifier.tryParse(id)));
+            return new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.tryParse(id)));
         }
     }
 
@@ -362,7 +362,7 @@ public class ItemCache {
             var re = this.getItem(id);
             return (re != null) ? re : new ItemStackData.Missing(id);
         } else {
-            return ItemStackData.wrapRaw(new ItemStack(Registries.ITEM.get(Identifier.tryParse(id))));
+            return ItemStackData.wrapRaw(new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.tryParse(id))));
         }
     }
 

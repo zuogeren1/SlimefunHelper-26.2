@@ -3,9 +3,9 @@ package xaeroplus;
 import java.io.ByteArrayOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.Level;
 import xaeroplus.feature.render.DrawManager;
 
 public class Globals {
@@ -24,7 +24,7 @@ public class Globals {
     public static boolean transparentWmBgApplyMapFrameBlend = false;
     public static boolean bypassVertexCountLimit = false;
 
-    public static RegistryKey<World> getCurrentDimensionId() {
+    public static ResourceKey<Level> getCurrentDimensionId() {
         return null;
     }
     // This can only be shared under the assumption region and texture cache writes are non-concurrent
@@ -34,7 +34,7 @@ public class Globals {
     public static final Supplier<ExecutorService> cacheRefreshExecutorService = null;
     public static final Supplier<ExecutorService> moduleExecutorService = null;
 
-    public static void switchToDimension(final RegistryKey<World> newDimId) {}
+    public static void switchToDimension(final ResourceKey<Level> newDimId) {}
 
     public static void setNullOverworldDimFolderIfAble(final boolean b) {}
 }

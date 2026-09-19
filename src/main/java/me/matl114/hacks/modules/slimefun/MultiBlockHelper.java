@@ -30,23 +30,30 @@ import me.matl114.utils.Debug;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.RaycastUtils;
 import me.matl114.utils.containers.MetaData;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.Generic3x3ContainerScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.DispenserScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class MultiBlockHelper extends BaseModule {
     public MultiBlockHelper() {
@@ -77,7 +84,7 @@ public class MultiBlockHelper extends BaseModule {
         registerListener(Listener.getPostPlayerUseItemAtBlock(), this::onBlockClick);
         registerListener(Listener.getPreGameTick(), this::onTick);
         registerListener(Listener.getServerLeavePoint(), this::onExit);
-        registerListener(Listener.getPostInitializeScreen().getChannel(HandledScreen.class), this::onScreenInit);
+        registerListener(Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onScreenInit);
     }
 
     private int lastChatTimestamp = 0;
@@ -91,12 +98,12 @@ public class MultiBlockHelper extends BaseModule {
 
     private long lastAutoTick;
 
-    public void onTick(Event<ClientPlayerEntity> player) {
+    public void onTick(Event<LocalPlayer> player) {
         if (!screens.isEmpty()) {
             long currentMs = System.currentTimeMillis();
-            if (currentMs > (lastAutoTick + (null == mc.currentScreen ? 2 : 1) * 300)) {
-                if (mc.player != null && mc.player.isSneaking()) {
-                    Debug.chat(Text.literal("[自动多方块] 检测到长按下蹲,清除全部的执行中多方块"));
+            if (currentMs > (lastAutoTick + (null == mc.gui.screen() ? 2 : 1) * 300)) {
+                if (mc.player != null && mc.player.isShiftKeyDown()) {
+                    Debug.chat(Component.literal("[自动多方块] 检测到长按下蹲,清除全部的执行中多方块"));
                     clearMultiBlockExecuteTasks();
                 } else {
                     lastAutoTick = currentMs;
@@ -109,7 +116,7 @@ public class MultiBlockHelper extends BaseModule {
                             onMultiBlockExecute(holder.castHandled(), true, false);
                         }
                     } else {
-                        Debug.chat(Text.literal("[自动多方块] 当前执行的界面并没有位置记录,已自动移除"));
+                        Debug.chat(Component.literal("[自动多方块] 当前执行的界面并没有位置记录,已自动移除"));
                         screens.remove(cursorIndex);
                         executeCursor -= 1;
                     }
@@ -128,10 +135,10 @@ public class MultiBlockHelper extends BaseModule {
     private static final String KEY_BOOK_WIDGET = "slimefunhelper:multiblock_suggestion_book_widget";
     private static final int[] AVAILABLE_SLOTS = new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8};
 
-    private void onScreenInit(Event<HandledScreen<?>> event) {
+    private void onScreenInit(Event<AbstractContainerScreen<?>> event) {
         if (enableCrafterGui.get()
                 && event.context() instanceof TileInventory screen
-                && event.context() instanceof Generic3x3ContainerScreen containerScreen) {
+                && event.context() instanceof DispenserScreen containerScreen) {
             HandledScreenAccess screenAccess = HandledScreenAccess.of(containerScreen);
             MetaData holder = screenAccess.getMetadata();
             SlimefunDispensorSuggestBookWidget dispensorWidget = holder.get(this, KEY_BOOK_WIDGET);
@@ -151,7 +158,7 @@ public class MultiBlockHelper extends BaseModule {
                         3,
                         co,
                         (bol, entry) -> SlimefunTasks.moveSlimefunRecipePatternToContainer(
-                                entry, containerScreen.getScreenHandler(), bol, true, AVAILABLE_SLOTS));
+                                entry, containerScreen.getMenu(), bol, true, AVAILABLE_SLOTS));
                 holder.put(this, KEY_BOOK_WIDGET, dispensorWidget);
             }
             dispensorWidget.refreshActiveState();
@@ -164,7 +171,7 @@ public class MultiBlockHelper extends BaseModule {
     private void onClickBlockExecute(BlockHitResult result, boolean delayClick, boolean clickMany) {
         if (result == null) return;
         BlockPos pos = result.getBlockPos();
-        Block block = mc.world.getBlockState(pos).getBlock();
+        Block block = mc.level.getBlockState(pos).getBlock();
         // do not speed up when opening crafting dispensor
         if (block == Blocks.DISPENSER || block == Blocks.DROPPER) {
             return;
@@ -172,20 +179,20 @@ public class MultiBlockHelper extends BaseModule {
         var potentials = SlimefunTasks.getRecipeDatabase().getPotentialMultiBlocks(block);
         if (potentials == null || potentials.isEmpty()) return;
         Optional<RecipeDatabase.MultiBlockEntry> first = potentials.stream()
-                .filter(m -> anyMatchMiddle(m, mc.world, pos))
+                .filter(m -> anyMatchMiddle(m, mc.level, pos))
                 .findFirst();
         if (first.isEmpty()) return;
         if (lastChatTimestamp + 5 * 20 < Tasks.getTick()) {
             Debug.chat(
-                    Text.literal("[MBHelper] Interacting with multiblock: ").formatted(Formatting.RED),
+                    Component.literal("[MBHelper] Interacting with multiblock: ").withStyle(ChatFormatting.RED),
                     first.get().id());
             lastChatTimestamp = Tasks.getTick();
         }
         int rateLimit = (clickMany ? rate.get() : 1);
         boolean currentLookingAt = false;
-        if (mc.crosshairTarget != null
-                && mc.crosshairTarget.getType() == HitResult.Type.BLOCK
-                && Objects.equals(((BlockHitResult) mc.crosshairTarget).getBlockPos(), result.getBlockPos())) {
+        if (mc.hitResult != null
+                && mc.hitResult.getType() == HitResult.Type.BLOCK
+                && Objects.equals(((BlockHitResult) mc.hitResult).getBlockPos(), result.getBlockPos())) {
             currentLookingAt = true;
         }
         // illegal click, with legal mode, have to redirect
@@ -193,36 +200,36 @@ public class MultiBlockHelper extends BaseModule {
             // the 300ms limit or the legalMode
             if (!clickMany || lastInteractTimestamp + (5) < Tasks.getTick()) {
                 lastInteractTimestamp = Tasks.getTick();
-                Vec3d interactTarget = result.getBlockPos().toCenterPos();
-                Vec3d interactLook = interactTarget.add(
+                Vec3 interactTarget = Vec3.atCenterOf(result.getBlockPos());
+                Vec3 interactLook = interactTarget.add(
                         interactOffsetRand.nextDouble(-0.05d, 0.05d),
                         interactOffsetRand.nextDouble(-0.05d, 0.05d),
                         interactOffsetRand.nextDouble(-0.05d, 0.05d));
-                Vec3d cacheDirection =
-                        interactLook.subtract(mc.player.getEyePos()).normalize();
-                Vec2f pitchYaw = EntityUtils.rotationToPitchYaw(cacheDirection);
+                Vec3 cacheDirection =
+                        interactLook.subtract(mc.player.getEyePosition()).normalize();
+                Vec2 pitchYaw = EntityUtils.rotationToPitchYaw(cacheDirection);
                 switch (legalMode.get()) {
                     case USEITEM_PACKET -> clickUsePacket(result, pitchYaw, rateLimit);
                     case LEGACY_SLIENT_ROT -> clickSnap(result, pitchYaw, rateLimit);
                     case DELAY_MOVEMENT, MOVEMENT_POST -> clickDelayMovement(result, pitchYaw, rateLimit);
                 }
             } else {
-                Debug.chat(Text.literal("[AC] 你点的太快了,可能无法通过反作弊"));
+                Debug.chat(Component.literal("[AC] 你点的太快了,可能无法通过反作弊"));
             }
         } else {
             for (int i = 0; i < rateLimit; ++i) {
-                mc.interactionManager.sendSequencedPacket(
-                        mc.world, (sequence -> new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, sequence)));
+                mc.gameMode.startPrediction(
+                        mc.level, (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
             }
             if (delayClick && clickMany) {
                 AtomicInteger count = new AtomicInteger(2);
                 Tasks.scheduleRepeated(
                         () -> {
                             for (int i = 0; i < rateLimit; ++i) {
-                                mc.interactionManager.sendSequencedPacket(
-                                        mc.world,
+                                mc.gameMode.startPrediction(
+                                        mc.level,
                                         (sequence ->
-                                                new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, sequence)));
+                                                new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
                             }
                             return count.decrementAndGet() <= 0;
                         },
@@ -233,7 +240,7 @@ public class MultiBlockHelper extends BaseModule {
         }
     }
 
-    public void clickDelayMovement(BlockHitResult result, Vec2f pitchYaw, int clickRate) {
+    public void clickDelayMovement(BlockHitResult result, Vec2 pitchYaw, int clickRate) {
         ClientPlayerAccess.of(mc.player)
                 .getLegalMovementManager()
                 .addMovementModifier(new LegalMovementManager.MovementModifier() {
@@ -244,7 +251,7 @@ public class MultiBlockHelper extends BaseModule {
 
                     @Override
                     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
-                        ClientPlayerEntity args = movementManagerEvent.context().playerStatus.entity;
+                        LocalPlayer args = movementManagerEvent.context().playerStatus.entity;
                         //                        float pitch = args.getPitch();
                         //                        float yaw = args.getYaw();
                         movementManagerEvent.context.pushImportantRotation(true, true);
@@ -259,9 +266,9 @@ public class MultiBlockHelper extends BaseModule {
                         // enable delay execute!
                         if (!enabledThisTick) return true;
                         for (int i = 0; i < clickRate; ++i) {
-                            mc.interactionManager.sendSequencedPacket(
-                                    mc.world,
-                                    (sequence -> new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, sequence)));
+                            mc.gameMode.startPrediction(
+                                    mc.level,
+                                    (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
                         }
                         ClientAccess.of(mc).setItemUseCooldown(0);
                         return false;
@@ -269,24 +276,24 @@ public class MultiBlockHelper extends BaseModule {
                 });
     }
 
-    public void clickSnap(BlockHitResult result, Vec2f pitchYaw, int clickRate) {
+    public void clickSnap(BlockHitResult result, Vec2 pitchYaw, int clickRate) {
         LegacySnapRotManager.INSTANCE.snapAt(pitchYaw.x, pitchYaw.y, false);
         for (int i = 0; i < clickRate; ++i) {
-            mc.interactionManager.sendSequencedPacket(
-                    mc.world, (sequence -> new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, sequence)));
+            mc.gameMode.startPrediction(
+                    mc.level, (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
         }
     }
 
-    public void clickUsePacket(BlockHitResult result, Vec2f pitchYaw, int clickRate) {
+    public void clickUsePacket(BlockHitResult result, Vec2 pitchYaw, int clickRate) {
 
         // find a hand which contains a item
         // do not pass grimac
         // will consume packet-limit, shit
-        Hand hand;
-        if (!mc.player.getMainHandStack().isEmpty()) {
-            hand = Hand.MAIN_HAND;
-        } else if (!mc.player.getOffHandStack().isEmpty()) {
-            hand = Hand.OFF_HAND;
+        InteractionHand hand;
+        if (!mc.player.getMainHandItem().isEmpty()) {
+            hand = InteractionHand.MAIN_HAND;
+        } else if (!mc.player.getOffhandItem().isEmpty()) {
+            hand = InteractionHand.OFF_HAND;
         } else {
             // try
             hand = null;
@@ -294,10 +301,10 @@ public class MultiBlockHelper extends BaseModule {
         if (hand != null) {
 
             for (int i = 0; i < clickRate; ++i) {
-                mc.interactionManager.sendSequencedPacket(
-                        mc.world, (z) -> new PlayerInteractItemC2SPacket(hand, z, pitchYaw.y, pitchYaw.x));
-                mc.interactionManager.sendSequencedPacket(
-                        mc.world, (sequence -> new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, sequence)));
+                mc.gameMode.startPrediction(
+                        mc.level, (z) -> new ServerboundUseItemPacket(hand, z, pitchYaw.y, pitchYaw.x));
+                mc.gameMode.startPrediction(
+                        mc.level, (sequence -> new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, result, sequence)));
             }
             ClientAccess.of(mc).setItemUseCooldown(0);
         } else {
@@ -312,23 +319,23 @@ public class MultiBlockHelper extends BaseModule {
         if (mc.player == null
                 || !(executingScreen instanceof TileInventory tile)
                 || tile.isVirtual()
-                || tile.getWorld() != mc.world) {
+                || tile.getWorld() != mc.level) {
             return;
         }
         BlockPos pos = tile.getPos();
         Block block = tile.getBlockType();
-        if (pos.toCenterPos().squaredDistanceTo(mc.player.getPos()) > 50) {
-            Debug.chat(Text.literal("[多方块执行] 你离着自动执行的多方块太远了,已关闭自动执行"));
+        if (Vec3.atCenterOf(pos).distanceToSqr(mc.player.position()) > 50) {
+            Debug.chat(Component.literal("[多方块执行] 你离着自动执行的多方块太远了,已关闭自动执行"));
             toggleMultiBlockAutoExecuteState(tile, false);
             return;
         }
         // opening current Executing
-        if (mc.currentScreen instanceof TileInventory tileExecute && Objects.equals(pos, tileExecute.getPos())) {
+        if (mc.gui.screen() instanceof TileInventory tileExecute && Objects.equals(pos, tileExecute.getPos())) {
             boolean hasItem = false;
-            for (var slot : tileExecute.castHandled().getScreenHandler().slots) {
-                if (slot.inventory instanceof PlayerInventory) {
+            for (var slot : tileExecute.castHandled().getMenu().slots) {
+                if (slot.container instanceof Inventory) {
                     break;
-                } else if (!slot.getStack().isEmpty()) {
+                } else if (!slot.getItem().isEmpty()) {
                     hasItem = true;
                     break;
                 }
@@ -341,7 +348,7 @@ public class MultiBlockHelper extends BaseModule {
         if (block == Blocks.DISPENSER || block == Blocks.DROPPER) {
             for (var multiblock :
                     SlimefunTasks.getRecipeDatabase().getMultiBlockRegistry().values()) {
-                var optional = getOptionalActionFromDispenser(multiblock, mc.world, pos);
+                var optional = getOptionalActionFromDispenser(multiblock, mc.level, pos);
                 if (optional.isEmpty()) continue;
                 find = true;
                 for (var bp : optional) {
@@ -351,14 +358,14 @@ public class MultiBlockHelper extends BaseModule {
             }
         }
         if (!find) {
-            Debug.chat(Text.literal("[多方块执行] 多方块结构与已记录的多方块无法匹配").formatted(Formatting.RED));
+            Debug.chat(Component.literal("[多方块执行] 多方块结构与已记录的多方块无法匹配").withStyle(ChatFormatting.RED));
             toggleMultiBlockAutoExecuteState(tile, false);
         }
     }
 
     public void clearMultiBlockExecuteTasks() {
         Debug.chat(
-                Text.literal("[自动多方块] 已清除 %d 个执行中多方块".formatted(screens.size())).formatted(Formatting.GREEN));
+                Component.literal("[自动多方块] 已清除 %d 个执行中多方块".formatted(screens.size())).withStyle(ChatFormatting.GREEN));
         screens.clear();
         executeCursor = 0;
     }
@@ -369,15 +376,15 @@ public class MultiBlockHelper extends BaseModule {
 
     public void toggleMultiBlockAutoExecuteState(TileInventory screen, boolean val) {
         if (screen.isVirtual()) {
-            Debug.chat(Text.literal("[自动多方块] 找不到该屏幕对应的方块位置"));
+            Debug.chat(Component.literal("[自动多方块] 找不到该屏幕对应的方块位置"));
         } else {
             BlockPos pos = screen.getPos();
             screens.removeIf(i -> Objects.equals(i.getFirst(), pos));
             if (val) {
                 screens.add(Pair.of(pos, screen));
             }
-            Debug.chat(Text.literal("[自动多方块] 已切换该屏幕的自动执行状态,目前有 %d 个自动执行中(长按下蹲以全部关闭)".formatted(screens.size()))
-                    .formatted(Formatting.GREEN));
+            Debug.chat(Component.literal("[自动多方块] 已切换该屏幕的自动执行状态,目前有 %d 个自动执行中(长按下蹲以全部关闭)".formatted(screens.size()))
+                    .withStyle(ChatFormatting.GREEN));
         }
     }
 
@@ -395,13 +402,13 @@ public class MultiBlockHelper extends BaseModule {
         Vec3i left2Right;
 
         public BlockPos getComponentBlock(int x, int y) {
-            return leftDown.add(left2Right.getX() * x, y, left2Right.getZ() * x);
+            return leftDown.offset(left2Right.getX() * x, y, left2Right.getZ() * x);
         }
     }
 
     public static List<BlockPos> getPositionByDirection(
             RecipeDatabase.MultiBlockEntry entry, BlockPos blockPos, MultiblockOffset direcion) {
-        blockPos.add(0, -direcion.dy, 0);
+        blockPos.offset(0, -direcion.dy, 0);
         int dy = direcion.dy;
         Direction dir = direcion.direction;
         var blockTypes = entry.blockTypes();
@@ -412,7 +419,7 @@ public class MultiBlockHelper extends BaseModule {
                 // only match existing block
 
                 if (blockTypes[3 * j + (i + 1)] != BlockMatcher.ANY_MATCH) {
-                    pos.add(blockPos.add(i * dir.getOffsetX(), j - dy, i * dir.getOffsetZ()));
+                    pos.add(blockPos.offset(i * dir.getStepX(), j - dy, i * dir.getStepZ()));
                 }
             }
         }
@@ -420,7 +427,7 @@ public class MultiBlockHelper extends BaseModule {
     }
 
     public static Collection<BlockPos> getOptionalActionFromDispenser(
-            RecipeDatabase.MultiBlockEntry entry, ClientWorld world, BlockPos pos) {
+            RecipeDatabase.MultiBlockEntry entry, ClientLevel world, BlockPos pos) {
         var lookup = entry.lookup();
         var optionalActionBlock = entry.optionalActionBlock();
         Collection<MultiBlockLocation> locations = lookup.lookup(world, pos);
@@ -441,13 +448,13 @@ public class MultiBlockHelper extends BaseModule {
     static Direction[] DIR_SYMM = new Direction[] {Direction.NORTH, Direction.WEST};
 
     public static MultiblockOffset matchDirection(
-            RecipeDatabase.MultiBlockEntry entry, World world, BlockPos blockPos) {
+            RecipeDatabase.MultiBlockEntry entry, Level world, BlockPos blockPos) {
         var blockTypes = entry.blockTypes();
         var symm = entry.symm();
         position:
         for (int i = 0; i <= 2; ++i) {
             // match middle first
-            BlockPos.Mutable middleBotton = blockPos.mutableCopy().move(0, -i, 0);
+            BlockPos.MutableBlockPos middleBotton = blockPos.mutable().move(0, -i, 0);
             for (int s = 0; s <= 2; ++s) {
                 Block block = world.getBlockState(middleBotton).getBlock();
                 if (!blockTypes[1 + 3 * s].match(block)) {
@@ -461,8 +468,8 @@ public class MultiBlockHelper extends BaseModule {
             directionMatch:
             for (Direction dir : symm ? DIR_SYMM : DIR_CONSIDER) {
 
-                BlockPos.Mutable leftBotton =
-                        blockPos.mutableCopy().move(0, -i, 0).move(dir);
+                BlockPos.MutableBlockPos leftBotton =
+                        blockPos.mutable().move(0, -i, 0).move(dir);
                 for (int s = 0; s <= 2; ++s) {
 
                     Block block = world.getBlockState(leftBotton).getBlock();
@@ -473,8 +480,8 @@ public class MultiBlockHelper extends BaseModule {
                 }
                 currentDir = dir;
                 if (!symm) {
-                    BlockPos.Mutable rightBotton =
-                            blockPos.mutableCopy().move(0, -i, 0).move(currentDir, -1);
+                    BlockPos.MutableBlockPos rightBotton =
+                            blockPos.mutable().move(0, -i, 0).move(currentDir, -1);
                     // if not symm, still need check
                     for (int s = 0; s <= 2; ++s) {
                         Block block = world.getBlockState(rightBotton).getBlock();
@@ -490,7 +497,7 @@ public class MultiBlockHelper extends BaseModule {
         return null;
     }
 
-    public static boolean anyMatchMiddle(RecipeDatabase.MultiBlockEntry entry, World world, BlockPos blockPos) {
+    public static boolean anyMatchMiddle(RecipeDatabase.MultiBlockEntry entry, Level world, BlockPos blockPos) {
         return matchDirection(entry, world, blockPos) != null;
     }
 }

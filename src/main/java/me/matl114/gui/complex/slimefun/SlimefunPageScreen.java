@@ -2,7 +2,7 @@ package me.matl114.gui.complex.slimefun;
 
 import me.matl114.gui.PageSwitchSubScreen;
 import me.matl114.gui.basic.*;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public abstract class SlimefunPageScreen extends SlimefunScreen {
 
@@ -15,7 +15,7 @@ public abstract class SlimefunPageScreen extends SlimefunScreen {
 
     protected abstract int getPageContentHeight();
 
-    public SlimefunPageScreen(Text title) {
+    public SlimefunPageScreen(Component title) {
         super(title);
         this.pageSwitcher = new PageSwitchSubScreen(
                 0,

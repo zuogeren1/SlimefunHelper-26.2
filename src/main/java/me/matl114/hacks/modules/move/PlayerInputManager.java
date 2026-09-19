@@ -10,7 +10,7 @@ import me.matl114.hacks.utils.entity.LegalMovementManager;
 import me.matl114.managers.Tasks;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.player.LocalPlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -226,7 +226,7 @@ public class PlayerInputManager extends BaseModule implements LegalMovementManag
             }
         }
 
-        public void modifyRotation(ClientPlayerEntity player) {
+        public void modifyRotation(LocalPlayer player) {
             if (player != null) {
                 if (pitch != null) {
                     EntityUtils.setEntityPitchSafe(player, pitch);
@@ -280,7 +280,7 @@ public class PlayerInputManager extends BaseModule implements LegalMovementManag
             return false;
         }
 
-        public boolean tickRotation(ClientPlayerEntity player) {
+        public boolean tickRotation(LocalPlayer player) {
             if (isExpired()) {
                 return false;
             }

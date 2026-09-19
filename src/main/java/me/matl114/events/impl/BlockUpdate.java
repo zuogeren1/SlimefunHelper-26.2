@@ -1,7 +1,7 @@
 package me.matl114.events.impl;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
 
-public record BlockUpdate(ClientWorld world, BlockPos pos, BlockState oldState, BlockState newState) {}
+public record BlockUpdate(ClientLevel world, BlockPos pos, BlockState oldState, BlockState newState) {}

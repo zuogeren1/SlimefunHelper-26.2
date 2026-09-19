@@ -1,7 +1,7 @@
 package me.matl114.hacks.utils.recipes;
 
 import java.util.Arrays;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public interface RecipeEntry {
     public String rid();

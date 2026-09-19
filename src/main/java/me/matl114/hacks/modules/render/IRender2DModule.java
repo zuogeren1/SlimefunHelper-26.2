@@ -72,7 +72,7 @@ public abstract class IRender2DModule extends BaseModule {
     }
 
     public void handleRenderPosition(VDrawContext vdraw) {
-        int sizeX = mc.getWindow().getScaledWidth();
+        int sizeX = mc.getWindow().getGuiScaledWidth();
         //        vdraw.pushMatrix();
         //        vdraw.drawTexturedQuad(Identifier.tryParse("slimefunhelper:textures/custom/genshin_impact.png"), sizeX
         // - 30,sizeX, sizeY - 20, sizeY, 0, 0,1,0 , 1);

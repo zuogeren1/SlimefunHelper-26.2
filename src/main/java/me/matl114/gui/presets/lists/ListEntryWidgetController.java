@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
 
 public interface ListEntryWidgetController {
     int size();
@@ -33,9 +33,9 @@ public interface ListEntryWidgetController {
 
     void markDirty(boolean mark);
 
-    public <T extends Element & Drawable & Selectable> T getEntryWidget(int index);
+    public <T extends GuiEventListener & Renderable & NarratableEntry> T getEntryWidget(int index);
 
-    public static <W, T extends Element & Drawable & Selectable> ListEntryWidgetController mutable(
+    public static <W, T extends GuiEventListener & Renderable & NarratableEntry> ListEntryWidgetController mutable(
             List<W> originData, Supplier<W> newData, Function<W, T> widgetFactory, int height, int width) {
         return new ListEntryWidgetController() {
             boolean dirty = false;
@@ -167,13 +167,13 @@ public interface ListEntryWidgetController {
             }
 
             @Override
-            public <T extends Element & Drawable & Selectable> T getEntryWidget(int index) {
+            public <T extends GuiEventListener & Renderable & NarratableEntry> T getEntryWidget(int index) {
                 return (T) cachedWidget.get(index);
             }
         };
     }
 
-    public static <W, T extends Element & Drawable & Selectable> ListEntryWidgetController immutable(
+    public static <W, T extends GuiEventListener & Renderable & NarratableEntry> ListEntryWidgetController immutable(
             List<W> originData, Function<W, T> widgetFactory, int height, int width) {
         return new ListEntryWidgetController() {
             final List<T> cachedWidget = new ArrayList<>();
@@ -246,7 +246,7 @@ public interface ListEntryWidgetController {
             public void markDirty(boolean mark) {}
 
             @Override
-            public <T extends Element & Drawable & Selectable> T getEntryWidget(int index) {
+            public <T extends GuiEventListener & Renderable & NarratableEntry> T getEntryWidget(int index) {
                 return (T) cachedWidget.get(index);
             }
         };

@@ -3,11 +3,11 @@ package me.matl114.accessors.events;
 import javax.annotation.Nonnull;
 import me.matl114.accessors.access.LivingEntityAccess;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
-public interface ClientPlayerEntityAccess extends LivingEntityAccess<ClientPlayerEntity> {
+public interface ClientPlayerEntityAccess extends LivingEntityAccess<LocalPlayer> {
     public LegalMovementManager getLegalMovementManager();
 
     public void onPlayerInputPackets();
@@ -19,22 +19,22 @@ public interface ClientPlayerEntityAccess extends LivingEntityAccess<ClientPlaye
     public void setLastSprintFlag(boolean lastSprint);
 
     default void resyncSneak() {
-        setLastSneakFlag(!((ClientPlayerEntity) this).input.playerInput.sneak());
+        setLastSneakFlag(!((LocalPlayer) this).input.keyPresses.shift());
     }
 
     public void setLastSneakFlag(boolean lastSprint);
 
     default void resyncOnGround() {
-        setLastOnGroundFlag(!((Entity) this).isOnGround());
+        setLastOnGroundFlag(!((Entity) this).onGround());
     }
 
     public void setLastOnGroundFlag(boolean lastOnGround);
 
     default void resyncPos() {
-        setLastPos(Vec3d.ZERO);
+        setLastPos(Vec3.ZERO);
     }
 
-    public void setLastPos(Vec3d vec3d);
+    public void setLastPos(Vec3 vec3d);
 
     default void resyncRot() {
         setLastRot(0, 0);
@@ -47,7 +47,7 @@ public interface ClientPlayerEntityAccess extends LivingEntityAccess<ClientPlaye
     public void resyncInput();
 
     @Nonnull
-    public static ClientPlayerEntityAccess of(@Nonnull ClientPlayerEntity player) {
+    public static ClientPlayerEntityAccess of(@Nonnull LocalPlayer player) {
         return (ClientPlayerEntityAccess) player;
     }
 }

@@ -2,7 +2,7 @@ package me.matl114.gui.basic;
 
 import java.util.function.UnaryOperator;
 import lombok.Getter;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screens.Screen;
 
 public class ExecutableWidget extends DrawableWidget {
     @Getter

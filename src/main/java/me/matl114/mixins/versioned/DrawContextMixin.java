@@ -1,31 +1,31 @@
 package me.matl114.mixins.versioned;
 
 import me.matl114.versioned.api.MatrixStack;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.joml.*;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
-@Mixin(DrawContext.class)
+@Mixin(GuiGraphicsExtractor.class)
 public abstract class DrawContextMixin implements MatrixStack {
     @Shadow
     @Final
-    private Matrix3x2fStack matrices;
+    private Matrix3x2fStack pose;
 
     @Override
     public void pushMatrix() {
-        this.matrices.pushMatrix();
+        this.pose.pushMatrix();
     }
 
     @Override
     public void popMatrix() {
-        this.matrices.popMatrix();
+        this.pose.popMatrix();
     }
 
     @Override
     public Matrix4f peek3D() {
-        Matrix3x2fStack mat2d = this.matrices;
+        Matrix3x2fStack mat2d = this.pose;
         Matrix4f mat4 = new Matrix4f().identity();
 
         // 1. 复制线性变换部分 (旋转/缩放)
@@ -47,12 +47,12 @@ public abstract class DrawContextMixin implements MatrixStack {
 
     @Override
     public void translate(float x, float y) {
-        this.matrices.translate(x, y);
+        this.pose.translate(x, y);
     }
 
     @Override
     public void scale(float x, float y) {
-        this.matrices.scale(x, y);
+        this.pose.scale(x, y);
     }
 
     @Override
@@ -64,7 +64,7 @@ public abstract class DrawContextMixin implements MatrixStack {
                 mat4.m00(), mat4.m01(),
                 mat4.m10(), mat4.m11(),
                 mat4.m30(), mat4.m31());
-        this.matrices.set(result);
+        this.pose.set(result);
     }
 
     public Matrix3f peekNormal() {

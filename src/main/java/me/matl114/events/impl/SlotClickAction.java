@@ -1,5 +1,5 @@
 package me.matl114.events.impl;
 
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.world.inventory.ContainerInput;
 
-public record SlotClickAction(SlotActionType actionType, int syncId, int slotId, int button) {}
+public record SlotClickAction(ContainerInput actionType, int syncId, int slotId, int button) {}

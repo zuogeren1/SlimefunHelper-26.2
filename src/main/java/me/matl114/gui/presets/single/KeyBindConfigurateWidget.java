@@ -10,9 +10,9 @@ import me.matl114.managers.input.KeyCode;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Formatting;
+import net.minecraft.util.CommonColors;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 public class KeyBindConfigurateWidget extends SubScreenWidget {
     AttrKeyValue<MultiKeyBind> multiKeyBind;
@@ -40,9 +40,9 @@ public class KeyBindConfigurateWidget extends SubScreenWidget {
                         }))
                         .setHighLightColor(((widget, isFocused) -> {
                             if (multiKeyBind.isValidate()) {
-                                return isFocused ? Colors.WHITE : null;
+                                return isFocused ? CommonColors.WHITE : null;
                             } else {
-                                return Colors.RED;
+                                return CommonColors.RED;
                             }
                         }))
                         .withInputHandler(InputHandler.keyboard((widget, keyCode, scanCode, modifiers, isPress) -> {
@@ -57,7 +57,7 @@ public class KeyBindConfigurateWidget extends SubScreenWidget {
                 .addToSub(this);
         ExecutableWidget.instance(dx - 3 * dy - 1, 1, dy - 2, dy - 2)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.literal("T")), ((element, widget, mouseButton) -> {
+                                TextProvider.of(Component.literal("T")), ((element, widget, mouseButton) -> {
                                     onSwitchToggleOnRelease();
                                     return false;
                                 }))
@@ -67,7 +67,7 @@ public class KeyBindConfigurateWidget extends SubScreenWidget {
                 .addToSub(this);
         ExecutableWidget.instance(dx - 2 * dy - 1, 1, dy - 2, dy - 2)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.literal("V")), ((element, widget, mouseButton) -> {
+                                TextProvider.of(Component.literal("V")), ((element, widget, mouseButton) -> {
                                     onSwitchAllowVanilla();
                                     return false;
                                 }))
@@ -77,7 +77,7 @@ public class KeyBindConfigurateWidget extends SubScreenWidget {
                 .addToSub(this);
         deleteKeyInputWidget = ExecutableWidget.instance(dx - dy - 1, 1, dy - 2, dy - 2)
                 .setElementHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("D")), ((element, widget, mouseButton) -> {
+                        new ButtonElement(TextProvider.of(Component.literal("D")), ((element, widget, mouseButton) -> {
                                     clear();
                                     // make it return false, do not unselect current
                                     return false;
@@ -98,13 +98,13 @@ public class KeyBindConfigurateWidget extends SubScreenWidget {
         return new ArrayList<>(Arrays.asList(re));
     }
 
-    private Text createKeyDisplay(DrawableWidget el) {
+    private Component createKeyDisplay(DrawableWidget el) {
         List<String> keyCodes = getKeys();
         String context = keyCodes.isEmpty() ? "None" : String.join(",", keyCodes);
 
         return (this.isFocused() && el == selected)
-                ? Text.literal("> " + context + " <").formatted(Formatting.GOLD)
-                : Text.literal(context);
+                ? Component.literal("> " + context + " <").withStyle(ChatFormatting.GOLD)
+                : Component.literal(context);
     }
 
     private void onAnyKeyPressed(int keyCode) {

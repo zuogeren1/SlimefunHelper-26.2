@@ -11,7 +11,7 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.client.multiplayer.PlayerInfo;
 
 public class PlayerLog extends BaseModule {
     public final ModulePath playerIo = makePath(Configs.RENDER_CONFIG, "player-io");
@@ -38,14 +38,14 @@ public class PlayerLog extends BaseModule {
         registerListener(Listener.getOtherPlayerExitPoint(), this::onPlayerExit);
     }
 
-    public void onPlayerJoin(Event<PlayerListEntry> entry) {
+    public void onPlayerJoin(Event<PlayerInfo> entry) {
         if (enable.get()) {
             Debug.chat(
                     logFormatIn.get().formatText(VRecord.getName(entry.context().getProfile())));
         }
     }
 
-    public void onPlayerExit(Event<PlayerListEntry> entry) {
+    public void onPlayerExit(Event<PlayerInfo> entry) {
         if (enable.get()) {
             Debug.chat(logFormatOut
                     .get()

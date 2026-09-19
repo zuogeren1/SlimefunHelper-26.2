@@ -50,7 +50,7 @@ public class TotemLog extends BaseModule {
                     "Totem",
                     logPopCountFormat
                             .get()
-                            .formatText(event.context.player().getNameForScoreboard(), event.context.popCnt()));
+                            .formatText(event.context.player().getScoreboardName(), event.context.popCnt()));
         }
     }
 
@@ -60,7 +60,7 @@ public class TotemLog extends BaseModule {
             if (popCount > 0) {
                 logSub(
                         "Totem",
-                        logDeathFormat.get().formatText(event.context.player().getNameForScoreboard(), popCount));
+                        logDeathFormat.get().formatText(event.context.player().getScoreboardName(), popCount));
             }
         }
     }

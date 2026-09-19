@@ -2,25 +2,25 @@ package me.matl114.utils;
 
 import java.util.*;
 import me.matl114.utils.annotations.NeedTest;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.EmptyBlockView;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 @NeedTest
 public final class ExplosionUtils {
     private static final double EPSILON = 1.0E-7D;
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static final float END_CRYSTAL_POWER = 6.0F;
     public static final float RESPAWN_ANCHOR_POWER = 5.0F;
@@ -34,7 +34,7 @@ public final class ExplosionUtils {
      * for {@code target}. Use calculateQuickDamage when the raw damage is required.
      */
     public static float explosionDamage(
-            LivingEntity target, Vec3d explosionPos, float power, BlockView world, HitRule hitRule) {
+            LivingEntity target, Vec3 explosionPos, float power, BlockGetter world, HitRule hitRule) {
         if (target == null) {
             return 0.0F;
         }
@@ -43,27 +43,27 @@ public final class ExplosionUtils {
     }
 
     public static float explosionDamage(
-            Box predictedPos, Vec3d explosionPos, float power, BlockView world, HitRule hitRule) {
+            AABB predictedPos, Vec3 explosionPos, float power, BlockGetter world, HitRule hitRule) {
 
         return calculateExplosionRawDamage(power, explosionPos, predictedPos, fromWorld(world), hitRule);
     }
 
-    public static float crystalDamage(Box predicatedPos, Vec3d explosionPos, BlockView world, HitRule hitRule) {
+    public static float crystalDamage(AABB predicatedPos, Vec3 explosionPos, BlockGetter world, HitRule hitRule) {
         return calculateExplosionRawDamage(END_CRYSTAL_POWER, explosionPos, predicatedPos, fromWorld(world), hitRule);
     }
 
-    public static float respawnAnchorDamage(Box predictedPos, Vec3d explosionPos, BlockView world, HitRule hitRule) {
+    public static float respawnAnchorDamage(AABB predictedPos, Vec3 explosionPos, BlockGetter world, HitRule hitRule) {
         return calculateExplosionRawDamage(
                 RESPAWN_ANCHOR_POWER,
                 explosionPos,
                 predictedPos,
-                fromWorldWithOverrides(world, Map.of(BlockPos.ofFloored(explosionPos), Blocks.AIR.getDefaultState())),
+                fromWorldWithOverrides(world, Map.of(BlockPos.containing(explosionPos), Blocks.AIR.defaultBlockState())),
                 hitRule);
     }
 
-    public static float calculateExplosionMaxDamage(float power, Box targetBox, Vec3d explosionPos) {
-        Vec3d targetPos =
-                new Vec3d((targetBox.minX + targetBox.maxX) / 2, targetBox.minY, (targetBox.minZ + targetBox.maxZ) / 2);
+    public static float calculateExplosionMaxDamage(float power, AABB targetBox, Vec3 explosionPos) {
+        Vec3 targetPos =
+                new Vec3((targetBox.minX + targetBox.maxX) / 2, targetBox.minY, (targetBox.minZ + targetBox.maxZ) / 2);
         double normalizedDistance = getNormalizedDistance(power, explosionPos, targetPos);
         if (normalizedDistance >= 1) {
             return 0.0F;
@@ -74,9 +74,9 @@ public final class ExplosionUtils {
     }
 
     public static float calculateExplosionRawDamage(
-            float power, Vec3d explosionPos, Box targetBox, BlockStateAccess access, HitRule hitRule) {
-        Vec3d targetPos =
-                new Vec3d((targetBox.minX + targetBox.maxX) / 2, targetBox.minY, (targetBox.minZ + targetBox.maxZ) / 2);
+            float power, Vec3 explosionPos, AABB targetBox, BlockStateAccess access, HitRule hitRule) {
+        Vec3 targetPos =
+                new Vec3((targetBox.minX + targetBox.maxX) / 2, targetBox.minY, (targetBox.minZ + targetBox.maxZ) / 2);
         double normalizedDistance = getNormalizedDistance(power, explosionPos, targetPos);
         if (normalizedDistance >= 1) {
             return 0.0F;
@@ -95,7 +95,7 @@ public final class ExplosionUtils {
 
     @NeedTest
     private static Set<BlockPos> collectPotentiallyDestroyedBlocks(
-            float power, Vec3d explosionPos, BlockStateAccess access) {
+            float power, Vec3 explosionPos, BlockStateAccess access) {
         if (power <= 0.0F) {
             return Set.of();
         }
@@ -125,13 +125,13 @@ public final class ExplosionUtils {
                     double currentZ = explosionPos.z;
 
                     while (energy > 0.0D) {
-                        BlockPos pos = BlockPos.ofFloored(currentX, currentY, currentZ);
+                        BlockPos pos = BlockPos.containing(currentX, currentY, currentZ);
                         BlockState state = access.getBlockState(pos);
                         if (access.hasBlastResistance(pos, state)) {
                             energy -= (access.getBlastResistance(pos, state) + 0.3D) * 0.3D;
                         }
                         if (energy > 0.0D && state != null && !state.isAir()) {
-                            destroyedBlocks.add(pos.toImmutable());
+                            destroyedBlocks.add(pos.immutable());
                         }
 
                         currentX += directionX * 0.3D;
@@ -146,7 +146,7 @@ public final class ExplosionUtils {
     }
 
     @NeedTest
-    private static List<Vec3d> collectExposureSamplePoints(Box box) {
+    private static List<Vec3> collectExposureSamplePoints(AABB box) {
         double xDiff = box.maxX - box.minX;
         double yDiff = box.maxY - box.minY;
         double zDiff = box.maxZ - box.minZ;
@@ -173,11 +173,11 @@ public final class ExplosionUtils {
         double endY = box.maxY;
         double endZ = box.maxZ + zOffset;
 
-        List<Vec3d> samples = new ArrayList<>();
+        List<Vec3> samples = new ArrayList<>();
         for (double x = startX; x <= endX + EPSILON; x += xStep) {
             for (double y = startY; y <= endY + EPSILON; y += yStep) {
                 for (double z = startZ; z <= endZ + EPSILON; z += zStep) {
-                    samples.add(new Vec3d(x, y, z));
+                    samples.add(new Vec3(x, y, z));
                 }
             }
         }
@@ -185,7 +185,7 @@ public final class ExplosionUtils {
     }
 
     @NeedTest
-    public static double getNormalizedDistance(float power, Vec3d explosionPos, Vec3d targetPos) {
+    public static double getNormalizedDistance(float power, Vec3 explosionPos, Vec3 targetPos) {
         if (power <= 0.0F) {
             return Double.POSITIVE_INFINITY;
         }
@@ -197,7 +197,7 @@ public final class ExplosionUtils {
         if (normalizedDistance >= 1.0D || exposure <= 0.0D) {
             return 0.0D;
         }
-        return (1.0D - normalizedDistance) * MathHelper.clamp(exposure, 0.0D, 1.0D);
+        return (1.0D - normalizedDistance) * Mth.clamp(exposure, 0.0D, 1.0D);
     }
 
     public static double getRawDamage(float power, double impact) {
@@ -208,7 +208,7 @@ public final class ExplosionUtils {
         return ((impact * impact + impact) / 2.0D) * 7.0D * damageScale + 1.0D;
     }
 
-    private static float getExposure(BlockStateAccess access, Vec3d source, Box box, HitRule hitRule) {
+    private static float getExposure(BlockStateAccess access, Vec3 source, AABB box, HitRule hitRule) {
         double xDiff = box.maxX - box.minX;
         double yDiff = box.maxY - box.minY;
         double zDiff = box.maxZ - box.minZ;
@@ -238,7 +238,7 @@ public final class ExplosionUtils {
             for (double x = startX; x <= endX; x += xStep) {
                 for (double y = startY; y <= endY; y += yStep) {
                     for (double z = startZ; z <= endZ; z += zStep) {
-                        Vec3d position = new Vec3d(x, y, z);
+                        Vec3 position = new Vec3(x, y, z);
 
                         if (!rayCastAccept(access, source, position, hitRule)) {
                             misses++;
@@ -254,18 +254,18 @@ public final class ExplosionUtils {
         return 0f;
     }
 
-    private static float getExposureSimplified(BlockStateAccess access, Vec3d source, Box box, HitRule hitRule) {
-        Vec3d center = box.getCenter();
-        List<Vec3d> samplePoints = List.of(
-                new Vec3d(box.minX, center.y, center.z),
-                new Vec3d(box.maxX, center.y, center.z),
-                new Vec3d(center.x, box.minY, center.z),
-                new Vec3d(center.x, box.maxY, center.z),
-                new Vec3d(center.x, center.y, box.minZ),
-                new Vec3d(center.x, center.y, box.maxZ));
+    private static float getExposureSimplified(BlockStateAccess access, Vec3 source, AABB box, HitRule hitRule) {
+        Vec3 center = box.getCenter();
+        List<Vec3> samplePoints = List.of(
+                new Vec3(box.minX, center.y, center.z),
+                new Vec3(box.maxX, center.y, center.z),
+                new Vec3(center.x, box.minY, center.z),
+                new Vec3(center.x, box.maxY, center.z),
+                new Vec3(center.x, center.y, box.minZ),
+                new Vec3(center.x, center.y, box.maxZ));
 
         int visibleCount = 0;
-        for (Vec3d samplePoint : samplePoints) {
+        for (Vec3 samplePoint : samplePoints) {
             if (!rayCastAccept(access, source, samplePoint, hitRule)) {
                 visibleCount++;
             }
@@ -273,9 +273,9 @@ public final class ExplosionUtils {
         return (float) visibleCount / (float) samplePoints.size();
     }
 
-    private static boolean rayCastAccept(BlockStateAccess stateAccess, Vec3d source, Vec3d pos, HitRule hitRule) {
-        BlockPos startFuckPos = BlockPos.ofFloored(MathUtils.lerp(-1E-7, source, pos));
-        BlockPos endFuckPos = BlockPos.ofFloored(MathUtils.lerp(-1E-7, pos, source));
+    private static boolean rayCastAccept(BlockStateAccess stateAccess, Vec3 source, Vec3 pos, HitRule hitRule) {
+        BlockPos startFuckPos = BlockPos.containing(MathUtils.lerp(-1E-7, source, pos));
+        BlockPos endFuckPos = BlockPos.containing(MathUtils.lerp(-1E-7, pos, source));
         for (var re : RaycastUtils.createRaycastBlockPoses(pos, source, true)) {
             boolean strict = Objects.equals(startFuckPos, re) || Objects.equals(endFuckPos, re);
             BlockState state = stateAccess.getBlockState(re);
@@ -287,7 +287,7 @@ public final class ExplosionUtils {
     }
 
     @NeedTest
-    public static BlockStateAccess fromWorld(BlockView world) {
+    public static BlockStateAccess fromWorld(BlockGetter world) {
         return new BlockStateAccess() {
             @Override
             @NeedTest
@@ -304,13 +304,13 @@ public final class ExplosionUtils {
             @Override
             @NeedTest
             public double getFluidResistance(BlockPos pos) {
-                return world.getFluidState(pos).getBlastResistance();
+                return world.getFluidState(pos).getExplosionResistance();
             }
         };
     }
 
     @NeedTest
-    public static BlockStateAccess fromWorldWithOverrides(BlockView world, Map<BlockPos, BlockState> overrides) {
+    public static BlockStateAccess fromWorldWithOverrides(BlockGetter world, Map<BlockPos, BlockState> overrides) {
         Map<BlockPos, BlockState> safeOverrides = overrides == null ? Map.of() : overrides;
         return new BlockStateAccess() {
             @Override
@@ -324,7 +324,7 @@ public final class ExplosionUtils {
             public VoxelShape getCollisionShape(BlockPos pos) {
                 BlockState overrideState = safeOverrides.get(pos);
                 if (overrideState != null || safeOverrides.containsKey(pos)) {
-                    return overrideState == null ? VoxelShapes.empty() : overrideState.getCollisionShape(world, pos);
+                    return overrideState == null ? Shapes.empty() : overrideState.getCollisionShape(world, pos);
                 }
                 return world.getBlockState(pos).getCollisionShape(world, pos);
             }
@@ -336,9 +336,9 @@ public final class ExplosionUtils {
                     BlockState overrideState = safeOverrides.get(pos);
                     return overrideState == null
                             ? 0.0D
-                            : overrideState.getFluidState().getBlastResistance();
+                            : overrideState.getFluidState().getExplosionResistance();
                 }
-                return world.getFluidState(pos).getBlastResistance();
+                return world.getFluidState(pos).getExplosionResistance();
             }
         };
     }
@@ -360,8 +360,8 @@ public final class ExplosionUtils {
                 if (safeOverrides.containsKey(pos)) {
                     BlockState overrideState = safeOverrides.get(pos);
                     return overrideState == null
-                            ? VoxelShapes.empty()
-                            : overrideState.getCollisionShape(EmptyBlockView.INSTANCE, pos);
+                            ? Shapes.empty()
+                            : overrideState.getCollisionShape(EmptyBlockGetter.INSTANCE, pos);
                 }
                 return safeFallback.getCollisionShape(pos);
             }
@@ -370,7 +370,7 @@ public final class ExplosionUtils {
             @NeedTest
             public double getBlockResistance(BlockPos pos, BlockState state) {
                 if (safeOverrides.containsKey(pos)) {
-                    return state == null ? 0.0D : state.getBlock().getBlastResistance();
+                    return state == null ? 0.0D : state.getBlock().getExplosionResistance();
                 }
                 return safeFallback.getBlockResistance(pos, state);
             }
@@ -382,7 +382,7 @@ public final class ExplosionUtils {
                     BlockState overrideState = safeOverrides.get(pos);
                     return overrideState == null
                             ? 0.0D
-                            : overrideState.getFluidState().getBlastResistance();
+                            : overrideState.getFluidState().getExplosionResistance();
                 }
                 return safeFallback.getFluidResistance(pos);
             }
@@ -409,14 +409,14 @@ public final class ExplosionUtils {
         default VoxelShape getCollisionShape(BlockPos pos) {
             BlockState state = getBlockState(pos);
             if (state == null) {
-                return VoxelShapes.empty();
+                return Shapes.empty();
             }
-            return state.getCollisionShape(EmptyBlockView.INSTANCE, pos);
+            return state.getCollisionShape(EmptyBlockGetter.INSTANCE, pos);
         }
 
         @NeedTest
         default double getBlockResistance(BlockPos pos, BlockState state) {
-            return state == null ? 0.0D : state.getBlock().getBlastResistance();
+            return state == null ? 0.0D : state.getBlock().getExplosionResistance();
         }
 
         @NeedTest
@@ -440,21 +440,21 @@ public final class ExplosionUtils {
     };
 
     public static final HitRule EXPLOSION_RESISTENCE = (pos, state) -> {
-        return state.getBlock().getBlastResistance() > 600;
+        return state.getBlock().getExplosionResistance() > 600;
     };
 
     @NeedTest
     public interface HitRule {
-        default boolean mayHit(Vec3d start, Vec3d end, BlockPos pos, BlockState state, boolean strictCheck) {
-            if (!state.isAir() && !state.isLiquid() && mayHitIgnoreShape(pos, state)) {
-                if (!strictCheck && state.isFullCube(mc.world, pos)) {
+        default boolean mayHit(Vec3 start, Vec3 end, BlockPos pos, BlockState state, boolean strictCheck) {
+            if (!state.isAir() && !state.liquid() && mayHitIgnoreShape(pos, state)) {
+                if (!strictCheck && state.isCollisionShapeFullBlock(mc.level, pos)) {
                     return true;
                 }
-                var shape = state.getCollisionShape(mc.world, pos);
+                var shape = state.getCollisionShape(mc.level, pos);
                 if (shape.isEmpty()) {
                     return false;
                 }
-                BlockHitResult result = shape.raycast(start, end, pos);
+                BlockHitResult result = shape.clip(start, end, pos);
                 return result != null && result.getType() == HitResult.Type.BLOCK;
             }
             return false;

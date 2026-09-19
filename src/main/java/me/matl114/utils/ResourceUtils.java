@@ -3,9 +3,9 @@ package me.matl114.utils;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.Predicate;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 public class ResourceUtils {
     public static Set<Identifier> lookupResources(
@@ -16,9 +16,9 @@ public class ResourceUtils {
             String fileType,
             Predicate<String> pathPredicate) {
         Set<Identifier> identifiers = new LinkedHashSet<>();
-        for (var pack : resourceManager.streamResourcePacks().toList()) {
-            if (pack.getId().equals(packId)) {
-                pack.findResources(ResourceType.CLIENT_RESOURCES, namespace, prefix, (i, j) -> {
+        for (var pack : resourceManager.listPacks().toList()) {
+            if (pack.packId().equals(packId)) {
+                pack.listResources(PackType.CLIENT_RESOURCES, namespace, prefix, (i, j) -> {
                     String realNamespace = i.getNamespace();
                     if (i.getPath().endsWith(fileType)) {
                         String realPath =
@@ -44,6 +44,6 @@ public class ResourceUtils {
     }
 
     public static Identifier ofAtlasTexture(String type) {
-        return Identifier.ofVanilla("textures/atlas/" + type + ".png");
+        return Identifier.withDefaultNamespace("textures/atlas/" + type + ".png");
     }
 }

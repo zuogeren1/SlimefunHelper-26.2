@@ -11,8 +11,8 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import me.matl114.utils.ApiMethod;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * this provides the common consts which may be used in js Scripts
@@ -21,82 +21,82 @@ import net.minecraft.entity.player.PlayerEntity;
  */
 @ApiMethod
 public interface Consts {
-    Class<?> Vec3d = net.minecraft.util.math.Vec3d.class;
-    Class<?> BlockPos = net.minecraft.util.math.BlockPos.class;
-    Class<?> IPlayer = PlayerEntity.class;
-    Class<?> Entity = net.minecraft.entity.Entity.class;
-    Class<?> IWorld = net.minecraft.world.World.class;
-    Class<?> ItemStack = net.minecraft.item.ItemStack.class;
-    Class<?> Direction = net.minecraft.util.math.Direction.class;
-    Class<?> HitResult = net.minecraft.util.hit.HitResult.class;
-    Class<?> BlockHitResult = net.minecraft.util.hit.BlockHitResult.class;
-    Class<?> EntityHitResult = net.minecraft.util.hit.EntityHitResult.class;
-    Class<?> Hand = net.minecraft.util.Hand.class;
-    Class<?> PacketByteBuf = net.minecraft.network.PacketByteBuf.class;
-    Class<?> NbtElement = net.minecraft.nbt.NbtElement.class;
-    Class<?> NbtCompound = net.minecraft.nbt.NbtElement.class;
-    Class<?> Block = net.minecraft.block.Block.class;
-    Class<?> BlockState = net.minecraft.block.BlockState.class;
-    Class<?> BlockEntity = net.minecraft.block.entity.BlockEntity.class;
-    Class<?> FluidState = net.minecraft.fluid.FluidState.class;
+    Class<?> Vec3d = net.minecraft.world.phys.Vec3.class;
+    Class<?> BlockPos = net.minecraft.core.BlockPos.class;
+    Class<?> IPlayer = Player.class;
+    Class<?> Entity = net.minecraft.world.entity.Entity.class;
+    Class<?> IWorld = net.minecraft.world.level.Level.class;
+    Class<?> ItemStack = net.minecraft.world.item.ItemStack.class;
+    Class<?> Direction = net.minecraft.core.Direction.class;
+    Class<?> HitResult = net.minecraft.world.phys.HitResult.class;
+    Class<?> BlockHitResult = net.minecraft.world.phys.BlockHitResult.class;
+    Class<?> EntityHitResult = net.minecraft.world.phys.EntityHitResult.class;
+    Class<?> Hand = net.minecraft.world.InteractionHand.class;
+    Class<?> PacketByteBuf = net.minecraft.network.FriendlyByteBuf.class;
+    Class<?> NbtElement = net.minecraft.nbt.Tag.class;
+    Class<?> NbtCompound = net.minecraft.nbt.Tag.class;
+    Class<?> Block = net.minecraft.world.level.block.Block.class;
+    Class<?> BlockState = net.minecraft.world.level.block.state.BlockState.class;
+    Class<?> BlockEntity = net.minecraft.world.level.block.entity.BlockEntity.class;
+    Class<?> FluidState = net.minecraft.world.level.material.FluidState.class;
 
-    net.minecraft.util.math.BlockPos BlockPos_ZERO = net.minecraft.util.math.BlockPos.ORIGIN;
-    net.minecraft.util.math.Vec3d Vec3d_ZERO = net.minecraft.util.math.Vec3d.ZERO;
-    MinecraftClient MC = MinecraftClient.getInstance();
+    net.minecraft.core.BlockPos BlockPos_ZERO = net.minecraft.core.BlockPos.ZERO;
+    net.minecraft.world.phys.Vec3 Vec3d_ZERO = net.minecraft.world.phys.Vec3.ZERO;
+    Minecraft MC = Minecraft.getInstance();
 
-    Class<?> ClientPlayerEntity = net.minecraft.client.network.ClientPlayerEntity.class;
-    Class<?> ClientWorld = net.minecraft.client.world.ClientWorld.class;
+    Class<?> ClientPlayer = net.minecraft.client.player.LocalPlayer.class;
+    Class<?> ClientWorld = net.minecraft.client.multiplayer.ClientLevel.class;
 
     // 实体相关
-    Class<?> PlayerEntity = net.minecraft.entity.player.PlayerEntity.class;
-    Class<?> LivingEntity = net.minecraft.entity.LivingEntity.class;
+    Class<?> Player = net.minecraft.world.entity.player.Player.class;
+    Class<?> LivingEntity = net.minecraft.world.entity.LivingEntity.class;
 
-    Class<?> AnimalEntity = net.minecraft.entity.passive.AnimalEntity.class;
-    Class<?> MobEntity = net.minecraft.entity.mob.MobEntity.class;
-    Class<?> HostileEntity = net.minecraft.entity.mob.HostileEntity.class;
+    Class<?> AnimalEntity = net.minecraft.world.entity.animal.Animal.class;
+    Class<?> MobEntity = net.minecraft.world.entity.Mob.class;
+    Class<?> HostileEntity = net.minecraft.world.entity.monster.Monster.class;
 
     // 世界和方块
-    Class<?> Chunk = net.minecraft.world.chunk.Chunk.class;
-    Class<?> WorldChunk = net.minecraft.world.chunk.WorldChunk.class;
+    Class<?> Chunk = net.minecraft.world.level.chunk.ChunkAccess.class;
+    Class<?> WorldChunk = net.minecraft.world.level.chunk.LevelChunk.class;
 
     // 物品和方块实体
-    Class<?> Item = net.minecraft.item.Item.class;
-    Class<?> Inventory = net.minecraft.inventory.Inventory.class;
-    Class<?> Slot = net.minecraft.screen.slot.Slot.class;
-    Class<?> PlayerInventory = net.minecraft.entity.player.PlayerInventory.class;
-    Class<?> Container = net.minecraft.inventory.Inventory.class;
+    Class<?> Item = net.minecraft.world.item.Item.class;
+    Class<?> Inventory = net.minecraft.world.Container.class;
+    Class<?> Slot = net.minecraft.world.inventory.Slot.class;
+    Class<?> PlayerInventory = net.minecraft.world.entity.player.Inventory.class;
+    Class<?> Container = net.minecraft.world.Container.class;
 
     // 交互和命中
 
     // 网络和NBT
-    Class<?> NbtList = net.minecraft.nbt.NbtList.class;
-    Class<?> NbtInt = net.minecraft.nbt.NbtInt.class;
-    Class<?> NbtString = net.minecraft.nbt.NbtString.class;
+    Class<?> NbtList = net.minecraft.nbt.ListTag.class;
+    Class<?> NbtInt = net.minecraft.nbt.IntTag.class;
+    Class<?> NbtString = net.minecraft.nbt.StringTag.class;
 
     // 文本和聊天
-    Class<?> Text = net.minecraft.text.Text.class;
+    Class<?> Text = net.minecraft.network.chat.Component.class;
 
     // GUI和屏幕
-    Class<?> Screen = net.minecraft.client.gui.screen.Screen.class;
-    Class<?> HandledScreen = net.minecraft.client.gui.screen.ingame.HandledScreen.class;
+    Class<?> Screen = net.minecraft.client.gui.screens.Screen.class;
+    Class<?> HandledScreen = net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class;
 
     // 事件和状态
-    Class<?> Enchantment = net.minecraft.enchantment.Enchantment.class;
+    Class<?> Enchantment = net.minecraft.world.item.enchantment.Enchantment.class;
 
     // =========================== Minecraft 常量实例 ===========================
 
     // 方向常量
-    net.minecraft.util.math.Direction Direction_UP = net.minecraft.util.math.Direction.UP;
-    net.minecraft.util.math.Direction Direction_DOWN = net.minecraft.util.math.Direction.DOWN;
-    net.minecraft.util.math.Direction Direction_NORTH = net.minecraft.util.math.Direction.NORTH;
-    net.minecraft.util.math.Direction Direction_SOUTH = net.minecraft.util.math.Direction.SOUTH;
-    net.minecraft.util.math.Direction Direction_EAST = net.minecraft.util.math.Direction.EAST;
-    net.minecraft.util.math.Direction Direction_WEST = net.minecraft.util.math.Direction.WEST;
+    net.minecraft.core.Direction Direction_UP = net.minecraft.core.Direction.UP;
+    net.minecraft.core.Direction Direction_DOWN = net.minecraft.core.Direction.DOWN;
+    net.minecraft.core.Direction Direction_NORTH = net.minecraft.core.Direction.NORTH;
+    net.minecraft.core.Direction Direction_SOUTH = net.minecraft.core.Direction.SOUTH;
+    net.minecraft.core.Direction Direction_EAST = net.minecraft.core.Direction.EAST;
+    net.minecraft.core.Direction Direction_WEST = net.minecraft.core.Direction.WEST;
 
     // 命中类型
-    net.minecraft.util.hit.HitResult.Type HitResult_MISS = net.minecraft.util.hit.HitResult.Type.MISS;
-    net.minecraft.util.hit.HitResult.Type HitResult_BLOCK = net.minecraft.util.hit.HitResult.Type.BLOCK;
-    net.minecraft.util.hit.HitResult.Type HitResult_ENTITY = net.minecraft.util.hit.HitResult.Type.ENTITY;
+    net.minecraft.world.phys.HitResult.Type HitResult_MISS = net.minecraft.world.phys.HitResult.Type.MISS;
+    net.minecraft.world.phys.HitResult.Type HitResult_BLOCK = net.minecraft.world.phys.HitResult.Type.BLOCK;
+    net.minecraft.world.phys.HitResult.Type HitResult_ENTITY = net.minecraft.world.phys.HitResult.Type.ENTITY;
 
     // =========================== Java 基础类 ===========================
 

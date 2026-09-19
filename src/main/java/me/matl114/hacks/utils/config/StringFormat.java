@@ -23,8 +23,8 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Util;
 
 @Accessors(fluent = true)
@@ -96,11 +96,11 @@ public class StringFormat implements NBTParsable<StringFormat> {
             },
             new StringFormat(List.of(), ""));
 
-    public static List<Text> generateTooltipsForArgument(List<String> formattingArgument) {
-        List<Text> tooltips = new ArrayList<>(
+    public static List<Component> generateTooltipsForArgument(List<String> formattingArgument) {
+        List<Component> tooltips = new ArrayList<>(
                 ChatUtils.parseTooltipsTranslation("widget.nbt-parsable.string-format.argument-info.tooltips", ""));
         for (var re : formattingArgument) {
-            tooltips.add(Text.literal("- {%s}".formatted(re)));
+            tooltips.add(Component.literal("- {%s}".formatted(re)));
         }
         return tooltips;
     }
@@ -109,12 +109,12 @@ public class StringFormat implements NBTParsable<StringFormat> {
     public static final String URL2 = "https://mcg.tuanzi.ink/";
 
     public static void openWikiColorString() {
-        Util.getOperatingSystem().open(URL1);
-        Util.getOperatingSystem().open(URL2);
+        Util.getPlatform().openUri(URL1);
+        Util.getPlatform().openUri(URL2);
     }
 
-    public List<Text> generateColorStringPreview() {
-        List<Text> tooltips = new ArrayList<>(
+    public List<Component> generateColorStringPreview() {
+        List<Component> tooltips = new ArrayList<>(
                 ChatUtils.parseTooltipsTranslation("widget.nbt-parsable.string-format.color-string-info.tooltips", ""));
         tooltips.add(this.formatText());
         return tooltips;
@@ -188,7 +188,7 @@ public class StringFormat implements NBTParsable<StringFormat> {
         return result.toString();
     }
 
-    public MutableText formatText(Object... arguments) {
+    public MutableComponent formatText(Object... arguments) {
         int size = Math.min(arguments.length, formattingArgument().size());
         Map<String, Object> availableMap = new HashMap<>();
         for (int i = 0; i < size; i++) {
@@ -197,11 +197,11 @@ public class StringFormat implements NBTParsable<StringFormat> {
         return formatText(availableMap);
     }
 
-    public MutableText formatText(Map<String, Object> arguments) {
+    public MutableComponent formatText(Map<String, Object> arguments) {
         BiConsumer<Map<String, Object>, Consumer<Object>> builder = construct0();
         ChatUtils.TextBuilder result = ChatUtils.builder();
         builder.accept(arguments, (obj) -> {
-            if (obj instanceof Text txt) {
+            if (obj instanceof Component txt) {
                 result.appendText(txt);
             } else {
                 result.withColorString(obj == null ? "null" : obj.toString());

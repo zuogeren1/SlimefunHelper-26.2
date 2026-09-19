@@ -1,12 +1,12 @@
 package me.matl114.hacks.modules.extra;
 
 import com.google.gson.*;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.serialization.JavaOps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,19 +38,23 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.config.PropertyTracker;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.screen.world.WorldIcon;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.network.*;
-import net.minecraft.client.texture.NativeImage;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.FaviconTexture;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.ServerStatusPinger;
+import net.minecraft.client.multiplayer.resolver.ResolvedServerAddress;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.client.multiplayer.resolver.ServerNameResolver;
+import net.minecraft.client.multiplayer.*;
 import net.minecraft.nbt.*;
-import net.minecraft.network.NetworkingBackend;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.network.EventLoopGroupHolder;
+import net.minecraft.util.CommonColors;
 import org.jetbrains.annotations.Nullable;
 
 public class ServerScanner extends BaseModule {
@@ -67,7 +71,7 @@ public class ServerScanner extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(MultiplayerScreen.class),
+                Listener.getPostInitializeScreen().getChannel(JoinMultiplayerScreen.class),
                 this::onButtonAddWhenInitialize);
     }
 
@@ -78,7 +82,7 @@ public class ServerScanner extends BaseModule {
 
     private WeakReference<ContentDelegateWidget<ExecutableWidget>> delegateWidget;
 
-    public void onButtonAddWhenInitialize(Event<MultiplayerScreen> screenEvent) {
+    public void onButtonAddWhenInitialize(Event<JoinMultiplayerScreen> screenEvent) {
         if (enable.get()) {
             var mp = screenEvent.context();
             if (delegateWidget != null && delegateWidget.get() != null) {
@@ -88,7 +92,7 @@ public class ServerScanner extends BaseModule {
             ContentDelegateWidget<ExecutableWidget> widget = new ContentDelegateWidget<>(0, 5, 50, 20);
             ExecutableWidget executableWidget = ExecutableWidget.instance(0, 0, 50, 20)
                     .setElementHandler(new ButtonElement(
-                            TextProvider.of(Text.literal("Scanner")), ButtonAction.run(this::openScannerScreen)));
+                            TextProvider.of(Component.literal("Scanner")), ButtonAction.run(this::openScannerScreen)));
             widget.setContentDelegate(executableWidget);
             widget.addTo(mp);
             delegateWidget = new WeakReference<>(widget);
@@ -105,13 +109,13 @@ public class ServerScanner extends BaseModule {
     private final FlagRef filter = new FlagRef(true);
     private final FileStorage serverListSave = FileManager.getInstance().getInternalStorage("server-scanner.nbt");
 
-    private final NbtList list() {
-        NbtCompound nbt = (NbtCompound) serverListSave.as(NbtOps.INSTANCE);
-        if (nbt.get("save-list") instanceof NbtList nbtList) {
+    private final ListTag list() {
+        CompoundTag nbt = (CompoundTag) serverListSave.as(NbtOps.INSTANCE);
+        if (nbt.get("save-list") instanceof ListTag nbtList) {
             return nbtList;
         }
         nbt = nbt.copy();
-        var lst = new NbtList();
+        var lst = new ListTag();
         nbt.put("save-list", lst);
         serverListSave.write(nbt, NbtOps.INSTANCE);
         return lst;
@@ -120,10 +124,10 @@ public class ServerScanner extends BaseModule {
     private final List<String> scannedIps = new ArrayList<>();
 
     {
-        list().stream().map(s -> ((NbtString) s).value()).forEach(scannedIps::add);
+        list().stream().map(s -> ((StringTag) s).value()).forEach(scannedIps::add);
     }
 
-    private Text logInfo = Text.empty();
+    private Component logInfo = Component.empty();
 
     public DrawableWidget createInputWidget() {
         SubScreenWidget subScreenWidget = new SubScreenWidget(0, 0, 400, 40);
@@ -138,20 +142,20 @@ public class ServerScanner extends BaseModule {
                 new KeyValueInputWidget<>(240, 20, 80, 20, 30, limitSample.createKeyValue("Limit")));
         subScreenWidget.addDrawableChild(
                 new KeyValueInputWidget<>(320, 20, 40, 20, 20, randomRequest.createKeyValue("R"))
-                        .setTooltips(List.of(Text.literal("Random"))));
+                        .setTooltips(List.of(Component.literal("Random"))));
         subScreenWidget.addDrawableChild(new KeyValueInputWidget<>(360, 20, 40, 20, 20, filter.createKeyValue("F"))
-                .setTooltips(List.of(Text.literal("Filter"))));
+                .setTooltips(List.of(Component.literal("Filter"))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(200, 0, 40, 20)
                 .setElementHandler(new ButtonElement(
-                        TextProvider.of(Text.literal("Scan")), ButtonAction.run(this::startScanTask))));
+                        TextProvider.of(Component.literal("Scan")), ButtonAction.run(this::startScanTask))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(240, 0, 40, 20)
                 .setElementHandler(new ButtonElement(
-                        TextProvider.of(Text.literal("Stop")), ButtonAction.run(this::abortScanTask))));
+                        TextProvider.of(Component.literal("Stop")), ButtonAction.run(this::abortScanTask))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(280, 0, 40, 20)
                 .setElementHandler(new ButtonElement(
-                        TextProvider.of(Text.literal("AScan")), ButtonAction.run(this::startScanTaskAsync))));
+                        TextProvider.of(Component.literal("AScan")), ButtonAction.run(this::startScanTaskAsync))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(320, 0, 80, 20)
-                .setElementHandler(new LabelElement((s) -> logInfo, Colors.WHITE, 0)));
+                .setElementHandler(new LabelElement((s) -> logInfo, CommonColors.WHITE, 0)));
         return subScreenWidget;
     }
 
@@ -159,39 +163,39 @@ public class ServerScanner extends BaseModule {
         SubScreenWidget subScreenWidget = new SubScreenWidget(0, 300, 400, 60);
         subScreenWidget.addDrawableChild(DisplayWidget.instance(0, 10, 80, 20)
                 .setRenderHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("Add Server")), ButtonAction.empty())));
-        ContentDelegateWidget<TextFieldWidget> textField = McWidgetHelpers.createTextFieldEditBox(
+                        new ButtonElement(TextProvider.of(Component.literal("Add Server")), ButtonAction.empty())));
+        ContentDelegateWidget<EditBox> textField = McWidgetHelpers.createTextFieldEditBox(
                 80, 10, 100, 20, PropertyTracker.event(s -> this.currentInputAdd = s), this.currentInputAdd);
         subScreenWidget.addDrawableChild(textField);
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(180, 10, 20, 20)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.literal("+").formatted(Formatting.BOLD)), ButtonAction.run(() -> {
+                                TextProvider.of(Component.literal("+").withStyle(ChatFormatting.BOLD)), ButtonAction.run(() -> {
                                     if (!currentInputAdd.isEmpty()) {
                                         refreshSingle(currentInputAdd);
                                         logInfo("已添加 " + currentInputAdd);
                                     }
                                 }))
-                        .withTooltips(TooltipHandler.of(List.of(Text.literal("Add Server"))))));
+                        .withTooltips(TooltipHandler.of(List.of(Component.literal("Add Server"))))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(200, 10, 100, 20)
                 .setElementHandler(new ButtonElement(
-                        TextProvider.of(Text.literal("Refresh All")), ButtonAction.run(this::refreshServerList))));
+                        TextProvider.of(Component.literal("Refresh All")), ButtonAction.run(this::refreshServerList))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(300, 10, 100, 20)
                 .setElementHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("Copy Server List")), ButtonAction.run(() -> {
+                        new ButtonElement(TextProvider.of(Component.literal("Copy Server List")), ButtonAction.run(() -> {
                             JsonArray jsonArray = new JsonArray();
                             List<String> list = List.copyOf(this.scannedIps);
                             for (var str : list) {
                                 JsonObject jsonObject = new JsonObject();
                                 jsonObject.addProperty("ip", str);
-                                ServerInfo info = this.cachedPingResult.get(str);
+                                ServerData info = this.cachedPingResult.get(str);
                                 if (info != null) {
                                     JsonObject el = new JsonObject();
                                     el.addProperty("version", ChatUtils.textToString(info.version));
-                                    el.addProperty("motd", ChatUtils.textToString(info.label));
+                                    el.addProperty("motd", ChatUtils.textToString(info.motd));
                                     el.addProperty(
-                                            "status", info.getStatus().name().toLowerCase(Locale.ROOT));
+                                            "status", info.state().name().toLowerCase(Locale.ROOT));
                                     el.addProperty("player_count", ChatUtils.textToString(getPlayerListDisplay(info)));
-                                    List<Text> playerList = info.playerListSummary;
+                                    List<Component> playerList = info.playerList;
                                     if (playerList != null && !playerList.isEmpty()) {
                                         JsonArray jsonArray1 = new JsonArray();
                                         for (var txt : playerList) {
@@ -203,7 +207,7 @@ public class ServerScanner extends BaseModule {
                                 }
                                 jsonArray.add(jsonObject);
                             }
-                            mc.keyboard.setClipboard(new GsonBuilder()
+                            mc.keyboardHandler.setClipboard(new GsonBuilder()
                                     .disableHtmlEscaping()
                                     .create()
                                     .toJson(jsonArray));
@@ -211,22 +215,22 @@ public class ServerScanner extends BaseModule {
                         }))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(0, 30, 80, 20)
                 .setElementHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("Remove Server")), ButtonAction.empty())));
-        ContentDelegateWidget<TextFieldWidget> textField2 = McWidgetHelpers.createTextFieldEditBox(
+                        new ButtonElement(TextProvider.of(Component.literal("Remove Server")), ButtonAction.empty())));
+        ContentDelegateWidget<EditBox> textField2 = McWidgetHelpers.createTextFieldEditBox(
                 80, 30, 100, 20, PropertyTracker.event(s -> this.currentInputRemove = s), this.currentInputRemove);
         subScreenWidget.addDrawableChild(textField2);
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(180, 30, 20, 20)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.literal("-").formatted(Formatting.BOLD)), ButtonAction.run(() -> {
+                                TextProvider.of(Component.literal("-").withStyle(ChatFormatting.BOLD)), ButtonAction.run(() -> {
                                     if (!currentInputRemove.isEmpty()) {
                                         removeAll(currentInputRemove);
                                         logInfo("已移除 " + currentInputRemove);
                                     }
                                 }))
-                        .withTooltips(TooltipHandler.of(List.of(Text.literal("Remove Server"))))));
+                        .withTooltips(TooltipHandler.of(List.of(Component.literal("Remove Server"))))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(200, 30, 100, 20)
                 .setElementHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("Refresh Shown")), ButtonAction.run(() -> {
+                        new ButtonElement(TextProvider.of(Component.literal("Refresh Shown")), ButtonAction.run(() -> {
                             List<String> refreshList = new ArrayList<>();
                             for (var entry : this.lastRenderTick.object2IntEntrySet()) {
                                 if (entry.getIntValue() > Tasks.getTick() - updateInterval) {
@@ -236,19 +240,19 @@ public class ServerScanner extends BaseModule {
                             refreshServerList(refreshList, 100);
                         }))));
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(300, 30, 100, 20)
-                .setElementHandler(new ButtonElement(TextProvider.of(Text.literal("Back")), ButtonAction.run(() -> {
-                    if (mc.currentScreen != null) mc.currentScreen.close();
+                .setElementHandler(new ButtonElement(TextProvider.of(Component.literal("Back")), ButtonAction.run(() -> {
+                    if (mc.gui.screen() != null) mc.gui.screen().onClose();
                 }))));
 
         return subScreenWidget;
     }
 
     public void logInfo(String message) {
-        logInfo = Text.of(message);
+        logInfo = Component.nullToEmpty(message);
     }
 
     public void warn(String message) {
-        logInfo = Text.literal(message).formatted(Formatting.YELLOW);
+        logInfo = Component.literal(message).withStyle(ChatFormatting.YELLOW);
     }
 
     private AtomicBoolean running = new AtomicBoolean(false);
@@ -280,10 +284,10 @@ public class ServerScanner extends BaseModule {
         }
         running.set(true);
         Random rand = new Random();
-        NetworkingBackend backend = NetworkingBackend.remote(mc.options.shouldUseNativeTransport());
+        EventLoopGroupHolder backend = EventLoopGroupHolder.remote(mc.options.useNativeTransport());
         Set<String> scannCopy = new HashSet<>(scannedIps);
         CompletableFuture.runAsync(() -> {
-            MultiplayerServerListPinger pinger = new MultiplayerServerListPinger();
+            ServerStatusPinger pinger = new ServerStatusPinger();
             int current = range1;
             boolean except = false;
             loop:
@@ -350,10 +354,10 @@ public class ServerScanner extends BaseModule {
         }
         running.set(true);
         Random rand = new Random();
-        NetworkingBackend backend = NetworkingBackend.remote(mc.options.shouldUseNativeTransport());
+        EventLoopGroupHolder backend = EventLoopGroupHolder.remote(mc.options.useNativeTransport());
         Set<String> scanCopy = Set.copyOf(scannedIps);
         CompletableFuture.runAsync(() -> {
-            MultiplayerServerListPinger pinger = new MultiplayerServerListPinger();
+            ServerStatusPinger pinger = new ServerStatusPinger();
             try (ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(16)) {
                 List<CompletableFuture<Void>> completableFutures = new ArrayList<>(limitSample);
                 int current = range1;
@@ -404,24 +408,24 @@ public class ServerScanner extends BaseModule {
         running.set(false);
     }
 
-    public void pingServer(MultiplayerServerListPinger pinger, NetworkingBackend backend, String ip, boolean filter) {
-        ServerInfo pingingInfo = new ServerInfo("SlimefunHelper scanner", ip, ServerInfo.ServerType.OTHER);
+    public void pingServer(ServerStatusPinger pinger, EventLoopGroupHolder backend, String ip, boolean filter) {
+        ServerData pingingInfo = new ServerData("SlimefunHelper scanner", ip, ServerData.Type.OTHER);
 
         try {
-            ServerAddress address = ServerAddress.parse(ip);
-            Optional<Address> optional = AllowedAddressResolver.DEFAULT.resolve(address);
+            ServerAddress address = ServerAddress.parseString(ip);
+            Optional<ResolvedServerAddress> optional = ServerNameResolver.DEFAULT.resolveAddress(address);
             if (optional.isPresent()) {
                 try {
-                    pinger.add(
+                    pinger.pingServer(
                             pingingInfo,
                             () -> {},
                             () -> {
-                                pingingInfo.setStatus(ServerInfo.Status.SUCCESSFUL);
+                                pingingInfo.setState(ServerData.State.SUCCESSFUL);
                             },
                             backend);
                     addScannResult(ip, pingingInfo);
                 } catch (Exception e) {
-                    pingingInfo.setStatus(ServerInfo.Status.UNREACHABLE);
+                    pingingInfo.setState(ServerData.State.UNREACHABLE);
                     if (!filter) {
                         addScannResult(ip, pingingInfo);
                     } else {
@@ -429,7 +433,7 @@ public class ServerScanner extends BaseModule {
                     }
                 }
             } else {
-                pingingInfo.setStatus(ServerInfo.Status.UNREACHABLE);
+                pingingInfo.setState(ServerData.State.UNREACHABLE);
                 if (!filter) {
                     addScannResult(ip, pingingInfo);
                 } else {
@@ -462,8 +466,8 @@ public class ServerScanner extends BaseModule {
         running.set(true);
         CompletableFuture.runAsync(() -> {
             logInfo("");
-            MultiplayerServerListPinger pinger = new MultiplayerServerListPinger();
-            NetworkingBackend backend = NetworkingBackend.remote(mc.options.shouldUseNativeTransport());
+            ServerStatusPinger pinger = new ServerStatusPinger();
+            EventLoopGroupHolder backend = EventLoopGroupHolder.remote(mc.options.useNativeTransport());
             List<String> list = List.copyOf(refreshList);
             for (var lst : list) {
                 if (!running.get()) {
@@ -484,8 +488,8 @@ public class ServerScanner extends BaseModule {
 
     public void refreshSingle(String ip) {
         CompletableFuture.runAsync(() -> {
-            MultiplayerServerListPinger pinger = new MultiplayerServerListPinger();
-            NetworkingBackend backend = NetworkingBackend.remote(mc.options.shouldUseNativeTransport());
+            ServerStatusPinger pinger = new ServerStatusPinger();
+            EventLoopGroupHolder backend = EventLoopGroupHolder.remote(mc.options.useNativeTransport());
             pingServer(pinger, backend, ip, false);
         });
     }
@@ -508,7 +512,7 @@ public class ServerScanner extends BaseModule {
         return currentInputAdd;
     }
 
-    public void addScannResult(String ip, ServerInfo serverInfo) {
+    public void addScannResult(String ip, ServerData serverInfo) {
         mc.execute(() -> {
             cachedPingResult.put(ip, serverInfo);
             boolean has = false;
@@ -532,8 +536,8 @@ public class ServerScanner extends BaseModule {
         });
     }
 
-    public void addScannExceptionResult(String ip, ServerInfo info) {
-        info.setStatus(ServerInfo.Status.UNREACHABLE);
+    public void addScannExceptionResult(String ip, ServerData info) {
+        info.setState(ServerData.State.UNREACHABLE);
         mc.execute(() -> {
             cachedPingResult.put(ip, info);
             if (listEntryController != null) {
@@ -557,7 +561,7 @@ public class ServerScanner extends BaseModule {
         serverListSave.markDirty(true);
     }
 
-    private final Map<String, WorldIcon> openResources = new ConcurrentHashMap<>();
+    private final Map<String, FaviconTexture> openResources = new ConcurrentHashMap<>();
 
     public void closeResources() {
         openResources.clear();
@@ -577,7 +581,7 @@ public class ServerScanner extends BaseModule {
         }
         DrawableWidget inputWidget = createInputWidget();
         DrawableWidget outputWidget = createOutputWidget();
-        var screen = new GenericScreen(Text.literal("Server Scanner"), 400, 360) {
+        var screen = new GenericScreen(Component.literal("Server Scanner"), 400, 360) {
             @Override
             protected void init() {
                 super.init();
@@ -585,12 +589,12 @@ public class ServerScanner extends BaseModule {
                 delegate.addDrawableChild(inputWidget);
                 delegate.addDrawableChild(selectWidget);
                 delegate.addDrawableChild(outputWidget);
-                addDrawableChild(delegate);
+                addRenderableWidget(delegate);
             }
 
             @Override
-            public void close() {
-                super.close();
+            public void onClose() {
+                super.onClose();
                 saveServerList();
                 closeResources();
             }
@@ -602,7 +606,7 @@ public class ServerScanner extends BaseModule {
         refreshServerList(scannedIps.subList(0, Math.min(scannedIps.size(), 10)), 100);
     }
 
-    public Map<String, ServerInfo> cachedPingResult = new ConcurrentHashMap<>();
+    public Map<String, ServerData> cachedPingResult = new ConcurrentHashMap<>();
 
     public Object2IntOpenHashMap<String> lastRenderTick = new Object2IntOpenHashMap<>();
 
@@ -638,19 +642,19 @@ public class ServerScanner extends BaseModule {
                                         0,
                                         element.getTextureWidth(),
                                         element.getTextureHeight(),
-                                        Colors.WHITE);
+                                        CommonColors.WHITE);
                             }
                         }))));
 
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(45, 0, 100, 9)
-                .setElementHandler(RawTextElement.instance(Text.literal(ip))
+                .setElementHandler(RawTextElement.instance(Component.literal(ip))
                         .setAlignment(-1)
-                        .withInputHandler(new ButtonElement(TextProvider.of(Text.empty()), ButtonAction.run(() -> {
-                            mc.keyboard.setClipboard(ip);
+                        .withInputHandler(new ButtonElement(TextProvider.of(Component.empty()), ButtonAction.run(() -> {
+                            mc.keyboardHandler.setClipboard(ip);
                             logInfo("成功拷贝ip");
                         })))
-                        .withTooltips(TooltipHandler.of(List.of(Text.literal("Click to copy ip"))))));
-        ServerInfo info = cachedPingResult.get(ip);
+                        .withTooltips(TooltipHandler.of(List.of(Component.literal("Click to copy ip"))))));
+        ServerData info = cachedPingResult.get(ip);
 
         if (info != null) {
             subScreenWidget.addDrawableChild(
@@ -660,7 +664,7 @@ public class ServerScanner extends BaseModule {
             subScreenWidget.addDrawableChild(DisplayWidget.instance(260, 0, 50, 40)
                     .setRenderHandler(TooltipHandler.of(() -> getServerInfoHover(info))));
             subScreenWidget.addDrawableChild(DisplayWidget.instance(260, 8, 50, 9)
-                    .setRenderHandler(RawTextElement.instance((b) -> getStatusDisplay(info.getStatus()))
+                    .setRenderHandler(RawTextElement.instance((b) -> getStatusDisplay(info.state()))
                             .setAlignment(1)));
             subScreenWidget.addDrawableChild(DisplayWidget.instance(260, 16, 50, 9)
                     .setRenderHandler(RawTextElement.instance((b) -> getPlayerListDisplay(info))
@@ -671,66 +675,66 @@ public class ServerScanner extends BaseModule {
                             .setAlignment(1)));
             // motd
             subScreenWidget.addDrawableChild(DisplayWidget.instance(50, 10, 270, 30)
-                    .setRenderHandler(new MultiLineTextElement((s) -> getServerMotd(info), Colors.WHITE, -1)));
+                    .setRenderHandler(new MultiLineTextElement((s) -> getServerMotd(info), CommonColors.WHITE, -1)));
         } else {
             subScreenWidget.addDrawableChild(
-                    DisplayWidget.instance(2, 2, 36, 36).setRenderHandler(LabelElement.instance(Text.empty())));
+                    DisplayWidget.instance(2, 2, 36, 36).setRenderHandler(LabelElement.instance(Component.empty())));
         }
 
         // subScreenWidget.addDrawableChild()
         return subScreenWidget;
     }
 
-    private Text getStatusDisplay(ServerInfo.Status status) {
+    private Component getStatusDisplay(ServerData.State status) {
         return switch (status) {
-            case INITIAL, PINGING -> Text.literal("Pinging...").formatted(Formatting.WHITE);
-            case UNREACHABLE -> Text.literal("No Connection").formatted(Formatting.RED);
-            case SUCCESSFUL -> Text.literal("Available").formatted(Formatting.GREEN);
-            case INCOMPATIBLE -> Text.literal("Outdated").formatted(Formatting.YELLOW);
+            case INITIAL, PINGING -> Component.literal("Pinging...").withStyle(ChatFormatting.WHITE);
+            case UNREACHABLE -> Component.literal("No Connection").withStyle(ChatFormatting.RED);
+            case SUCCESSFUL -> Component.literal("Available").withStyle(ChatFormatting.GREEN);
+            case INCOMPATIBLE -> Component.literal("Outdated").withStyle(ChatFormatting.YELLOW);
         };
     }
 
-    private Text getPlayerListDisplay(ServerInfo serverInfo) {
-        if (serverInfo.getStatus() == ServerInfo.Status.UNREACHABLE) {
-            return Text.empty();
+    private Component getPlayerListDisplay(ServerData serverInfo) {
+        if (serverInfo.state() == ServerData.State.UNREACHABLE) {
+            return Component.empty();
         }
         if (serverInfo.players == null) {
-            return Text.literal("加载中...");
+            return Component.literal("加载中...");
         }
-        return Text.literal(serverInfo.players.online() + "/" + serverInfo.players.max())
-                .formatted(Formatting.GRAY);
+        return Component.literal(serverInfo.players.online() + "/" + serverInfo.players.max())
+                .withStyle(ChatFormatting.GRAY);
     }
 
-    private Text getServerBrandInfoDisplay(ServerInfo serverInfo) {
-        if (serverInfo.getStatus() == ServerInfo.Status.UNREACHABLE) {
-            return Text.empty();
+    private Component getServerBrandInfoDisplay(ServerData serverInfo) {
+        if (serverInfo.state() == ServerData.State.UNREACHABLE) {
+            return Component.empty();
         }
         return serverInfo.version;
     }
 
-    private List<Text> getServerInfoHover(ServerInfo serverInfo) {
-        List<Text> list = new ArrayList<>();
-        list.add(Text.literal("服务器协议号:" + serverInfo.protocolVersion));
-        list.add(Text.literal("服务器玩家:"));
-        list.addAll(serverInfo.playerListSummary);
+    private List<Component> getServerInfoHover(ServerData serverInfo) {
+        List<Component> list = new ArrayList<>();
+        list.add(Component.literal("服务器协议号:" + serverInfo.protocol));
+        list.add(Component.literal("服务器玩家:"));
+        list.addAll(serverInfo.playerList);
         return list;
     }
 
-    private Text getServerMotd(ServerInfo serverInfo) {
-        if (serverInfo.getStatus() == ServerInfo.Status.UNREACHABLE || serverInfo.label == null) {
-            return Text.empty();
+    private Component getServerMotd(ServerData serverInfo) {
+        if (serverInfo.state() == ServerData.State.UNREACHABLE || serverInfo.motd == null) {
+            return Component.empty();
         }
-        return serverInfo.label;
+        return serverInfo.motd;
     }
 
-    private ElementHandler createServerIconDisplay(@Nonnull ServerInfo serverInfo) {
+    private ElementHandler createServerIconDisplay(@Nonnull ServerData serverInfo) {
         return new IconElement.SimpleIconElement(null, null, false, ButtonAction.run(() -> connect(serverInfo))) {
-            ServerInfo info = serverInfo;
-            WorldIcon worldIcon = getWorldIcon();
+            ServerData info = serverInfo;
+            FaviconTexture worldIcon = getWorldIcon();
 
-            public WorldIcon getWorldIcon() {
+            public FaviconTexture getWorldIcon() {
                 return openResources.computeIfAbsent(
-                        info.address, (s) -> WorldIcon.forServer(mc.getTextureManager(), s));
+                        info.ip, (s) -> FaviconTexture.forServer(mc.getTextureManager(), s));
             }
 
             private byte @Nullable [] favicon;
@@ -740,24 +744,24 @@ public class ServerScanner extends BaseModule {
                 if (worldIcon.isClosed()) {
                     worldIcon = getWorldIcon();
                 }
-                byte[] bs = this.info.getFavicon();
+                byte[] bs = this.info.getIconBytes();
                 if (!Arrays.equals(bs, this.favicon)) {
                     if (uploadFavicon(bs)) {
                         this.favicon = bs;
                     } else {
-                        this.info.setFavicon(null);
+                        this.info.setIconBytes(null);
                     }
                 }
 
-                return this.worldIcon.getTextureId();
+                return this.worldIcon.textureLocation();
             }
 
             private boolean uploadFavicon(byte @Nullable [] bytes) {
                 if (bytes == null) {
-                    this.worldIcon.destroy();
+                    this.worldIcon.clear();
                 } else {
                     try {
-                        this.worldIcon.load(NativeImage.read(bytes));
+                        this.worldIcon.upload(NativeImage.read(bytes));
                     } catch (Throwable var3) {
                         return false;
                     }
@@ -768,7 +772,7 @@ public class ServerScanner extends BaseModule {
         }.setActive(false);
     }
 
-    private ElementHandler createJoinServerInteract(ServerInfo serverInfo) {
+    private ElementHandler createJoinServerInteract(ServerData serverInfo) {
         AtomicInteger lastClickCounter = new AtomicInteger();
         return new IconElement.SimpleIconElement(null, null, true, (el1, el2, el3) -> {
                     int lastTick = lastClickCounter.get();
@@ -780,14 +784,14 @@ public class ServerScanner extends BaseModule {
                         return true;
                     }
                 })
-                .setHighLightColor((el, h) -> ((DrawableWidget) el).isFocused() ? Colors.WHITE : null)
+                .setHighLightColor((el, h) -> ((DrawableWidget) el).isFocused() ? CommonColors.WHITE : null)
                 .setShowTooltips(false);
     }
 
-    private void connect(ServerInfo serverInfo) {
-        Screen screen = mc.currentScreen;
+    private void connect(ServerData serverInfo) {
+        Screen screen = mc.gui.screen();
         if (screen != null) {
-            ConnectScreen.connect(screen, mc, ServerAddress.parse(serverInfo.address), serverInfo, false, null);
+            ConnectScreen.startConnecting(screen, mc, ServerAddress.parseString(serverInfo.ip), serverInfo, false, null);
         }
     }
 }

@@ -4,14 +4,14 @@ import java.util.function.BooleanSupplier;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.presets.choices.ConfirmingBigScreen;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class ConfirmingWidgetScreen extends ConfirmingBigScreen {
     DrawableWidget widget;
     BooleanSupplier confirm;
     Runnable callback;
 
-    public ConfirmingWidgetScreen(Text title, DrawableWidget widget, BooleanSupplier confirm, Runnable callback) {
+    public ConfirmingWidgetScreen(Component title, DrawableWidget widget, BooleanSupplier confirm, Runnable callback) {
         super(title);
         this.widget = widget;
         this.confirm = confirm;
@@ -45,6 +45,6 @@ public class ConfirmingWidgetScreen extends ConfirmingBigScreen {
         if (callback != null) {
             callback.run();
         }
-        this.close();
+        this.onClose();
     }
 }

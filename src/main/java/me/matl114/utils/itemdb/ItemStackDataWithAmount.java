@@ -3,7 +3,7 @@ package me.matl114.utils.itemdb;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import me.matl114.utils.codecs.NullCodec;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public record ItemStackDataWithAmount(ItemStackData stackReference, int count) {
     public static final ItemStackDataWithAmount EMPTY = new ItemStackDataWithAmount(ItemStackData.EMPTY, 0);

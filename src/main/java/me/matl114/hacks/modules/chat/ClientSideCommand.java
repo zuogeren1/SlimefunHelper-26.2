@@ -28,20 +28,20 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
-import net.minecraft.client.network.ClientCommandSource;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.command.CommandSource;
-import net.minecraft.command.EntitySelector;
-import net.minecraft.command.argument.EntityArgumentType;
-import net.minecraft.command.argument.ItemStackArgument;
-import net.minecraft.command.argument.ItemStackArgumentType;
-import net.minecraft.command.permission.PermissionPredicate;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.CommandTreeS2CPacket;
-import net.minecraft.resource.featuretoggle.FeatureFlags;
-import net.minecraft.text.Text;
-import net.minecraft.text.Texts;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.multiplayer.ClientSuggestionProvider;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.item.ItemArgument;
+import net.minecraft.commands.arguments.item.ItemInput;
+import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentUtils;
+import net.minecraft.network.protocol.game.ClientboundCommandsPacket;
+import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.item.ItemStack;
 
 public class ClientSideCommand extends BaseModule {
     public final ModulePath clientSideCommand = makePath(Configs.CHAT_CONFIG, "client-side-command");
@@ -57,10 +57,10 @@ public class ClientSideCommand extends BaseModule {
     public final FlagRef enableGive =
             flagBuilder(clientSideCommand.add("client-side-give")).build();
 
-    private static final Predicate<CommandSource> requirement = (val) -> true;
-    private static final Command<CommandSource> success = (val) -> Command.SINGLE_SUCCESS;
+    private static final Predicate<SharedSuggestionProvider> requirement = (val) -> true;
+    private static final Command<SharedSuggestionProvider> success = (val) -> Command.SINGLE_SUCCESS;
 
-    private <T extends CommandSource> void addOurCommandNodesInRoot(RootCommandNode<T> node) {
+    private <T extends SharedSuggestionProvider> void addOurCommandNodesInRoot(RootCommandNode<T> node) {
         // try add deop command
         // fix: plugin give commands
         if (enableGive.get()) {
@@ -79,12 +79,12 @@ public class ClientSideCommand extends BaseModule {
                 node.addChild(mcGiveCommand);
             }
             if (give == null) {
-                CommandRegistryAccess commandRegistryAccess =
-                        CommandRegistryAccess.of(ItemStackUtils.delegate(), FeatureFlags.DEFAULT_ENABLED_FEATURES);
+                CommandBuildContext commandRegistryAccess =
+                        CommandBuildContext.simple(ItemStackUtils.delegate(), FeatureFlags.DEFAULT_FLAGS);
 
                 ArgumentCommandNode<T, EntitySelector> targetArgument = new ArgumentCommandNode<>(
                         "targets",
-                        EntityArgumentType.players(),
+                        EntityArgument.players(),
                         null,
                         (Predicate<T>) requirement,
                         null,
@@ -94,9 +94,9 @@ public class ClientSideCommand extends BaseModule {
                         // of requesting this
                         null);
                 giveCommand.addChild(targetArgument);
-                ArgumentCommandNode<T, ItemStackArgument> itemArgument = new ArgumentCommandNode<>(
+                ArgumentCommandNode<T, ItemInput> itemArgument = new ArgumentCommandNode<>(
                         "item",
-                        ItemStackArgumentType.itemStack(commandRegistryAccess),
+                        ItemArgument.item(commandRegistryAccess),
                         (Command<T>) success,
                         (Predicate<T>) requirement,
                         null,
@@ -122,14 +122,14 @@ public class ClientSideCommand extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(CommandTreeS2CPacket.class),
-                (Consumer<Event<CommandTreeS2CPacket>>) this::onClientCommandReload);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundCommandsPacket.class),
+                (Consumer<Event<ClientboundCommandsPacket>>) this::onClientCommandReload);
         registerListener(Listener.getChatSend(), this::onCommandSend, 1);
     }
 
-    private <T extends CommandSource> void onClientCommandReload(Event<CommandTreeS2CPacket> reload) {
+    private <T extends SharedSuggestionProvider> void onClientCommandReload(Event<ClientboundCommandsPacket> reload) {
         CommandDispatcher<T> clientTree =
-                (CommandDispatcher<T>) mc.getNetworkHandler().getCommandDispatcher();
+                (CommandDispatcher<T>) mc.getConnection().getCommands();
         RootCommandNode<T> root = clientTree.getRoot();
         if (root != null && enable.get()) {
             addOurCommandNodesInRoot(root);
@@ -152,16 +152,16 @@ public class ClientSideCommand extends BaseModule {
         }
     }
 
-    private static ResultConsumer<ClientCommandSource> consumer = (c, s, r) -> {};
+    private static ResultConsumer<ClientSuggestionProvider> consumer = (c, s, r) -> {};
 
     private boolean dispatchVanillaCommand(String command) {
         // Debug.info(command);
         if (mc.player == null) return false;
-        mc.player.setPermissions(PermissionPredicate.ALL);
+        mc.player.setPermissions(PermissionSet.ALL_PERMISSIONS);
         try {
-            ParseResults<ClientCommandSource> parse =
-                    (ParseResults) mc.getNetworkHandler().getCommandDispatcher().parse(command, (ClientCommandSource)
-                            mc.getNetworkHandler().getCommandSource());
+            ParseResults<ClientSuggestionProvider> parse =
+                    (ParseResults) mc.getConnection().getCommands().parse(command, (ClientSuggestionProvider)
+                            mc.getConnection().getSuggestionsProvider());
             if (parse.getReader().canRead()) {
                 if (parse.getExceptions().size() == 1) {
                     throw parse.getExceptions().values().iterator().next();
@@ -177,12 +177,12 @@ public class ClientSideCommand extends BaseModule {
             }
 
             final String commandStr = parse.getReader().getString();
-            final CommandContextBuilder<ClientCommandSource> originalBuilder = parse.getContext();
+            final CommandContextBuilder<ClientSuggestionProvider> originalBuilder = parse.getContext();
             // flatten this
-            List<CommandContextBuilder<ClientCommandSource>> modifiers = new ArrayList<>();
-            CommandContextBuilder<ClientCommandSource> contextData = originalBuilder;
+            List<CommandContextBuilder<ClientSuggestionProvider>> modifiers = new ArrayList<>();
+            CommandContextBuilder<ClientSuggestionProvider> contextData = originalBuilder;
             while (true) {
-                CommandContextBuilder<ClientCommandSource> child = contextData.getChild();
+                CommandContextBuilder<ClientSuggestionProvider> child = contextData.getChild();
                 if (child == null) {
                     if (contextData.getCommand() == null) {
                         consumer.onCommandComplete(originalBuilder.build(commandStr), false, 0);
@@ -195,59 +195,59 @@ public class ClientSideCommand extends BaseModule {
                 modifiers.add(contextData);
                 contextData = child;
             }
-            Map<String, ParsedArgument<ClientCommandSource, ?>> argsMap = contextData.getArguments();
+            Map<String, ParsedArgument<ClientSuggestionProvider, ?>> argsMap = contextData.getArguments();
             if (commandStr.startsWith("give") || commandStr.startsWith("minecraft:give")) {
                 return handleClientSideGiveCommand(argsMap, command);
             }
         } catch (CommandSyntaxException e) {
             Debug.chat(getErrorMessage(e));
         } catch (Throwable e) {
-            Debug.chat(Text.literal("Internal Error!").formatted(Formatting.RED), e);
+            Debug.chat(Component.literal("Internal Error!").withStyle(ChatFormatting.RED), e);
         }
         return false;
     }
 
     private boolean handleClientSideGiveCommand(
-            Map<String, ParsedArgument<ClientCommandSource, ?>> argsMap, String command) throws CommandSyntaxException {
+            Map<String, ParsedArgument<ClientSuggestionProvider, ?>> argsMap, String command) throws CommandSyntaxException {
         if (enableGive.get()) {
-            if (mc.interactionManager.getCurrentGameMode().isCreative()) {
-                Debug.chat(Text.literal("尝试在客户端执行give指令").formatted(Formatting.GREEN));
-                ParsedArgument<ClientCommandSource, ?> entityArgument = argsMap.get("targets");
+            if (mc.gameMode.getPlayerMode().isCreative()) {
+                Debug.chat(Component.literal("尝试在客户端执行give指令").withStyle(ChatFormatting.GREEN));
+                ParsedArgument<ClientSuggestionProvider, ?> entityArgument = argsMap.get("targets");
                 EntitySelector entitySelector = (EntitySelector) entityArgument.getResult();
                 StringRange range = entityArgument.getRange();
-                if (entitySelector.isSenderOnly()
+                if (entitySelector.isSelfSelector()
                         || Objects.equals(
-                                mc.player.getNameForScoreboard(),
+                                mc.player.getScoreboardName(),
                                 command.substring(range.getStart(), range.getEnd()))) {
-                    ItemStackArgument itemStack =
-                            (ItemStackArgument) argsMap.get("item").getResult();
+                    ItemInput itemStack =
+                            (ItemInput) argsMap.get("item").getResult();
                     int count = argsMap.containsKey("count")
                             ? (Integer) argsMap.get("count").getResult()
                             : 1;
-                    ItemStack itemStackToGive = itemStack.createStack(count, false);
+                    ItemStack itemStackToGive = itemStack.createItemStack(count);
                     InvTasks.creativeGive(itemStackToGive, count);
-                    Debug.chat(Text.literal("命令执行成功！").formatted(Formatting.GREEN));
+                    Debug.chat(Component.literal("命令执行成功！").withStyle(ChatFormatting.GREEN));
                     return true;
                 } else {
-                    Debug.chat(Text.literal("你选中了其他生物,指令转向服务端执行!").formatted(Formatting.YELLOW));
+                    Debug.chat(Component.literal("你选中了其他生物,指令转向服务端执行!").withStyle(ChatFormatting.YELLOW));
                     return false;
                 }
             } else {
-                Debug.chat(Text.literal("你启用了客户端指令的功能,但是你并不是创造模式!").formatted(Formatting.YELLOW));
+                Debug.chat(Component.literal("你启用了客户端指令的功能,但是你并不是创造模式!").withStyle(ChatFormatting.YELLOW));
                 return false;
             }
         } else {
-            Debug.chat(Text.literal("尝试在客户端执行give指令,但是你没有启用客户端give指令").formatted(Formatting.RED));
+            Debug.chat(Component.literal("尝试在客户端执行give指令,但是你没有启用客户端give指令").withStyle(ChatFormatting.RED));
             return false;
         }
     }
 
-    private static Text getErrorMessage(CommandSyntaxException e) {
-        Text message = Texts.toText(e.getRawMessage());
+    private static Component getErrorMessage(CommandSyntaxException e) {
+        Component message = ComponentUtils.fromMessage(e.getRawMessage());
         String context = e.getContext();
 
         return context != null
-                ? Text.translatable("command.context.parse_error", message, e.getCursor(), context)
+                ? Component.translatable("command.context.parse_error", message, e.getCursor(), context)
                 : message;
     }
 }

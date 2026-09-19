@@ -4,7 +4,7 @@ import me.matl114.accessors.interfaces.MetadataHolder;
 import me.matl114.utils.containers.MetaData;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 

@@ -5,26 +5,26 @@ import me.matl114.accessors.interfaces.TileInventory;
 import me.matl114.utils.world.ContainerPosition;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.Block;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.vehicle.VehicleInventory;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.vehicle.ContainerEntity;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Environment(EnvType.CLIENT)
-@Mixin(GenericContainerScreenHandler.class)
-public abstract class ChestScreenHandlerMixin extends ScreenHandler
-        implements TileInventory.Handler, EntityInventory.Handler<VehicleInventory> {
+@Mixin(ChestMenu.class)
+public abstract class ChestScreenHandlerMixin extends AbstractContainerMenu
+        implements TileInventory.Handler, EntityInventory.Handler<ContainerEntity> {
     @Unique
     private BlockPos pos;
 
-    protected ChestScreenHandlerMixin(ScreenHandlerType<?> type, int syncId) {
+    protected ChestScreenHandlerMixin(MenuType<?> type, int syncId) {
         super(type, syncId);
     }
 
@@ -42,12 +42,12 @@ public abstract class ChestScreenHandlerMixin extends ScreenHandler
     }
 
     @Unique
-    public ClientWorld getWorld() {
+    public ClientLevel getWorld() {
         return this.world;
     }
 
     @Unique
-    private ClientWorld world;
+    private ClientLevel world;
 
     @Unique
     private ContainerPosition containerPosition;
@@ -58,26 +58,26 @@ public abstract class ChestScreenHandlerMixin extends ScreenHandler
     }
 
     @Unique
-    VehicleInventory vehicleEntity;
+    ContainerEntity vehicleEntity;
 
     @Nullable
     @Override
-    public VehicleInventory getOwner() {
+    public ContainerEntity getOwner() {
         return vehicleEntity;
     }
 
     @Override
-    public void sync(EntityInventory<VehicleInventory> inventory) {
+    public void sync(EntityInventory<ContainerEntity> inventory) {
         this.vehicleEntity = inventory.getOwner();
     }
 
     @Override
-    public HandledScreen<?> castHandled() {
+    public AbstractContainerScreen<?> castHandled() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ScreenHandler castHandler() {
+    public AbstractContainerMenu castHandler() {
         return this;
     }
 

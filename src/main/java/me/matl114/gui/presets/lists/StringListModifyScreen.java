@@ -9,8 +9,8 @@ import me.matl114.gui.complex.config.ListModifyWidget;
 import me.matl114.gui.presets.choices.ConfirmingBigScreen;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.kv.ListAttrKeyValue;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 public class StringListModifyScreen<T> extends ConfirmingBigScreen {
     ListAttrKeyValue<T> listAttrKeyValue;
@@ -20,9 +20,9 @@ public class StringListModifyScreen<T> extends ConfirmingBigScreen {
     private static final int WIDTH = 240;
 
     public StringListModifyScreen(ListAttrKeyValue<T> list, Consumer<ListAttrKeyValue<T>> consumer) {
-        super(Text.empty());
+        super(Component.empty());
         setTitleLabel(
-                Text.translatable("widget.gui.string-list-modify-screen.title").formatted(Formatting.GREEN));
+                Component.translatable("widget.gui.string-list-modify-screen.title").withStyle(ChatFormatting.GREEN));
         this.listAttrKeyValue = list;
         this.list = new ArrayList<>(this.listAttrKeyValue.createAttrKeyValueForElements());
         this.consumer = consumer;
@@ -55,7 +55,7 @@ public class StringListModifyScreen<T> extends ConfirmingBigScreen {
         if (this.listAttrKeyValue.isValidate()) {
             consumer.accept(this.listAttrKeyValue);
         }
-        this.close();
+        this.onClose();
     }
 
     @Override

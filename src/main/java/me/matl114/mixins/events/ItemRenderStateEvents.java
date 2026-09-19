@@ -1,15 +1,15 @@
 package me.matl114.mixins.events;
 
+import com.mojang.blaze3d.platform.Lighting;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
 import me.matl114.accessors.events.ItemRenderStateAccess;
 import me.matl114.events.model.GuiModel;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.world.item.ItemDisplayContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -17,13 +17,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(ItemRenderState.class)
+@Mixin(ItemStackRenderState.class)
 public abstract class ItemRenderStateEvents implements ItemRenderStateAccess {
     @Shadow
     ItemDisplayContext displayContext;
 
     @Shadow
-    public abstract void addModelKey(Object modelKey);
+    public abstract void appendModelIdentityElement(Object modelKey);
 
     @Shadow
     public abstract void clear();
@@ -34,7 +34,7 @@ public abstract class ItemRenderStateEvents implements ItemRenderStateAccess {
     public List<GuiModel.Entry> getAttachedRenderState() {
         if (attachedRenders == null) {
             attachedRenders = new ArrayList<>();
-            addModelKey(attachedRenders);
+            appendModelIdentityElement(attachedRenders);
         }
         return attachedRenders;
     }
@@ -45,16 +45,16 @@ public abstract class ItemRenderStateEvents implements ItemRenderStateAccess {
         }
     }
 
-    @Inject(method = "render", at = @At("RETURN"))
+    @Inject(method = "submit", at = @At("RETURN"))
     private void onRender1(
-            MatrixStack matrices,
-            OrderedRenderCommandQueue orderedRenderCommandQueue,
+            PoseStack matrices,
+            SubmitNodeCollector orderedRenderCommandQueue,
             int light,
             int overlay,
             int i,
             CallbackInfo ci) {
         if (attachedRenders != null && !attachedRenders.isEmpty()) {
-            matrices.push();
+            matrices.pushPose();
             try {
                 final float scale = 0.54f;
                 final float scale_ground = 0.8f;
@@ -92,23 +92,23 @@ public abstract class ItemRenderStateEvents implements ItemRenderStateAccess {
                     return;
                 }
                 if (inGui) {
-                    MinecraftClient.getInstance()
+                    Minecraft.getInstance()
                             .gameRenderer
-                            .getDiffuseLighting()
-                            .setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
+                            .lighting()
+                            .setupFor(Lighting.Entry.ITEMS_FLAT);
                 }
                 for (var entry : attachedRenders) {
                     if (entry.stackTransformer() != null) {
-                        matrices.push();
+                        matrices.pushPose();
                         entry.stackTransformer().apply(matrices);
-                        entry.state().render(matrices, orderedRenderCommandQueue, light, overlay, i);
-                        matrices.pop();
+                        entry.state().submit(matrices, orderedRenderCommandQueue, light, overlay, i);
+                        matrices.popPose();
                     } else {
-                        entry.state().render(matrices, orderedRenderCommandQueue, light, overlay, i);
+                        entry.state().submit(matrices, orderedRenderCommandQueue, light, overlay, i);
                     }
                 }
             } finally {
-                matrices.pop();
+                matrices.popPose();
             }
         }
     }

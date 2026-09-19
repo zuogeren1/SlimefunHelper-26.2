@@ -6,7 +6,6 @@ import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.*;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
-import me.matl114.accessors.access.PlayerInteractEntityC2SPacketAccess;
 import me.matl114.accessors.hacks.EntityInternalAccess;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
@@ -26,31 +25,31 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
 import me.matl114.utils.*;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.RespawnAnchorBlock;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.damage.DamageTypes;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.s2c.play.ExplosionS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
+import net.minecraft.network.protocol.game.ServerboundAttackPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class FakePlayer extends BaseModule {
     public FakePlayer() {
@@ -77,9 +76,9 @@ public class FakePlayer extends BaseModule {
     public final FlagRef overrideEffect =
             flagBuilder(root.add("override-effects")).build();
 
-    public final NBTRef<EntryPrimitiveMap<StatusEffect, Integer>> constantEffects = builder(
-                    root.add("constant-effects"), EntryPrimitiveMap.<StatusEffect, Integer>parameter())
-            .defaultValue(new EntryPrimitiveMap<>(Registries.STATUS_EFFECT, NBTTypes.INT_TYPE, Map.of()))
+    public final NBTRef<EntryPrimitiveMap<MobEffect, Integer>> constantEffects = builder(
+                    root.add("constant-effects"), EntryPrimitiveMap.<MobEffect, Integer>parameter())
+            .defaultValue(new EntryPrimitiveMap<>(BuiltInRegistries.MOB_EFFECT, NBTTypes.INT_TYPE, Map.of()))
             .build();
 
     public final FlagRef logHit = flagBuilder(root.add("log-hit")).build();
@@ -95,23 +94,23 @@ public class FakePlayer extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractEntityC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class),
                 this::onHit,
                 Integer.MAX_VALUE);
-        registerListener(Listener.getPacketPreHandlePoint().getChannel(ExplosionS2CPacket.class), this::onExplode);
+        registerListener(Listener.getPacketPreHandlePoint().getChannel(ClientboundExplodePacket.class), this::onExplode);
         registerListener(Listener.getPreGameTick(), this::onTickKinetic);
     }
 
     @Override
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
-        if (mc.world == null) {
+        if (mc.level == null) {
             acceptor.accept(createTitleLabel("widget.fake-player.fake-player-list.enter-world", 0, dblank, dx, dy));
             return;
         }
         acceptor.accept(createTitleLabel("widget.fake-player.fake-player-list.title", 0, dblank, dx, dy));
         DynamicListWidget list = new DynamicListWidget(0, dblank, dx);
-        for (var re : mc.world.getEntities()) {
+        for (var re : mc.level.entitiesForRendering()) {
             if (re instanceof FakePlayerEntity fakePlayer) {
                 createWidgetForFakePlayer(fakePlayer, list, dx, dy, dblank);
             }
@@ -133,7 +132,7 @@ public class FakePlayer extends BaseModule {
         SubScreenWidget subScreenWidget = new SubScreenWidget(0, 0, dx, dy + dblank);
         subScreenWidget.addDrawableChild(DisplayWidget.instance(0, dblank, dx - dy, dy)
                 .setRenderHandler(new ButtonElement(
-                        TextProvider.of(Text.translatable(
+                        TextProvider.of(Component.translatable(
                                 "widget.fake-player.fake-player-list.info",
                                 fakePlayer.getDisplayName(),
                                 "%.2f".formatted(fakePlayer.getX()),
@@ -157,16 +156,16 @@ public class FakePlayer extends BaseModule {
 
     private void removeFakePlayer(FakePlayerEntity fakePlayer) {
         fakePlayer.setHealth(0.0F);
-        mc.world.removeEntity(fakePlayer.getId(), Entity.RemovalReason.KILLED);
+        mc.level.removeEntity(fakePlayer.getId(), Entity.RemovalReason.KILLED);
         fakePlayer.setRemoved(Entity.RemovalReason.KILLED);
     }
 
     private FakePlayerEntity createNewFakePlayer() {
-        FakePlayerEntity fakePlayer = new FakePlayerEntity(mc.world, new GameProfile(UUID.randomUUID(), name.get()));
+        FakePlayerEntity fakePlayer = new FakePlayerEntity(mc.level, new GameProfile(UUID.randomUUID(), name.get()));
         fakePlayer.setFreeze(!hasPhysics.get());
         fakePlayer
                 .getAttributes()
-                .getCustomInstance(EntityAttributes.MAX_HEALTH)
+                .getInstance(Attributes.MAX_HEALTH)
                 .setBaseValue(maxHealth.get());
         fakePlayer.setTickTask(this::onFakePlayerTick);
         if (copyEquipment.get()) {
@@ -176,19 +175,19 @@ public class FakePlayer extends BaseModule {
         // enable absorption
         fakePlayer
                 .getAttributes()
-                .getCustomInstance(EntityAttributes.MAX_ABSORPTION)
+                .getInstance(Attributes.MAX_ABSORPTION)
                 .setBaseValue(1024);
-        mc.world.addEntity(fakePlayer);
+        mc.level.addEntity(fakePlayer);
         return fakePlayer;
     }
 
     private void onFakePlayerTick(FakePlayerEntity fakePlayer) {
-        if (fakePlayer.isDead()) {
+        if (fakePlayer.isDeadOrDying()) {
             Tasks.scheduleDelayed(() -> removeFakePlayer(fakePlayer), 0);
             return;
         }
-        if (fakePlayer.hasStatusEffect(StatusEffects.REGENERATION)) {
-            StatusEffectInstance instance = fakePlayer.getStatusEffect(StatusEffects.REGENERATION);
+        if (fakePlayer.hasEffect(MobEffects.REGENERATION)) {
+            MobEffectInstance instance = fakePlayer.getEffect(MobEffects.REGENERATION);
             if (instance != null) {
                 int duration = instance.getDuration();
                 int amplifier = instance.getAmplifier();
@@ -201,22 +200,22 @@ public class FakePlayer extends BaseModule {
             }
         }
         if (autoTotem.get()) {
-            fakePlayer.setStackInHand(Hand.OFF_HAND, new ItemStack(Items.TOTEM_OF_UNDYING));
+            fakePlayer.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.TOTEM_OF_UNDYING));
         }
         if (regeneration.get()) {
             fakePlayer.setHealth(fakePlayer.getMaxHealth());
         }
         if (overrideEffect.get()) {
             var effectMap = constantEffects.get();
-            Registries.STATUS_EFFECT.streamEntries().forEach(s -> {
+            BuiltInRegistries.MOB_EFFECT.listElements().forEach(s -> {
                 Integer val = effectMap.getEntryValue(s.value());
                 if (val != null && val > 0) {
-                    if (!fakePlayer.hasStatusEffect(s)) {
-                        fakePlayer.setStatusEffect(new StatusEffectInstance(s, 114514, val - 1), null);
+                    if (!fakePlayer.hasEffect(s)) {
+                        fakePlayer.forceAddEffect(new MobEffectInstance(s, 114514, val - 1), null);
                     }
                 } else {
-                    if (fakePlayer.hasStatusEffect(s)) {
-                        fakePlayer.removeStatusEffect(s);
+                    if (fakePlayer.hasEffect(s)) {
+                        fakePlayer.removeEffect(s);
                     }
                 }
             });
@@ -229,38 +228,37 @@ public class FakePlayer extends BaseModule {
             log(hitLog.get()
                     .formatText(
                             fakePlayer.getDisplayName(),
-                            source.getTypeRegistryEntry()
-                                    .getKey()
+                            source.typeHolder()
+                                    .unwrapKey()
                                     .get()
-                                    .getValue()
+                                    .identifier()
                                     .getPath(),
                             rawDamage,
                             realDamage));
         }
     }
 
-    private void onHit(Event<PlayerInteractEntityC2SPacket> interactEntity) {
+    private void onHit(Event<ServerboundAttackPacket> attackPacket) {
         if (checkNull()) return;
-        if (mc.world.getEntityById(interactEntity.context.entityId) instanceof FakePlayerEntity fake) {
-            interactEntity.cancel();
-            if (PlayerInteractEntityC2SPacketAccess.of(interactEntity.context).isAttack()) {
-                onAttack(fake);
-            }
+        // 26.2: 攻击语义由独立的 ServerboundAttackPacket 承载
+        if (mc.level.getEntity(attackPacket.context.entityId()) instanceof FakePlayerEntity fake) {
+            attackPacket.cancel();
+            onAttack(fake);
         }
     }
 
     private void onAttack(FakePlayerEntity fake) {
-        ItemStack weapon = mc.player.getStackInHand(Hand.MAIN_HAND);
+        ItemStack weapon = mc.player.getItemInHand(InteractionHand.MAIN_HAND);
         // todo: add other types
         float damage =
                 DamageUtils.getRealAttackDamage(mc.player, fake, weapon, PlayerStateManager.INSTANCE.fallDistance);
         onDamage(fake, DamageUtils.createDirectDamageSource(DamageTypes.PLAYER_ATTACK, mc.player), damage);
     }
 
-    private void onExplode(Event<ExplosionS2CPacket> event) {
+    private void onExplode(Event<ClientboundExplodePacket> event) {
         if (checkNull()) return;
         List<FakePlayerEntity> fakes = new ArrayList<>();
-        for (var re : mc.world.getEntities()) {
+        for (var re : mc.level.entitiesForRendering()) {
             if (re instanceof FakePlayerEntity) {
                 fakes.add((FakePlayerEntity) re);
             }
@@ -269,11 +267,11 @@ public class FakePlayer extends BaseModule {
             return;
         }
         Map<BlockPos, BlockState> stateMap = new LinkedHashMap<>();
-        BlockPos explodeCenter = BlockPos.ofFloored(event.context.center());
+        BlockPos explodeCenter = BlockPos.containing(event.context.center());
         float radius = event.context.radius();
-        if (Objects.equals(event.context.center(), explodeCenter.toCenterPos())
-                && mc.world.getBlockState(explodeCenter).getBlock() instanceof RespawnAnchorBlock) {
-            stateMap.put(explodeCenter, Blocks.AIR.getDefaultState());
+        if (Objects.equals(event.context.center(), Vec3.atCenterOf(explodeCenter))
+                && mc.level.getBlockState(explodeCenter).getBlock() instanceof RespawnAnchorBlock) {
+            stateMap.put(explodeCenter, Blocks.AIR.defaultBlockState());
             if (radius <= 0) {
                 radius = 6;
             }
@@ -287,7 +285,7 @@ public class FakePlayer extends BaseModule {
                     radius,
                     event.context.center(),
                     re.getBoundingBox(),
-                    ExplosionUtils.fromWorldWithOverrides(mc.world, stateMap),
+                    ExplosionUtils.fromWorldWithOverrides(mc.level, stateMap),
                     ExplosionUtils.ALL_TERRAIN);
             if (damage > 0) {
                 onDamage(re, DamageUtils.createDamageSource(DamageTypes.PLAYER_ATTACK, null, mc.player), damage);
@@ -297,42 +295,42 @@ public class FakePlayer extends BaseModule {
 
     protected Object2LongMap<Entity> piercingCooldowns = new Object2LongOpenHashMap<>();
 
-    private void onTickKinetic(Event<ClientPlayerEntity> event) {
+    private void onTickKinetic(Event<LocalPlayer> event) {
         if (checkNull()) return;
         if (SpearEnhance.isUsingSpear(mc.player) && SpearEnhance.canSpearKineticAttack(mc.player)) {
-            Vec3d startEye = new Vec3d(
+            Vec3 startEye = new Vec3(
                             PlayerStateManager.INSTANCE.lastX,
                             PlayerStateManager.INSTANCE.lastY,
                             PlayerStateManager.INSTANCE.lastZ)
                     .add(0, mc.player.getEyeHeight(mc.player.getPose()), 0);
-            Vec3d direction = PlayerStateManager.INSTANCE.getLastRotationVector();
+            Vec3 direction = PlayerStateManager.INSTANCE.getLastRotationVector();
             double minRange = 2.0;
             double maxRange = 4.5;
-            Vec3d movement = PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed;
-            double speedBonus = Math.max(0, movement.dotProduct(direction));
+            Vec3 movement = PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed;
+            double speedBonus = Math.max(0, movement.dot(direction));
             double finalMaxRange = maxRange + speedBonus;
-            Vec3d startPoint = startEye.add(direction.multiply(minRange));
-            Vec3d endPoint = startEye.add(direction.multiply(finalMaxRange));
+            Vec3 startPoint = startEye.add(direction.scale(minRange));
+            Vec3 endPoint = startEye.add(direction.scale(finalMaxRange));
             float hitboxMargin = 0.125F;
-            Box box = Box.of(startPoint, (double) hitboxMargin, (double) hitboxMargin, (double) hitboxMargin)
-                    .stretch(endPoint.subtract(startPoint))
-                    .expand(1.0);
+            AABB box = AABB.ofSize(startPoint, (double) hitboxMargin, (double) hitboxMargin, (double) hitboxMargin)
+                    .expandTowards(endPoint.subtract(startPoint))
+                    .inflate(1.0);
             float max = Math.max(0, hitboxMargin);
-            for (var e : mc.world.getOtherEntities(mc.player, box)) {
+            for (var e : mc.level.getEntities(mc.player, box)) {
                 if (e instanceof FakePlayerEntity livingEntity) {
                     if (livingEntity
                             .getBoundingBox()
-                            .raycast(startPoint, endPoint)
+                            .clip(startPoint, endPoint)
                             .isPresent()) {
                         onSpearKinetic(livingEntity, direction);
                     } else if (max > 0) {
-                        var box2 = livingEntity.getBoundingBox().expand(hitboxMargin);
-                        var re = box2.raycast(startPoint, endPoint);
+                        var box2 = livingEntity.getBoundingBox().inflate(hitboxMargin);
+                        var re = box2.clip(startPoint, endPoint);
                         if (re.isPresent()) {
-                            Vec3d vec3d = re.get();
-                            Vec3d vec3d2 = box2.getCenter();
-                            Optional<Vec3d> optional3 =
-                                    livingEntity.getBoundingBox().raycast(vec3d, vec3d2);
+                            Vec3 vec3d = re.get();
+                            Vec3 vec3d2 = box2.getCenter();
+                            Optional<Vec3> optional3 =
+                                    livingEntity.getBoundingBox().clip(vec3d, vec3d2);
                             if (optional3.isPresent()) {
                                 onSpearKinetic(livingEntity, direction);
                             }
@@ -349,37 +347,37 @@ public class FakePlayer extends BaseModule {
         if (this.piercingCooldowns.isEmpty()) {
             return false;
         } else if (this.piercingCooldowns.containsKey(target)) {
-            return mc.world.getTime() - this.piercingCooldowns.getLong(target) < (long) cooldownTicks;
+            return mc.level.getGameTime() - this.piercingCooldowns.getLong(target) < (long) cooldownTicks;
         } else {
             return false;
         }
     }
 
     public void startPiercingCooldown(Entity target) {
-        this.piercingCooldowns.put(target, mc.world.getTime());
+        this.piercingCooldowns.put(target, mc.level.getGameTime());
     }
 
-    private void onSpearKinetic(FakePlayerEntity fakePlayer, Vec3d rotation) {
+    private void onSpearKinetic(FakePlayerEntity fakePlayer, Vec3 rotation) {
         if (isInPiercingCooldown(fakePlayer, 10)) {
             return;
         }
         startPiercingCooldown(fakePlayer);
-        double d = rotation.dotProduct(PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed.multiply(20.0));
-        Vec3d predictorMovement =
+        double d = rotation.dot(PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed.scale(20.0));
+        Vec3 predictorMovement =
                 EntityInternalAccess.of(fakePlayer).getPositionPredictor().getKnownDeltaMovement();
-        double g = rotation.dotProduct(predictorMovement.multiply(20.0D));
+        double g = rotation.dot(predictorMovement.scale(20.0D));
         double h = Math.max(0.0, d - g);
         boolean canDamage = h > 4.6;
         if (!canDamage) {
             return;
         }
-        double e = mc.player.getAttributeBaseValue(EntityAttributes.ATTACK_DAMAGE);
+        double e = mc.player.getAttributeBaseValue(Attributes.ATTACK_DAMAGE);
         // use netherite spear data
-        float damage = (float) (e + MathHelper.floor(h * 1.2F));
+        float damage = (float) (e + Mth.floor(h * 1.2F));
         onDamage(
                 fakePlayer,
                 DamageUtils.createDirectDamageSource(
-                        RegistryKey.of(RegistryKeys.DAMAGE_TYPE, Identifier.ofVanilla("spear")), mc.player),
+                        ResourceKey.create(Registries.DAMAGE_TYPE, Identifier.withDefaultNamespace("spear")), mc.player),
                 damage);
     }
 }

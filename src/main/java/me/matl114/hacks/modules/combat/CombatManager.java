@@ -18,23 +18,23 @@ import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.managers.Configs;
 import me.matl114.utils.algorithms.SerialExecutor;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.RespawnAnchorBlock;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.ChunkSectionPos;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.ChunkSection;
-import net.minecraft.world.chunk.PalettedContainer;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.phys.AABB;
 
 public class CombatManager extends BaseModule {
     public final ModulePath combat = makePath(Configs.COMBAT_CONFIG, "attack");
@@ -47,8 +47,8 @@ public class CombatManager extends BaseModule {
 
     static {
         Set<Block> blocks = new LinkedHashSet<>();
-        for (Block block : Registries.BLOCK) {
-            if (block.getBlastResistance() >= BLAST_RESISTANCE_THRESHOLD && block.getHardness() >= 0.0F) {
+        for (Block block : BuiltInRegistries.BLOCK) {
+            if (block.getExplosionResistance() >= BLAST_RESISTANCE_THRESHOLD && block.defaultDestroyTime() >= 0.0F) {
                 blocks.add(block);
             }
         }
@@ -57,8 +57,8 @@ public class CombatManager extends BaseModule {
 
     static {
         Set<Block> blocks = new LinkedHashSet<>();
-        for (Block block : Registries.BLOCK) {
-            if (block.getBlastResistance() >= BLAST_RESISTANCE_THRESHOLD && block.getHardness() < 0.0F) {
+        for (Block block : BuiltInRegistries.BLOCK) {
+            if (block.getExplosionResistance() >= BLAST_RESISTANCE_THRESHOLD && block.defaultDestroyTime() < 0.0F) {
                 blocks.add(block);
             }
         }
@@ -85,15 +85,15 @@ public class CombatManager extends BaseModule {
     private static final EventChannel<Service> requestEnableEvent = new EventChannel<>();
 
     private final Executor executor = new SerialExecutor(CompletableFuture::runAsync);
-    private Map<ChunkSectionPos, SectionSnapshot> sectionSnapshots = new ConcurrentHashMap<>();
+    private Map<SectionPos, SectionSnapshot> sectionSnapshots = new ConcurrentHashMap<>();
 
     public volatile Map<BlockPos, BlockState> trackedObsidianLike = new ConcurrentHashMap<>();
     public volatile Map<BlockPos, BlockState> trackedBedrockLike = new ConcurrentHashMap<>();
     public volatile Map<BlockPos, BlockState> trackedExplosives = new ConcurrentHashMap<>();
     public volatile Set<BlockPos> trackedHoles = ConcurrentHashMap.newKeySet();
-    private Set<ChunkSectionPos> dirtySections = new HashSet<>();
-    private ChunkSectionPos lastSectionPos = ChunkSectionPos.from(0, 0, 0);
-    public final Set<EndCrystalEntity> trackedEndCrystals = new HashSet<>();
+    private Set<SectionPos> dirtySections = new HashSet<>();
+    private SectionPos lastSectionPos = SectionPos.of(0, 0, 0);
+    public final Set<EndCrystal> trackedEndCrystals = new HashSet<>();
     private volatile Service currentService = new Service();
 
     private void clearTrackedCaches() {
@@ -124,7 +124,7 @@ public class CombatManager extends BaseModule {
     }
 
     private synchronized void updateTrackedMaps(
-            Map<ChunkSectionPos, SectionSnapshot> updateMap, boolean trust, Service service) {
+            Map<SectionPos, SectionSnapshot> updateMap, boolean trust, Service service) {
         Map<BlockPos, BlockState> obsidianLike = new ConcurrentHashMap<>();
         Map<BlockPos, BlockState> explosives = new ConcurrentHashMap<>();
         Map<BlockPos, BlockState> bedrockLike = new ConcurrentHashMap<>();
@@ -132,13 +132,13 @@ public class CombatManager extends BaseModule {
         for (var re : updateMap.values()) {
             if (service.enableBlockSearch()) {
                 for (var pos : re.mineableBlastResistantPositions) {
-                    BlockState state = mc.world.getBlockState(pos);
+                    BlockState state = mc.level.getBlockState(pos);
                     if (trust || MINEABLE_BLAST_RESISTANT_BLOCKS.contains(state.getBlock())) {
                         obsidianLike.put(pos, state);
                     }
                 }
                 for (var pos : re.unbreakableBlastResistantPositions) {
-                    BlockState state = mc.world.getBlockState(pos);
+                    BlockState state = mc.level.getBlockState(pos);
                     if (trust || UNBREAKABLE_BLAST_RESISTANT_BLOCKS.contains(state.getBlock())) {
                         bedrockLike.put(pos, state);
                     }
@@ -146,7 +146,7 @@ public class CombatManager extends BaseModule {
             }
             if (service.enableExplosiveSearch()) {
                 for (var pos : re.respawnAnchorPositions) {
-                    BlockState state = mc.world.getBlockState(pos);
+                    BlockState state = mc.level.getBlockState(pos);
                     if (trust || state.getBlock() instanceof RespawnAnchorBlock) {
                         explosives.put(pos, state);
                     }
@@ -154,7 +154,7 @@ public class CombatManager extends BaseModule {
             }
             if (service.enableHoleSearch()) {
                 for (var pos : re.holesPositions) {
-                    if (trust || isHole(mc.world, pos)) {
+                    if (trust || isHole(mc.level, pos)) {
                         holes.add(pos);
                     }
                 }
@@ -166,7 +166,7 @@ public class CombatManager extends BaseModule {
         trackedHoles = holes;
     }
 
-    public void onWorldSwitch(Event<World> event) {
+    public void onWorldSwitch(Event<Level> event) {
         clearCaches();
     }
 
@@ -174,7 +174,7 @@ public class CombatManager extends BaseModule {
         clearCaches();
     }
 
-    public void onPreTick(Event<ClientPlayerEntity> event) {
+    public void onPreTick(Event<LocalPlayer> event) {
         if (checkNull()) {
             return;
         }
@@ -193,10 +193,10 @@ public class CombatManager extends BaseModule {
         Service service = currentService;
         clearUnusedTrackedCaches(service);
         updateTrackedMaps(sectionSnapshots, false, service);
-        Set<ChunkSectionPos> sections = dirtySections;
+        Set<SectionPos> sections = dirtySections;
         dirtySections = new HashSet<>();
-        ClientWorld world = mc.world;
-        Map<ChunkSectionPos, SectionSnapshot> sectionRef = new ConcurrentHashMap<>();
+        ClientLevel world = mc.level;
+        Map<SectionPos, SectionSnapshot> sectionRef = new ConcurrentHashMap<>();
         executor.execute(() -> {
             for (var re : sections) {
                 sectionRef.put(re, scanSection(world, re, service));
@@ -214,7 +214,7 @@ public class CombatManager extends BaseModule {
     }
 
     public void onUpdatePlayerPosition() {
-        ChunkSectionPos currentPos = ChunkSectionPos.from(mc.player);
+        SectionPos currentPos = SectionPos.of(mc.player);
         sectionSnapshots
                 .entrySet()
                 .removeIf(re -> Math.abs(re.getKey().getX() - currentPos.getX()) > SECTION_RADIUS
@@ -226,8 +226,8 @@ public class CombatManager extends BaseModule {
         for (var i = -SECTION_RADIUS; i <= SECTION_RADIUS; ++i) {
             for (var j = -SECTION_RADIUS; j <= SECTION_RADIUS; ++j) {
                 for (var k = -SECTION_RADIUS; k <= SECTION_RADIUS; ++k) {
-                    ChunkSectionPos pos =
-                            ChunkSectionPos.from(currentPos.getX() + i, currentPos.getY() + j, currentPos.getZ() + k);
+                    SectionPos pos =
+                            SectionPos.of(currentPos.getX() + i, currentPos.getY() + j, currentPos.getZ() + k);
                     if (!sectionSnapshots.containsKey(pos)) {
                         dirtySections.add(pos);
                     }
@@ -239,8 +239,8 @@ public class CombatManager extends BaseModule {
     }
 
     public void updateTrackedEntities() {
-        BlockPos minPos = lastSectionPos.getMinPos();
-        Box currentTrackedBox = new Box(
+        BlockPos minPos = lastSectionPos.origin();
+        AABB currentTrackedBox = new AABB(
                 minPos.getX() - 16,
                 minPos.getY() - 16,
                 minPos.getZ() - 16,
@@ -249,7 +249,7 @@ public class CombatManager extends BaseModule {
                 minPos.getZ() + 32);
         trackedEndCrystals.clear();
         trackedEndCrystals.addAll(
-                mc.world.getEntitiesByType(EntityType.END_CRYSTAL, currentTrackedBox, Predicates.alwaysTrue()));
+                mc.level.getEntities(EntityTypes.END_CRYSTAL, currentTrackedBox, Predicates.alwaysTrue()));
     }
 
     public void onChunkData(Event<ChunkPos> event) {
@@ -261,14 +261,14 @@ public class CombatManager extends BaseModule {
     }
 
     public void onBlockUpdate(Event<BlockUpdate> event) {
-        if (mc.world == null || mc.player == null) {
+        if (mc.level == null || mc.player == null) {
             return;
         }
         onPosUpdate(event.context.pos(), event.context.newState());
     }
 
     public void onPosUpdate(BlockPos pos, BlockState state) {
-        ChunkSectionPos sectionPos = ChunkSectionPos.from(pos);
+        SectionPos sectionPos = SectionPos.of(pos);
         if (isTrackedSection(sectionPos)) {
             SectionSnapshot snapshot = sectionSnapshots.get(sectionPos);
             if (snapshot != null) {
@@ -300,28 +300,28 @@ public class CombatManager extends BaseModule {
     private void scheduleDirtyChunks(int chunkX, int chunkZ) {
         if (Math.abs(chunkX - lastSectionPos.getX()) <= 1 && Math.abs(chunkZ - lastSectionPos.getZ()) <= 1) {
             for (var i = -1; i <= 1; ++i) {
-                dirtySections.add(ChunkSectionPos.from(chunkX, lastSectionPos.getY() + i, chunkZ));
+                dirtySections.add(SectionPos.of(chunkX, lastSectionPos.getY() + i, chunkZ));
             }
         }
     }
 
-    private SectionSnapshot scanSection(ClientWorld world, ChunkSectionPos key, Service service) {
-        WorldChunk chunk = world.getChunkManager().getWorldChunk(key.getX(), key.getZ());
+    private SectionSnapshot scanSection(ClientLevel world, SectionPos key, Service service) {
+        LevelChunk chunk = world.getChunkSource().getChunkNow(key.getX(), key.getZ());
         if (chunk == null) {
             return SectionSnapshot.empty();
         }
 
-        int sectionIndex = key.getY() - world.getBottomSectionCoord();
-        ChunkSection[] sections = chunk.getSectionArray();
+        int sectionIndex = key.getY() - world.getMinSectionY();
+        LevelChunkSection[] sections = chunk.getSections();
         if (sectionIndex < 0 || sectionIndex >= sections.length) {
             return SectionSnapshot.empty();
         }
-        ChunkSection section = sections[sectionIndex];
-        if (section == null || section.isEmpty()) {
+        LevelChunkSection section = sections[sectionIndex];
+        if (section == null || section.hasOnlyAir()) {
             return SectionSnapshot.empty();
         }
 
-        PalettedContainer<BlockState> states = section.getBlockStateContainer();
+        PalettedContainer<BlockState> states = section.getStates();
         Set<BlockPos> mineableBlastResistantPositions = ConcurrentHashMap.newKeySet();
         Set<BlockPos> unbreakableBlastResistantPositions = ConcurrentHashMap.newKeySet();
         Set<BlockPos> respawnAnchorPositions = ConcurrentHashMap.newKeySet();
@@ -359,7 +359,7 @@ public class CombatManager extends BaseModule {
                 holesPositions);
     }
 
-    private boolean isTrackedSection(ChunkSectionPos sectionPos) {
+    private boolean isTrackedSection(SectionPos sectionPos) {
         return Math.abs(sectionPos.getX() - lastSectionPos.getX()) <= SECTION_RADIUS
                 && Math.abs(sectionPos.getZ() - lastSectionPos.getZ()) <= SECTION_RADIUS
                 && Math.abs(sectionPos.getY() - lastSectionPos.getY()) <= SECTION_RADIUS;
@@ -374,7 +374,7 @@ public class CombatManager extends BaseModule {
     }
 
     private void updateHoleState(BlockPos pos) {
-        ChunkSectionPos sectionPos = ChunkSectionPos.from(pos);
+        SectionPos sectionPos = SectionPos.of(pos);
         if (!isTrackedSection(sectionPos)) {
             return;
         }
@@ -383,14 +383,14 @@ public class CombatManager extends BaseModule {
             dirtySections.add(sectionPos);
             return;
         }
-        if (isHole(mc.world, pos)) {
+        if (isHole(mc.level, pos)) {
             snapshot.holesPositions.add(pos);
         } else {
             snapshot.holesPositions.remove(pos);
         }
     }
 
-    private boolean isHole(ClientWorld world, BlockPos pos) {
+    private boolean isHole(ClientLevel world, BlockPos pos) {
         if (!world.getBlockState(pos).isAir()) {
             return false;
         }
@@ -414,7 +414,7 @@ public class CombatManager extends BaseModule {
         }
     }
 
-    public record ExplosiveContext(BlockState state, Map<PlayerEntity, Double> damageCache) {}
+    public record ExplosiveContext(BlockState state, Map<Player, Double> damageCache) {}
 
     @Data
     @Getter

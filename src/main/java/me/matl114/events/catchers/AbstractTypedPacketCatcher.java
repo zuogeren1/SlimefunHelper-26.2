@@ -1,7 +1,7 @@
 package me.matl114.events.catchers;
 
 import me.matl114.events.Event;
-import net.minecraft.network.packet.Packet;
+import net.minecraft.network.protocol.Packet;
 
 public abstract class AbstractTypedPacketCatcher<T extends Packet<?>> implements PacketCatcher {
     public Class<T> packetClass;

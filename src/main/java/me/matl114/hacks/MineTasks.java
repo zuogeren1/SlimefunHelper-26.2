@@ -7,20 +7,25 @@ import me.matl114.hacks.modules.HackModules;
 import me.matl114.hacks.modules.interact.InteractExtra;
 import me.matl114.hacks.modules.mine.*;
 import me.matl114.utils.*;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 @ApiMethod
 public class MineTasks {
     public static void init() {}
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
-    public static boolean distanceOutOfReach(BlockPos pos1, Vec3d playerPos) {
+    public static boolean distanceOutOfReach(BlockPos pos1, Vec3 playerPos) {
         if (pos1 == null || playerPos == null) {
             return true;
         }
-        return new Box(pos1).squaredMagnitude(playerPos) > MathUtils.s2(InteractExtra.INSTANCE.getBlockReachDistance());
+        return new AABB(pos1).distanceToSqr(playerPos) > MathUtils.s2(InteractExtra.INSTANCE.getBlockReachDistance());
     }
 
     @Getter

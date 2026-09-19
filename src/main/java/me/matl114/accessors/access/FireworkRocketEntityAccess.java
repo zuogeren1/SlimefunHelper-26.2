@@ -1,6 +1,6 @@
 package me.matl114.accessors.access;
 
-import net.minecraft.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 
 public interface FireworkRocketEntityAccess {
     public boolean isFallFlyingAccelerator();

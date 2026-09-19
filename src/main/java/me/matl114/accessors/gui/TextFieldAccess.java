@@ -2,7 +2,7 @@ package me.matl114.accessors.gui;
 
 import me.matl114.gui.basic.ColorProvider;
 import me.matl114.utils.config.PropertyTracker;
-import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 
 public interface TextFieldAccess {
     void setListener(PropertyTracker<TextFieldAccess, String> tracker);
@@ -15,7 +15,7 @@ public interface TextFieldAccess {
 
     public void resetSelect();
 
-    static TextFieldAccess of(ClickableWidget clickableWidget) {
+    static TextFieldAccess of(AbstractWidget clickableWidget) {
         return (TextFieldAccess) clickableWidget;
     }
 }

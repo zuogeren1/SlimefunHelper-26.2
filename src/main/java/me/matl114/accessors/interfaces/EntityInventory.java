@@ -1,26 +1,26 @@
 package me.matl114.accessors.interfaces;
 
 import javax.annotation.Nullable;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.screen.ScreenHandler;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 
 public interface EntityInventory<T> {
     @Nullable
     T getOwner();
 
-    public HandledScreen<?> castHandled();
+    public AbstractContainerScreen<?> castHandled();
 
-    default ScreenHandler castHandler() {
-        return castHandled().getScreenHandler();
+    default AbstractContainerMenu castHandler() {
+        return castHandled().getMenu();
     }
 
     public interface Handler<T> extends EntityInventory<T> {
-        default HandledScreen<?> castHandled() {
+        default AbstractContainerScreen<?> castHandled() {
             throw new UnsupportedOperationException();
         }
 
-        default ScreenHandler castHandler() {
-            return (ScreenHandler) this;
+        default AbstractContainerMenu castHandler() {
+            return (AbstractContainerMenu) this;
         }
 
         public void sync(EntityInventory<T> inventory);

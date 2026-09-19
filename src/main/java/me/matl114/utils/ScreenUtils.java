@@ -1,5 +1,7 @@
 package me.matl114.utils;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.Window;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
@@ -9,52 +11,51 @@ import me.matl114.events.Listener;
 import me.matl114.events.catchers.PacketCatcherImpl;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.collections.Point;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.navigation.GuiNavigationType;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.*;
-import net.minecraft.client.gui.screen.option.KeybindsScreen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.input.MouseInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.Window;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
-import net.minecraft.network.packet.s2c.play.OpenScreenS2CPacket;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.Hand;
+import net.minecraft.CrashReport;
+import net.minecraft.CrashReportCategory;
+import net.minecraft.ReportedException;
+import net.minecraft.client.InputType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.gui.screens.inventory.*;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.util.Util;
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.util.crash.CrashReportSection;
+import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 
 @ApiMethod
 public class ScreenUtils {
-    public static Point getMouseCoord(MinecraftClient client) {
-        return getMouseCoord(client, client.mouse);
+    public static Point getMouseCoord(Minecraft client) {
+        return getMouseCoord(client, client.mouseHandler);
     }
 
-    public static Point getMouseCoord(MinecraftClient client, Mouse mouse) {
+    public static Point getMouseCoord(Minecraft client, MouseHandler mouse) {
         Window window = client.getWindow();
-        int mouseX = (int) (mouse.getX() * (double) window.getScaledWidth() / (double) window.getWidth());
-        int mouseY = (int) (mouse.getY() * (double) window.getScaledHeight() / (double) window.getHeight());
+        int mouseX = (int) (mouse.xpos() * (double) window.getGuiScaledWidth() / (double) window.getScreenWidth());
+        int mouseY = (int) (mouse.ypos() * (double) window.getGuiScaledHeight() / (double) window.getScreenHeight());
         return new Point(mouseX, mouseY);
     }
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static Slot getSelectingOrHandSlot() {
         if (mc.player == null) return null;
-        if (mc.currentScreen instanceof HandledScreen<?> s) {
+        if (mc.gui.screen() instanceof AbstractContainerScreen<?> s) {
             Point mouseCoord = ScreenUtils.getMouseCoord(mc);
             Slot slot = HandledScreenAccess.of(s).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {
@@ -62,9 +63,9 @@ public class ScreenUtils {
             }
         } else {
             int selected = InventoryUtils.getSelectedSlot();
-            OptionalInt optionalInt = mc.player.playerScreenHandler.getSlotIndex(mc.player.getInventory(), selected);
+            OptionalInt optionalInt = mc.player.inventoryMenu.findSlot(mc.player.getInventory(), selected);
             if (optionalInt.isPresent()) {
-                return mc.player.playerScreenHandler.getSlot(optionalInt.getAsInt());
+                return mc.player.inventoryMenu.getSlot(optionalInt.getAsInt());
             }
         }
         return null;
@@ -72,29 +73,29 @@ public class ScreenUtils {
 
     public static ItemStack getSelectingOrHandItem() {
         if (mc.player == null) return null;
-        if (mc.currentScreen instanceof HandledScreen<?> s) {
+        if (mc.gui.screen() instanceof AbstractContainerScreen<?> s) {
             Point mouseCoord = ScreenUtils.getMouseCoord(mc);
             Slot slot = HandledScreenAccess.of(s).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {
-                return slot.getStack();
+                return slot.getItem();
             }
         } else {
-            return mc.player.getStackInHand(Hand.MAIN_HAND);
+            return mc.player.getItemInHand(InteractionHand.MAIN_HAND);
         }
         return null;
     }
 
-    public static CompletableFuture<HandledScreen<?>> getOpenScreenFuture() {
-        int currentSyncId = mc.player.currentScreenHandler.syncId;
-        CompletableFuture<HandledScreen<?>> cf = new CompletableFuture<>();
-        Listener.addPostPacketCatcher(new PacketCatcherImpl<>(OpenScreenS2CPacket.class, (packetEvent) -> {
+    public static CompletableFuture<AbstractContainerScreen<?>> getOpenScreenFuture() {
+        int currentSyncId = mc.player.containerMenu.containerId;
+        CompletableFuture<AbstractContainerScreen<?>> cf = new CompletableFuture<>();
+        Listener.addPostPacketCatcher(new PacketCatcherImpl<>(ClientboundOpenScreenPacket.class, (packetEvent) -> {
             var packet = packetEvent.context();
-            int syncId = packet.getSyncId();
+            int syncId = packet.getContainerId();
             if (currentSyncId != syncId && syncId != 0) {
-                if (mc.currentScreen instanceof HandledScreen<?> handled) {
-                    Listener.addPostPacketCatcher(new PacketCatcherImpl<>(InventoryS2CPacket.class, (packet2Event) -> {
+                if (mc.gui.screen() instanceof AbstractContainerScreen<?> handled) {
+                    Listener.addPostPacketCatcher(new PacketCatcherImpl<>(ClientboundContainerSetContentPacket.class, (packet2Event) -> {
                         var packet2 = packet2Event.context();
-                        if (packet2.syncId() == syncId) {
+                        if (packet2.containerId() == syncId) {
                             // execute immediately after the update of menu
                             cf.complete(handled);
                             return true;
@@ -111,10 +112,10 @@ public class ScreenUtils {
         return cf;
     }
 
-    public static IndexEntry<Slot> getSlot(ScreenHandler handler, Inventory inventory, int index) {
+    public static IndexEntry<Slot> getSlot(AbstractContainerMenu handler, Container inventory, int index) {
         for (int i = 0; i < handler.slots.size(); ++i) {
             Slot slot = (Slot) handler.slots.get(i);
-            if (slot.inventory == inventory && index == slot.getIndex()) {
+            if (slot.container == inventory && index == slot.getContainerSlot()) {
                 return new IndexEntry<>(i, slot);
             }
         }
@@ -123,85 +124,85 @@ public class ScreenUtils {
     }
 
     public static boolean hasShiftDown() {
-        return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 340)
-                || InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 344);
+        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 340)
+                || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 344);
     }
 
     public static boolean hasCtrlDown() {
-        return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 341)
-                || InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 345);
+        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 341)
+                || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 345);
     }
 
     public static boolean hasAltDown() {
-        return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 342)
-                || InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 346);
+        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 342)
+                || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 346);
     }
 
     public static boolean hasEnterDown() {
-        return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 257)
-                || InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 355);
+        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 257)
+                || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 355);
     }
 
     public static boolean hasKeyPressed(int keyCode) {
-        return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), keyCode);
+        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), keyCode);
     }
 
     public static boolean isToggle(int keyCode) {
         return keyCode == 257 || keyCode == 32 || keyCode == 335;
     }
 
-    public static final Map<ScreenHandlerType<?>, Integer> nonPlayerSlots = Map.ofEntries(
-            Map.entry(ScreenHandlerType.GENERIC_9X1, 9),
-            Map.entry(ScreenHandlerType.GENERIC_9X2, 18),
-            Map.entry(ScreenHandlerType.GENERIC_9X3, 27),
-            Map.entry(ScreenHandlerType.GENERIC_9X4, 36),
-            Map.entry(ScreenHandlerType.GENERIC_9X5, 45),
-            Map.entry(ScreenHandlerType.GENERIC_9X6, 54),
-            Map.entry(ScreenHandlerType.GENERIC_3X3, 9),
-            Map.entry(ScreenHandlerType.CRAFTER_3X3, 9),
-            Map.entry(ScreenHandlerType.ANVIL, 3),
-            Map.entry(ScreenHandlerType.BEACON, 1),
-            Map.entry(ScreenHandlerType.BLAST_FURNACE, 3),
-            Map.entry(ScreenHandlerType.BREWING_STAND, 5),
-            Map.entry(ScreenHandlerType.CRAFTING, 10),
-            Map.entry(ScreenHandlerType.ENCHANTMENT, 2),
-            Map.entry(ScreenHandlerType.FURNACE, 3),
-            Map.entry(ScreenHandlerType.GRINDSTONE, 3),
-            Map.entry(ScreenHandlerType.HOPPER, 5),
-            Map.entry(ScreenHandlerType.LOOM, 4),
-            Map.entry(ScreenHandlerType.MERCHANT, 3),
-            Map.entry(ScreenHandlerType.SHULKER_BOX, 27),
-            Map.entry(ScreenHandlerType.SMITHING, 4), // 1.20+ 锻造台
-            Map.entry(ScreenHandlerType.SMOKER, 3),
-            Map.entry(ScreenHandlerType.CARTOGRAPHY_TABLE, 3),
-            Map.entry(ScreenHandlerType.STONECUTTER, 2));
+    public static final Map<MenuType<?>, Integer> nonPlayerSlots = Map.ofEntries(
+            Map.entry(MenuType.GENERIC_9x1, 9),
+            Map.entry(MenuType.GENERIC_9x2, 18),
+            Map.entry(MenuType.GENERIC_9x3, 27),
+            Map.entry(MenuType.GENERIC_9x4, 36),
+            Map.entry(MenuType.GENERIC_9x5, 45),
+            Map.entry(MenuType.GENERIC_9x6, 54),
+            Map.entry(MenuType.GENERIC_3x3, 9),
+            Map.entry(MenuType.CRAFTER_3x3, 9),
+            Map.entry(MenuType.ANVIL, 3),
+            Map.entry(MenuType.BEACON, 1),
+            Map.entry(MenuType.BLAST_FURNACE, 3),
+            Map.entry(MenuType.BREWING_STAND, 5),
+            Map.entry(MenuType.CRAFTING, 10),
+            Map.entry(MenuType.ENCHANTMENT, 2),
+            Map.entry(MenuType.FURNACE, 3),
+            Map.entry(MenuType.GRINDSTONE, 3),
+            Map.entry(MenuType.HOPPER, 5),
+            Map.entry(MenuType.LOOM, 4),
+            Map.entry(MenuType.MERCHANT, 3),
+            Map.entry(MenuType.SHULKER_BOX, 27),
+            Map.entry(MenuType.SMITHING, 4), // 1.20+ 锻造台
+            Map.entry(MenuType.SMOKER, 3),
+            Map.entry(MenuType.CARTOGRAPHY_TABLE, 3),
+            Map.entry(MenuType.STONECUTTER, 2));
 
-    public static Integer getTopInventorySize(ScreenHandlerType<?> type) {
+    public static Integer getTopInventorySize(MenuType<?> type) {
         return nonPlayerSlots.get(type);
     }
 
-    public static ScreenHandlerType<?> getGenericScreenType(int size) {
+    public static MenuType<?> getGenericScreenType(int size) {
         return switch ((size - 1) / 9) {
-            case 0 -> ScreenHandlerType.GENERIC_9X1;
-            case 1 -> ScreenHandlerType.GENERIC_9X2;
-            case 2 -> ScreenHandlerType.GENERIC_9X3;
-            case 3 -> ScreenHandlerType.GENERIC_9X4;
-            case 4 -> ScreenHandlerType.GENERIC_9X5;
-            default -> ScreenHandlerType.GENERIC_9X6;
+            case 0 -> MenuType.GENERIC_9x1;
+            case 1 -> MenuType.GENERIC_9x2;
+            case 2 -> MenuType.GENERIC_9x3;
+            case 3 -> MenuType.GENERIC_9x4;
+            case 4 -> MenuType.GENERIC_9x5;
+            default -> MenuType.GENERIC_9x6;
         };
     }
 
     public static void openChatScreen(String originalText) {
-        ChatHud.ChatMethod method =
-                originalText.startsWith("/") ? ChatHud.ChatMethod.COMMAND : ChatHud.ChatMethod.MESSAGE;
-        mc.openChatScreen(method);
-        if (mc.currentScreen instanceof ChatScreen chat) {
+        ChatComponent.ChatMethod method =
+                originalText.startsWith("/") ? ChatComponent.ChatMethod.COMMAND : ChatComponent.ChatMethod.MESSAGE;
+        mc.gui.openChatScreen(method);
+        if (mc.gui.screen() instanceof ChatScreen chat) {
             chat.insertText(originalText, true);
         }
     }
 
     public static int getCurrentModifiers() {
-        var windowHandle = mc.getWindow().getHandle();
+        var windowHandle = mc.getWindow().handle();
         if (windowHandle == 0) {
             return 0;
         }
@@ -262,12 +263,12 @@ public class ScreenUtils {
             task.run();
         } catch (Throwable var6) {
             Throwable throwable = var6;
-            CrashReport crashReport = CrashReport.create(throwable, errorTitle);
-            CrashReportSection crashReportSection = crashReport.addElement("Affected screen");
-            crashReportSection.add("Screen name", () -> {
+            CrashReport crashReport = CrashReport.forThrowable(throwable, errorTitle);
+            CrashReportCategory crashReportSection = crashReport.addCategory("Affected screen");
+            crashReportSection.setDetail("Screen name", () -> {
                 return screenName;
             });
-            throw new CrashException(crashReport);
+            throw new ReportedException(crashReport);
         }
     }
 
@@ -275,7 +276,7 @@ public class ScreenUtils {
         if (screen != null) {
             switch (key) {
                 case 258:
-                    mc.setNavigationType(GuiNavigationType.KEYBOARD_TAB);
+                    mc.setLastInputType(InputType.KEYBOARD_TAB);
                 case 259:
                 case 260:
                 case 261:
@@ -285,16 +286,16 @@ public class ScreenUtils {
                 case 263:
                 case 264:
                 case 265:
-                    mc.setNavigationType(GuiNavigationType.KEYBOARD_ARROW);
+                    mc.setLastInputType(InputType.KEYBOARD_ARROW);
             }
         }
-        KeyInput keyInput = new KeyInput(key, scancode, modifiers);
+        KeyEvent keyInput = new KeyEvent(key, scancode, modifiers);
         if (action == 1
-                && (!(screen instanceof KeybindsScreen)
-                        || ((KeybindsScreen) screen).lastKeyCodeUpdateTime <= Util.getMeasuringTimeMs() - 20L)) {
-            if (mc.options.fullscreenKey.matchesKey(keyInput)) {
-                mc.getWindow().toggleFullscreen();
-                mc.options.getFullscreen().setValue(mc.getWindow().isFullscreen());
+                && (!(screen instanceof KeyBindsScreen)
+                        || ((KeyBindsScreen) screen).lastKeySelection <= Util.getMillis() - 20L)) {
+            if (mc.options.keyFullscreen.matches(keyInput)) {
+                mc.getWindow().toggleFullScreen();
+                mc.options.fullscreen().set(mc.getWindow().isFullscreen());
                 return;
             }
         }
@@ -310,13 +311,13 @@ public class ScreenUtils {
                                 bls[0] = screen.keyReleased(keyInput);
                             }
                         } else {
-                            InputUtil.Key key2;
-                            screen.applyKeyPressNarratorDelay();
+                            InputConstants.Key key2;
+                            screen.afterKeyboardAction();
                             bls[0] = screen.keyPressed(keyInput);
                             if (bls[0]) {
-                                if (mc.currentScreen == null) {
-                                    key2 = InputUtil.fromKeyCode(keyInput);
-                                    KeyBinding.setKeyPressed(key2, false);
+                                if (mc.gui.screen() == null) {
+                                    key2 = InputConstants.getKey(keyInput);
+                                    KeyMapping.set(key2, false);
                                 }
                             }
                         }
@@ -329,19 +330,19 @@ public class ScreenUtils {
             }
         }
 
-        InputUtil.Key key2;
+        InputConstants.Key key2;
         boolean var10000;
         label184:
         {
-            key2 = InputUtil.fromKeyCode(keyInput);
+            key2 = InputConstants.getKey(keyInput);
             bl3 = screen == null;
             if (!bl3) {
                 label180:
                 {
                     Screen var13 = screen;
-                    if (var13 instanceof GameMenuScreen) {
-                        GameMenuScreen gameMenuScreen = (GameMenuScreen) var13;
-                        if (!gameMenuScreen.shouldShowMenu()) {
+                    if (var13 instanceof PauseScreen) {
+                        PauseScreen gameMenuScreen = (PauseScreen) var13;
+                        if (!gameMenuScreen.showsPauseMenu()) {
                             break label180;
                         }
                     }
@@ -356,17 +357,17 @@ public class ScreenUtils {
 
         boolean bl4 = var10000;
         if (action == 0) {
-            KeyBinding.setKeyPressed(key2, false);
+            KeyMapping.set(key2, false);
 
         } else {
-            boolean bl5 = InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), 292);
+            boolean bl5 = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), 292);
 
             if (bl3) {
                 if (bl5) {
-                    KeyBinding.setKeyPressed(key2, false);
+                    KeyMapping.set(key2, false);
                 } else {
-                    KeyBinding.setKeyPressed(key2, true);
-                    KeyBinding.onKeyPressed(key2);
+                    KeyMapping.set(key2, true);
+                    KeyMapping.click(key2);
                 }
             }
         }
@@ -374,12 +375,12 @@ public class ScreenUtils {
 
     public static void simulateMouseButton(@Nonnull Screen screen, int button, int action, int mods) {
         if (screen != null) {
-            mc.setNavigationType(GuiNavigationType.MOUSE);
+            mc.setLastInputType(InputType.MOUSE);
         }
-        MouseInput mouseInput = new MouseInput(button, mods);
+        MouseButtonInfo mouseInput = new MouseButtonInfo(button, mods);
         boolean bl = action == 1;
-        final Mouse mouse = mc.mouse;
-        MouseInput i = mouse.modifyMouseInput(mouseInput, bl);
+        final MouseHandler mouse = mc.mouseHandler;
+        MouseButtonInfo i = mouse.simulateRightClick(mouseInput, bl);
         if (bl) {
 
             mouse.activeButton = i;
@@ -389,29 +390,29 @@ public class ScreenUtils {
         }
 
         boolean[] bls = new boolean[] {false};
-        if (mc.getOverlay() == null) {
-            double d = mouse.getX()
-                    * (double) mc.getWindow().getScaledWidth()
-                    / (double) mc.getWindow().getWidth();
-            double e = mouse.getY()
-                    * (double) mc.getWindow().getScaledHeight()
-                    / (double) mc.getWindow().getHeight();
-            Click click = new Click(d, e, mouseInput);
+        if (mc.gui.overlay() == null) {
+            double d = mouse.xpos()
+                    * (double) mc.getWindow().getGuiScaledWidth()
+                    / (double) mc.getWindow().getScreenWidth();
+            double e = mouse.ypos()
+                    * (double) mc.getWindow().getGuiScaledHeight()
+                    / (double) mc.getWindow().getScreenHeight();
+            MouseButtonEvent click = new MouseButtonEvent(d, e, mouseInput);
             if (bl) {
-                screen.applyMousePressScrollNarratorDelay();
+                screen.afterMouseAction();
                 wrapScreenError(
                         () -> {
-                            long l = Util.getMeasuringTimeMs();
-                            boolean bl2 = mouse.lastMouseClick != null
-                                    && l - mouse.lastMouseClick.time() < 250L
+                            long l = Util.getMillis();
+                            boolean bl2 = mouse.lastClick != null
+                                    && l - mouse.lastClick.time() < 250L
                                     &&
                                     // remove screen check
                                     // mouse.lastMouseClick.screen() == screen &&
-                                    mouse.lastMouseButton == button;
+                                    mouse.lastClickButton == button;
                             bls[0] = screen.mouseClicked(click, bl2);
                             if (bls[0]) {
-                                mouse.lastMouseClick = new Mouse.MouseClickTime(l, screen);
-                                mouse.lastMouseButton = button;
+                                mouse.lastClick = new MouseHandler.LastClick(l, screen);
+                                mouse.lastClickButton = button;
                             }
                         },
                         "mouseClicked event handler",
@@ -428,20 +429,20 @@ public class ScreenUtils {
     }
 
     public static void simulateMouseScroll(@Nonnull Screen screen, double horizontal, double vertical) {
-        boolean bl = (Boolean) mc.options.getDiscreteMouseScroll().getValue();
-        double d = (Double) mc.options.getMouseWheelSensitivity().getValue();
+        boolean bl = (Boolean) mc.options.discreteMouseScroll().get();
+        double d = (Double) mc.options.mouseWheelSensitivity().get();
         double e = (bl ? Math.signum(horizontal) : horizontal) * d;
         double f = (bl ? Math.signum(vertical) : vertical) * d;
-        if (mc.getOverlay() == null) {
+        if (mc.gui.overlay() == null) {
             if (screen != null) {
-                double g = mc.mouse.getX()
-                        * (double) mc.getWindow().getScaledWidth()
-                        / (double) mc.getWindow().getWidth();
-                double h = mc.mouse.getY()
-                        * (double) mc.getWindow().getScaledHeight()
-                        / (double) mc.getWindow().getHeight();
+                double g = mc.mouseHandler.xpos()
+                        * (double) mc.getWindow().getGuiScaledWidth()
+                        / (double) mc.getWindow().getScreenWidth();
+                double h = mc.mouseHandler.ypos()
+                        * (double) mc.getWindow().getGuiScaledHeight()
+                        / (double) mc.getWindow().getScreenHeight();
                 screen.mouseScrolled(g, h, e, f);
-                screen.applyMousePressScrollNarratorDelay();
+                screen.afterMouseAction();
             } else if (mc.player != null) {
                 // FUCK YOU , IT IS DEPRECATED , GET OUT OF MY WORLD, I DON'T WANT TO EAT SHIT
                 //                if (mc.mouse.eventDeltaHorizontalWheel != 0.0 && Math.signum(e) !=

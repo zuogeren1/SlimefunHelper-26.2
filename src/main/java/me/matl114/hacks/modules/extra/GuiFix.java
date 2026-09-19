@@ -11,18 +11,18 @@ import me.matl114.hacks.api.ModulePath;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.Debug;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.screen.world.LevelLoadingScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextWidget;
-import net.minecraft.client.gui.widget.Widget;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableTextContent;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.layouts.LayoutElement;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.LevelLoadingScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.TranslatableContents;
 
 public class GuiFix extends BaseModule {
     public final ModulePath guiFix = makePath(Configs.EXTRA_CONFIG, "other.gui-fix");
@@ -47,11 +47,11 @@ public class GuiFix extends BaseModule {
         super.registerAll();
         registerListener(Listener.getPreSetScreen().getChannel(LevelLoadingScreen.class), this::onTerrainScreenLoad);
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(GameMenuScreen.class),
+                Listener.getPostInitializeScreen().getChannel(PauseScreen.class),
                 this::onGameMenuScreenRelocateWurstButton,
                 Integer.MAX_VALUE - 1);
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(MultiplayerScreen.class),
+                Listener.getPostInitializeScreen().getChannel(JoinMultiplayerScreen.class),
                 this::onServerListMenuRelocateButtons,
                 Integer.MAX_VALUE - 1);
     }
@@ -63,18 +63,18 @@ public class GuiFix extends BaseModule {
         }
     }
 
-    private static final Set<Text> VANILLA_BUTTON_TEXT;
+    private static final Set<Component> VANILLA_BUTTON_TEXT;
 
     static {
-        Set<Text> texts = new LinkedHashSet<>();
-        Field[] fields = GameMenuScreen.class.getDeclaredFields();
+        Set<Component> texts = new LinkedHashSet<>();
+        Field[] fields = PauseScreen.class.getDeclaredFields();
         for (var re : fields) {
             try {
-                if (Modifier.isStatic(re.getModifiers()) && Text.class.isAssignableFrom(re.getType())) {
+                if (Modifier.isStatic(re.getModifiers()) && Component.class.isAssignableFrom(re.getType())) {
                     re.setAccessible(true);
-                    Text text = (Text) re.get(null);
-                    if (text instanceof MutableText text0
-                            && text0.getContent() instanceof TranslatableTextContent translate) {
+                    Component text = (Component) re.get(null);
+                    if (text instanceof MutableComponent text0
+                            && text0.getContents() instanceof TranslatableContents translate) {
                         texts.add(text);
                     }
                 }
@@ -85,16 +85,16 @@ public class GuiFix extends BaseModule {
         VANILLA_BUTTON_TEXT = texts;
     }
 
-    public void onGameMenuScreenRelocateWurstButton(Event<GameMenuScreen> screenEvent) {
+    public void onGameMenuScreenRelocateWurstButton(Event<PauseScreen> screenEvent) {
         if (optimizeGameMenu.get()) {
             var screen = screenEvent.context;
-            List<? extends Element> elements = screen.children();
+            List<? extends GuiEventListener> elements = screen.children();
             int extraButtons = 0;
             int lastLineY = 0;
-            List<ButtonWidget> extraElements = new ArrayList<>();
+            List<Button> extraElements = new ArrayList<>();
             for (var el : elements) {
-                if (el instanceof ButtonWidget button) {
-                    Text text = button.getMessage();
+                if (el instanceof Button button) {
+                    Component text = button.getMessage();
                     if (VANILLA_BUTTON_TEXT.contains(text)) {
                         if (!button.visible) {
                             button.visible = true;
@@ -116,16 +116,16 @@ public class GuiFix extends BaseModule {
         }
     }
 
-    public void onServerListMenuRelocateButtons(Event<MultiplayerScreen> screenEvent) {
+    public void onServerListMenuRelocateButtons(Event<JoinMultiplayerScreen> screenEvent) {
         if (optimizeServerScreen.get()) {
             var screen = screenEvent.context;
             // reschedule top buttons
 
             try {
                 // filter title, only buttons
-                List<Widget> widgets = screen.children().stream()
-                        .filter(s -> s instanceof Widget && s instanceof Selectable && !(s instanceof TextWidget))
-                        .map(Widget.class::cast)
+                List<LayoutElement> widgets = screen.children().stream()
+                        .filter(s -> s instanceof LayoutElement && s instanceof NarratableEntry && !(s instanceof StringWidget))
+                        .map(LayoutElement.class::cast)
                         .filter(s -> s.getY() < 20)
                         .collect(Collectors.toCollection(ArrayList::new));
                 onResize(widgets);
@@ -135,11 +135,11 @@ public class GuiFix extends BaseModule {
         }
     }
 
-    private void onResize(List<Widget> widgets) {
+    private void onResize(List<LayoutElement> widgets) {
         widgets.sort(Comparator.comparingInt(s -> -(s.getX() + s.getWidth())));
         int width = Integer.MAX_VALUE;
-        Deque<Widget> forReschedule = new ArrayDeque<>();
-        for (Widget widget : widgets) {
+        Deque<LayoutElement> forReschedule = new ArrayDeque<>();
+        for (LayoutElement widget : widgets) {
             // same height
             if (widget.getY() < 5) {
                 widget.setY(5);
@@ -152,7 +152,7 @@ public class GuiFix extends BaseModule {
                     width = widget.getX();
                 } else {
                     while (!forReschedule.isEmpty()) {
-                        Widget tryWidget = forReschedule.peekFirst();
+                        LayoutElement tryWidget = forReschedule.peekFirst();
                         int tryWidth = tryWidget.getWidth();
                         if (xR < width - tryWidth) {
                             // we should just put it here
@@ -180,7 +180,7 @@ public class GuiFix extends BaseModule {
             }
         }
         while (!forReschedule.isEmpty()) {
-            Widget widget = forReschedule.removeFirst();
+            LayoutElement widget = forReschedule.removeFirst();
             int tryWidth = widget.getWidth();
             width = width - tryWidth;
             widget.setX(width);

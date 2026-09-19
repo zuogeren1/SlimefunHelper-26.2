@@ -3,7 +3,7 @@ package me.matl114.events.catchers;
 import java.util.function.Predicate;
 import me.matl114.events.Event;
 import me.matl114.managers.Tasks;
-import net.minecraft.network.packet.Packet;
+import net.minecraft.network.protocol.Packet;
 
 public class TimedPacketCatcherImpl<T extends Packet<?>> extends PacketCatcherImpl<T> {
     public int expireTick;

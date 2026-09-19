@@ -1,16 +1,16 @@
 package me.matl114.hacks.utils.entity;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public record SimpleEntityPredictor(Entity entity) implements Predictor {
     @Override
-    public Vec3d getKnownDeltaMovement() {
-        return new Vec3d(entity.getX() - entity.lastX, entity.getY() - entity.lastY, entity.getZ() - entity.lastZ);
+    public Vec3 getKnownDeltaMovement() {
+        return new Vec3(entity.getX() - entity.xo, entity.getY() - entity.yo, entity.getZ() - entity.zo);
     }
 
     @Override
-    public Vec3d predict(int ticksLater, int method, int a) {
-        return entity.getLerpedPos(ticksLater);
+    public Vec3 predict(int ticksLater, int method, int a) {
+        return entity.getPosition(ticksLater);
     }
 }

@@ -11,10 +11,10 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.ListRef;
 import me.matl114.utils.Debug;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourcePack;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackResources;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 public class CustomTextures extends BaseModule {
     public final ModulePath textureConfig = makePath(Configs.MODEL_CONFIG, "texture-config");
@@ -66,9 +66,9 @@ public class CustomTextures extends BaseModule {
                 .filter(Objects::nonNull)
                 .toList();
         Debug.info("Custom Atlas load start");
-        for (ResourcePack pack : manager.streamResourcePacks().toList()) {
+        for (PackResources pack : manager.listPacks().toList()) {
             // Debug.info("in resourcepack ",pack.getName());
-            String name = pack.getId();
+            String name = pack.packId();
             if (name.equals("minecraft")
                     || name.equals("realms")
                     || name.startsWith("fabric-")
@@ -77,7 +77,7 @@ public class CustomTextures extends BaseModule {
                 continue;
             }
             if (name.equals(OUR_NAMESPACE)) {
-                pack.findResources(ResourceType.CLIENT_RESOURCES, "slimefunhelper", "textures/slimefunitem", (i, j) -> {
+                pack.listResources(PackType.CLIENT_RESOURCES, "slimefunhelper", "textures/slimefunitem", (i, j) -> {
                     String realNamespace = i.getNamespace();
                     if (i.getPath().endsWith(".png")) {
                         String realPath =
@@ -89,10 +89,10 @@ public class CustomTextures extends BaseModule {
                 });
             } else {
                 if (enable.get()) {
-                    Set<String> namespacess = pack.getNamespaces(ResourceType.CLIENT_RESOURCES);
+                    Set<String> namespacess = pack.getNamespaces(PackType.CLIENT_RESOURCES);
 
                     for (String namespace : namespacess) {
-                        pack.findResources(ResourceType.CLIENT_RESOURCES, namespace, "textures", (i, j) -> {
+                        pack.listResources(PackType.CLIENT_RESOURCES, namespace, "textures", (i, j) -> {
                             String realNamespace = i.getNamespace();
                             if (i.getPath().endsWith(".png")) {
                                 String realPath = i.getPath()

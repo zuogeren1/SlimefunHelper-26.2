@@ -1,16 +1,16 @@
 package me.matl114.hacks.utils.move.goal;
 
 import java.util.List;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 
 public record GoalList(List<IPathGoal> goals) implements IPathGoal {
     @Override
-    public Vec3d sample() {
+    public Vec3 sample() {
         return goals.stream().map(IPathGoal::sample).findAny().orElse(null);
     }
 
     @Override
-    public boolean isInGoal(Vec3d playerPos) {
+    public boolean isInGoal(Vec3 playerPos) {
         return goals.stream().anyMatch(goal -> goal.isInGoal(playerPos));
     }
 }

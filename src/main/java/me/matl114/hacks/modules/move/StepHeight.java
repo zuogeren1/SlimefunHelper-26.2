@@ -11,8 +11,8 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.EntityUtils;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.Vec3;
 
 public class StepHeight extends BaseModule implements LegalMovementManager.MovementModifier {
 
@@ -77,7 +77,7 @@ public class StepHeight extends BaseModule implements LegalMovementManager.Movem
     public void triggerJump() {
         if (isActive()) {
             double jumpStrength = LivingEntityAccess.of(mc.player).getJumpUpwardSpeed(1.0F);
-            double gravity = mc.player.getFinalGravity();
+            double gravity = mc.player.getGravity();
             int ticksNeeded = (int) ((jumpStrength - 1E-5) / gravity);
             ticksEnd = ticksNeeded + 1;
             toggleRunning = true;
@@ -124,13 +124,13 @@ public class StepHeight extends BaseModule implements LegalMovementManager.Movem
                 runTicks += 1;
                 if (runTicks >= ticksEnd) {
 
-                    ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
-                    if (!player.isOnGround()) {
-                        Vec3d vec3d2 = new Vec3d((double) player.sidewaysSpeed, 0.0, (double) player.forwardSpeed);
-                        Vec3d vec3d0 = player.getVelocity();
-                        Vec3d movement = // new Vec3d(vec3d0.x, 0, vec3d0.z)
+                    LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
+                    if (!player.onGround()) {
+                        Vec3 vec3d2 = new Vec3((double) player.xxa, 0.0, (double) player.zza);
+                        Vec3 vec3d0 = player.getDeltaMovement();
+                        Vec3 movement = // new Vec3d(vec3d0.x, 0, vec3d0.z)
                                 vec3d0.add(EntityUtils.movementInputToVelocity(
-                                        vec3d2, player.getMovementSpeed(), player.getYaw()));
+                                        vec3d2, player.getSpeed(), player.getYRot()));
                         // important simulation
                         player.setOnGround(true);
                         boolean useStepHeightFeature = MovTasks.doMovementInvolveStepheight(player, movement);
@@ -140,8 +140,8 @@ public class StepHeight extends BaseModule implements LegalMovementManager.Movem
                             movementManagerEvent.cancel();
                             //                        movementManagerEvent.context.playerStatus.restorePos();
                             movementManagerEvent.context.playerStatus.entity.setOnGround(true);
-                            mc.getNetworkHandler()
-                                    .sendPacket(VPacket.newOnGroundOnly(true, player.horizontalCollision));
+                            mc.getConnection()
+                                    .send(VPacket.newOnGroundOnly(true, player.horizontalCollision));
                             return;
                         }
                         player.setOnGround(false);

@@ -10,9 +10,9 @@ import me.matl114.hooks.impl.xaeroworldmap.MapClickContext;
 import me.matl114.hooks.impl.xaeroworldmap.RightClickPosOption;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import xaero.map.element.HoveredMapElementHolder;
@@ -41,7 +41,7 @@ public abstract class XaeroGuiRightClickMenuMixin {
         var contexts = original.call(rightClickable);
         if (screen instanceof XaeroGuiMapAccess access) {
             ArrayList<MapClickContext> list = new ArrayList<>();
-            RegistryKey<World> world = access.getRightClickDim();
+            ResourceKey<Level> world = access.getRightClickDim();
             BlockPos pos;
             if (rightClickable instanceof HoveredMapElementHolder<?, ?> hoveredMapElementHolder
                     && hoveredMapElementHolder.getElement() instanceof Waypoint waypoint) {

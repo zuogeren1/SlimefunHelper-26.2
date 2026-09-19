@@ -9,22 +9,21 @@ import me.matl114.hacks.modules.interact.InteractExtra;
 import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.hacks.utils.config.Regex;
 import me.matl114.managers.*;
-import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class MineArua extends BaseModule {
     public MineArua() {
@@ -42,7 +41,7 @@ public class MineArua extends BaseModule {
 
     public NBTRef<EntrySet<Block>> whiteListRegex = builder(
                     mineArua.add("block-whitelist"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*bed)$"), Registries.BLOCK))
+            .defaultValue(new EntrySet<>(new Regex("^(.*bed)$"), BuiltInRegistries.BLOCK))
             .build();
 
     public FlagRef autoBreak = flagBuilder(mineArua.add("auto-break")).build();
@@ -65,26 +64,26 @@ public class MineArua extends BaseModule {
         if (false && isActive()) {
             BlockPos pos = refreshMineAruaTarget();
             if (pos != this.cachePosition) {
-                // mc.interactionManager.sendSequencedPacket(mc.world, );
+                // mc.gameMode.sendSequencedPacket(mc.level, );
             }
         }
         if (mc.player != null && isActive()) {
             BlockPos pos = refreshMineAruaTarget();
             if (pos != this.cachePosition) {
                 if (pos != null) {
-                    Debug.chat(Text.literal("[Mine Arua] Redirect mine target ")
-                            .append(ChatUtils.getDisplayedLocation(Vec3d.of(pos)))
-                            .formatted(Formatting.GREEN));
+                    Debug.chat(Component.literal("[Mine Arua] Redirect mine target ")
+                            .append(ChatUtils.getDisplayedLocation(Vec3.atLowerCornerOf(pos)))
+                            .withStyle(ChatFormatting.GREEN));
                 }
                 this.cachePosition = pos;
                 lastRefreshTick = Tasks.getTick();
             }
 
             if (this.cachePosition != null) {
-                Direction dir = Direction.getFacing(
-                                this.cachePosition.toCenterPos().subtract(mc.player.getEyePos()))
+                Direction dir = Direction.getApproximateNearest(
+                                Vec3.atCenterOf(this.cachePosition).subtract(mc.player.getEyePosition()))
                         .getOpposite();
-                HitResult hitResult = new BlockHitResult(Vec3d.of(this.cachePosition), dir, this.cachePosition, false);
+                HitResult hitResult = new BlockHitResult(Vec3.atLowerCornerOf(this.cachePosition), dir, this.cachePosition, false);
                 event.context(hitResult);
             }
         }
@@ -93,11 +92,11 @@ public class MineArua extends BaseModule {
     // where to place it
     // todo: minearua conflict with optimize
 
-    private boolean isMineAruaTarget(World world, BlockPos pos) {
+    private boolean isMineAruaTarget(Level world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
-        if (state != null && !state.isAir() && !state.isLiquid()) {
+        if (state != null && !state.isAir() && !state.liquid()) {
             Block block = state.getBlock();
-            if (block.getHardness() >= 0.0F && whiteListRegex.get().test(block)) {
+            if (block.defaultDestroyTime() >= 0.0F && whiteListRegex.get().test(block)) {
                 return true;
             }
         }
@@ -105,20 +104,20 @@ public class MineArua extends BaseModule {
     }
 
     private BlockPos refreshMineAruaTarget() {
-        if (mc.player != null && mc.world != null) {
+        if (mc.player != null && mc.level != null) {
             // every time check if current cache is here
-            Vec3d eyepos = mc.player.getEyePos();
+            Vec3 eyepos = mc.player.getEyePosition();
             if (this.cachePosition != null
-                    && isMineAruaTarget(mc.world, this.cachePosition)
+                    && isMineAruaTarget(mc.level, this.cachePosition)
                     && !MineTasks.distanceOutOfReach(this.cachePosition, eyepos)) {
                 return this.cachePosition;
             }
             // refresh only 4 ticks once
             if (Tasks.getTick() >= lastRefreshTick + 4) {
-                BlockPos currentBlockPos = mc.player.getBlockPos();
+                BlockPos currentBlockPos = mc.player.blockPosition();
                 for (var vec : InteractExtra.INSTANCE.getBlocksAround()) {
-                    BlockPos pos = currentBlockPos.add(vec);
-                    if (isMineAruaTarget(mc.world, pos) && !MineTasks.distanceOutOfReach(pos, eyepos)) {
+                    BlockPos pos = currentBlockPos.offset(vec);
+                    if (isMineAruaTarget(mc.level, pos) && !MineTasks.distanceOutOfReach(pos, eyepos)) {
                         return pos;
                     }
                 }

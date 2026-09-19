@@ -7,8 +7,8 @@ import me.matl114.gui.GenericScreen;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.elements.ButtonElement;
 import me.matl114.utils.ChatUtils;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 public class ClickGuiMainScreen extends GenericScreen {
     Map<String, Function<Screen, DrawableWidget>> widgets;
@@ -16,7 +16,7 @@ public class ClickGuiMainScreen extends GenericScreen {
     String selecting;
 
     public ClickGuiMainScreen(Map<String, Function<Screen, DrawableWidget>> widgets) {
-        super(Text.empty(), 0, 0);
+        super(Component.empty(), 0, 0);
         this.widgets = widgets;
         String val = this.widgets.keySet().iterator().next();
         setGlobal(val);
@@ -61,7 +61,7 @@ public class ClickGuiMainScreen extends GenericScreen {
         for (String entry : widgets.keySet()) {
             String selecting = entry;
             ElementHandler element = new ButtonElement(
-                            TextProvider.of(Text.translatableWithFallback(
+                            TextProvider.of(Component.translatableWithFallback(
                                     "widget.click-gui.selection." + selecting, selecting)),
                             ButtonAction.run(() -> this.setGlobal(selecting)))
                     .setInactiveId(ButtonElement.BUTTON)

@@ -3,11 +3,11 @@ package me.matl114.gui.presets.choices;
 import me.matl114.gui.GenericBackGroundScreen;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.elements.ButtonElement;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 public abstract class ConfirmingBigScreen extends GenericBackGroundScreen {
-    protected ConfirmingBigScreen(Text title) {
+    protected ConfirmingBigScreen(Component title) {
         super(title, 480, 360);
     }
 
@@ -17,17 +17,17 @@ public abstract class ConfirmingBigScreen extends GenericBackGroundScreen {
     protected int content_end_y;
 
     protected void onCloseButton() {
-        this.close();
+        this.onClose();
     }
 
     protected abstract boolean canConfirm(ElementHandler elementHandler);
 
     protected abstract void onConfirmButton();
 
-    private static final Text CANCEL =
-            Text.translatable("widget.gui.confirming-big-screen.cancel").formatted(Formatting.RED);
-    private static final Text CONFIRM =
-            Text.translatable("widget.gui.confirming-big-screen.confirm").formatted(Formatting.GREEN);
+    private static final Component CANCEL =
+            Component.translatable("widget.gui.confirming-big-screen.cancel").withStyle(ChatFormatting.RED);
+    private static final Component CONFIRM =
+            Component.translatable("widget.gui.confirming-big-screen.confirm").withStyle(ChatFormatting.GREEN);
 
     @Override
     protected void init() {

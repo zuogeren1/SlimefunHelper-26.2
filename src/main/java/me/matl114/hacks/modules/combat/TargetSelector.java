@@ -29,25 +29,25 @@ import me.matl114.utils.commands.commandGroup.SubCommand;
 import me.matl114.utils.commands.commandGroup.TreeSubCommand;
 import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.SimpleCommandArgs;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.mob.Angerable;
-import net.minecraft.entity.mob.EndermanEntity;
-import net.minecraft.entity.mob.ShulkerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.NeutralMob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.EnderMan;
+import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.PlayerTeam;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
@@ -153,7 +153,7 @@ public class TargetSelector extends BaseModule {
     public DoubleStream getPotentialEyeHeights() {
         if (grimExpandEyeHeight.get()) {
             double scale = mc.player.getScale();
-            if (mc.player.isFallFlying() || mc.player.isUsingRiptide() || mc.player.isSwimming()) {
+            if (mc.player.isFallFlying() || mc.player.isAutoSpinAttack() || mc.player.isSwimming()) {
                 return DoubleStream.concat(
                         Arrays.stream(FALL_FLYING_EYE_HEIGHTS).map(s -> s * scale),
                         DoubleStream.of(mc.player.dimensions.eyeHeight()));
@@ -165,27 +165,27 @@ public class TargetSelector extends BaseModule {
         return DoubleStream.of(mc.player.dimensions.eyeHeight());
     }
 
-    public boolean isWithinAttackRange(Vec3d pos, Entity entity) {
+    public boolean isWithinAttackRange(Vec3 pos, Entity entity) {
         return isWithinAttackRange(pos, entity.getBoundingBox(), CombatExtra.INSTANCE.getAttackAtTargetRange(entity));
     }
 
-    public boolean isWithinAttackRange(Vec3d pos, Box box, double range) {
-        if (box.squaredMagnitude(pos) > MathUtils.s2(range + 3 + mc.player.dimensions.eyeHeight())) {
+    public boolean isWithinAttackRange(Vec3 pos, AABB box, double range) {
+        if (box.distanceToSqr(pos) > MathUtils.s2(range + 3 + mc.player.dimensions.eyeHeight())) {
             // filter all outofrange
             // optimize calculation
             return false;
         }
         return getPotentialEyeHeights()
                 .mapToObj(s -> pos.add(0, s, 0))
-                .anyMatch(ps -> box.squaredMagnitude(ps) < MathUtils.s2(range));
+                .anyMatch(ps -> box.distanceToSqr(ps) < MathUtils.s2(range));
     }
 
-    public Vec3d getBestAttackEyePos(Vec3d pos, Box box) {
+    public Vec3 getBestAttackEyePos(Vec3 pos, AABB box) {
         var poses = getPotentialEyeHeights().mapToObj(s -> pos.add(0, s, 0)).toList();
-        Vec3d playerPos = pos.add(mc.player.getEyePos().subtract(mc.player.getPos()));
-        double s2 = box.squaredMagnitude(playerPos);
+        Vec3 playerPos = pos.add(mc.player.getEyePosition().subtract(mc.player.position()));
+        double s2 = box.distanceToSqr(playerPos);
         for (var pp : poses) {
-            double s3 = box.squaredMagnitude(pp);
+            double s3 = box.distanceToSqr(pp);
             if (s3 < s2) {
                 s2 = s3;
                 playerPos = pp;
@@ -194,17 +194,17 @@ public class TargetSelector extends BaseModule {
         return playerPos;
     }
 
-    public Optional<Vec3d> getBestAttackEyePos(Vec3d pos, Box box, double range) {
-        if (box.squaredMagnitude(pos) > MathUtils.s2(range + 3 + mc.player.dimensions.eyeHeight())) {
+    public Optional<Vec3> getBestAttackEyePos(Vec3 pos, AABB box, double range) {
+        if (box.distanceToSqr(pos) > MathUtils.s2(range + 3 + mc.player.dimensions.eyeHeight())) {
             // filter all outofrange
             // optimize calculation
             return Optional.empty();
         }
         var poses = getPotentialEyeHeights().mapToObj(s -> pos.add(0, s, 0)).toList();
-        Vec3d playerPos = pos.add(mc.player.getEyePos().subtract(mc.player.getPos()));
-        double s2 = box.squaredMagnitude(playerPos);
+        Vec3 playerPos = pos.add(mc.player.getEyePosition().subtract(mc.player.position()));
+        double s2 = box.distanceToSqr(playerPos);
         for (var pp : poses) {
-            double s3 = box.squaredMagnitude(pp);
+            double s3 = box.distanceToSqr(pp);
             if (s3 < s2) {
                 s2 = s3;
                 playerPos = pp;
@@ -218,10 +218,10 @@ public class TargetSelector extends BaseModule {
     }
 
     public boolean onAddFriend() {
-        if (mc.crosshairTarget.getType() == HitResult.Type.ENTITY
-                && ((EntityHitResult) mc.crosshairTarget).getEntity() instanceof PlayerEntity player
+        if (mc.hitResult.getType() == HitResult.Type.ENTITY
+                && ((EntityHitResult) mc.hitResult).getEntity() instanceof Player player
                 && player != mc.player) {
-            addFriend(player.getNameForScoreboard(), "");
+            addFriend(player.getScoreboardName(), "");
             return true;
         }
         return false;
@@ -278,7 +278,7 @@ public class TargetSelector extends BaseModule {
         // filter not vanilla targets
         if (target == null
                 || target == mc.player
-                || (target instanceof AbstractClientPlayerEntity && !(target instanceof OtherClientPlayerEntity))) {
+                || (target instanceof AbstractClientPlayer && !(target instanceof RemotePlayer))) {
             return false;
         }
         if (target instanceof LivingEntity lv && lv.getHealth() <= 0) {
@@ -308,17 +308,17 @@ public class TargetSelector extends BaseModule {
         return checkWeapon(target, true) && canAttack(target);
     }
 
-    public boolean isInFriendList(PlayerEntity e) {
+    public boolean isInFriendList(Player e) {
         FriendListStorage list = playerList;
-        if (list != null && list.contains(e.getNameForScoreboard())) {
+        if (list != null && list.contains(e.getScoreboardName())) {
             return true;
         }
         return false;
     }
 
     public boolean isNotFriend(Entity e) {
-        if (e instanceof PlayerEntity pl) {
-            String name = pl.getNameForScoreboard();
+        if (e instanceof Player pl) {
+            String name = pl.getScoreboardName();
             Regex regex = friendNameRegex.get();
             if (regex != null && regex.test(name)) {
                 // friend
@@ -347,13 +347,13 @@ public class TargetSelector extends BaseModule {
         }
     }
 
-    private boolean isSameTeam(PlayerEntity pl, EquipmentSlot slot) {
-        ItemStack chestPlate = pl.getEquippedStack(slot);
-        if (chestPlate.contains(DataComponentTypes.DYED_COLOR)) {
-            ItemStack ourPlate = mc.player.getEquippedStack(slot);
-            if (ourPlate.contains(DataComponentTypes.DYED_COLOR)) {
+    private boolean isSameTeam(Player pl, EquipmentSlot slot) {
+        ItemStack chestPlate = pl.getItemBySlot(slot);
+        if (chestPlate.has(DataComponents.DYED_COLOR)) {
+            ItemStack ourPlate = mc.player.getItemBySlot(slot);
+            if (ourPlate.has(DataComponents.DYED_COLOR)) {
                 if (Objects.equals(
-                        chestPlate.get(DataComponentTypes.DYED_COLOR), ourPlate.get(DataComponentTypes.DYED_COLOR))) {
+                        chestPlate.get(DataComponents.DYED_COLOR), ourPlate.get(DataComponents.DYED_COLOR))) {
                     return true;
                 }
             }
@@ -363,12 +363,12 @@ public class TargetSelector extends BaseModule {
 
     public boolean isNotTeamMate(Entity e) {
         if (teamMate.get()) {
-            if (e instanceof PlayerEntity pl) {
+            if (e instanceof Player pl) {
 
-                if (pl.getScoreboardTeam() != null && pl.getScoreboardTeam() == mc.player.getScoreboardTeam()) {
-                    Team team = pl.getScoreboardTeam();
+                if (pl.getTeam() != null && pl.getTeam() == mc.player.getTeam()) {
+                    PlayerTeam team = pl.getTeam();
                     // 过滤友伤
-                    if (!team.isFriendlyFireAllowed()) {
+                    if (!team.isAllowFriendlyFire()) {
                         return false;
                     }
                 }
@@ -387,9 +387,9 @@ public class TargetSelector extends BaseModule {
 
     public boolean isNotInvulnerable(Entity e) {
         if (!invulnerable.get()) {
-            if (e instanceof PlayerEntity pl) {
+            if (e instanceof Player pl) {
                 // login players are invulnerable
-                if (pl.getAttributeValue(EntityAttributes.MOVEMENT_SPEED) < 1e-6) {
+                if (pl.getAttributeValue(Attributes.MOVEMENT_SPEED) < 1e-6) {
                     return false;
                 }
                 // creative players are invulnerable
@@ -407,9 +407,9 @@ public class TargetSelector extends BaseModule {
 
     private boolean passHostileCheck(Entity e) {
         if (hostile.get()) {
-            if (e instanceof Angerable anger) {
-                long time = anger.getAngerEndTime();
-                long currentTime = e.getEntityWorld().getTime();
+            if (e instanceof NeutralMob anger) {
+                long time = anger.getPersistentAngerEndTime();
+                long currentTime = e.level().getGameTime();
                 return currentTime < time;
             }
             return false;
@@ -424,7 +424,7 @@ public class TargetSelector extends BaseModule {
 
     public List<Entity> getAttackableEntities(double nearbyOverride, int ticks, Predicate<Entity> predicate) {
         List<Entity> entities = new ArrayList<>();
-        List<Entity> et = ImmutableList.copyOf(mc.world.getEntities());
+        List<Entity> et = ImmutableList.copyOf(mc.level.entitiesForRendering());
         for (var e : et) {
             if (predicate.test(e) && isTargetInRange(e, nearbyOverride, ticks)) {
                 entities.add(e);
@@ -434,7 +434,7 @@ public class TargetSelector extends BaseModule {
     }
 
     public boolean checkWeapon(Entity e, boolean commonBow) {
-        return (!commonBow || (!(e instanceof EndermanEntity) && !(e instanceof ShulkerEntity)));
+        return (!commonBow || (!(e instanceof EnderMan) && !(e instanceof Shulker)));
     }
 
     public List<Entity> getAimableEntities(boolean commonBow) {
@@ -443,7 +443,7 @@ public class TargetSelector extends BaseModule {
 
     public List<Entity> getAimableEntities(Predicate<Entity> predicate) {
         List<Entity> entities = new ArrayList<>();
-        List<Entity> et = ImmutableList.copyOf(mc.world.getEntities());
+        List<Entity> et = ImmutableList.copyOf(mc.level.entitiesForRendering());
         for (var e : et) {
             // 普通弹射物， 无法攻击末影人和贝壳， 过滤掉
             if (predicate.test(e) && canPlayerDirectlySee(e)) {
@@ -456,8 +456,8 @@ public class TargetSelector extends BaseModule {
     public boolean isTargetInRange(Entity e, double nearby, int ticks) {
         if (mc.player == null) return false;
         nearby = Math.max(nearby, CombatExtra.INSTANCE.getAttackAtTargetRange(e));
-        Vec3d predictedPlayerPos =
-                mc.player.getPos().add(mc.player.getVelocity().multiply(mc.player.isFallFlying() ? ticks : 0));
+        Vec3 predictedPlayerPos =
+                mc.player.position().add(mc.player.getDeltaMovement().scale(mc.player.isFallFlying() ? ticks : 0));
         return isWithinAttackRange(predictedPlayerPos, e.getBoundingBox(), nearby);
     }
 
@@ -484,8 +484,8 @@ public class TargetSelector extends BaseModule {
         if (mc.player == null) return null;
         // when tp reach, also attack the targeted entity first
 
-        if (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.ENTITY) {
-            Entity entityCheck = ((EntityHitResult) mc.crosshairTarget).getEntity();
+        if (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY) {
+            Entity entityCheck = ((EntityHitResult) mc.hitResult).getEntity();
             // fix: check attackable when not auto
             if (!autoSelect || combinedPredicate.test(entityCheck)) {
                 return entityCheck;
@@ -496,7 +496,7 @@ public class TargetSelector extends BaseModule {
             // focusing entity， attack
             // should respect whitelist
             if (combinedPredicate.test(((EntityHitResult) result).getEntity())) {
-                //                    mc.interactionManager.attackEntity(mc.player,
+                //                    mc.gameMode.attackEntity(mc.player,
                 // ((EntityHitResult)result).getEntity());
                 //                    mc.player.swingHand(Hand.MAIN_HAND);
                 //                    handleShieldPredict(mc.player.getPitch(), mc.player.getYaw());
@@ -505,8 +505,8 @@ public class TargetSelector extends BaseModule {
         }
         // this use mc.crosshairTarget; if hand ...
         if (!autoSelect
-                && mc.crosshairTarget.getType() == HitResult.Type.BLOCK
-                && CombatTasks.notSuitableForAttack(mc.player.getMainHandStack())) {
+                && mc.hitResult.getType() == HitResult.Type.BLOCK
+                && CombatTasks.notSuitableForAttack(mc.player.getMainHandItem())) {
             // stop if player only want to mine a block
             return null;
         }
@@ -539,8 +539,8 @@ public class TargetSelector extends BaseModule {
         if (mc.player == null) return null;
         // when tp reach, also attack the targeted entity first
 
-        if (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.ENTITY) {
-            Entity entity = ((EntityHitResult) mc.crosshairTarget).getEntity();
+        if (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY) {
+            Entity entity = ((EntityHitResult) mc.hitResult).getEntity();
             if (combinedPredicate.test(entity)) {
                 return entity;
             }
@@ -556,48 +556,48 @@ public class TargetSelector extends BaseModule {
         List<Entity> targets = getAimableEntities(combinedPredicate);
         // filter raycast
         // 考虑夹角
-        Vec3d vec3d = mc.player.getEyePos();
-        Vec3d playerRotation = mc.player.getRotationVector().normalize();
+        Vec3 vec3d = mc.player.getEyePosition();
+        Vec3 playerRotation = mc.player.getLookAngle().normalize();
         // 通过
         if (targets.isEmpty()) return null;
         // 通过视角偏差
         targets.sort(Comparator.comparingDouble(
-                e -> -e.getEyePos().subtract(vec3d).normalize().dotProduct(playerRotation)));
+                e -> -e.getEyePosition().subtract(vec3d).normalize().dot(playerRotation)));
         // Debug.info(pos);
         return targets.get(0);
     }
 
-    private double getEntityWeight(Entity e, PlayerEntity player) {
-        Vec3d vec3d = player.getEyePos();
-        Vec3d eye = player.getRotationVector().normalize();
-        var pos = e.getPos().subtract(vec3d).normalize(); // .dotProduct(eye))
+    private double getEntityWeight(Entity e, Player player) {
+        Vec3 vec3d = player.getEyePosition();
+        Vec3 eye = player.getLookAngle().normalize();
+        var pos = e.position().subtract(vec3d).normalize(); // .dotProduct(eye))
         double horizontalMultiply = (pos.x * eye.x + pos.z * eye.z);
         if (multiplyBackward.get()) {
             if (horizontalMultiply >= 0) {
-                return -((horizontalMultiply / ((e.getPos().subtract(vec3d).horizontalLength() + 1E-10)))
-                        + (e instanceof PlayerEntity ? multiplyPlayer.get() : 0.0D));
+                return -((horizontalMultiply / ((e.position().subtract(vec3d).horizontalDistance() + 1E-10)))
+                        + (e instanceof Player ? multiplyPlayer.get() : 0.0D));
             } else {
                 // rotate
                 double horizontalNormalize = horizontalMultiply / (pos.length() * eye.length() + 1E-10);
-                return -(horizontalNormalize + (e instanceof PlayerEntity ? multiplyPlayer.get() : 0.0D));
+                return -(horizontalNormalize + (e instanceof Player ? multiplyPlayer.get() : 0.0D));
             }
         } else {
             return -(Math.abs(
-                            (horizontalMultiply) / ((e.getPos().subtract(vec3d).horizontalLength() + 1E-10)))
-                    + (e instanceof PlayerEntity ? multiplyPlayer.get() : 0.0D));
+                            (horizontalMultiply) / ((e.position().subtract(vec3d).horizontalDistance() + 1E-10)))
+                    + (e instanceof Player ? multiplyPlayer.get() : 0.0D));
         }
     }
 
     //    private double withMultiply(Entity e, double v) {
     //        return Math.abs(v)
     //                - ((v < 0.0) ? multiplyBackward.get() : 0.0D)
-    //                + (e instanceof PlayerEntity ? multiplyPlayer.get() : 0.0D);
+    //                + (e instanceof Player ? multiplyPlayer.get() : 0.0D);
     //    }
 
     public static boolean canPlayerDirectlySee(Entity entity) {
         // 横向距离小于300
-        return entity.getPos().subtract(mc.player.getPos()).horizontalLengthSquared() < 90000
-                && !RaycastUtils.raycastAnySolidBlock(mc.player, mc.player.getEyePos(), entity.getEyePos());
+        return entity.position().subtract(mc.player.position()).horizontalDistanceSqr() < 90000
+                && !RaycastUtils.raycastAnySolidBlock(mc.player, mc.player.getEyePosition(), entity.getEyePosition());
     }
 
     private void onFriendCommandBootstrap(MainCommand mainCommand) {
@@ -609,7 +609,7 @@ public class TargetSelector extends BaseModule {
                             .name("list")
                             .helper("message.command.friends_command.friends.list.help")
                             .post(e -> e.executor(CommandContext.run(() -> {
-                                Debug.chat(Text.literal("== 当前好友列表 ==").formatted(Formatting.GREEN));
+                                Debug.chat(Component.literal("== 当前好友列表 ==").withStyle(ChatFormatting.GREEN));
                                 for (var re : playerList.friends()) {
                                     Debug.chat(re);
                                 }

@@ -27,33 +27,33 @@ import me.matl114.utils.algorithms.SerialExecutor;
 import me.matl114.utils.world.BlockLocation;
 import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.TrialSpawnerBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.entity.TrialSpawnerBlockEntity;
-import net.minecraft.block.enums.TrialSpawnerState;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtByte;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtLong;
-import net.minecraft.network.packet.s2c.play.SetTradeOffersS2CPacket;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.MerchantScreenHandler;
-import net.minecraft.util.Uuids;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.village.TradedItem;
-import net.minecraft.village.VillagerData;
-import net.minecraft.village.VillagerProfession;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.ByteTag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.LongTag;
+import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerData;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.inventory.MerchantMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.TrialSpawnerBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class WorldManager extends BaseModule {
     public static WorldManager INSTANCE;
@@ -83,9 +83,9 @@ public class WorldManager extends BaseModule {
         registerListener(Listener.getPostGameTick(), this::onGameTick);
         registerListener(Listener.getEntityRemoveListener(), this::onEntityDeath);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityType.VILLAGER), this::onVillagerProfessionUpdate);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.VILLAGER), this::onVillagerProfessionUpdate);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(SetTradeOffersS2CPacket.class),
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundMerchantOffersPacket.class),
                 this::onVillagerTradeUpdate);
         registerListener(
                 Listener.getBlockUpdateListener().getChannel(Blocks.TRIAL_SPAWNER), this::onTrialSpawnerStateUpdate);
@@ -102,49 +102,49 @@ public class WorldManager extends BaseModule {
     public static final String KEY_VILLAGER_TRADE_LOCK = "slimefunhelper:trade_lock";
     public static final String KEY_VILLAGER_TRADE_LIST = "slimefunhelper:trade_list";
 
-    public void setVillagerTradeLock(VillagerEntity villager, boolean lock) {
+    public void setVillagerTradeLock(Villager villager, boolean lock) {
         var status = getStatus(villager, true);
-        NbtCompound nbtCompound = status.getDataContainer();
-        NbtCompound sub = NBTUtils.ensurePath(nbtCompound, KEY_VILLAGER_TRADE);
+        CompoundTag nbtCompound = status.getDataContainer();
+        CompoundTag sub = NBTUtils.ensurePath(nbtCompound, KEY_VILLAGER_TRADE);
         sub.putByte(KEY_VILLAGER_TRADE_LOCK, lock ? (byte) 1 : (byte) 0);
         status.markDirty();
     }
 
-    public boolean isVillagerTradeLock(VillagerEntity villager) {
+    public boolean isVillagerTradeLock(Villager villager) {
         var status = getStatus(villager, false);
         return status != null
                 && NBTUtils.resolve(status.getDataContainer(), KEY_VILLAGER_TRADE, KEY_VILLAGER_TRADE_LOCK)
-                        instanceof NbtByte nbtByte
+                        instanceof ByteTag nbtByte
                 && nbtByte.byteValue() == (byte) 1;
     }
 
-    public static boolean canVillagerResetTrade(MerchantScreenHandler handler) {
-        return handler.getExperience() == 0 && handler.getLevelProgress() <= 1;
+    public static boolean canVillagerResetTrade(MerchantMenu handler) {
+        return handler.getTraderXp() == 0 && handler.getTraderLevel() <= 1;
     }
 
-    public void setVillagerTradeList(VillagerEntity villager, List<TradeRecord> trades) {
+    public void setVillagerTradeList(Villager villager, List<TradeRecord> trades) {
         var status = getStatus(villager, true);
-        NbtCompound nbtCompound = status.getDataContainer();
-        NbtCompound sub = NBTUtils.ensurePath(nbtCompound, KEY_VILLAGER_TRADE);
+        CompoundTag nbtCompound = status.getDataContainer();
+        CompoundTag sub = NBTUtils.ensurePath(nbtCompound, KEY_VILLAGER_TRADE);
         NBTUtils.putValue(
                 sub,
                 KEY_VILLAGER_TRADE_LIST,
                 trades,
                 Codec.list(TradeRecord.CODEC),
-                mc.getNetworkHandler().getRegistryManager());
+                mc.getConnection().registryAccess());
         status.markDirty();
     }
 
     @Nullable
-    public List<TradeRecord> getVillagerTradeList(VillagerEntity villager) {
+    public List<TradeRecord> getVillagerTradeList(Villager villager) {
         var status = getStatus(villager, false);
         return status != null
                         && NBTUtils.resolve(status.getDataContainer(), KEY_VILLAGER_TRADE, KEY_VILLAGER_TRADE_LIST)
-                                instanceof NbtList list
+                                instanceof ListTag list
                 ? NBTUtils.toValue(
                         list,
                         Codec.list(TradeRecord.CODEC),
-                        mc.getNetworkHandler().getRegistryManager())
+                        mc.getConnection().registryAccess())
                 : null;
     }
 
@@ -161,22 +161,22 @@ public class WorldManager extends BaseModule {
                 .apply(instance, TradeRecord::new));
     }
 
-    public void onVillagerTradeUpdate(Event<SetTradeOffersS2CPacket> eventSetTrade) {
-        if (eventSetTrade.context.getSyncId() == mc.player.currentScreenHandler.syncId) {
-            if (mc.player.currentScreenHandler instanceof EntityInventory<?> inventory
-                    && inventory.getOwner() instanceof VillagerEntity villager) {
+    public void onVillagerTradeUpdate(Event<ClientboundMerchantOffersPacket> eventSetTrade) {
+        if (eventSetTrade.context.getContainerId() == mc.player.containerMenu.containerId) {
+            if (mc.player.containerMenu instanceof EntityInventory<?> inventory
+                    && inventory.getOwner() instanceof Villager villager) {
                 asyncExecutor.execute(() -> {
                     var offers = eventSetTrade.context.getOffers();
                     var canRefresh =
-                            eventSetTrade.context.getExperience() == 0 && eventSetTrade.context.getLevelProgress() <= 1;
+                            eventSetTrade.context.getVillagerXp() == 0 && eventSetTrade.context.getVillagerLevel() <= 1;
                     setVillagerTradeLock(villager, !canRefresh);
                     List<TradeRecord> trades = offers.stream()
                             .map(offer -> {
                                 return new TradeRecord(
-                                        offer.getSellItem(),
-                                        offer.getFirstBuyItem().itemStack(),
-                                        offer.getSecondBuyItem()
-                                                .map(TradedItem::itemStack)
+                                        offer.getResult(),
+                                        offer.getItemCostA().itemStack(),
+                                        offer.getItemCostB()
+                                                .map(ItemCost::itemStack)
                                                 .orElse(ItemStack.EMPTY),
                                         offer.getMaxUses());
                             })
@@ -187,12 +187,12 @@ public class WorldManager extends BaseModule {
         }
     }
 
-    public void onVillagerProfessionUpdate(Event<DataTracker.SerializedEntry<?>> eventDataUpdate) {
-        if (eventDataUpdate.getArgs(0) instanceof VillagerEntity villager) {
+    public void onVillagerProfessionUpdate(Event<SynchedEntityData.DataValue<?>> eventDataUpdate) {
+        if (eventDataUpdate.getArgs(0) instanceof Villager villager) {
             if (eventDataUpdate.context.id() == VDataFlag.ID_VILLAGER_PROFESSION_DATA
                     && eventDataUpdate.context.value() instanceof VillagerData data) {
                 asyncExecutor.execute(() -> {
-                    var profession = data.profession().getKey().orElse(null);
+                    var profession = data.profession().unwrapKey().orElse(null);
                     if (Objects.equals(profession, VillagerProfession.NONE)
                             || Objects.equals(profession, VillagerProfession.NITWIT)) {
                         var status = getStatus(villager, false);
@@ -222,9 +222,9 @@ public class WorldManager extends BaseModule {
             BlockState oldState = event.context.oldState();
             BlockState newState = event.context.newState();
             BlockPos pos = event.context.pos();
-            if (mc.world.getBlockEntity(pos) instanceof TrialSpawnerBlockEntity be) {
-                TrialSpawnerState oldAct = oldState.get(TrialSpawnerBlock.TRIAL_SPAWNER_STATE);
-                TrialSpawnerState newAct = newState.get(TrialSpawnerBlock.TRIAL_SPAWNER_STATE);
+            if (mc.level.getBlockEntity(pos) instanceof TrialSpawnerBlockEntity be) {
+                TrialSpawnerState oldAct = oldState.getValue(TrialSpawnerBlock.STATE);
+                TrialSpawnerState newAct = newState.getValue(TrialSpawnerBlock.STATE);
                 if (oldAct != newAct) {
                     if (newAct == TrialSpawnerState.COOLDOWN) {
                         var bc = getStatus(be, true);
@@ -249,7 +249,7 @@ public class WorldManager extends BaseModule {
             return OptionalLong.empty();
         }
         var nbtLong = NBTUtils.resolve(container.getDataContainer(), KEY_TRIAL_INFO, KEY_TRIAL_FINISH_GLOBAL_TIME);
-        return nbtLong instanceof NbtLong longValue ? OptionalLong.of(longValue.longValue()) : OptionalLong.empty();
+        return nbtLong instanceof LongTag longValue ? OptionalLong.of(longValue.longValue()) : OptionalLong.empty();
     }
 
     public OptionalLong getTrialSpawnerActiveStartTime(BlockEntity be) {
@@ -258,12 +258,12 @@ public class WorldManager extends BaseModule {
             return OptionalLong.empty();
         }
         var nbtLong = NBTUtils.resolve(container.getDataContainer(), KEY_TRIAL_INFO, KEY_TRIAL_ACTIVE_GLOBAL_TIME);
-        return nbtLong instanceof NbtLong longValue ? OptionalLong.of(longValue.longValue()) : OptionalLong.empty();
+        return nbtLong instanceof LongTag longValue ? OptionalLong.of(longValue.longValue()) : OptionalLong.empty();
     }
 
     public void onLoad(Event<ServerStorage.Meta> event) {
         ServerStorage.Meta meta = event.context;
-        DynamicRegistryManager manager = event.getArgs(1);
+        RegistryAccess manager = event.getArgs(1);
         currentEntities.clear();
         currentBlocks.clear();
         for (var storage : meta.allEntityStorages()) {
@@ -286,7 +286,7 @@ public class WorldManager extends BaseModule {
 
     int timer = 0;
 
-    public void onGameTick(Event<ClientPlayerEntity> event) {
+    public void onGameTick(Event<LocalPlayer> event) {
         if (checkNull()) return;
         if (++timer < 10) {
             return;
@@ -296,9 +296,9 @@ public class WorldManager extends BaseModule {
         while (iter.hasNext()) {
             var r = iter.next();
             var re = r.getKey();
-            if (re.isLocationLoaded(mc.world)) {
+            if (re.isLocationLoaded(mc.level)) {
                 BlockPos pos = re.getPos();
-                BlockEntity be = mc.world.getBlockEntity(pos);
+                BlockEntity be = mc.level.getBlockEntity(pos);
                 if (be != null && be.getType() == r.getValue().getType()) {
                     r.getValue().update(pos, be);
                 } else {
@@ -310,7 +310,7 @@ public class WorldManager extends BaseModule {
         var iter2 = currentEntities.entrySet().iterator();
         while (iter2.hasNext()) {
             var re = iter2.next();
-            if (mc.world.getEntityLookup().get(re.getKey()) instanceof LivingEntity entity) {
+            if (mc.level.getEntities().get(re.getKey()) instanceof LivingEntity entity) {
                 re.getValue().update(entity);
             }
         }
@@ -319,15 +319,15 @@ public class WorldManager extends BaseModule {
     public EntityStatus getStatus(LivingEntity entity, boolean create) {
         if (entity.getHealth() > 0) {
             return create
-                    ? currentEntities.computeIfAbsent(entity.getUuid(), EntityStatus::new)
-                    : currentEntities.get(entity.getUuid());
+                    ? currentEntities.computeIfAbsent(entity.getUUID(), EntityStatus::new)
+                    : currentEntities.get(entity.getUUID());
         } else {
             return null;
         }
     }
 
     public BlockStatus getStatus(BlockEntity entity, boolean create) {
-        BlockLocation bl = BlockLocation.of(entity.getWorld(), entity.getPos());
+        BlockLocation bl = BlockLocation.of(entity.getLevel(), entity.getBlockPos());
         return currentBlocks.compute(bl, (k, v) -> {
             if (v == null) {
                 return create ? new BlockStatus(entity.getType()) : null;
@@ -341,10 +341,10 @@ public class WorldManager extends BaseModule {
         if (checkNull()) return;
         Entity entity = event.context;
         if (entity instanceof LivingEntity lv && lv.getHealth() <= 0) {
-            currentEntities.remove(entity.getUuid());
+            currentEntities.remove(entity.getUUID());
             var meta = ServerStorage.getStorage();
             if (meta != null) {
-                EntityStorage storage = meta.getEntityStorage(entity.getUuid(), false);
+                EntityStorage storage = meta.getEntityStorage(entity.getUUID(), false);
                 if (storage != null) {
                     storage.put(ENTITY_DATA_KEY, null);
                 }
@@ -361,7 +361,7 @@ public class WorldManager extends BaseModule {
     }
 
     public void onSave(Event<ServerStorage.Meta> event) {
-        DynamicRegistryManager manager = event.getArgs(1);
+        RegistryAccess manager = event.getArgs(1);
         ServerStorage.Meta meta = event.context;
         if (enableEntityPersistentStorage.getValue()) {
             for (var entry : currentEntities.entrySet()) {
@@ -403,21 +403,21 @@ public class WorldManager extends BaseModule {
         final UUID self;
         Optional<UUID> owner = Optional.empty();
         long lastUpdatedMs;
-        NbtCompound dataContainer = new NbtCompound();
+        CompoundTag dataContainer = new CompoundTag();
         boolean dirty = false;
         public static final Codec<EntityStatus> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                        Uuids.INT_STREAM_CODEC.fieldOf("uuid").forGetter(EntityStatus::getSelf),
-                        Uuids.INT_STREAM_CODEC.optionalFieldOf("owner").forGetter(EntityStatus::getOwner),
+                        UUIDUtil.CODEC.fieldOf("uuid").forGetter(EntityStatus::getSelf),
+                        UUIDUtil.CODEC.optionalFieldOf("owner").forGetter(EntityStatus::getOwner),
                         Codec.LONG.optionalFieldOf("timestamp", 0L).forGetter(EntityStatus::getLastUpdatedMs),
-                        NbtCompound.CODEC
-                                .optionalFieldOf("data", new NbtCompound())
+                        CompoundTag.CODEC
+                                .optionalFieldOf("data", new CompoundTag())
                                 .forGetter(EntityStatus::getDataContainer))
                 .apply(instance, EntityStatus::new));
 
         @Setter
         public Consumer<LivingEntity> updateCallback;
 
-        public EntityStatus(UUID self, Optional<UUID> owner, long lastUpdatedMs, NbtCompound dataContainer) {
+        public EntityStatus(UUID self, Optional<UUID> owner, long lastUpdatedMs, CompoundTag dataContainer) {
             this.self = self;
             this.owner = owner;
             this.lastUpdatedMs = lastUpdatedMs;
@@ -453,13 +453,13 @@ public class WorldManager extends BaseModule {
     public static class BlockStatus {
         long lastUpdatedMs;
         final BlockEntityType<?> type;
-        NbtCompound dataContainer = new NbtCompound();
+        CompoundTag dataContainer = new CompoundTag();
         boolean dirty = false;
 
         @Setter
         BiConsumer<BlockPos, BlockEntity> updateCallback;
 
-        public BlockStatus(BlockEntityType<?> type, long lastUpdatedMs, NbtCompound dataContainer) {
+        public BlockStatus(BlockEntityType<?> type, long lastUpdatedMs, CompoundTag dataContainer) {
             this.type = type;
             this.lastUpdatedMs = lastUpdatedMs;
             this.dataContainer = dataContainer.copy();
@@ -490,13 +490,13 @@ public class WorldManager extends BaseModule {
         }
 
         public static final Codec<BlockStatus> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                        Registries.BLOCK_ENTITY_TYPE
-                                .getCodec()
+                        BuiltInRegistries.BLOCK_ENTITY_TYPE
+                                .byNameCodec()
                                 .fieldOf("block-type")
                                 .forGetter(BlockStatus::getType),
                         Codec.LONG.fieldOf("timestamp").forGetter(BlockStatus::getLastUpdatedMs),
-                        NbtCompound.CODEC
-                                .optionalFieldOf("data", new NbtCompound())
+                        CompoundTag.CODEC
+                                .optionalFieldOf("data", new CompoundTag())
                                 .forGetter(BlockStatus::getDataContainer))
                 .apply(instance, BlockStatus::new));
     }

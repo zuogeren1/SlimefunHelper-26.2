@@ -10,7 +10,7 @@ import me.matl114.managers.config.NBTParsable;
 import me.matl114.managers.config.NBTType;
 import me.matl114.managers.config.Ref;
 import me.matl114.utils.ChatUtils;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public record Label(String label) implements NBTParsable<Label> {
     public static NBTType<Label> TYPE = new NBTType<>(
@@ -19,7 +19,7 @@ public record Label(String label) implements NBTParsable<Label> {
             (w, x, y, dx, dy) -> {
                 String label = w.getOriginValue().label();
                 return DisplayWidget.instance(x, y, dx, dy)
-                        .setRenderHandler(new RawTextElement(Text.translatableWithFallback(label, label), -1)
+                        .setRenderHandler(new RawTextElement(Component.translatableWithFallback(label, label), -1)
                                 .withTooltips(TooltipHandler.of(
                                         ChatUtils.parseTooltipsTranslation(label + ".tooltips", ""))));
             },

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import io.netty.buffer.ByteBuf;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,31 +30,30 @@ import me.matl114.utils.RenderUtils;
 import me.matl114.versioned.SupportVersion;
 import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.KineticWeaponComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.encoding.VarInts;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.PlayPackets;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.VarInt;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.GamePacketTypes;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.KineticWeapon;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableInt;
 
 public class SpearEnhance extends BaseModule {
@@ -91,7 +91,7 @@ public class SpearEnhance extends BaseModule {
 
     public final NBTRef<WrapColor> renderColor = builder(
                     spearModule.add("render-kinetic-players-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.YELLOW)))
+            .defaultValue(new WrapColor((ChatFormatting.YELLOW)))
             .build();
 
     public final FlagRef spearSpeedReset =
@@ -119,41 +119,41 @@ public class SpearEnhance extends BaseModule {
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(RenderListener.getCustomModelOverride(), this::onReplaceSpearModel);
         registerListener(Listener.getClientPlayerPostSendMovementPoint(), this::onPostTick);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onUsePiercing);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onUsePiercing);
         registerListener(Listener.getAttackAction(), this::onUsingStab);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntityStatusS2CPacket.class), this::onSpearEntity);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onSpearEntity);
         registerListener(Listener.getPostPlayerUseItem(), this::onSpearUse);
     }
 
-    public static boolean isUsingSpear(PlayerEntity player) {
+    public static boolean isUsingSpear(Player player) {
         // todo consider viaversion
-        return player != null && player.isUsingItem() && VItem.getInstance().isSpear(player.getActiveItem());
+        return player != null && player.isUsingItem() && VItem.getInstance().isSpear(player.getUseItem());
     }
 
     public static ItemStack getSpear() {
-        return mc.player.getActiveItem();
+        return mc.player.getUseItem();
     }
 
-    public void onPreTick(Event<ClientPlayerEntity> tickEvent) {
+    public void onPreTick(Event<LocalPlayer> tickEvent) {
         if (isUsingSpear(mc.player)) {
             ItemStack stack = getSpear();
             int maxKineticTime = getMaxKineticTime(stack);
-            Hand hand = mc.player.getActiveHand();
-            if (spearAutoRestart.get() && mc.player.getItemUseTime() > maxKineticTime) {
-                mc.interactionManager.stopUsingItem(mc.player);
-                mc.interactionManager.interactItem(mc.player, hand);
+            InteractionHand hand = mc.player.getUsedItemHand();
+            if (spearAutoRestart.get() && mc.player.getTicksUsingItem() > maxKineticTime) {
+                mc.gameMode.releaseUsingItem(mc.player);
+                mc.gameMode.useItem(mc.player, hand);
             }
         }
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (renderKineticPlayers.get()) {
             RenderUtils.startDrawVirtual(event.context);
             try {
                 int color = renderColor.get().withAlpha(64);
                 var render = RenderCollectors.createBoxCollector(false, true, false);
-                for (var re : mc.world.getPlayers()) {
+                for (var re : mc.level.players()) {
                     if (re != mc.getCameraEntity()) {
                         if (canSpearKineticAttack(re)) {
                             render.submit(re.getBoundingBox(), color);
@@ -168,21 +168,21 @@ public class SpearEnhance extends BaseModule {
         }
     }
 
-    public static boolean canSpearKineticAttack(PlayerEntity player) {
+    public static boolean canSpearKineticAttack(Player player) {
         if (isUsingSpear(player)) {
             ItemStack stack = getSpear();
-            KineticWeaponComponent kineticWeaponComponent = stack.get(DataComponentTypes.KINETIC_WEAPON);
+            KineticWeapon kineticWeaponComponent = stack.get(DataComponents.KINETIC_WEAPON);
             if (kineticWeaponComponent != null) {
-                if (player.getItemUseTime() < kineticWeaponComponent.delayTicks() - ((player == mc.player) ? 0 : 4)) {
+                if (player.getTicksUsingItem() < kineticWeaponComponent.delayTicks() - ((player == mc.player) ? 0 : 4)) {
                     return false;
                 }
             } else {
-                if (player.getItemUseTime() < (8 - ((player == mc.player) ? 0 : 4))) {
+                if (player.getTicksUsingItem() < (8 - ((player == mc.player) ? 0 : 4))) {
                     return false;
                 }
             }
             int maxKineticTime = getMaxKineticTime(stack);
-            return player.getItemUseTime() < maxKineticTime;
+            return player.getTicksUsingItem() < maxKineticTime;
         }
         return false;
     }
@@ -192,7 +192,7 @@ public class SpearEnhance extends BaseModule {
     }
 
     public static int getMaxKineticTime(ItemStack stack) {
-        KineticWeaponComponent kineticWeaponComponent = stack.get(DataComponentTypes.KINETIC_WEAPON);
+        KineticWeapon kineticWeaponComponent = stack.get(DataComponents.KINETIC_WEAPON);
         if (kineticWeaponComponent != null) {
             if (kineticWeaponComponent.damageConditions().isPresent()) {
                 return kineticWeaponComponent.damageConditions().get().maxDurationTicks();
@@ -251,7 +251,7 @@ public class SpearEnhance extends BaseModule {
                     && VItem.getInstance().isSpear(origin)) {
                 Item item = materialSwordToSpearMap.get(origin.getItem());
                 if (item != null) {
-                    eventIdentifier.context(item.getComponents().get(DataComponentTypes.ITEM_MODEL));
+                    eventIdentifier.context(item.components().get(DataComponents.ITEM_MODEL));
                 }
             }
         }
@@ -263,19 +263,19 @@ public class SpearEnhance extends BaseModule {
         return trans == null ? ItemStack.EMPTY : new ItemStack(trans);
     }
 
-    public KineticWeaponComponent getRealComponent(ItemStack stack) {
+    public KineticWeapon getRealComponent(ItemStack stack) {
         Item item = stack.getItem();
         Item trans = materialSwordToSpearMap.get(item);
         if (trans != null && VItem.getInstance().isSpear(stack)) {
-            return trans.getComponents().get(DataComponentTypes.KINETIC_WEAPON);
+            return trans.components().get(DataComponents.KINETIC_WEAPON);
         }
-        return stack.get(DataComponentTypes.KINETIC_WEAPON);
+        return stack.get(DataComponents.KINETIC_WEAPON);
     }
 
     @Setter
     boolean forceSpearReset = false;
 
-    public void onPostTick(Event<ClientPlayerEntity> eventPostTick) {
+    public void onPostTick(Event<LocalPlayer> eventPostTick) {
         if (checkNull()) return;
         if (eventPostTick.context == mc.player
                 && (spearSpeedReset.get() || forceSpearReset)
@@ -291,25 +291,25 @@ public class SpearEnhance extends BaseModule {
             }
             if (spearSpeedResetTargetJudge.get()) {
                 boolean anyMatch = TargetSelector.INSTANCE.getAttackableEntities(25).stream()
-                        .anyMatch(s -> s instanceof PlayerEntity pl && isUsingSpear(pl));
+                        .anyMatch(s -> s instanceof Player pl && isUsingSpear(pl));
                 if (!anyMatch) {
                     autoCondition = false;
                 }
             }
             if (autoCondition) {
-                Vec3d look = PlayerStateManager.INSTANCE.getLastRotationVector();
+                Vec3 look = PlayerStateManager.INSTANCE.getLastRotationVector();
                 if (autoFocusTarget.get() && isUsingSpear(mc.player)) {
                     Entity targetEntity =
-                            TargetSelector.INSTANCE.searchAttackEntity(30, true, pl -> pl instanceof PlayerEntity);
+                            TargetSelector.INSTANCE.searchAttackEntity(30, true, pl -> pl instanceof Player);
                     if (targetEntity != null) {
                         look = targetEntity
                                 .dimensions
-                                .getBoxAt(PositionPredict.INSTANCE
+                                .makeBoundingBox(PositionPredict.INSTANCE
                                         .spearPredictArgument
                                         .get()
                                         .predict(targetEntity))
                                 .getCenter()
-                                .subtract(mc.player.getEyePos());
+                                .subtract(mc.player.getEyePosition());
                     }
                 }
                 // reset speed and rotation
@@ -318,7 +318,7 @@ public class SpearEnhance extends BaseModule {
         }
     }
 
-    public void onUsePiercing(Event<PlayerActionC2SPacket> eventPiercing) {
+    public void onUsePiercing(Event<ServerboundPlayerActionPacket> eventPiercing) {
         if (fixOldVersionPiercing.get()
                 && ViaFabricPlusHooks.getInstance().getCurrentVersion().isLowerOrEqualTo(21, 9)
                 && eventPiercing.context.getAction().ordinal() == 7) {
@@ -331,21 +331,21 @@ public class SpearEnhance extends BaseModule {
     public void onUsingStab(Event<HitResult> eventStab) {
         if (fixOldVersionPiercing.get()
                 && ViaFabricPlusHooks.getInstance().getCurrentVersion().isLowerOrEqualTo(21, 9)
-                && VItem.getInstance().isSpear(mc.player.getStackInHand(Hand.MAIN_HAND))
-                && !mc.interactionManager.isFlyingLocked()) {
+                && VItem.getInstance().isSpear(mc.player.getItemInHand(InteractionHand.MAIN_HAND))
+                && !mc.gameMode.isSpectator()) {
             if (onPiercing(() -> 0)) {
-                mc.player.swingHand(Hand.MAIN_HAND);
+                mc.player.swing(InteractionHand.MAIN_HAND);
                 eventStab.cancel();
             }
         }
     }
 
     public boolean onPiercing(IntSupplier seq) {
-        if (VItem.getInstance().isSpear(mc.player.getStackInHand(Hand.MAIN_HAND))
+        if (VItem.getInstance().isSpear(mc.player.getItemInHand(InteractionHand.MAIN_HAND))
                 && ViaFabricPlusHooks.getInstance().isViaEnabled()) {
             if (SupportVersion.CURRENT.isHigherOrEqualTo(21, 6)) {
                 var wrapper = ViaFabricPlusHooks.getInstance().createViaPacket();
-                wrapper.writePacketType(ViaProtocols.V1_21_5_TO_1_21_6, PlayPackets.PLAYER_ACTION);
+                wrapper.writePacketType(ViaProtocols.V1_21_5_TO_1_21_6, GamePacketTypes.SERVERBOUND_PLAYER_ACTION);
                 wrapper.write("VAR_INT", 7);
                 wrapper.write("LONG", 0L);
                 wrapper.write("BYTE", (byte) 0);
@@ -353,23 +353,23 @@ public class SpearEnhance extends BaseModule {
                 wrapper.scheduleSendToServer(ViaProtocols.V1_21_6_TO_1_21_7, true);
             } else {
                 // todo: need test
-                PlayerActionC2SPacket actionPacket = new PlayerActionC2SPacket(
-                        PlayerActionC2SPacket.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, Direction.DOWN);
+                ServerboundPlayerActionPacket actionPacket = new ServerboundPlayerActionPacket(
+                        ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM, BlockPos.ZERO, Direction.DOWN);
                 ByteBuf buf = NetworkUtils.createBytebuf();
                 Listener.getConnectionAccess().getOutboundState().codec().encode(buf, (Packet) actionPacket);
-                int id = VarInts.read(buf);
-                VarInts.read(buf);
+                int id = VarInt.read(buf);
+                VarInt.read(buf);
                 long pos = buf.readLong();
                 short sh = buf.readUnsignedByte();
-                int sequence = VarInts.read(buf);
+                int sequence = VarInt.read(buf);
                 buf.release();
                 buf = NetworkUtils.createBytebuf();
                 try {
-                    VarInts.write(buf, id);
-                    VarInts.write(buf, 7);
+                    VarInt.write(buf, id);
+                    VarInt.write(buf, 7);
                     buf.writeLong(pos);
                     buf.writeByte(sh);
-                    VarInts.write(buf, sequence);
+                    VarInt.write(buf, sequence);
                     Listener.getConnectionAccess().sendByteBuf(buf.retain());
                 } finally {
                     buf.release();
@@ -380,21 +380,21 @@ public class SpearEnhance extends BaseModule {
         return false;
     }
 
-    private static final Optional<RegistryEntry<SoundEvent>> currentSpearHitSoundEvent =
-            Optional.of(SoundEvents.ITEM_SPEAR_HIT);
-    private static final Optional<RegistryEntry<SoundEvent>> currentSpearUseSoundEvent =
-            Optional.of(SoundEvents.ITEM_SPEAR_USE);
+    private static final Optional<Holder<SoundEvent>> currentSpearHitSoundEvent =
+            Optional.of(SoundEvents.SPEAR_HIT);
+    private static final Optional<Holder<SoundEvent>> currentSpearUseSoundEvent =
+            Optional.of(SoundEvents.SPEAR_USE);
 
-    public void onSpearEntity(Event<EntityStatusS2CPacket> eventPost) {
+    public void onSpearEntity(Event<ClientboundEntityEventPacket> eventPost) {
         if (checkNull()) return;
-        if (fixOldVersionSpearSound.get() && eventPost.context.getStatus() == VDataFlag.ENTITY_STATUS_KINETIC_ATTACK) {
-            Entity entity = eventPost.context.getEntity(mc.world);
+        if (fixOldVersionSpearSound.get() && eventPost.context.getEventId() == VDataFlag.ENTITY_STATUS_KINETIC_ATTACK) {
+            Entity entity = eventPost.context.getEntity(mc.level);
             if (entity instanceof LivingEntity lv && lv.isUsingItem()) {
-                ItemStack stack = lv.getActiveItem();
+                ItemStack stack = lv.getUseItem();
                 if (materialSwordToSpearMap.containsKey(stack.getItem())
                         && VItem.getInstance().isSpear(stack)) {
                     currentSpearHitSoundEvent.ifPresent((hitSound) -> {
-                        mc.world.playSoundFromEntityClient(lv, hitSound.value(), entity.getSoundCategory(), 1.0F, 1.0F);
+                        mc.level.playLocalSound(lv, hitSound.value(), entity.getSoundSource(), 1.0F, 1.0F);
                     });
                 }
             }
@@ -404,8 +404,8 @@ public class SpearEnhance extends BaseModule {
     public void onSpearUse(Event<UseItem> eventAction) {
         if (checkNull()) return;
         if (fixOldVersionSpearSound.get()) {
-            Hand hand = eventAction.context.hand();
-            ItemStack stack = mc.player.getStackInHand(hand);
+            InteractionHand hand = eventAction.context.hand();
+            ItemStack stack = mc.player.getItemInHand(hand);
             if (materialSwordToSpearMap.containsKey(stack.getItem())
                     && VItem.getInstance().isSpear(stack)) {
                 MutableInt mutableInt = new MutableInt(0);
@@ -416,18 +416,18 @@ public class SpearEnhance extends BaseModule {
                             }
                             if (checkNull()) return true;
                             if (mc.player.isUsingItem()) {
-                                if (mc.player.getActiveHand() == hand
-                                        && ItemStack.areItemsAndComponentsEqual(stack, mc.player.getActiveItem())) {
+                                if (mc.player.getUsedItemHand() == hand
+                                        && ItemStack.isSameItemSameComponents(stack, mc.player.getUseItem())) {
                                     currentSpearUseSoundEvent.ifPresent((sound) -> {
                                         mc.player
-                                                .getEntityWorld()
+                                                .level()
                                                 .playSound(
                                                         mc.player,
                                                         mc.player.getX(),
                                                         mc.player.getY(),
                                                         mc.player.getZ(),
                                                         sound,
-                                                        mc.player.getSoundCategory(),
+                                                        mc.player.getSoundSource(),
                                                         1.0F,
                                                         1.0F);
                                     });

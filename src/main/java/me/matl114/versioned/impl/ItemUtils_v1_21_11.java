@@ -12,42 +12,54 @@ import java.util.Objects;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.DataVersion;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.component.ComponentType;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.*;
-import net.minecraft.item.*;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtInt;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.component.*;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.*;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.RegistryOps;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextCodecs;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.JsonHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.world.item.AdventureModePredicate;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.CustomModelData;
+import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.item.component.Weapon;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 public class ItemUtils_v1_21_11 implements VItem {
     @Override
     public boolean canGlide(ItemStack stack) {
-        return stack.contains(DataComponentTypes.GLIDER);
+        return stack.has(DataComponents.GLIDER);
     }
 
     @Override
     public boolean isSpear(ItemStack stack) {
-        if (stack.contains(DataComponentTypes.KINETIC_WEAPON)) {
+        if (stack.has(DataComponents.KINETIC_WEAPON)) {
             return true;
         } else {
             // 1.21.11 Netherite Spear
             Item item = stack.getItem();
-            if (item.getRegistryEntry().isIn(ItemTags.SWORDS)) {
+            if (item.builtInRegistryHolder().is(ItemTags.SWORDS)) {
                 Integer viaId = getOptionalViaItemId(stack);
                 // wooden spear id in 1.21.11 is 1296
                 if (viaId != null && viaId >= 1296) {
                     return true;
                 }
-                Text name = stack.getCustomName();
+                Component name = stack.getCustomName();
                 if (name != null) {
                     String str = name.getString();
                     if (str.contains("1.21.11") && str.contains("Spear")) {
@@ -64,7 +76,7 @@ public class ItemUtils_v1_21_11 implements VItem {
     public boolean isWeapon(ItemStack stack) {
         if (stack.getItem() instanceof MaceItem) {
             return true;
-        } else if (stack.contains(DataComponentTypes.TOOL)) {
+        } else if (stack.has(DataComponents.TOOL)) {
             Item tool = stack.getItem();
             if (tool instanceof AxeItem) {
                 return true;
@@ -79,23 +91,23 @@ public class ItemUtils_v1_21_11 implements VItem {
     }
 
     private boolean isMiningPurposeWeaponWTFTool(ItemStack stack) {
-        WeaponComponent component = stack.get(DataComponentTypes.WEAPON);
+        Weapon component = stack.get(DataComponents.WEAPON);
         return component != null && component.itemDamagePerAttack() > 1;
     }
 
     @Override
     public boolean isTool(ItemStack stack) {
-        return stack.contains(DataComponentTypes.TOOL);
+        return stack.has(DataComponents.TOOL);
     }
 
     @Override
     public boolean isNotAttackingTool(ItemStack stack) {
         if (isTool(stack)) {
-            if (stack.contains(DataComponentTypes.WEAPON)) {
-                var weapon = stack.get(DataComponentTypes.WEAPON);
+            if (stack.has(DataComponents.WEAPON)) {
+                var weapon = stack.get(DataComponents.WEAPON);
                 if (weapon.itemDamagePerAttack() > 1) {
                     // only axe
-                    return !stack.getItem().getRegistryEntry().isIn(ItemTags.AXES);
+                    return !stack.getItem().builtInRegistryHolder().is(ItemTags.AXES);
                     // return !stack.getItem().toString().contains("_axe");
                 }
                 return false;
@@ -107,83 +119,83 @@ public class ItemUtils_v1_21_11 implements VItem {
 
     @Override
     public boolean isShield(ItemStack stack) {
-        return stack.contains(DataComponentTypes.BLOCKS_ATTACKS);
+        return stack.has(DataComponents.BLOCKS_ATTACKS);
     }
 
     @Override
     public boolean isAxe(ItemStack stack) {
-        return stack.getItem().getRegistryEntry().isIn(ItemTags.AXES);
+        return stack.getItem().builtInRegistryHolder().is(ItemTags.AXES);
     }
 
     @Override
     public boolean isEatable(ItemStack stack) {
-        return stack.contains(DataComponentTypes.CONSUMABLE);
+        return stack.has(DataComponents.CONSUMABLE);
     }
 
-    public ItemStack fromNbt(NbtCompound tag, RegistryWrapper.WrapperLookup lookup) {
+    public ItemStack fromNbt(CompoundTag tag, HolderLookup.Provider lookup) {
         return tag.isEmpty()
                 ? ItemStack.EMPTY
                 : ItemStack.CODEC
-                        .decode(lookup.getOps(NbtOps.INSTANCE), tag)
+                        .decode(lookup.createSerializationContext(NbtOps.INSTANCE), tag)
                         .getOrThrow()
                         .getFirst();
     }
     // now we save DataVersion field
-    public NbtCompound toNbt(ItemStack tag, RegistryWrapper.WrapperLookup lookup) {
-        NbtCompound tagCompound = toNbt0(tag, lookup);
+    public CompoundTag toNbt(ItemStack tag, HolderLookup.Provider lookup) {
+        CompoundTag tagCompound = toNbt0(tag, lookup);
         tagCompound.putInt(DataVersion.DATA_VERSION_FLAG, DataVersion.getDataVersion());
         return tagCompound;
     }
 
     @Override
-    public MutableText getFormattedName(ItemStack stack) {
-        MutableText mutableText =
-                Text.empty().append(stack.getName()).formatted(stack.getRarity().getFormatting());
-        if (stack.contains(DataComponentTypes.CUSTOM_NAME)) {
-            mutableText.formatted(Formatting.ITALIC);
+    public MutableComponent getFormattedName(ItemStack stack) {
+        MutableComponent mutableText =
+                Component.empty().append(stack.getHoverName()).withStyle(stack.getRarity().color());
+        if (stack.has(DataComponents.CUSTOM_NAME)) {
+            mutableText.withStyle(ChatFormatting.ITALIC);
         }
 
         return mutableText;
     }
 
-    private NbtCompound toNbt0(ItemStack tag) {
+    private CompoundTag toNbt0(ItemStack tag) {
         return tag.isEmpty()
-                ? new NbtCompound()
-                : (NbtCompound) ItemStack.CODEC
-                        .encodeStart(ItemStackUtils.registry().getOps(NbtOps.INSTANCE), tag)
+                ? new CompoundTag()
+                : (CompoundTag) ItemStack.CODEC
+                        .encodeStart(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE), tag)
                         .getOrThrow();
     }
 
-    private NbtCompound toNbt0(ItemStack tag, RegistryWrapper.WrapperLookup lookup) {
+    private CompoundTag toNbt0(ItemStack tag, HolderLookup.Provider lookup) {
         return tag.isEmpty()
-                ? new NbtCompound()
-                : (NbtCompound) ItemStack.CODEC
-                        .encodeStart(lookup.getOps(NbtOps.INSTANCE), tag)
+                ? new CompoundTag()
+                : (CompoundTag) ItemStack.CODEC
+                        .encodeStart(lookup.createSerializationContext(NbtOps.INSTANCE), tag)
                         .getOrThrow();
     }
 
     @Override
-    public CustomModelDataComponent createModelData(int cmd) {
-        return new CustomModelDataComponent(List.of((float) cmd), List.of(), List.of(), List.of());
+    public CustomModelData createModelData(int cmd) {
+        return new CustomModelData(List.of((float) cmd), List.of(), List.of(), List.of());
     }
 
     public Integer getAttackDurabilityCost(ItemStack stack) {
-        WeaponComponent weapon = stack.get(DataComponentTypes.WEAPON);
+        Weapon weapon = stack.get(DataComponents.WEAPON);
         return weapon != null ? weapon.itemDamagePerAttack() : null;
     }
 
-    private final Map<ComponentType<?>, Codec<?>> versionCompatCodecs;
-    private final Codec<Text> TEXT_CODEC;
+    private final Map<DataComponentType<?>, Codec<?>> versionCompatCodecs;
+    private final Codec<Component> TEXT_CODEC;
 
-    public static Codec<Text> codec(int maxSerializedLength) {
+    public static Codec<Component> codec(int maxSerializedLength) {
         final Codec<String> codec = Codec.string(0, maxSerializedLength);
-        return new Codec<Text>() {
-            public <T> DataResult<Pair<Text, T>> decode(DynamicOps<T> ops, T input) {
+        return new Codec<Component>() {
+            public <T> DataResult<Pair<Component, T>> decode(DynamicOps<T> ops, T input) {
                 DynamicOps<JsonElement> dynamicOps = toJsonOps(ops);
                 return codec.decode(ops, input).flatMap((pair) -> {
                     try {
                         JsonElement jsonElement = JsonParser.parseString((String) pair.getFirst());
-                        return TextCodecs.CODEC.parse(dynamicOps, jsonElement).map((text) -> {
+                        return ComponentSerialization.CODEC.parse(dynamicOps, jsonElement).map((text) -> {
                             return Pair.of(text, pair.getSecond());
                         });
                     } catch (JsonParseException var3) {
@@ -194,11 +206,11 @@ public class ItemUtils_v1_21_11 implements VItem {
                 });
             }
 
-            public <T> DataResult<T> encode(Text text, DynamicOps<T> dynamicOps, T object) {
+            public <T> DataResult<T> encode(Component text, DynamicOps<T> dynamicOps, T object) {
                 DynamicOps<JsonElement> dynamicOps2 = toJsonOps(dynamicOps);
-                return TextCodecs.CODEC.encodeStart(dynamicOps2, text).flatMap((json) -> {
+                return ComponentSerialization.CODEC.encodeStart(dynamicOps2, text).flatMap((json) -> {
                     try {
-                        return codec.encodeStart(dynamicOps, JsonHelper.toSortedString(json));
+                        return codec.encodeStart(dynamicOps, GsonHelper.toStableString(json));
                     } catch (IllegalArgumentException var4) {
                         IllegalArgumentException illegalArgumentException = var4;
                         Objects.requireNonNull(illegalArgumentException);
@@ -209,7 +221,7 @@ public class ItemUtils_v1_21_11 implements VItem {
 
             private static <T> DynamicOps<JsonElement> toJsonOps(DynamicOps<T> ops) {
                 if (ops instanceof RegistryOps<T> registryOps) {
-                    return registryOps.withDelegate(JsonOps.INSTANCE);
+                    return registryOps.withParent(JsonOps.INSTANCE);
                 } else {
                     return JsonOps.INSTANCE;
                 }
@@ -218,72 +230,72 @@ public class ItemUtils_v1_21_11 implements VItem {
     }
 
     {
-        Codec<Text> STRINGIFY_CODEC = codec(Integer.MAX_VALUE);
+        Codec<Component> STRINGIFY_CODEC = codec(Integer.MAX_VALUE);
 
-        TEXT_CODEC = Codec.of(TextCodecs.CODEC, Codec.withAlternative(STRINGIFY_CODEC, TextCodecs.CODEC));
+        TEXT_CODEC = Codec.of(ComponentSerialization.CODEC, Codec.withAlternative(STRINGIFY_CODEC, ComponentSerialization.CODEC));
     }
 
     {
-        var builder = ImmutableMap.<ComponentType<?>, Codec<?>>builder();
+        var builder = ImmutableMap.<DataComponentType<?>, Codec<?>>builder();
         builder.put(
-                DataComponentTypes.CUSTOM_MODEL_DATA,
+                DataComponents.CUSTOM_MODEL_DATA,
                 Codec.withAlternative(
-                        CustomModelDataComponent.CODEC,
+                        CustomModelData.CODEC,
                         Codec.INT.xmap(
-                                i -> new CustomModelDataComponent(List.of((float) i), List.of(), List.of(), List.of()),
+                                i -> new CustomModelData(List.of((float) i), List.of(), List.of(), List.of()),
                                 v -> v.floats().stream()
                                         .findFirst()
                                         .map(Number::intValue)
                                         .orElse(0))));
-        builder.put(DataComponentTypes.CUSTOM_NAME, TEXT_CODEC);
-        builder.put(DataComponentTypes.ITEM_NAME, TEXT_CODEC);
+        builder.put(DataComponents.CUSTOM_NAME, TEXT_CODEC);
+        builder.put(DataComponents.ITEM_NAME, TEXT_CODEC);
         builder.put(
-                DataComponentTypes.LORE,
-                TEXT_CODEC.sizeLimitedListOf(256).xmap(LoreComponent::new, LoreComponent::lines));
+                DataComponents.LORE,
+                TEXT_CODEC.sizeLimitedListOf(256).xmap(ItemLore::new, ItemLore::lines));
         builder.put(
-                DataComponentTypes.ENCHANTMENTS,
+                DataComponents.ENCHANTMENTS,
                 Codec.withAlternative(
-                        ItemEnchantmentsComponent.CODEC,
-                        ItemEnchantmentsComponent.CODEC.fieldOf("levels").codec()));
+                        ItemEnchantments.CODEC,
+                        ItemEnchantments.CODEC.fieldOf("levels").codec()));
         builder.put(
-                DataComponentTypes.STORED_ENCHANTMENTS,
+                DataComponents.STORED_ENCHANTMENTS,
                 Codec.withAlternative(
-                        ItemEnchantmentsComponent.CODEC,
-                        ItemEnchantmentsComponent.CODEC.fieldOf("levels").codec()));
+                        ItemEnchantments.CODEC,
+                        ItemEnchantments.CODEC.fieldOf("levels").codec()));
         builder.put(
-                DataComponentTypes.DYED_COLOR,
+                DataComponents.DYED_COLOR,
                 Codec.withAlternative(
-                        DyedColorComponent.CODEC,
-                        DyedColorComponent.CODEC.fieldOf("rgb").codec()));
+                        DyedItemColor.CODEC,
+                        DyedItemColor.CODEC.fieldOf("rgb").codec()));
         builder.put(
-                DataComponentTypes.CAN_BREAK,
+                DataComponents.CAN_BREAK,
                 Codec.withAlternative(
-                        BlockPredicatesComponent.CODEC,
-                        BlockPredicatesComponent.CODEC.fieldOf("predicates").codec()));
+                        AdventureModePredicate.CODEC,
+                        AdventureModePredicate.CODEC.fieldOf("predicates").codec()));
         builder.put(
-                DataComponentTypes.CAN_PLACE_ON,
+                DataComponents.CAN_PLACE_ON,
                 Codec.withAlternative(
-                        BlockPredicatesComponent.CODEC,
-                        BlockPredicatesComponent.CODEC.fieldOf("predicates").codec()));
-        var attributeCodec = AttributeModifiersComponent.Entry.CODEC
+                        AdventureModePredicate.CODEC,
+                        AdventureModePredicate.CODEC.fieldOf("predicates").codec()));
+        var attributeCodec = ItemAttributeModifiers.Entry.CODEC
                 .listOf()
-                .xmap(AttributeModifiersComponent::new, AttributeModifiersComponent::modifiers);
+                .xmap(ItemAttributeModifiers::new, ItemAttributeModifiers::modifiers);
         builder.put(
-                DataComponentTypes.ATTRIBUTE_MODIFIERS,
+                DataComponents.ATTRIBUTE_MODIFIERS,
                 Codec.withAlternative(
                         attributeCodec, attributeCodec.fieldOf("modifiers").codec()));
         versionCompatCodecs = builder.build();
     }
 
     public Integer getOptionalViaItemId(ItemStack stack) {
-        NbtComponent component = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData component = stack.get(DataComponents.CUSTOM_DATA);
         if (component != null) {
-            var nbt = component.nbt;
+            var nbt = component.tag;
             if (nbt != null
-                    && nbt.get("VV|original_hashes") instanceof NbtCompound original
-                    && original.get("id") instanceof NbtInt intValue) {
+                    && nbt.get("VV|original_hashes") instanceof CompoundTag original
+                    && original.get("id") instanceof IntTag intValue) {
                 return intValue.intValue();
-            } else if (nbt != null && nbt.get("VB|Protocol1_21_11To1_21_9|id") instanceof NbtInt intVal) {
+            } else if (nbt != null && nbt.get("VB|Protocol1_21_11To1_21_9|id") instanceof IntTag intVal) {
                 return intVal.intValue();
             }
         }
@@ -291,7 +303,7 @@ public class ItemUtils_v1_21_11 implements VItem {
     }
 
     @Override
-    public Map<ComponentType<?>, Codec<?>> getVersionCompatCodecs() {
+    public Map<DataComponentType<?>, Codec<?>> getVersionCompatCodecs() {
         return versionCompatCodecs;
     }
 }

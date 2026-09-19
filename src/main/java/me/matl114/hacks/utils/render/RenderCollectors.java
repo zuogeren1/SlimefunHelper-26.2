@@ -2,6 +2,7 @@ package me.matl114.hacks.utils.render;
 
 import static me.matl114.utils.RenderUtils.*;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,37 +17,36 @@ import me.matl114.utils.render.ColorQuad;
 import me.matl114.utils.render.RenderCollector;
 import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VRender;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.decoration.DisplayEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector2d;
 
 public class RenderCollectors {
-    public static final MinecraftClient mc = MinecraftClient.getInstance();
+    public static final Minecraft mc = Minecraft.getInstance();
 
-    public static RenderCollector<Box> createBoxCollector(
+    public static RenderCollector<AABB> createBoxCollector(
             boolean drawOutline, boolean drawSolid, boolean drawTraceLine) {
-        return new RenderCollector.Impl<Box>() {
+        return new RenderCollector.Impl<AABB>() {
             @Override
-            public void render3D(MatrixStack matrices) {
+            public void render3D(PoseStack matrices) {
                 if (entries.isEmpty()) return;
-                Vec3d cameraPos = getCameraPos().negate();
+                Vec3 cameraPos = getCameraPos().reverse();
                 if (drawSolid) {
                     VRender.getInstance()
                             .createQuadsLayer(
                                     (operation, vertexConsumer) -> {
                                         if (!entries.isEmpty()) {
-                                            for (IndexEntry<Box> boxEntry : entries) {
-                                                var box = boxEntry.val().offset(cameraPos);
+                                            for (IndexEntry<AABB> boxEntry : entries) {
+                                                var box = boxEntry.val().move(cameraPos);
                                                 operation.drawSolidBoxQuad(
                                                         matrices,
                                                         vertexConsumer,
-                                                        box.getMinPos(),
-                                                        box.getMaxPos(),
+                                                        box.getMinPosition(),
+                                                        box.getMaxPosition(),
                                                         boxEntry.index());
                                             }
                                         }
@@ -57,12 +57,12 @@ public class RenderCollectors {
                     VRender.getInstance().createLinesLayer((op, vtx) -> {
                         if (drawOutline) {
                             for (var re : entries) {
-                                var box = re.val().offset(cameraPos);
-                                op.drawOutlinedBox(matrices, vtx, box.getMinPos(), box.getMaxPos(), re.index());
+                                var box = re.val().move(cameraPos);
+                                op.drawOutlinedBox(matrices, vtx, box.getMinPosition(), box.getMaxPosition(), re.index());
                             }
                         }
                         if (drawTraceLine) {
-                            Vec3d traceOrigin = RenderUtils.getTracerOrigin(0.0F);
+                            Vec3 traceOrigin = RenderUtils.getTracerOrigin(0.0F);
                             for (var re : entries) {
                                 var box = re.val().getCenter().add(cameraPos);
                                 op.drawLine(matrices, vtx, traceOrigin, box, re.index());
@@ -79,12 +79,12 @@ public class RenderCollectors {
                 Matrix4f projMatrix = RenderListener.getWorldBasicProjectionMatrix();
                 if (drawOutline || drawSolid) {
 
-                    Function<Vec3d, Vector2d> projector = RenderUtils.createProjector(camMatrix, projMatrix, true);
+                    Function<Vec3, Vector2d> projector = RenderUtils.createProjector(camMatrix, projMatrix, true);
 
-                    for (IndexEntry<Box> entry : entries) {
-                        Box box = entry.val();
-                        Vec3d min = box.getMinPos();
-                        Vec3d max = box.getMaxPos();
+                    for (IndexEntry<AABB> entry : entries) {
+                        AABB box = entry.val();
+                        Vec3 min = box.getMinPosition();
+                        Vec3 max = box.getMaxPosition();
 
                         // 8 个顶点的局部偏移（在 Box 坐标系中）
                         double[] xs = {min.x, max.x};
@@ -100,7 +100,7 @@ public class RenderCollectors {
                         for (double x : xs) {
                             for (double y : ys) {
                                 for (double z : zs) {
-                                    Vec3d worldPos = new Vec3d(x, y, z);
+                                    Vec3 worldPos = new Vec3(x, y, z);
                                     Vector2d screen = projector.apply(worldPos);
                                     if (screen != null) {
                                         if (screen.x < minX) minX = screen.x;
@@ -137,13 +137,13 @@ public class RenderCollectors {
                     }
                 }
                 if (drawTraceLine) {
-                    Function<Vec3d, Vector2d> projector = RenderUtils.createProjector(camMatrix, projMatrix, false);
+                    Function<Vec3, Vector2d> projector = RenderUtils.createProjector(camMatrix, projMatrix, false);
                     Vector2d screenCenter = RenderUtils.getScreenSize().mul(0.5D, 0.5D);
                     vdraw.getMatrices().pushMatrix();
                     try {
                         vdraw.getMatrices().translate((float) screenCenter.x, (float) screenCenter.y);
                         for (var entry : entries) {
-                            Vec3d pos = entry.val().getCenter();
+                            Vec3 pos = entry.val().getCenter();
                             int color = entry.index();
                             Vector2d screenPos = projector.apply(pos);
                             if (screenPos != null) {
@@ -165,8 +165,8 @@ public class RenderCollectors {
         };
     }
 
-    public static RenderCollector<Box> createOutlineCollector() {
-        return new RenderCollector<Box>() {
+    public static RenderCollector<AABB> createOutlineCollector() {
+        return new RenderCollector<AABB>() {
             private final Map<RenderElements.Line, Integer> lines = new LinkedHashMap<>();
 
             private void addInternal(RenderElements.Line line, int color) {
@@ -178,7 +178,7 @@ public class RenderCollectors {
             }
 
             @Override
-            public void submit(Box val, int color) {
+            public void submit(AABB val, int color) {
                 for (RenderElements.Line line : RenderElements.boxOutline(val)) {
                     addInternal(line, color);
                 }
@@ -190,17 +190,17 @@ public class RenderCollectors {
             }
 
             @Override
-            public void render3D(MatrixStack matrices) {
+            public void render3D(PoseStack matrices) {
                 if (lines.isEmpty()) return;
-                Vec3d cameraPos = getCameraPos().negate();
+                Vec3 cameraPos = getCameraPos().reverse();
                 VRender.getInstance().createLinesLayer((op, vtx) -> {
                     for (var entry : lines.entrySet()) {
                         var line = entry.getKey().offset(cameraPos);
                         op.drawLine(
                                 matrices,
                                 vtx,
-                                new Vec3d(line.x0(), line.y0(), line.z0()),
-                                new Vec3d(line.x1(), line.y1(), line.z1()),
+                                new Vec3(line.x0(), line.y0(), line.z0()),
+                                new Vec3(line.x1(), line.y1(), line.z1()),
                                 entry.getValue());
                     }
                 });
@@ -211,8 +211,8 @@ public class RenderCollectors {
         };
     }
 
-    public static RenderCollector<Box> createFaceCollector() {
-        return new RenderCollector<Box>() {
+    public static RenderCollector<AABB> createFaceCollector() {
+        return new RenderCollector<AABB>() {
             private final Map<RenderElements.Quad, Integer> quads = new LinkedHashMap<>();
 
             private void addInternal(RenderElements.Quad quad, int color) {
@@ -224,7 +224,7 @@ public class RenderCollectors {
             }
 
             @Override
-            public void submit(Box val, int color) {
+            public void submit(AABB val, int color) {
                 for (RenderElements.Quad quad : RenderElements.boxFaces(val)) {
                     addInternal(quad, color);
                 }
@@ -236,9 +236,9 @@ public class RenderCollectors {
             }
 
             @Override
-            public void render3D(MatrixStack matrices) {
+            public void render3D(PoseStack matrices) {
                 if (quads.isEmpty()) return;
-                Vec3d cameraPos = getCameraPos().negate();
+                Vec3 cameraPos = getCameraPos().reverse();
                 VRender.getInstance()
                         .createQuadsLayer(
                                 (op, vtx) -> {
@@ -256,13 +256,13 @@ public class RenderCollectors {
         };
     }
 
-    public static RenderCollector<Vec3d> createTracerCollector() {
-        return new RenderCollector.Impl<Vec3d>() {
+    public static RenderCollector<Vec3> createTracerCollector() {
+        return new RenderCollector.Impl<Vec3>() {
             @Override
-            public void render3D(MatrixStack matrices) {
+            public void render3D(PoseStack matrices) {
                 if (entries.isEmpty()) return;
-                Vec3d cameraPos = getCameraPos().negate();
-                Vec3d traceOrigin = RenderUtils.getTracerOrigin(0.0F);
+                Vec3 cameraPos = getCameraPos().reverse();
+                Vec3 traceOrigin = RenderUtils.getTracerOrigin(0.0F);
                 VRender.getInstance().createLinesLayer((op, vtx) -> {
                     for (var re : entries) {
                         var box = re.val().add(cameraPos);
@@ -276,13 +276,13 @@ public class RenderCollectors {
                 if (entries.isEmpty()) return;
                 Matrix4f cam = RenderListener.getWorldModelViewMatrix();
                 Matrix4f proj = RenderListener.getWorldBasicProjectionMatrix();
-                Function<Vec3d, Vector2d> projector = RenderUtils.createProjector(cam, proj, false);
+                Function<Vec3, Vector2d> projector = RenderUtils.createProjector(cam, proj, false);
                 Vector2d screenCenter = RenderUtils.getScreenSize().mul(0.5D, 0.5D);
                 vdraw.getMatrices().pushMatrix();
                 try {
                     vdraw.getMatrices().translate((float) screenCenter.x, (float) screenCenter.y);
                     for (var entry : entries) {
-                        Vec3d pos = entry.val();
+                        Vec3 pos = entry.val();
                         int color = entry.index();
                         Vector2d screenPos = projector.apply(pos);
                         if (screenPos != null) {
@@ -303,13 +303,13 @@ public class RenderCollectors {
         };
     }
 
-    public static RenderCollector<List<Vec3d>> createLinesCollector() {
-        return new RenderCollector.Impl<List<Vec3d>>() {
+    public static RenderCollector<List<Vec3>> createLinesCollector() {
+        return new RenderCollector.Impl<List<Vec3>>() {
 
             @Override
-            public void render3D(MatrixStack matrices) {
+            public void render3D(PoseStack matrices) {
                 if (entries.isEmpty()) return;
-                Vec3d cameraPos = getCameraPos().negate();
+                Vec3 cameraPos = getCameraPos().reverse();
                 VRender.getInstance().createLinesLayer((op, vtx) -> {
                     for (var re : entries) {
                         var lines = re.val().stream().map(s -> s.add(cameraPos)).toList();
@@ -330,33 +330,33 @@ public class RenderCollectors {
     public static RenderCollector<RenderElements.Text> createTextCollector() {
         return new RenderCollector.Impl<>() {
             @Override
-            public void render3D(MatrixStack stack) {
+            public void render3D(PoseStack stack) {
                 if (entries.isEmpty()) return;
-                Vec3d cameraNeg = getCameraPos().negate();
+                Vec3 cameraNeg = getCameraPos().reverse();
                 for (IndexEntry<RenderElements.Text> entry : entries) {
                     var col = entry.index();
                     var vec3d = entry.val().position();
                     var text = entry.val().text();
                     var delta = vec3d.add(cameraNeg);
                     float scale = entry.val().scale();
-                    stack.push();
+                    stack.pushPose();
                     stack.translate(delta.x, delta.y, delta.z);
-                    stack.multiply(RenderUtils.getBillboardRotation(DisplayEntity.BillboardMode.CENTER, 0, 0));
+                    stack.mulPose(RenderUtils.getBillboardRotation(Display.BillboardConstraints.CENTER, 0, 0));
                     stack.scale(0.03125F * scale, 0.03125F * scale, 1);
-                    List<Text> listText = ChatUtils.splitToMultiLineText(text, Integer.MAX_VALUE);
+                    List<Component> listText = ChatUtils.splitToMultiLineText(text, Integer.MAX_VALUE);
                     int index = 0;
                     for (var re : listText) {
                         VRender.getInstance()
                                 .drawTextCameraCoord(
-                                        re.asOrderedText(),
+                                        re.getVisualOrderText(),
                                         stack,
-                                        Vec3d.ZERO.add(0, -index * 9.0D, 0),
+                                        Vec3.ZERO.add(0, -index * 9.0D, 0),
                                         entry.val().offSetFlag(),
                                         new Color(col),
                                         VRender.DEFAULT_TEXT);
                         index += 1;
                     }
-                    stack.pop();
+                    stack.popPose();
                 }
             }
 
@@ -365,10 +365,10 @@ public class RenderCollectors {
                 if (entries.isEmpty()) return;
                 Matrix4f cam = RenderListener.getWorldModelViewMatrix();
                 Matrix4f proj = RenderListener.getWorldBasicProjectionMatrix();
-                Function<Vec3d, Vector2d> projector = RenderUtils.createProjector(cam, proj);
+                Function<Vec3, Vector2d> projector = RenderUtils.createProjector(cam, proj);
                 for (var entry : entries) {
                     var pair = entry.val();
-                    Vec3d pos = pair.position();
+                    Vec3 pos = pair.position();
                     int color = entry.index();
                     Vector2d screenPos = projector.apply(pos);
                     if (screenPos != null) {
@@ -377,14 +377,14 @@ public class RenderCollectors {
                             vdraw.getMatrices().translate((float) screenPos.x, (float) screenPos.y);
                             float scale = entry.val().scale();
                             vdraw.getMatrices().scale(scale, scale);
-                            Text text = pair.text();
+                            Component text = pair.text();
                             int offsetFlag = pair.offSetFlag();
-                            double dd = mc.textRenderer.getTextHandler().getWidth(text);
+                            double dd = mc.font.getSplitter().stringWidth(text);
                             int xAlign = offsetFlag % 3;
                             int yAlign = offsetFlag / 3;
                             vdraw.getMatrices().translate((float) (-((dd * xAlign) / 2.0D)), (float)
                                     (-((HEIGHT * yAlign) / 2.0D)));
-                            vdraw.drawText(mc.textRenderer, text.asOrderedText(), 0, 0, color, true);
+                            vdraw.drawText(mc.font, text.getVisualOrderText(), 0, 0, color, true);
                         } finally {
                             vdraw.popMatrix();
                         }

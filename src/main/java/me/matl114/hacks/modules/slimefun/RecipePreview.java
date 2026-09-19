@@ -67,7 +67,7 @@ public class RecipePreview {
     //            matrics.push();
     //            matrics.translate(0,0f, 500);
     //            var position = matrics.peek().getPositionMatrix();
-    //            renderer.draw(data, slot.x + 10 - renderer.getWidth(data), slot.y - 6 - 3, Colors.RED, false,
+    //            renderer.draw(data, slot.x + 10 - renderer.getWidth(data), slot.y - 6 - 3, CommonColors.RED, false,
     // position, context.getVertexConsumers(), TextRenderer.TextLayerType.POLYGON_OFFSET, 0, 15728880);
     //            matrics.pop();
     //            RenderSystem.disableDepthTest();

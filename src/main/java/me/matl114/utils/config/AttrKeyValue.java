@@ -11,12 +11,13 @@ import me.matl114.gui.complex.RawTextElement;
 import me.matl114.gui.complex.config.KeyValueInputWidget;
 import me.matl114.gui.elements.LabelElement;
 import me.matl114.utils.ReflectUtils;
+import me.matl114.utils.config.kv.AttrKeyValues.ClampedIntAttrKeyValue;
 import me.matl114.utils.config.kv.EnumAttrKeyValue;
 import me.matl114.utils.config.kv.RegistryAttrKeyValue;
 import me.matl114.utils.config.kv.StringListAttrKeyValue;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 public interface AttrKeyValue<T> extends KeyValue<T>, PropertyTracker<Object, String> {
 
@@ -106,7 +107,7 @@ public interface AttrKeyValue<T> extends KeyValue<T>, PropertyTracker<Object, St
     public static <T> BaseAttrKeyValue<T> openRegistry(String key, Registry<T> registry, String val) {
         Identifier identifier = Identifier.tryParse(val);
         T val0;
-        if (identifier != null && (val0 = registry.getOrEmpty(identifier).orElse(null)) != null) {
+        if (identifier != null && (val0 = registry.getOptional(identifier).orElse(null)) != null) {
             return new RegistryAttrKeyValue<>(key, val0, registry);
         } else {
             return new RegistryAttrKeyValue<>(key, val, registry, null);
@@ -158,12 +159,12 @@ public interface AttrKeyValue<T> extends KeyValue<T>, PropertyTracker<Object, St
             return (w) -> cutSizeXRight(w, portion);
         }
 
-        public static <T> UnaryOperator<CustomWidgetFactory<T>> withLabel(Text label) {
+        public static <T> UnaryOperator<CustomWidgetFactory<T>> withLabel(Component label) {
             return (w) -> {
                 return (s111, x, y, dx, dy) -> {
                     SubScreenWidget subScreenWidget = new SubScreenWidget(x, y, dx, dy);
                     subScreenWidget.addDrawableChild(DisplayWidget.instance(1, 1, dy * 2 - 2, dy - 2)
-                            .setRenderHandler(new LabelElement(Text.empty(), -1)));
+                            .setRenderHandler(new LabelElement(Component.empty(), -1)));
                     subScreenWidget.addDrawableChild(
                             DisplayWidget.instance(0, 0, dy * 2, dy).setRenderHandler(new RawTextElement(label, -1)));
 

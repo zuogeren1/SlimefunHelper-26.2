@@ -19,10 +19,16 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class AutoCity extends BaseModule {
     public static AutoCity INSTANCE;
@@ -65,21 +71,21 @@ public class AutoCity extends BaseModule {
         registerListener(PacketMine.getPrePacketMine(), this::onPrePacketMine);
     }
 
-    PlayerEntity targetEntity;
+    Player targetEntity;
     BlockPos targetPos;
     boolean pendingSwitchPos;
 
     public void refreshTarget() {
         double range = InteractExtra.INSTANCE.getBlockReachDistance() + 2;
         if (!EntityUtils.isEntityValid(targetEntity)
-                || targetEntity.getBoundingBox().squaredMagnitude(mc.player.getEyePos()) > MathUtils.s2(range)) {
+                || targetEntity.getBoundingBox().distanceToSqr(mc.player.getEyePosition()) > MathUtils.s2(range)) {
             targetEntity = null;
             targetPos = null;
         }
         if (targetEntity == null) {
             Entity en =
-                    CombatTasks.getTargetSelector().searchAttackEntity(range, true, (pl) -> pl instanceof PlayerEntity);
-            if (en instanceof PlayerEntity pl && pl != mc.player) {
+                    CombatTasks.getTargetSelector().searchAttackEntity(range, true, (pl) -> pl instanceof Player);
+            if (en instanceof Player pl && pl != mc.player) {
                 targetEntity = pl;
             }
         }
@@ -104,27 +110,27 @@ public class AutoCity extends BaseModule {
     }
 
     private void onMine() {
-        Box box = targetEntity.getBoundingBox();
+        AABB box = targetEntity.getBoundingBox();
         Set<BlockPos> outerPoses = new LinkedHashSet<>();
         Set<BlockPos> selfPoses = new LinkedHashSet<>();
-        Vec3d pos = mc.player.getEyePos();
-        Predicate<BlockPos> filter = (np) -> InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), np);
+        Vec3 pos = mc.player.getEyePosition();
+        Predicate<BlockPos> filter = (np) -> InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), np);
         selfPoses.addAll(MathUtils.getOccupiedBlockPositions(box).stream()
                 .sorted(Comparator.comparingInt(Vec3i::getY))
                 .toList());
 
         Comparator<BlockPos> blockPosComparator =
-                Comparator.comparingDouble(v -> MathUtils.getBlockBox(v).squaredMagnitude(pos));
-        Box heightTest = box;
+                Comparator.comparingDouble(v -> MathUtils.getBlockBox(v).distanceToSqr(pos));
+        AABB heightTest = box;
         if (head.get()) {
-            heightTest = box.stretch(0, 0.75, 0);
+            heightTest = box.expandTowards(0, 0.75, 0);
             MathUtils.getOccupiedBlockPositions(heightTest).stream()
                     .filter(filter)
                     .sorted(blockPosComparator)
                     .forEach(outerPoses::add);
         }
         if (down.get()) {
-            heightTest = box.stretch(0, -0.75, 0);
+            heightTest = box.expandTowards(0, -0.75, 0);
             MathUtils.getOccupiedBlockPositions(heightTest).stream()
                     .filter(filter)
                     .sorted(blockPosComparator)
@@ -132,18 +138,18 @@ public class AutoCity extends BaseModule {
         }
         if (surround.get()) {
             // check burrow, if target burrow in bedrock then don't waste time mining their feet
-            Box box1 = box.expand(0.99, 0, 0);
-            Box box2 = box.expand(0, 0, 0.99);
-            BlockPos targetBlockPos = targetEntity.getBlockPos();
-            if (PacketMine.INSTANCE.isMineable(mc.world.getBlockState(targetBlockPos))) {
+            AABB box1 = box.inflate(0.99, 0, 0);
+            AABB box2 = box.inflate(0, 0, 0.99);
+            BlockPos targetBlockPos = targetEntity.blockPosition();
+            if (PacketMine.INSTANCE.isMineable(mc.level.getBlockState(targetBlockPos))) {
                 // only mine feet
-                box1 = box1.withMaxY(box.minY + 0.5);
-                box2 = box2.withMaxY(box.minY + 0.5);
+                box1 = box1.setMaxY(box.minY + 0.5);
+                box2 = box2.setMaxY(box.minY + 0.5);
             } else if (box.maxY > targetBlockPos.getY() + 1
-                    && PacketMine.INSTANCE.isMineable(mc.world.getBlockState(targetBlockPos.up()))) {
+                    && PacketMine.INSTANCE.isMineable(mc.level.getBlockState(targetBlockPos.above()))) {
                 // mine eye because they burrow themselves in bedrock
-                box1 = box1.withMinY(box.minY + 1.0);
-                box2 = box2.withMinY(box.minY + 1.0);
+                box1 = box1.setMinY(box.minY + 1.0);
+                box2 = box2.setMinY(box.minY + 1.0);
             } else {
                 // mine whatever. shit
             }
@@ -154,7 +160,7 @@ public class AutoCity extends BaseModule {
         }
 
         outerPoses.removeAll(selfPoses);
-        PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.interactionManager);
+        PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.gameMode);
         BlockPos currentPos = access.getCurrentMiningPos();
         BlockPos nowCurrentFailMinePos = access.getCurrentFailBreakPos();
         // not mining
@@ -188,12 +194,12 @@ public class AutoCity extends BaseModule {
                 {
                     // process selfPos first
                     for (var bp : selfPosList) {
-                        BlockState bs = mc.world.getBlockState(bp);
+                        BlockState bs = mc.level.getBlockState(bp);
                         // 只挖硬的 软的可以炸掉
                         if (!bs.isAir()
-                                && !bs.isLiquid()
+                                && !bs.liquid()
                                 && PacketMine.INSTANCE.isMineable(bs)
-                                && bs.getBlock().getBlastResistance() > 600) {
+                                && bs.getBlock().getExplosionResistance() > 600) {
                             if (Objects.equals(bp, nowCurrentFailMinePos)) {
                                 continue;
                             }
@@ -206,8 +212,8 @@ public class AutoCity extends BaseModule {
                         }
                     }
                     for (var bp : outerPosList) {
-                        BlockState bs = mc.world.getBlockState(bp);
-                        if (!bs.isAir() && !bs.isLiquid() && PacketMine.INSTANCE.isMineable(bs)) {
+                        BlockState bs = mc.level.getBlockState(bp);
+                        if (!bs.isAir() && !bs.liquid() && PacketMine.INSTANCE.isMineable(bs)) {
                             currentMinePos = bp;
                             break find_mine_schedule;
                         }

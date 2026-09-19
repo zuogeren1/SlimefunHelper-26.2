@@ -7,8 +7,8 @@ import java.util.regex.Pattern;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.item.Items;
 import net.minecraft.nbt.*;
+import net.minecraft.world.item.Items;
 
 public class BukkitConfigDeserializor {
     private static final Pattern ARRAY = Pattern.compile("^\\[.*]");
@@ -16,12 +16,12 @@ public class BukkitConfigDeserializor {
     private static final Pattern DOUBLE =
             Pattern.compile("[-+]?(?:[0-9]+[.]?|[0-9]*[.][0-9]+)(?:e[-+]?[0-9]+)?d", Pattern.CASE_INSENSITIVE);
 
-    public static NbtElement deserializeObject(final Object object) {
+    public static Tag deserializeObject(final Object object) {
         // The new logic expects the top level object to be a single string, holding the entire nbt tag as SNBT.
         if (object instanceof final String snbtString) {
             try {
-                return StringNbtReader.fromOps(ItemStackUtils.registry().getOps(NbtOps.INSTANCE))
-                        .read(snbtString);
+                return TagParser.create(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE))
+                        .parseFully(snbtString);
             } catch (final CommandSyntaxException e) {
                 throw new RuntimeException("Failed to deserialise nbt", e);
             }
@@ -31,9 +31,9 @@ public class BukkitConfigDeserializor {
         }
     }
 
-    public static NbtElement deserializeObjectLegacy(Object object) {
+    public static Tag deserializeObjectLegacy(Object object) {
         if (object instanceof Map) {
-            NbtCompound compound = new NbtCompound();
+            CompoundTag compound = new CompoundTag();
             for (Map.Entry<String, Object> entry : ((Map<String, Object>) object).entrySet()) {
                 compound.put(entry.getKey(), deserializeObjectLegacy(entry.getValue()));
             }
@@ -42,10 +42,10 @@ public class BukkitConfigDeserializor {
         } else if (object instanceof List) {
             List<Object> list = (List<Object>) object;
             if (list.isEmpty()) {
-                return new NbtList(); // Default
+                return new ListTag(); // Default
             }
 
-            NbtList tagList = new NbtList();
+            ListTag tagList = new ListTag();
             for (Object tag : list) {
                 tagList.add(deserializeObjectLegacy(tag));
             }
@@ -58,23 +58,23 @@ public class BukkitConfigDeserializor {
 
                 return VNbt.getInstance().readNbt(string);
             } else if (INTEGER.matcher(string).matches()) { // Read integers on our own
-                return NbtInt.of(Integer.parseInt(string.substring(0, string.length() - 1)));
+                return IntTag.valueOf(Integer.parseInt(string.substring(0, string.length() - 1)));
             } else if (DOUBLE.matcher(string).matches()) {
-                return NbtDouble.of(Double.parseDouble(string.substring(0, string.length() - 1)));
+                return DoubleTag.valueOf(Double.parseDouble(string.substring(0, string.length() - 1)));
             } else {
-                NbtElement nbtBase;
+                Tag nbtBase;
                 try {
-                    nbtBase = StringNbtReader.fromOps(ItemStackUtils.registry().getOps(NbtOps.INSTANCE))
-                            .read(string);
+                    nbtBase = TagParser.create(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE))
+                            .parseFully(string);
                 } catch (CommandSyntaxException e) {
                     throw new RuntimeException("Could not deserialize found element ", e);
                 }
-                if (nbtBase instanceof NbtInt nit) { // If this returns an integer, it did not use our method from above
-                    return NbtString.of(
+                if (nbtBase instanceof IntTag nit) { // If this returns an integer, it did not use our method from above
+                    return StringTag.valueOf(
                             String.valueOf(nit.value())); // It then is a string that was falsely read as an int
-                } else if (nbtBase instanceof NbtDouble) {
-                    return NbtString.of(
-                            String.valueOf(((NbtDouble) nbtBase).doubleValue())); // Doubles add "d" at the end
+                } else if (nbtBase instanceof DoubleTag) {
+                    return StringTag.valueOf(
+                            String.valueOf(((DoubleTag) nbtBase).doubleValue())); // Doubles add "d" at the end
                 } else {
                     return nbtBase;
                 }

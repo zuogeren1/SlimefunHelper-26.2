@@ -21,19 +21,19 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.utils.ChatUtils;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.StringHelper;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.Mth;
+import net.minecraft.util.StringUtil;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 public abstract class INameTag extends BaseModule {
     public INameTag() {
@@ -78,11 +78,11 @@ public abstract class INameTag extends BaseModule {
     public final FlagRef potion = flagBuilder(nameTag.add("potion")).build();
 
     public final NBTRef<WrapColor> nameColor = builder(nameTag.add("name-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.WHITE)))
+            .defaultValue(new WrapColor((ChatFormatting.WHITE)))
             .build();
 
     public final NBTRef<WrapColor> friendNameColor = builder(nameTag.add("friend-name-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.WHITE)))
+            .defaultValue(new WrapColor((ChatFormatting.WHITE)))
             .build();
 
     public final NBTRef<WrapColor> healthColor = builder(nameTag.add("health-color"), WrapColor.class)
@@ -90,11 +90,11 @@ public abstract class INameTag extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> pingColor = builder(nameTag.add("ping-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.GREEN)))
+            .defaultValue(new WrapColor((ChatFormatting.GREEN)))
             .build();
 
     public final NBTRef<WrapColor> distColor = builder(nameTag.add("distance-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.RED)))
+            .defaultValue(new WrapColor((ChatFormatting.RED)))
             .build();
 
     public final NBTRef<WrapColor> popColor = builder(nameTag.add("pop-color"), WrapColor.class)
@@ -102,11 +102,11 @@ public abstract class INameTag extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> infoColor = builder(nameTag.add("other-info-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.YELLOW)))
+            .defaultValue(new WrapColor((ChatFormatting.YELLOW)))
             .build();
 
     public final NBTRef<WrapColor> potionColor = builder(nameTag.add("potion-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.WHITE)))
+            .defaultValue(new WrapColor((ChatFormatting.WHITE)))
             .build();
     List<PlayerNameTagInfo> nameTagInfos;
     protected static final EquipmentSlot[] SLOTS = {
@@ -126,10 +126,10 @@ public abstract class INameTag extends BaseModule {
         registerListener(Listener.getPostTick(), this::onUpdate);
     }
 
-    public static final Text DEV_PREFIX = ChatUtils.stringToText(
+    public static final Component DEV_PREFIX = ChatUtils.stringToText(
             "§x§e§b§3§3§e§b§l[§x§d§6§2§6§d§6§lD§x§c§1§1§a§c§1§le§x§a§c§0§d§a§c§lv§x§9§7§0§0§9§7§l]");
 
-    private static final Map<String, Text> INTERNAL_PREFIX = Map.of(
+    private static final Map<String, Component> INTERNAL_PREFIX = Map.of(
             "||juhaoniubi666",
                     ChatUtils.stringToText(
                             "§x§a§f§b§1§d§9[§x§a§9§b§b§d§b大§x§a§3§c§5§d§d啥§x§9§d§c§f§d§f比§x§9§7§d§9§e§1]"),
@@ -137,40 +137,40 @@ public abstract class INameTag extends BaseModule {
                     ChatUtils.stringToText(
                             "§x§a§f§b§1§d§9[§x§a§9§b§b§d§b大§x§a§3§c§5§d§d啥§x§9§d§c§f§d§f比§x§9§7§d§9§e§1]"));
 
-    private static Text getDurationText(int duration) {
+    private static Component getDurationText(int duration) {
         if (duration > Integer.MAX_VALUE - 1) {
-            return Text.translatable("effect.duration.infinite");
+            return Component.translatable("effect.duration.infinite");
         } else {
-            int i = MathHelper.floor((float) duration);
-            return Text.literal(
-                    StringHelper.formatTicks(i, mc.world.getTickManager().getTickRate()));
+            int i = Mth.floor((float) duration);
+            return Component.literal(
+                    StringUtil.formatTickDuration(i, mc.level.tickRateManager().tickrate()));
         }
     }
 
     public void onUpdate(Event<Void> eventGameUpdate) {
         if (!checkNull() && enable.get()) {
             nameTagInfos = new ArrayList<>();
-            for (var player : mc.world.getPlayers()) {
-                if (!(player instanceof ClientPlayerEntity) && !(player instanceof OtherClientPlayerEntity)) {
+            for (var player : mc.level.players()) {
+                if (!(player instanceof LocalPlayer) && !(player instanceof RemotePlayer)) {
                     continue;
                 }
-                MutableText text = Text.empty();
-                String name = player.getNameForScoreboard();
+                MutableComponent text = Component.empty();
+                String name = player.getScoreboardName();
                 if (name == null) continue;
                 if (SlimefunHelper.DEV_NAME.contains(name)) {
                     text.append(DEV_PREFIX);
                 } else if (INTERNAL_PREFIX.containsKey(name)) {
-                    Text prefix = INTERNAL_PREFIX.get(name);
+                    Component prefix = INTERNAL_PREFIX.get(name);
                     text.append(prefix);
                 }
                 boolean isFriend = TargetSelector.INSTANCE.isInFriendList(player);
                 if (isFriend) {
                     text.append(ChatUtils.stringToText("&x&F&F&A&C&0&0["
-                            + TargetSelector.INSTANCE.getPlayerList().getFriendAlias(player.getNameForScoreboard())
+                            + TargetSelector.INSTANCE.getPlayerList().getFriendAlias(player.getScoreboardName())
                             + "&x&F&F&A&C&0&0]"));
                 }
                 if (player.isCreative()) {
-                    text.append(Text.literal("[C]").withColor(Color.RED.getRGB()));
+                    text.append(Component.literal("[C]").withColor(Color.RED.getRGB()));
                 }
 
                 text.append(player.getDisplayName()
@@ -180,27 +180,27 @@ public abstract class INameTag extends BaseModule {
                                         ? friendNameColor.get().asRGB()
                                         : nameColor.get().asRGB()));
                 if (showHealth.get()) {
-                    text.append(Text.literal(" %d♥".formatted((int) player.getHealth()))
+                    text.append(Component.literal(" %d♥".formatted((int) player.getHealth()))
                             .withColor(healthColor.get().asRGB()));
                 }
                 if (showPing.get()) {
                     int latency = 0;
-                    PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(player.getUuid());
+                    PlayerInfo entry = mc.getConnection().getPlayerInfo(player.getUUID());
                     if (entry != null) {
                         latency = entry.getLatency();
                     }
-                    text.append(Text.literal(" %dms".formatted(latency))
+                    text.append(Component.literal(" %dms".formatted(latency))
                             .withColor(pingColor.get().asRGB()));
                 }
                 if (dist.get()) {
-                    double len = mc.player.getPos().distanceTo(player.getPos());
-                    text.append(Text.literal(" d:%.1fm".formatted(len))
+                    double len = mc.player.position().distanceTo(player.position());
+                    text.append(Component.literal(" d:%.1fm".formatted(len))
                             .withColor(distColor.get().asRGB()));
                 }
                 if (pop.get()) {
                     int popCnt = PlayerStateManager.INSTANCE.getPlayerPopCount(player);
                     if (popCnt > 0) {
-                        text.append(Text.literal(" -%d".formatted(popCnt))
+                        text.append(Component.literal(" -%d".formatted(popCnt))
                                 .withColor(popColor.get().asRGB()));
                     }
                 }
@@ -210,7 +210,7 @@ public abstract class INameTag extends BaseModule {
                     stack5 = new ItemStack[6];
                     boolean hasNoEmpty = false;
                     for (int i = 0; i < 6; ++i) {
-                        var re = player.getEquippedStack(SLOTS[i]);
+                        var re = player.getItemBySlot(SLOTS[i]);
                         stack5[i] = re;
                         if (!re.isEmpty()) {
                             hasNoEmpty = true;
@@ -221,36 +221,36 @@ public abstract class INameTag extends BaseModule {
                     }
                 }
 
-                List<Text> subTexts = new ArrayList<>();
+                List<Component> subTexts = new ArrayList<>();
                 if (enchantmentSum.get()) {
                     PlayerStateManager.PlayerStatus status = PlayerStateManager.INSTANCE.getPlayerStatus(player);
                     if (status != null) {
                         if (status.protection > 0) {
-                            subTexts.add(Text.literal("保护%d".formatted(status.protection))
+                            subTexts.add(Component.literal("保护%d".formatted(status.protection))
                                     .withColor(infoColor.get().asRGB()));
                         }
                         if (status.blastProtection > 0) {
-                            subTexts.add(Text.literal("爆炸%d".formatted(status.blastProtection))
+                            subTexts.add(Component.literal("爆炸%d".formatted(status.blastProtection))
                                     .withColor(infoColor.get().asRGB()));
                         }
                     }
                 }
-                MutableText text2;
+                MutableComponent text2;
                 if (subTexts.isEmpty()) {
                     text2 = null;
                 } else {
-                    text2 = Text.empty();
+                    text2 = Component.empty();
                     boolean first = true;
                     for (var re : subTexts) {
                         if (first) {
                             first = false;
                         } else {
-                            text2.append(Text.literal(" "));
+                            text2.append(Component.literal(" "));
                         }
                         text2.append(re);
                     }
                 }
-                Map<RegistryEntry<StatusEffect>, Text> visible = null;
+                Map<Holder<MobEffect>, Component> visible = null;
                 if (potion.get()) {
                     PlayerStateManager.PlayerStatus status = PlayerStateManager.INSTANCE.getPlayerStatus(player);
                     if (status != null) {
@@ -274,35 +274,35 @@ public abstract class INameTag extends BaseModule {
 
     public abstract void onRender(Event<VDrawContext> event);
 
-    protected static final RegistryDisplays.IIcon<StatusEffect> statusEffectRenderer =
-            RegistryDisplays.getIcon(StatusEffect.class);
+    protected static final RegistryDisplays.IIcon<MobEffect> statusEffectRenderer =
+            RegistryDisplays.getIcon(MobEffect.class);
 
     public static class PlayerNameTagInfo {
-        PlayerEntity player;
-        Text nameDisplay;
+        Player player;
+        Component nameDisplay;
         float nameLength;
         ItemStack[] equipments;
-        Text otherInfoDisplay;
+        Component otherInfoDisplay;
         float otherInfoLength;
-        Map<RegistryEntry<StatusEffect>, Text> visibleEffects;
+        Map<Holder<MobEffect>, Component> visibleEffects;
 
         public PlayerNameTagInfo(
-                PlayerEntity player,
-                Text display,
+                Player player,
+                Component display,
                 ItemStack[] equipments,
-                Text otherInfo,
-                Map<RegistryEntry<StatusEffect>, Text> effects) {
+                Component otherInfo,
+                Map<Holder<MobEffect>, Component> effects) {
             this.player = player;
             this.nameDisplay = display;
             this.nameLength =
-                    display == null ? 0.0F : mc.textRenderer.getTextHandler().getWidth(display);
+                    display == null ? 0.0F : mc.font.getSplitter().stringWidth(display);
             if (this.nameLength <= 0.0F) {
                 this.nameDisplay = null;
             }
             this.equipments = equipments;
             this.otherInfoDisplay = otherInfo;
             this.otherInfoLength =
-                    otherInfo == null ? 0.0F : mc.textRenderer.getTextHandler().getWidth(otherInfo);
+                    otherInfo == null ? 0.0F : mc.font.getSplitter().stringWidth(otherInfo);
             if (this.otherInfoLength <= 0.0F) {
                 this.otherInfoDisplay = null;
             }

@@ -1,19 +1,27 @@
 package me.matl114.accessors.access;
 
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 
 public interface PlayerInteractEntityC2SPacketAccess {
     void setEntityId(int entityId);
 
     int getEntityId();
 
-    void setType(PlayerInteractEntityC2SPacket.InteractTypeHandler type);
-
     void setPlayerSneaking(boolean playerSneaking);
 
-    boolean isAttack();
+    /**
+     * 26.2 起攻击被拆分为独立的 {@code ServerboundAttackPacket}，{@code ServerboundInteractPacket}
+     * 变成纯交互包（扁平 record：entityId/hand/location/usingSecondaryAction），不再承载攻击语义，
+     * 原 Action 多态内部类与 ATTACK_ACTION 常量均已移除。
+     *
+     * <p>因此该判断在 26.2 下恒为 false。攻击相关逻辑（Criticals / ElytraBot 等）应改为监听
+     * {@code ServerboundAttackPacket}，此项属于功能性重构，尚未完成。
+     */
+    default boolean isAttack() {
+        return false;
+    }
 
-    static PlayerInteractEntityC2SPacketAccess of(PlayerInteractEntityC2SPacket packet) {
-        return (PlayerInteractEntityC2SPacketAccess) packet;
+    static PlayerInteractEntityC2SPacketAccess of(ServerboundInteractPacket packet) {
+        return (PlayerInteractEntityC2SPacketAccess) (Object) packet;
     }
 }

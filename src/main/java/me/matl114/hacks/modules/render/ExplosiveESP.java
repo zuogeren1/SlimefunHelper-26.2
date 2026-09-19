@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
@@ -18,13 +19,12 @@ import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.damage.DamageTypes;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class ExplosiveESP extends BaseModule {
     public ExplosiveESP() {
@@ -49,16 +49,16 @@ public class ExplosiveESP extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> anchorColor = builder(root.add("anchor-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.GOLD))
+            .defaultValue(new WrapColor(ChatFormatting.GOLD))
             .build();
 
     public final NBTRef<WrapColor> crystalColor = builder(root.add("crystal-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.LIGHT_PURPLE))
+            .defaultValue(new WrapColor(ChatFormatting.LIGHT_PURPLE))
             .build();
 
-    private final RenderCollector<Box> boxOutlineCollector = RenderCollectors.createBoxCollector(true, false, false);
+    private final RenderCollector<AABB> boxOutlineCollector = RenderCollectors.createBoxCollector(true, false, false);
     private final RenderCollector<RenderElements.Text> textCollector = RenderCollectors.createTextCollector();
-    private final RenderCollector<Vec3d> traceCollector = RenderCollectors.createTracerCollector();
+    private final RenderCollector<Vec3> traceCollector = RenderCollectors.createTracerCollector();
 
     @Override
     public void registerAll() {
@@ -68,7 +68,7 @@ public class ExplosiveESP extends BaseModule {
         registerListener(CombatManager.getRequestEnableEvent(), this::onRequestCombatService);
     }
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         boxOutlineCollector.clear();
         textCollector.clear();
         traceCollector.clear();
@@ -79,25 +79,25 @@ public class ExplosiveESP extends BaseModule {
         var crystals = CombatManager.INSTANCE.trackedEndCrystals;
         double maxDistanceSq = MathUtils.s2(distance.get());
         TracingOption tracingOption = option.get();
-        int anchorRgb = anchorColor.get().color().getRgb();
-        int crystalRgb = crystalColor.get().color().getRgb();
+        int anchorRgb = anchorColor.get().color().getValue();
+        int crystalRgb = crystalColor.get().color().getValue();
 
         for (var pos : anchors.keySet()) {
-            if (pos.getSquaredDistance(mc.player.getPos()) > maxDistanceSq) {
+            if (pos.distToCenterSqr(mc.player.position()) > maxDistanceSq) {
                 continue;
             }
-            Box box = new Box(pos);
+            AABB box = new AABB(pos);
             if (tracingOption.box()) {
                 boxOutlineCollector.submit(box, ColorUtils.withAlphaInt(anchorRgb, 255));
             }
             if (tracingOption.line()) {
                 traceCollector.submit(box.getCenter(), ColorUtils.withAlphaInt(anchorRgb, 255));
             }
-            submitDamageText(pos.toCenterPos(), 5.0F, anchorRgb);
+            submitDamageText(Vec3.atCenterOf(pos), 5.0F, anchorRgb);
         }
 
         for (var crystal : crystals) {
-            if (crystal.getPos().squaredDistanceTo(mc.player.getPos()) > maxDistanceSq) {
+            if (crystal.position().distanceToSqr(mc.player.position()) > maxDistanceSq) {
                 continue;
             }
             if (tracingOption.box()) {
@@ -106,22 +106,22 @@ public class ExplosiveESP extends BaseModule {
             if (tracingOption.line()) {
                 traceCollector.submit(crystal.getBoundingBox().getCenter(), ColorUtils.withAlphaInt(crystalRgb, 255));
             }
-            submitDamageText(crystal.getPos(), 6.0F, crystalRgb);
+            submitDamageText(crystal.position(), 6.0F, crystalRgb);
         }
     }
 
-    private void submitDamageText(Vec3d explosionPos, float power, int color) {
+    private void submitDamageText(Vec3 explosionPos, float power, int color) {
         float damage = power == ExplosionUtils.RESPAWN_ANCHOR_POWER
                 ? ExplosionUtils.respawnAnchorDamage(
-                        mc.player.getBoundingBox(), explosionPos, mc.world, ExplosionUtils.ALL_TERRAIN)
+                        mc.player.getBoundingBox(), explosionPos, mc.level, ExplosionUtils.ALL_TERRAIN)
                 : ExplosionUtils.crystalDamage(
-                        mc.player.getBoundingBox(), explosionPos, mc.world, ExplosionUtils.ALL_TERRAIN);
+                        mc.player.getBoundingBox(), explosionPos, mc.level, ExplosionUtils.ALL_TERRAIN);
         textCollector.submit(
                 new RenderElements.Text(
-                        Text.literal("%.1f/%.1f/%.1f"
+                        Component.literal("%.1f/%.1f/%.1f"
                                 .formatted(
                                         damage,
-                                        DamageUtils.getMultipliedDamageByDifficulty(mc.world, damage),
+                                        DamageUtils.getMultipliedDamageByDifficulty(mc.level, damage),
                                         DamageUtils.getFinalDamage(
                                                 mc.player,
                                                 damage,
@@ -132,11 +132,11 @@ public class ExplosiveESP extends BaseModule {
                 ColorUtils.withAlphaInt(color, 255));
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (checkNull() || !enable.get()) {
             return;
         }
-        MatrixStack stack = event.context();
+        PoseStack stack = event.context();
         RenderUtils.startDrawVirtual(stack);
         try {
             textCollector.render3D(stack);

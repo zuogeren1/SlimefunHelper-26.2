@@ -17,9 +17,9 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.TaskManagers;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.ListRef;
-import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.network.chat.Component;
 
 public class QuickButton extends BaseModule {
     public final ModulePath quickButtons = makePath(Configs.INV_CONFIG, "quick-buttons");
@@ -51,19 +51,19 @@ public class QuickButton extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(HandledScreen.class), this::onHandledScreenInitialized);
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onHandledScreenInitialized);
     }
 
-    public void onHandledScreenInitialized(Event<HandledScreen<?>> event) {
+    public void onHandledScreenInitialized(Event<AbstractContainerScreen<?>> event) {
         if (enable.get()) {
             initButton(event.context);
         }
     }
 
-    public void initButton(HandledScreen<?> handledScreen) {
+    public void initButton(AbstractContainerScreen<?> handledScreen) {
         int xv, yv;
         HandledScreenAccess access = HandledScreenAccess.of(handledScreen);
-        if (handledScreen instanceof CreativeInventoryScreen handled) {
+        if (handledScreen instanceof CreativeModeInventoryScreen handled) {
             xv = access.getScreenX();
             yv = resizeCreativeYv(access.getScreenY());
         } else {
@@ -99,7 +99,7 @@ public class QuickButton extends BaseModule {
             ExecutableWidget widget = ExecutableWidget.instance(
                             xv + x0 * (buttonWidth + 1), yv + y0, buttonWidth, buttonHeight)
                     .setElementHandler(
-                            new ButtonElement(TextProvider.of(Text.literal(key)), ((element, widget1, mouseButton) -> {
+                            new ButtonElement(TextProvider.of(Component.literal(key)), ((element, widget1, mouseButton) -> {
                                 stateChange.run();
                                 if (flagRef != null) {
                                     widget1.setAlpha(flagRef.get() ? 1.0f : 0.4f);
@@ -121,7 +121,7 @@ public class QuickButton extends BaseModule {
             final Runnable task = entry.getValue();
             ExecutableWidget.instance(xv + x0 * (buttonWidth + 1), yv - y0, buttonWidth, buttonHeight)
                     .setElementHandler(
-                            new ButtonElement(TextProvider.of(Text.literal(entry.getKey())), ButtonAction.run(task)))
+                            new ButtonElement(TextProvider.of(Component.literal(entry.getKey())), ButtonAction.run(task)))
                     .addTo(handledScreen);
             x0 += 1;
             if (x0 == 4) {

@@ -1,10 +1,10 @@
 package xaero.map.gui;
 
 import java.util.ArrayList;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Text;
-import net.minecraft.world.World;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;
 import xaero.map.MapProcessor;
 import xaero.map.gui.dropdown.rightclick.GuiRightClickMenu;
 import xaero.map.gui.dropdown.rightclick.RightClickOption;
@@ -14,11 +14,11 @@ public class GuiMap extends Screen implements IRightClickableElement {
     private int rightClickX;
     private int rightClickY;
     private int rightClickZ;
-    private RegistryKey<World> rightClickDim;
+    private ResourceKey<Level> rightClickDim;
     private GuiRightClickMenu rightClickMenu;
     private MapTileSelection mapTileSelection;
 
-    protected GuiMap(Text title) {
+    protected GuiMap(Component title) {
         super(title);
     }
 

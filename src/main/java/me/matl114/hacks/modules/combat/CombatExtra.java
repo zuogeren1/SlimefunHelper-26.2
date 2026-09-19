@@ -13,14 +13,14 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.network.packet.s2c.play.CooldownUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityTrackerUpdateS2CPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundCooldownPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.phys.HitResult;
 
 public class CombatExtra extends BaseModule {
     public static CombatExtra INSTANCE;
@@ -48,26 +48,26 @@ public class CombatExtra extends BaseModule {
     public final FlagRef noCooldown = flagBuilder(combat.add("cancel-interval")).build();
 
     private boolean ridingBypass(Entity entity) {
-        return entity.hasVehicle();
+        return entity.isPassenger();
     }
 
     public double getAttackAtTargetRange(Entity entity) {
         double d = ridingBypass(mc.player) || ridingBypass(entity) ? boatAttackRange.get() : range.get();
-        return mc.player.getAttributeValue(EntityAttributes.ENTITY_INTERACTION_RANGE) + d;
+        return mc.player.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) + d;
     }
 
     public double getAttackRange() {
         double d = ridingBypass(mc.player) ? boatAttackRange.get() : range.get();
-        return mc.player.getAttributeValue(EntityAttributes.ENTITY_INTERACTION_RANGE) + d;
+        return mc.player.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) + d;
     }
 
     @Override
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(EntityTrackerUpdateS2CPacket.class), this::onShieldSetback);
+                Listener.getPacketPoint().getChannel(ClientboundSetEntityDataPacket.class), this::onShieldSetback);
         registerListener(
-                Listener.getPacketPoint().getChannel(CooldownUpdateS2CPacket.class), this::asyncUpdateShieldCooldown);
+                Listener.getPacketPoint().getChannel(ClientboundCooldownPacket.class), this::asyncUpdateShieldCooldown);
         registerListener(Listener.getAttackAction(), this::onUseAttackNoSlow);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
@@ -80,7 +80,7 @@ public class CombatExtra extends BaseModule {
         //        }
     }
 
-    public void onShieldSetback(Event<EntityTrackerUpdateS2CPacket> trackerUpdateS2CPacketEvent) {
+    public void onShieldSetback(Event<ClientboundSetEntityDataPacket> trackerUpdateS2CPacketEvent) {
         if (trackerUpdateS2CPacketEvent.isCancelled()) {
             return;
         }
@@ -89,26 +89,26 @@ public class CombatExtra extends BaseModule {
                 && mc.player != null
                 && trackerUpdateS2CPacket.id() == mc.player.getId()
                 && mc.player.isUsingItem()
-                && VItem.getInstance().isShield(mc.player.getActiveItem())
-                && !mc.player.getItemCooldownManager().isCoolingDown(mc.player.getActiveItem())) {
+                && VItem.getInstance().isShield(mc.player.getUseItem())
+                && !mc.player.getCooldowns().isOnCooldown(mc.player.getUseItem())) {
             // shield not in cooldown
             // block shield from
-            for (var trackerUpdate : trackerUpdateS2CPacket.trackedValues()) {
+            for (var trackerUpdate : trackerUpdateS2CPacket.packedItems()) {
                 // the ordinal  of LIVING FLAGS in LivingEntity, may vary with versionsl pls check
                 if (trackerUpdate.id() == VDataFlag.ID_LIVING_FLAGS) {
                     byte byteValue = ((Number) trackerUpdate.value()).byteValue();
                     boolean bl = (byteValue & (1 << VDataFlag.USING_ITEM_FLAG_INDEX)) > 0;
-                    Hand hand = (byteValue & (1 << VDataFlag.OFFHAND_ACTIVE_FLAG_INDEX)) > 0
-                            ? Hand.OFF_HAND
-                            : Hand.MAIN_HAND;
+                    InteractionHand hand = (byteValue & (1 << VDataFlag.OFFHAND_ACTIVE_FLAG_INDEX)) > 0
+                            ? InteractionHand.OFF_HAND
+                            : InteractionHand.MAIN_HAND;
                     // cooldown should be ok,
                     // the only position the server disable shield correctly should be cooldown
                     // so we kick it back
-                    if (!bl && hand == mc.player.getActiveHand()) {
+                    if (!bl && hand == mc.player.getUsedItemHand()) {
                         // using shield , but banned
                         if (shieldExceptionspam + 4 < Tasks.getTick()) {
                             shieldExceptionspam = Tasks.getTick();
-                            Debug.chat(Text.literal("[AC] 阻挡异常盾牌禁用").formatted(Formatting.RED));
+                            Debug.chat(Component.literal("[AC] 阻挡异常盾牌禁用").withStyle(ChatFormatting.RED));
                         }
                         // trackerUpdateS2CPacketEvent.cancel();
                     }
@@ -117,16 +117,16 @@ public class CombatExtra extends BaseModule {
         }
     }
 
-    public void asyncUpdateShieldCooldown(Event<CooldownUpdateS2CPacket> packetEvent) {
+    public void asyncUpdateShieldCooldown(Event<ClientboundCooldownPacket> packetEvent) {
         if (packetEvent.isCancelled()) {
             return;
         }
-        CooldownUpdateS2CPacket packet = packetEvent.context();
-        if (packet.cooldown() > 0) {
+        ClientboundCooldownPacket packet = packetEvent.context();
+        if (packet.duration() > 0) {
             try {
                 synchronized (CombatExtra.class) {
                     // async update, synchronize to protect concurrent cooldown update,
-                    mc.player.getItemCooldownManager().set(packet.cooldownGroup(), packet.cooldown());
+                    mc.player.getCooldowns().addCooldown(packet.cooldownGroup(), packet.duration());
                     //                if(mc.player.isUsingItem() && mc.player.getActiveItem().getItem() == shield){
                     //
                     //                }

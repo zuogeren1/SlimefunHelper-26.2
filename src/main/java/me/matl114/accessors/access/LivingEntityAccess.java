@@ -2,9 +2,9 @@ package me.matl114.accessors.access;
 
 import java.util.Map;
 import me.matl114.accessors.events.EntityAccess;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 
 public interface LivingEntityAccess<T extends LivingEntity> extends EntityAccess<T> {
     public void setJumpingCooldown(int cooldown);

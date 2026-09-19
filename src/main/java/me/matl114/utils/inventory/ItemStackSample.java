@@ -1,6 +1,6 @@
 package me.matl114.utils.inventory;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public record ItemStackSample(ItemStack sample) {
     public static final ItemStackSample EMPTY = new ItemStackSample(ItemStack.EMPTY);
@@ -16,12 +16,12 @@ public record ItemStackSample(ItemStack sample) {
 
     @Override
     public int hashCode() {
-        return ItemStack.hashCode(sample);
+        return ItemStack.hashItemAndComponents(sample);
     }
 
     @Override
     public boolean equals(Object o) {
-        return (o instanceof ItemStackSample sample && ItemStack.areItemsAndComponentsEqual(sample.sample, this.sample))
-                || (o instanceof ItemStack item && ItemStack.areItemsAndComponentsEqual(item, this.sample));
+        return (o instanceof ItemStackSample sample && ItemStack.isSameItemSameComponents(sample.sample, this.sample))
+                || (o instanceof ItemStack item && ItemStack.isSameItemSameComponents(item, this.sample));
     }
 }

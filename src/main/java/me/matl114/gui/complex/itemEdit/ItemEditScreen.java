@@ -1,6 +1,6 @@
 package me.matl114.gui.complex.itemEdit;
 
-import static net.minecraft.component.DataComponentTypes.*;
+import static net.minecraft.core.component.DataComponents.*;
 
 import com.google.common.base.Preconditions;
 import com.mojang.authlib.properties.PropertyMap;
@@ -37,37 +37,41 @@ import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.kv.NbtAttrKeyValue;
 import me.matl114.versioned.api.VItem;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.widget.EditBoxWidget;
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.component.ComponentType;
-import net.minecraft.component.type.*;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.entity.attribute.EntityAttribute;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.MultiLineEditBox;
+import net.minecraft.core.component.*;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.RegistryOps;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.util.CommonColors;
 import net.minecraft.util.Util;
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 public class ItemEditScreen extends ConfirmingBigScreen {
-    protected static final MinecraftClient mc = MinecraftClient.getInstance();
+    protected static final Minecraft mc = Minecraft.getInstance();
     protected ItemStack itemStack;
     protected State state = null;
     protected Consumer<ItemStack> callback;
     protected static int CONTENT_START_X = 20;
 
-    public ItemEditScreen(Text title, ItemStack itemStack, Consumer<ItemStack> callback) {
+    public ItemEditScreen(Component title, ItemStack itemStack, Consumer<ItemStack> callback) {
         super(title);
         this.itemStack = itemStack.copy();
         this.callback = callback;
@@ -86,7 +90,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
     @Override
     protected void onConfirmButton() {
         setState(null);
-        this.close();
+        this.onClose();
         if (this.callback == null) {
             applyChangeToInventory();
         } else {
@@ -97,7 +101,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
     @Override
     protected void onCloseButton() {
         setState(null);
-        this.close();
+        this.onClose();
     }
 
     public void syncItemStack() {
@@ -112,7 +116,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
         if (canConfirm()) {
             InvTasks.getSaveItem().addSaveItem(itemStack.copy());
         } else {
-            Debug.chat(Text.translatable("widget.gui.item-edit-screen.save.error"));
+            Debug.chat(Component.translatable("widget.gui.item-edit-screen.save.error"));
         }
     }
 
@@ -121,26 +125,26 @@ public class ItemEditScreen extends ConfirmingBigScreen {
         if (canConfirm()) {
             InvTasks.copyGiveCommand(itemStack.copy());
         } else {
-            Debug.chat(Text.translatable("widget.gui.item-edit-screen.save.error"));
+            Debug.chat(Component.translatable("widget.gui.item-edit-screen.save.error"));
         }
     }
 
     public void applyChangeToInventory() {
         if (mc.player != null) {
-            if (mc.interactionManager != null
-                    && mc.interactionManager.getCurrentGameMode().isCreative()) {
-                Debug.chat(Text.translatable("widget.gui.item-edit-screen.save.apply-changes.creative")
-                        .formatted(Formatting.GREEN));
+            if (mc.gameMode != null
+                    && mc.gameMode.getPlayerMode().isCreative()) {
+                Debug.chat(Component.translatable("widget.gui.item-edit-screen.save.apply-changes.creative")
+                        .withStyle(ChatFormatting.GREEN));
                 int slot = InventoryUtils.getSelectedSlot();
                 InvTasks.setCreativeInventory(this.itemStack, slot);
             } else {
-                Debug.chat(Text.translatable("widget.gui.item-edit-screen.save.apply-changes.command")
-                        .formatted(Formatting.YELLOW));
+                Debug.chat(Component.translatable("widget.gui.item-edit-screen.save.apply-changes.command")
+                        .withStyle(ChatFormatting.YELLOW));
                 String command = InvTasks.createGiveCommand(itemStack.copy());
                 if (command.length() >= 256) {
-                    Debug.chat(Text.translatable("widget.gui.item-edit-screen.save.apply-changes.command.too-long")
-                            .formatted(Formatting.RED));
-                    mc.keyboard.setClipboard(command);
+                    Debug.chat(Component.translatable("widget.gui.item-edit-screen.save.apply-changes.command.too-long")
+                            .withStyle(ChatFormatting.RED));
+                    mc.keyboardHandler.setClipboard(command);
                 } else {
                     ChatTasks.sayMessage(command, true);
                 }
@@ -163,7 +167,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
     protected static final Identifier GUIDE_TEXTURE_SPRITE = new Identifier("slimefunhelper", "gui/list_tag");
     protected ItemProcessingSubScreen currentSubScreen;
 
-    ContentDelegateWidget<EditBoxWidget> optionalMultiLine;
+    ContentDelegateWidget<MultiLineEditBox> optionalMultiLine;
     ContentDelegateWidget<ItemProcessingSubScreen> processingSubScreen;
 
     protected void setState(State state) {
@@ -171,8 +175,8 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             this.currentSubScreen.saveChanges();
         }
         if (state == null) {
-            setTitleLabel(Text.translatable("widget.gui.item-edit-screen.state.error-title")
-                    .formatted(Formatting.RED));
+            setTitleLabel(Component.translatable("widget.gui.item-edit-screen.state.error-title")
+                    .withStyle(ChatFormatting.RED));
             this.state = null;
             this.currentSubScreen = null;
         } else {
@@ -201,9 +205,9 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                 case NBT_TREE -> null;
             };
         } catch (Throwable e) {
-            this.close();
+            this.onClose();
             Debug.chat(
-                    Text.translatable("widget.gui.item-edit-screen.open.error").formatted(Formatting.RED),
+                    Component.translatable("widget.gui.item-edit-screen.open.error").withStyle(ChatFormatting.RED),
                     e.getMessage());
             Debug.info(e);
         }
@@ -277,19 +281,19 @@ public class ItemEditScreen extends ConfirmingBigScreen {
         public SnbtItemProcessingSubScreen() {
             super();
             ItemEditScreen.this.setTitleLabel(
-                    Text.translatable("widget.gui.item-edit-screen.snbt-editor").formatted(Formatting.GREEN));
+                    Component.translatable("widget.gui.item-edit-screen.snbt-editor").withStyle(ChatFormatting.GREEN));
             init();
         }
 
         NbtAttrKeyValue<ItemStack> itemAttrValue;
         ItemStack lastResult;
         ExecutableWidget formatButton;
-        EditBoxWidget widget;
+        MultiLineEditBox widget;
         protected static final Identifier FORMAT_TEXTURE_SPRITE = Constants.FORMATTING_TEXTURE_SPRITE;
 
-        protected ItemStack validateItemStack(NbtElement element) {
+        protected ItemStack validateItemStack(Tag element) {
             // may throw
-            ItemStack decode = VItem.getInstance().fromNbt((NbtCompound) element, ItemStackUtils.registry());
+            ItemStack decode = VItem.getInstance().fromNbt((CompoundTag) element, ItemStackUtils.registry());
             Preconditions.checkArgument(decode != ItemStack.EMPTY);
             this.lastResult = decode;
             return decode;
@@ -302,7 +306,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
         protected void init() {
             // transform item to json
             this.lastResult = ItemEditScreen.this.itemStack.copy();
-            NbtElement compound = VItem.getInstance().toNbt(this.lastResult, ItemStackUtils.registry());
+            Tag compound = VItem.getInstance().toNbt(this.lastResult, ItemStackUtils.registry());
             this.itemAttrValue = new NbtAttrKeyValue<>("", compound, this::validateItemStack);
             if (!itemAttrValue.validateAndUpdate()) {
                 error();
@@ -317,7 +321,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             this.formatButton = ExecutableWidget.instance(141, -19, 18, 18)
                     .setElementHandler(IconElement.fixedGui(FORMAT_TEXTURE_SPRITE, ButtonAction.run(() -> {
                                 this.itemAttrValue.applyFormatting((str) -> {
-                                    if (this.widget != null) widget.setText(str);
+                                    if (this.widget != null) widget.setValue(str);
                                 });
                             }))
                             .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -368,7 +372,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             super();
             this.stackTemplate = itemStack.copy();
             ItemEditScreen.this.setTitleLabel(
-                    Text.translatable("widget.gui.item-edit-screen.nbt-editor").formatted(Formatting.GREEN));
+                    Component.translatable("widget.gui.item-edit-screen.nbt-editor").withStyle(ChatFormatting.GREEN));
             init();
         }
 
@@ -432,8 +436,8 @@ public class ItemEditScreen extends ConfirmingBigScreen {
         protected void refreshScreen() {
             this.clearChildren();
             for (var attr : ItemAttr.values()) {
-                Text selectedText = Text.translatable(attr.display).formatted(Formatting.YELLOW);
-                Text unselectedText = Text.translatable(attr.display);
+                Component selectedText = Component.translatable(attr.display).withStyle(ChatFormatting.YELLOW);
+                Component unselectedText = Component.translatable(attr.display);
                 ExecutableWidget.instance(20, attr.ordinal() * 30, 80, 30)
                         .setElementHandler(new ButtonElement(
                                 (el) -> {
@@ -444,7 +448,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             }
             DisplayWidget.instance(30, ItemEditScreen.this.processingSubScreen.getTextureHeight() - 90, 60, 20)
                     .setRenderHandler(LabelElement.instance(
-                            Text.translatable("widget.gui.item-edit-screen.nbt-editor.refresh-item")))
+                            Component.translatable("widget.gui.item-edit-screen.nbt-editor.refresh-item")))
                     .addToSub(this);
             ExecutableWidget.instance(30, ItemEditScreen.this.processingSubScreen.getTextureHeight() - 70, 60, 60)
                     .setElementHandler(new SlotElement(
@@ -474,7 +478,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             AttrKeyValue<Boolean> unbreakable;
             AttrKeyValue<Integer> damage;
             AttrKeyValue<String> sfid;
-            ProfileComponent lastComponent;
+            ResolvableProfile lastComponent;
             AttrKeyValue<String> skullHashProfile;
             ItemHideFlags flags;
 
@@ -497,7 +501,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                     SubScreenWidget subScreenWidget = new SubScreenWidget(x, y, 0, 0);
                     subScreenWidget.addDrawableChild(DisplayWidget.instance(1, 1, 50 - 1, 20 - 1)
                             .setRenderHandler(LabelElement.instance(
-                                    Text.translatable("widget.gui.item-edit-screen.nbt-editor.generic.hide-flag"))));
+                                    Component.translatable("widget.gui.item-edit-screen.nbt-editor.generic.hide-flag"))));
                     var flags = ItemStackUtils.getHideFlags();
                     for (int index = 0; index < flags.length; ++index) {
                         var sec = flags[index];
@@ -508,7 +512,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                                                 ButtonElement.BUTTON_INACTIVE,
                                                 ButtonAction.run(() -> sec.setHideFlag(sample, !sec.isHide(sample))),
                                                 (bl) -> sec.isHide(sample))
-                                        .withTooltips(TooltipHandler.of(List.of(Text.literal(sec.displayName()))))));
+                                        .withTooltips(TooltipHandler.of(List.of(Component.literal(sec.displayName()))))));
                     }
                     return subScreenWidget;
                 }
@@ -524,12 +528,12 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             protected void init() {
                 this.item = AttrKeyValue.registry(
                         "widget.gui.item-edit-screen.nbt-editor.generic.item-id",
-                        Registries.ITEM,
+                        BuiltInRegistries.ITEM,
                         stackTemplate.getItem());
                 this.count = AttrKeyValue.integer(
                         "widget.gui.item-edit-screen.nbt-editor.generic.count", stackTemplate.getCount());
                 this.damage = AttrKeyValue.integer(
-                        "widget.gui.item-edit-screen.nbt-editor.generic.durability", stackTemplate.getDamage());
+                        "widget.gui.item-edit-screen.nbt-editor.generic.durability", stackTemplate.getDamageValue());
                 String sfid = ItemStackUtils.getSfId(stackTemplate);
                 this.sfid = AttrKeyValue.str(
                         "widget.gui.item-edit-screen.nbt-editor.generic.sf-id", sfid == null ? "" : sfid);
@@ -537,7 +541,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                         "widget.gui.item-edit-screen.nbt-editor.generic.unbreakable-flag",
                         ItemStackUtils.getIsUnbreakable(stackTemplate));
                 this.flags = new ItemHideFlags(stackTemplate);
-                ProfileComponent component = ItemStackUtils.getInPatch(stackTemplate, PROFILE);
+                ResolvableProfile component = ItemStackUtils.getInPatch(stackTemplate, PROFILE);
                 this.lastComponent = component;
                 String hash = "";
 
@@ -610,11 +614,11 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             List<AttrKeyValue<String>> lores;
 
             protected void init() {
-                Text text = ItemStackUtils.getCustomName(stackTemplate);
+                Component text = ItemStackUtils.getCustomName(stackTemplate);
                 String textCode = text == null ? "" : ChatUtils.textToString(text);
                 displayName = AttrKeyValue.str("widget.gui.item-edit-screen.nbt-editor.display.custom-name", textCode);
                 lores = new ArrayList<>();
-                List<Text> loreComp = ItemStackUtils.getLore(stackTemplate);
+                List<Component> loreComp = ItemStackUtils.getLore(stackTemplate);
                 for (var txt : loreComp) {
                     lores.add(AttrKeyValue.str(
                             "widget.gui.item-edit-screen.nbt-editor.display.lore",
@@ -639,16 +643,16 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             @Override
             protected void saveChanges() {
                 String displayName0 = displayName.getOriginValue();
-                Text customName =
+                Component customName =
                         (displayName0 == null || displayName0.isEmpty()) ? null : ChatUtils.stringToText(displayName0);
                 ItemStackUtils.setCustomName(stackTemplate, customName);
-                List<Text> texts = new ArrayList<>();
+                List<Component> texts = new ArrayList<>();
                 for (var s : this.lores) {
                     String displayName1 = s.getOriginValue();
-                    Text customName1 = (displayName1 == null || displayName1.isEmpty())
+                    Component customName1 = (displayName1 == null || displayName1.isEmpty())
                             ? null
                             : ChatUtils.stringToText(displayName1);
-                    customName1 = customName1 == null ? Text.empty() : customName1;
+                    customName1 = customName1 == null ? Component.empty() : customName1;
                     texts.add(customName1);
                 }
                 ItemStackUtils.setLore(stackTemplate, texts);
@@ -665,7 +669,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                     id = AttrKeyValue.openRegistry(
                             "widget.gui.item-edit-screen.nbt-editor.enchantment.id",
                             ItemStackUtils.registry()
-                                    .getOptional(RegistryKeys.ENCHANTMENT)
+                                    .lookup(Registries.ENCHANTMENT)
                                     .orElseThrow(),
                             enchantment);
                     lvl = AttrKeyValue.integer("widget.gui.item-edit.screen.nbt-editor.enchantment.lvl", level);
@@ -684,11 +688,11 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                     return new Pair<>(this.id.getValue(), this.lvl.getOriginValue());
                 }
 
-                public Pair<RegistryEntry<Enchantment>, Integer> entryValue() {
+                public Pair<Holder<Enchantment>, Integer> entryValue() {
                     try {
                         Enchantment enchantment = this.id.getOriginValue();
-                        RegistryEntry<Enchantment> ench = RegistryUtils.getRegistryEntry(
-                                ItemStackUtils.registry(), RegistryKeys.ENCHANTMENT, enchantment);
+                        Holder<Enchantment> ench = RegistryUtils.getRegistryEntry(
+                                ItemStackUtils.registry(), Registries.ENCHANTMENT, enchantment);
                         return new Pair<>(ench, lvl.getOriginValue());
                     } catch (Throwable e) {
                         return new Pair<>(null, 0);
@@ -705,8 +709,8 @@ public class ItemEditScreen extends ConfirmingBigScreen {
 
             protected void init() {
                 enchantList = new ArrayList<>();
-                ItemEnchantmentsComponent component = ItemStackUtils.getItemEnchant(stackTemplate);
-                component.getEnchantmentEntries().forEach(var -> {
+                ItemEnchantments component = ItemStackUtils.getItemEnchant(stackTemplate);
+                component.entrySet().forEach(var -> {
                     enchantList.add(new ItemEnchantAttrGroup(
                             ItemStackUtils.solveDynamic(var.getKey()).toString(), var.getIntValue()));
                 });
@@ -727,17 +731,17 @@ public class ItemEditScreen extends ConfirmingBigScreen {
 
             @Override
             protected void saveChanges() {
-                ItemEnchantmentsComponent.Builder builder =
-                        new ItemEnchantmentsComponent.Builder(ItemEnchantmentsComponent.DEFAULT);
+                ItemEnchantments.Mutable builder =
+                        new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
                 // .withShowInTooltip(this.showInTooltips));
                 for (var ench : enchantList) {
                     var re = ench.entryValue();
                     if (re.getFirst() != null) {
-                        builder.add(re.getFirst(), re.getSecond());
+                        builder.upgrade(re.getFirst(), re.getSecond());
                     }
                 }
 
-                ItemStackUtils.applyItemEnchant(stackTemplate, builder.build());
+                ItemStackUtils.applyItemEnchant(stackTemplate, builder.toImmutable());
             }
 
             @Override
@@ -747,13 +751,13 @@ public class ItemEditScreen extends ConfirmingBigScreen {
         protected class ItemAttributeModifiersSubSubScreen extends ItemAttrSubSubScreen {
             protected class ItemAttributeModifierEntry {
                 public ItemAttributeModifierEntry(
-                        String attribute, EntityAttributeModifier modifier, AttributeModifierSlot slot) {
+                        String attribute, AttributeModifier modifier, EquipmentSlotGroup slot) {
                     attr = AttrKeyValue.openRegistry(
-                            "widget.gui.item-edit-screen.nbt-editor.attribute.name", Registries.ATTRIBUTE, attribute);
+                            "widget.gui.item-edit-screen.nbt-editor.attribute.name", BuiltInRegistries.ATTRIBUTE, attribute);
                     identifier = AttrKeyValue.identifier(
                             "widget.gui.item-edit-screen.nbt-editor.attribute.uid", modifier.id());
                     modifierValue = AttrKeyValue.doubleVal(
-                            "widget.gui.item-edit-screen.nbt-editor.attribute.value", modifier.value());
+                            "widget.gui.item-edit-screen.nbt-editor.attribute.value", modifier.amount());
                     modifierOperation = AttrKeyValue.enumMap(
                             "widget.gui.item-edit-screen.nbt-editor.attribute.op", modifier.operation(), NAME_TO_OPER);
                     optionalSlot = AttrKeyValue.enumMap(
@@ -761,53 +765,53 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                 }
 
                 AttrKeyValue<Identifier> identifier;
-                AttrKeyValue<EntityAttribute> attr;
+                AttrKeyValue<Attribute> attr;
                 AttrKeyValue<Double> modifierValue;
-                AttrKeyValue<EntityAttributeModifier.Operation> modifierOperation;
-                AttrKeyValue<AttributeModifierSlot> optionalSlot;
-                protected static final Map<String, AttributeModifierSlot> NAME_TO_OP = new LinkedHashMap<>();
-                protected static final Map<String, EntityAttributeModifier.Operation> NAME_TO_OPER =
+                AttrKeyValue<AttributeModifier.Operation> modifierOperation;
+                AttrKeyValue<EquipmentSlotGroup> optionalSlot;
+                protected static final Map<String, EquipmentSlotGroup> NAME_TO_OP = new LinkedHashMap<>();
+                protected static final Map<String, AttributeModifier.Operation> NAME_TO_OPER =
                         new LinkedHashMap<>();
 
                 static {
-                    for (var re : AttributeModifierSlot.values()) {
-                        NAME_TO_OP.put(re.asString(), re);
+                    for (var re : EquipmentSlotGroup.values()) {
+                        NAME_TO_OP.put(re.getSerializedName(), re);
                     }
                     NAME_TO_OPER.put(
                             "widget.gui.item-edit-screen.nbt-editor.attribute.op.add",
-                            EntityAttributeModifier.Operation.ADD_VALUE);
+                            AttributeModifier.Operation.ADD_VALUE);
                     NAME_TO_OPER.put(
                             "widget.gui.item-edit-screen.nbt-editor.attribute.op.multiply-base",
-                            EntityAttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
                     NAME_TO_OPER.put(
                             "widget.gui.item-edit-screen.nbt-editor.attribute.op.multiply-total",
-                            EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+                            AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
                 }
 
                 public ItemAttributeModifierEntry() {
                     this(
                             "minecraft:",
-                            new EntityAttributeModifier(
+                            new AttributeModifier(
                                     Identifier.tryParse(
                                             "minecraft:" + UUID.randomUUID().toString()),
                                     0.0d,
-                                    EntityAttributeModifier.Operation.ADD_VALUE),
-                            AttributeModifierSlot.ANY);
+                                    AttributeModifier.Operation.ADD_VALUE),
+                            EquipmentSlotGroup.ANY);
                 }
 
-                public AttributeModifiersComponent.Entry value() {
+                public ItemAttributeModifiers.Entry value() {
                     try {
-                        EntityAttribute attribute = this.attr.getOriginValue();
+                        Attribute attribute = this.attr.getOriginValue();
                         if (attribute != null) {
-                            RegistryEntry<EntityAttribute> attribute0 =
-                                    Registries.ATTRIBUTE.getEntry(this.attr.getOriginValue());
+                            Holder<Attribute> attribute0 =
+                                    BuiltInRegistries.ATTRIBUTE.wrapAsHolder(this.attr.getOriginValue());
                             if (attribute0 != null && attribute0.value() != null) {
-                                EntityAttributeModifier modifier = new EntityAttributeModifier(
+                                AttributeModifier modifier = new AttributeModifier(
                                         identifier.getOriginValue(),
                                         modifierValue.getOriginValue(),
                                         modifierOperation.getOriginValue());
-                                AttributeModifierSlot slot = this.optionalSlot.getOriginValue();
-                                return new AttributeModifiersComponent.Entry(attribute0, modifier, slot);
+                                EquipmentSlotGroup slot = this.optionalSlot.getOriginValue();
+                                return new ItemAttributeModifiers.Entry(attribute0, modifier, slot);
                             } else {
                                 Debug.info("Attribute null? ", this.attr.getOriginValue(), this.attr.getValue());
                             }
@@ -836,7 +840,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
 
             protected void init() {
                 this.modifierEntries = new ArrayList<>();
-                AttributeModifiersComponent modifiers = ItemStackUtils.getEntityModifier(stackTemplate);
+                ItemAttributeModifiers modifiers = ItemStackUtils.getEntityModifier(stackTemplate);
                 // this.showInTooltips = modifiers.showInTooltip();
                 modifiers.modifiers().forEach(var -> {
                     this.modifierEntries.add(new ItemAttributeModifierEntry(
@@ -860,7 +864,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             protected void saveChanges() {
                 ItemStackUtils.applyEntityModifier(
                         stackTemplate,
-                        new AttributeModifiersComponent(
+                        new ItemAttributeModifiers(
                                 this.modifierEntries.stream()
                                         .map(ItemAttributeModifierEntry::value)
                                         .filter(Objects::nonNull)
@@ -890,31 +894,31 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             protected static class ItemComponentModifyConfirmScreen<T> extends ConfirmingBigScreen {
                 NbtAttrKeyValue<Optional<T>> element;
                 boolean removal;
-                final ComponentType<T> type;
-                final Consumer<NbtElement> callback;
+                final DataComponentType<T> type;
+                final Consumer<Tag> callback;
 
                 protected ItemComponentModifyConfirmScreen(
-                        ComponentType<T> type, NbtElement currentValue, Consumer<NbtElement> callback) {
-                    super(Text.empty());
+                        DataComponentType<T> type, Tag currentValue, Consumer<Tag> callback) {
+                    super(Component.empty());
                     this.type = type;
                     this.removal = currentValue == null;
                     this.element = new NbtAttrKeyValue<Optional<T>>("", currentValue, (nbt) -> {
                                 if (nbt == null) return Optional.empty();
                                 return Optional.of(this.type
-                                        .getCodec()
-                                        .decode(RegistryOps.of(NbtOps.INSTANCE, ItemStackUtils.registry()), nbt)
+                                        .codec()
+                                        .decode(RegistryOps.create(NbtOps.INSTANCE, ItemStackUtils.registry()), nbt)
                                         .getOrThrow()
                                         .getFirst());
                             })
                             .setEnableNull(true);
                     this.callback = callback;
-                    setTitleLabel(Text.translatable(
+                    setTitleLabel(Component.translatable(
                                     "widget.gui.item-edit-screen.nbt-editor.component.component-edit-screen.title")
-                            .append(Text.literal(String.valueOf(Registries.DATA_COMPONENT_TYPE.getId(type))))
-                            .formatted(Formatting.GREEN));
+                            .append(Component.literal(String.valueOf(BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(type))))
+                            .withStyle(ChatFormatting.GREEN));
                 }
 
-                EditBoxWidget widget;
+                MultiLineEditBox widget;
                 ExecutableWidget formatButton;
                 ExecutableWidget wikiWidget;
 
@@ -923,22 +927,22 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                     URI uri = null;
                     try {
                         String url = "https://zh.minecraft.wiki/w/%E6%95%B0%E6%8D%AE%E7%BB%84%E4%BB%B6#"
-                                + Registries.DATA_COMPONENT_TYPE.getId(type).getPath();
-                        uri = Util.validateUri(url);
+                                + BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(type).getPath();
+                        uri = Util.parseAndValidateUntrustedUri(url);
                     } catch (Throwable e) {
                     }
                     URI urlll = uri;
-                    Text wikiLink = Text.translatable(
+                    Component wikiLink = Component.translatable(
                             "widget.gui.item-edit-screen.nbt-editor.component.component-edit-screen.open-wiki");
                     this.wikiWidget = ExecutableWidget.instance(this.x + 5, this.y + 22, this.backgroundWidth - 10, 12)
                             .setElementHandler(LabelElement.instance(wikiLink)
                                     .withInputHandler(InputHandler.run(() -> {
                                         if (urlll != null) {
-                                            Util.getOperatingSystem().open(urlll);
+                                            Util.getPlatform().openUri(urlll);
                                         }
                                     }))
                                     .withTooltips(TooltipHandler.of(
-                                            () -> List.of(Text.literal(urlll == null ? "" : ("" + urlll))))))
+                                            () -> List.of(Component.literal(urlll == null ? "" : ("" + urlll))))))
                             .addTo(this);
                     this.widget = this.element
                             .generateEditBox(
@@ -946,7 +950,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                                     ItemComponentModifyConfirmScreen.this.y + CONTENT_START_Y + 30,
                                     ItemComponentModifyConfirmScreen.this.backgroundWidth - 2 * CONTENT_START_X - 20,
                                     ItemComponentModifyConfirmScreen.this.content_end_y - CONTENT_START_Y - 40)
-                            .<ContentDelegateWidget<EditBoxWidget>>addTo(this)
+                            .<ContentDelegateWidget<MultiLineEditBox>>addTo(this)
                             .getDelegate();
 
                     this.formatButton = ExecutableWidget.instance(
@@ -957,7 +961,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                             .setElementHandler(IconElement.fixedGui(
                                             SnbtItemProcessingSubScreen.FORMAT_TEXTURE_SPRITE, ButtonAction.run(() -> {
                                                 this.element.applyFormatting((str) -> {
-                                                    if (this.widget != null) widget.setText(str);
+                                                    if (this.widget != null) widget.setValue(str);
                                                 });
                                             }))
                                     .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -984,7 +988,7 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                 @Override
                 protected void onConfirmButton() {
                     callback.accept(this.element.getOriginValue());
-                    this.close();
+                    this.onClose();
                 }
             }
 
@@ -993,17 +997,17 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             }
 
             protected static class ItemComponent {
-                AttrKeyValue<ComponentType<?>> typeId;
-                NbtElement optionalComponentData;
+                AttrKeyValue<DataComponentType<?>> typeId;
+                Tag optionalComponentData;
 
-                public <T> ItemComponent(ComponentType<T> type, Optional<T> data) {
+                public <T> ItemComponent(DataComponentType<T> type, Optional<T> data) {
                     this.typeId = AttrKeyValue.registry(
                             "widget.gui.item-edit-screen.nbt-editor.component.type",
-                            Registries.DATA_COMPONENT_TYPE,
+                            BuiltInRegistries.DATA_COMPONENT_TYPE,
                             type);
                     optionalComponentData = data.isPresent()
-                            ? type.getCodec()
-                                    .encodeStart(RegistryOps.of(NbtOps.INSTANCE, ItemStackUtils.registry()), data.get())
+                            ? type.codec()
+                                    .encodeStart(RegistryOps.create(NbtOps.INSTANCE, ItemStackUtils.registry()), data.get())
                                     .getOrThrow()
                             : null;
                 }
@@ -1011,13 +1015,13 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                 public ItemComponent(String newId) {
                     this.typeId = AttrKeyValue.openRegistry(
                             "widget.gui.item-edit-screen.nbt-editor.component.type",
-                            Registries.DATA_COMPONENT_TYPE,
+                            BuiltInRegistries.DATA_COMPONENT_TYPE,
                             newId);
                     optionalComponentData = null;
                 }
 
                 protected void openThisEditScreen() {
-                    ComponentType type = typeId.getOriginValue();
+                    DataComponentType type = typeId.getOriginValue();
                     if (type != null) {
                         ScreenAccess.of(new ItemComponentModifyConfirmScreen<>(
                                         type,
@@ -1033,18 +1037,18 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                             .addDrawableChild(DisplayWidget.instance(120, 0, 30, 20)
                                     .setRenderHandler(new LabelElement(
                                             (el) -> this.optionalComponentData != null
-                                                    ? Text.translatable(
+                                                    ? Component.translatable(
                                                                     "widget.gui.item-edit-screen.nbt-editor.component.component-not-empty")
-                                                            .formatted(Formatting.GREEN)
-                                                    : Text.translatable(
+                                                            .withStyle(ChatFormatting.GREEN)
+                                                    : Component.translatable(
                                                                     "widget.gui.item-edit-screen.nbt-editor.component.component-empty")
-                                                            .formatted(Formatting.YELLOW),
-                                            Colors.WHITE,
+                                                            .withStyle(ChatFormatting.YELLOW),
+                                            CommonColors.WHITE,
                                             0)))
                             .addDrawableChild(ExecutableWidget.instance(150, 0, 30, 20)
                                     .setElementHandler(new ButtonElement(
                                                     TextProvider.of(
-                                                            Text.translatable(
+                                                            Component.translatable(
                                                                     "widget.gui.item-edit-screen.nbt-editor.component.open-component-edit")),
                                                     ButtonAction.run(this::openThisEditScreen))
                                             .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -1053,16 +1057,16 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                                             .withActiveActionCondition((e) -> this.typeId.isValidate())));
                 }
 
-                public void applyChanges(Map<ComponentType<?>, Optional<?>> map0) {
+                public void applyChanges(Map<DataComponentType<?>, Optional<?>> map0) {
                     try {
-                        ComponentType type = this.typeId.getOriginValue();
+                        DataComponentType type = this.typeId.getOriginValue();
                         if (type != null) {
                             if (optionalComponentData == null) {
                                 map0.put(type, Optional.empty());
                             } else {
-                                DataResult<Pair<Object, NbtElement>> value = type.getCodec()
+                                DataResult<Pair<Object, Tag>> value = type.codec()
                                         .decode(
-                                                RegistryOps.of(NbtOps.INSTANCE, ItemStackUtils.registry()),
+                                                RegistryOps.create(NbtOps.INSTANCE, ItemStackUtils.registry()),
                                                 optionalComponentData);
                                 Object val0 = value.getOrThrow().getFirst();
                                 map0.put(type, Optional.ofNullable(val0));
@@ -1076,8 +1080,8 @@ public class ItemEditScreen extends ConfirmingBigScreen {
             List<ItemComponent> componentList;
 
             protected void init() {
-                this.componentList = stackTemplate.components.getChanges().entrySet().stream()
-                        .map(m -> new ItemComponent((ComponentType) m.getKey(), m.getValue()))
+                this.componentList = stackTemplate.components.asPatch().entrySet().stream()
+                        .map(m -> new ItemComponent((DataComponentType) m.getKey(), m.getValue()))
                         .collect(Collectors.toCollection(ArrayList::new));
                 new ListModifyWidget(
                                 ListEntryWidgetController.mutable(
@@ -1095,9 +1099,9 @@ public class ItemEditScreen extends ConfirmingBigScreen {
 
             @Override
             protected void saveChanges() {
-                Reference2ObjectMap<ComponentType<?>, Optional<?>> map0 = new Reference2ObjectArrayMap<>();
+                Reference2ObjectMap<DataComponentType<?>, Optional<?>> map0 = new Reference2ObjectArrayMap<>();
                 this.componentList.forEach(i -> i.applyChanges(map0));
-                stackTemplate.components.setChanges(new ComponentChanges(map0));
+                stackTemplate.components.restorePatch(new DataComponentPatch(map0));
             }
 
             @Override

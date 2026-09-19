@@ -9,12 +9,12 @@ import me.matl114.managers.config.NBTType;
 import me.matl114.utils.config.BaseAttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.AttrKeyValues;
-import net.minecraft.util.dynamic.Codecs;
+import net.minecraft.util.ExtraCodecs;
 
 public record JsonData(JsonElement data) implements NBTParsable<JsonData> {
     public static final NBTType<JsonData> TYPE = new NBTType<>(
             "jsondata",
-            Codecs.JSON_ELEMENT.xmap(JsonData::new, JsonData::data),
+            ExtraCodecs.JSON.xmap(JsonData::new, JsonData::data),
             BaseAttrKeyValue.getWidgetFactory(),
             AttrKeyValues.JSON_ELEMENT_FACTORY.concat(WrapperFactory.of(JsonData::new, JsonData::data)),
             new JsonData(new JsonObject()));

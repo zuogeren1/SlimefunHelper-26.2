@@ -6,15 +6,15 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.util.Uuids;
-import net.minecraft.world.World;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.Tag;
+import net.minecraft.world.level.Level;
 
 @Getter
 public class EntityStorage extends IStorage {
     public final UUID uuid;
     public static final Codec<EntityStorage> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                    Uuids.CODEC.fieldOf("uuid").forGetter(EntityStorage::getUuid),
+                    UUIDUtil.AUTHLIB_CODEC.fieldOf("uuid").forGetter(EntityStorage::getUuid),
                     Codec.unboundedMap(Codec.STRING, VNbt.CODEC)
                             .fieldOf("storage")
                             .forGetter(v -> v.storage))
@@ -24,8 +24,8 @@ public class EntityStorage extends IStorage {
         this(uuid, null);
     }
 
-    public EntityStorage(UUID uuid, Map<String, NbtElement> elementMap) {
-        super(World.OVERWORLD, elementMap);
+    public EntityStorage(UUID uuid, Map<String, Tag> elementMap) {
+        super(Level.OVERWORLD, elementMap);
         this.uuid = uuid;
     }
 }

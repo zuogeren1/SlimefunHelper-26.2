@@ -14,7 +14,7 @@ import me.matl114.managers.config.Ref;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 @With
 public record LabelVec3(String xLabel, String yLabel, String zLabel, Vec3 data) implements NBTParsable<LabelVec3> {
@@ -46,7 +46,7 @@ public record LabelVec3(String xLabel, String yLabel, String zLabel, Vec3 data) 
                 return subScreenWidget
                         .addDrawableChild(DisplayWidget.instance(0, 0, label, dy)
                                 .setRenderHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         original.xLabel(), original.xLabel())),
                                                 ButtonAction.empty())
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -55,7 +55,7 @@ public record LabelVec3(String xLabel, String yLabel, String zLabel, Vec3 data) 
                                 .generateValueWidget(label, 0, half - label, dy))
                         .addDrawableChild(DisplayWidget.instance(half, 0, label, dy)
                                 .setRenderHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         original.yLabel(), original.yLabel())),
                                                 ButtonAction.empty())
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -64,7 +64,7 @@ public record LabelVec3(String xLabel, String yLabel, String zLabel, Vec3 data) 
                                 .generateValueWidget(half + label, 0, half - label, dy))
                         .addDrawableChild(DisplayWidget.instance(2 * half, 0, label, dy)
                                 .setRenderHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         original.zLabel(), original.zLabel())),
                                                 ButtonAction.empty())
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(

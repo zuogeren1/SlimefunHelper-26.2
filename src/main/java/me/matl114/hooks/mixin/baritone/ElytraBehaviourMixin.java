@@ -12,12 +12,12 @@ import me.matl114.hacks.modules.move.FloatingUtils;
 import me.matl114.hacks.modules.survival.BaritoneFix;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -30,8 +30,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ElytraBehaviourMixin {
     @WrapOperation(
             method = {
-                "a(Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Vec3d;ZZ)V",
-                "tickUseFireworks(Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Vec3d;ZZ)V"
+                "a(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;ZZ)V",
+                "tickUseFireworks(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;ZZ)V"
             },
             at =
                     @At(
@@ -39,21 +39,21 @@ public abstract class ElytraBehaviourMixin {
                             target =
                                     "Lbaritone/api/utils/IPlayerController;processRightClick(Lnet/minecraft/client/network/ClientPlayerEntity;Lnet/minecraft/world/World;Lnet/minecraft/util/Hand;)Lnet/minecraft/util/ActionResult;"),
             require = 0)
-    public ActionResult onUseFireworks(
+    public InteractionResult onUseFireworks(
             IPlayerController instance,
-            ClientPlayerEntity player,
-            World world,
-            Hand hand,
-            Operation<ActionResult> original) {
+            LocalPlayer player,
+            Level world,
+            InteractionHand hand,
+            Operation<InteractionResult> original) {
         if (BaritoneFix.INSTANCE.enableGhostHandFireworks.get()) {
             ElytraExtra.INSTANCE.sendCustomUseFireworkPacket();
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         return original.call(instance, player, world, hand);
     }
 
     @WrapOperation(
-            method = "a(Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Vec3d;ZZ)V",
+            method = "a(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;ZZ)V",
             at =
                     @At(
                             value = "INVOKE",
@@ -72,7 +72,7 @@ public abstract class ElytraBehaviourMixin {
     }
 
     @WrapOperation(
-            method = "tickUseFireworks(Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Vec3d;ZZ)V",
+            method = "tickUseFireworks(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;ZZ)V",
             at =
                     @At(
                             value = "INVOKE",
@@ -93,17 +93,17 @@ public abstract class ElytraBehaviourMixin {
 
     @WrapOperation(
             method = {
-                "a(Lbaritone/process/elytra/ElytraBehavior$SolverContext;Lnet/minecraft/util/math/Vec3d;ILit/unimi/dsi/fastutil/floats/FloatArrayList;III)Lbaritone/process/elytra/ElytraBehavior$PitchResult;",
+                "a(Lbaritone/process/elytra/ElytraBehavior$SolverContext;Lnet/minecraft/world/phys/Vec3;ILit/unimi/dsi/fastutil/floats/FloatArrayList;III)Lbaritone/process/elytra/ElytraBehavior$PitchResult;",
                 "Lbaritone/process/elytra/ElytraBehavior;simulate(Lbaritone/process/elytra/ElytraBehavior$SolverContext;Lnet/minecraft/world/phys/Vec3;FIII)Ljava/util/List;"
             },
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/util/math/Box;expand(DDD)Lnet/minecraft/util/math/Box;"),
+                            target = "Lnet/minecraft/world/phys/AABB;inflate(DDD)Lnet/minecraft/world/phys/AABB;"),
             require = 0)
-    private Box fixHitBoxCalculation(Box instance, double x, double y, double z, Operation<Box> original) {
+    private AABB fixHitBoxCalculation(AABB instance, double x, double y, double z, Operation<AABB> original) {
         if (BaritoneFix.INSTANCE.fixSimulateError.get()) {
-            return instance.offset(x, y, z);
+            return instance.move(x, y, z);
         }
         return original.call(instance, x, y, z);
     }
@@ -136,7 +136,7 @@ public abstract class ElytraBehaviourMixin {
     //        if(BaritoneFix.INSTANCE.fixErrorFly.get()){
     //            Box box1 = BaritoneFix.INSTANCE.processBoxOfElytraFlight();
     //            if(box1 != null){
-    //                var pl =  MinecraftClient.getInstance().player;
+    //                var pl =  Minecraft.getInstance().player;
     //                cachedBox = pl.getBoundingBox();
     //                pl.setBoundingBox(box1);
     //            }
@@ -149,7 +149,7 @@ public abstract class ElytraBehaviourMixin {
     // = At.Shift.AFTER), require = 0)
     //    private void onInitialize2(TickEvent par1, CallbackInfo ci){
     //        if(cachedBox != null){
-    //            MinecraftClient.getInstance().player.setBoundingBox(cachedBox);
+    //            Minecraft.getInstance().player.setBoundingBox(cachedBox);
     //            cachedBox = null;
     //        }
     //    }
@@ -161,7 +161,7 @@ public abstract class ElytraBehaviourMixin {
     //        if(BaritoneFix.INSTANCE.fixErrorFly.get()){
     //            Box box1 = BaritoneFix.INSTANCE.processBoxOfElytraFlight();
     //            if(box1 != null){
-    //                var pl =  MinecraftClient.getInstance().player;
+    //                var pl =  Minecraft.getInstance().player;
     //                cachedBox = pl.getBoundingBox();
     //                pl.setBoundingBox(box1);
     //            }
@@ -173,7 +173,7 @@ public abstract class ElytraBehaviourMixin {
     // = At.Shift.AFTER), require = 0)
     //    private void onInitialize4(CallbackInfo ci){
     //        if(cachedBox != null){
-    //            MinecraftClient.getInstance().player.setBoundingBox(cachedBox);
+    //            Minecraft.getInstance().player.setBoundingBox(cachedBox);
     //            cachedBox = null;
     //        }
     //    }

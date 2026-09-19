@@ -4,26 +4,26 @@ import javax.annotation.Nullable;
 import me.matl114.accessors.interfaces.EntityInventory;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.screen.MerchantScreenHandler;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.inventory.MerchantMenu;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Environment(EnvType.CLIENT)
-@Mixin(MerchantScreenHandler.class)
-public abstract class MerchantScreenHandlerMixin implements EntityInventory.Handler<VillagerEntity> {
+@Mixin(MerchantMenu.class)
+public abstract class MerchantScreenHandlerMixin implements EntityInventory.Handler<Villager> {
     @Unique
-    VillagerEntity owner;
+    Villager owner;
 
     @Nullable
     @Override
     @Unique
-    public VillagerEntity getOwner() {
+    public Villager getOwner() {
         return owner;
     }
 
     @Override
-    public void sync(EntityInventory<VillagerEntity> inventory) {
+    public void sync(EntityInventory<Villager> inventory) {
         this.owner = inventory.getOwner();
     }
 }

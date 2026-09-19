@@ -19,16 +19,16 @@ import me.matl114.managers.config.IntRef;
 import me.matl114.utils.Debug;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
-import net.minecraft.entity.EntityPosition;
-import net.minecraft.network.packet.c2s.play.TeleportConfirmC2SPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerRotationS2CPacket;
-import net.minecraft.network.packet.s2c.play.PositionFlag;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerRotationPacket;
+import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.world.entity.PositionMoveRotation;
+import net.minecraft.world.entity.Relative;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 @SuppressWarnings("all")
 public class AutoResync extends BaseModule {
@@ -41,7 +41,7 @@ public class AutoResync extends BaseModule {
         INSTANCE = this;
     }
 
-    public Optional<Vec3d> pos;
+    public Optional<Vec3> pos;
     public int ticksTilExpire;
 
     public final FlagRef autoResyncRot =
@@ -71,11 +71,11 @@ public class AutoResync extends BaseModule {
     public final FlagRef recursive =
             flagBuilder(moveSafety.add("auto-resync-request-recursively")).build();
 
-    public void setAutoResyncSchedule(Optional<Vec3d> pos) {
+    public void setAutoResyncSchedule(Optional<Vec3> pos) {
         this.setAutoResyncSchedule(pos, expireTick.get());
     }
 
-    public void setAutoResyncSchedule(Optional<Vec3d> pos, int ticksExpire) {
+    public void setAutoResyncSchedule(Optional<Vec3> pos, int ticksExpire) {
         this.pos = pos;
         this.ticksTilExpire = ticksExpire + Tasks.getTick();
     }
@@ -83,48 +83,48 @@ public class AutoResync extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(PlayerPositionLookS2CPacket.class), this::onSetBack);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundPlayerPositionPacket.class), this::onSetBack);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(PlayerPositionLookS2CPacket.class), this::onPreSetBack);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerPositionPacket.class), this::onPreSetBack);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(PlayerPositionLookS2CPacket.class), this::onPostSetBack);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerPositionPacket.class), this::onPostSetBack);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(PlayerRotationS2CPacket.class), this::onPreRotate);
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerRotationPacket.class), this::onPreRotate);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(PlayerRotationS2CPacket.class), this::onPostRotate);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerRotationPacket.class), this::onPostRotate);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
     }
 
     int worldSwitchTick = 0;
 
-    public void onWorldSwitch(Event<World> event) {
+    public void onWorldSwitch(Event<Level> event) {
         worldSwitchTick = Tasks.getTick();
     }
 
-    public Vec2f restoreRot = null;
+    public Vec2 restoreRot = null;
 
-    public void onSetBack(Event<PlayerPositionLookS2CPacket> event) {
+    public void onSetBack(Event<ClientboundPlayerPositionPacket> event) {
         if (event.isCancelled()) return;
         if (mc.player == null) return;
         // just switch world for no more than 10 second, it is a game join, do not apply any resync
         if (worldSwitchTick + 100 > Tasks.getTick()) return;
-        if (mc.player.getPos().equals(Vec3d.ZERO)) {
+        if (mc.player.position().equals(Vec3.ZERO)) {
             // ignoring first spawn packets
             return;
         }
-        if (mc.interactionManager.getCurrentGameMode() == GameMode.SPECTATOR) {
+        if (mc.gameMode.getPlayerMode() == GameType.SPECTATOR) {
             // do not modify spectator tp
             return;
         }
-        boolean currentOnGround = mc.player.isOnGround();
+        boolean currentOnGround = mc.player.onGround();
         if (ticksTilExpire > Tasks.getTick() && pos != null) {
             // auto resync
-            Vec3d resyncToPos = pos.orElseGet(mc.player::getPos);
-            PlayerPositionLookS2CPacket packet1 = event.context;
-            Vec3d resyncPos = getPosition(packet1);
-            double sqdistance = resyncPos.squaredDistanceTo(mc.player.getPos());
-            double sqdistance2 = resyncPos.squaredDistanceTo(resyncToPos);
+            Vec3 resyncToPos = pos.orElseGet(mc.player::position);
+            ClientboundPlayerPositionPacket packet1 = event.context;
+            Vec3 resyncPos = getPosition(packet1);
+            double sqdistance = resyncPos.distanceToSqr(mc.player.position());
+            double sqdistance2 = resyncPos.distanceToSqr(resyncToPos);
             if (sqdistance > 1E-4
                     && sqdistance < MathUtils.s2(128)
                     && sqdistance2 > 1E-4
@@ -133,10 +133,10 @@ public class AutoResync extends BaseModule {
                 if (logAutoResync.get()) {
                     Debug.chat("Auto Resync triggered!");
                 }
-                mc.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(packet1.teleportId()));
+                mc.getConnection().send(new ServerboundAcceptTeleportationPacket(packet1.id()));
                 executeResyncTo(resyncPos, resyncToPos, currentOnGround);
                 if (recursive.get()) {
-                    mc.player.setPosition(resyncToPos);
+                    mc.player.setPos(resyncToPos);
                     setAutoResyncSchedule(Optional.empty());
                 }
                 event.cancel();
@@ -144,15 +144,15 @@ public class AutoResync extends BaseModule {
             }
         }
         if (autoResyncPos.get()) {
-            Vec3d resyncToPos = mc.player.getPos();
-            BlockPos blockPos = BlockPos.ofFloored(resyncToPos);
+            Vec3 resyncToPos = mc.player.position();
+            BlockPos blockPos = BlockPos.containing(resyncToPos);
             // do not resync in unloaded chunks
-            if (mc.world.getChunkManager().isChunkLoaded(blockPos.getX() >> 4, blockPos.getZ() >> 4)) {
-                PlayerPositionLookS2CPacket packet1 = event.context;
-                Vec3d resyncPos = getPosition(packet1);
-                double sqDistance = resyncToPos.squaredDistanceTo(resyncPos);
+            if (mc.level.getChunkSource().hasChunk(blockPos.getX() >> 4, blockPos.getZ() >> 4)) {
+                ClientboundPlayerPositionPacket packet1 = event.context;
+                Vec3 resyncPos = getPosition(packet1);
+                double sqDistance = resyncToPos.distanceToSqr(resyncPos);
                 if (autoResyncPosDistance.get() > 0 && sqDistance < MathUtils.s2(autoResyncPosDistance.get())) {
-                    mc.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(packet1.teleportId()));
+                    mc.getConnection().send(new ServerboundAcceptTeleportationPacket(packet1.id()));
                     executeResyncTo(resyncPos, resyncToPos, currentOnGround);
                     event.cancel();
                     return;
@@ -162,52 +162,52 @@ public class AutoResync extends BaseModule {
         // remove rot
         boolean recreate = false;
         var packet = event.context();
-        Set<PositionFlag> flags = packet.relatives();
-        Set<PositionFlag> newFlags = null;
-        EntityPosition pos = packet.change();
-        Vec3d position = pos.position();
-        Vec3d deltaMovement = pos.deltaMovement();
-        float yaw = pos.yaw();
-        float pitch = pos.pitch();
+        Set<Relative> flags = packet.relatives();
+        Set<Relative> newFlags = null;
+        PositionMoveRotation pos = packet.change();
+        Vec3 position = pos.position();
+        Vec3 deltaMovement = pos.deltaMovement();
+        float yaw = pos.yRot();
+        float pitch = pos.xRot();
         if (autoResyncRot.get()) {
             if (modifyPacketRot.get()) {
                 recreate = true;
                 if (newFlags == null) {
                     newFlags = new HashSet<>(flags);
                 }
-                newFlags.add(PositionFlag.X_ROT);
-                newFlags.add(PositionFlag.Y_ROT);
+                newFlags.add(Relative.X_ROT);
+                newFlags.add(Relative.Y_ROT);
                 yaw = 0;
                 pitch = 0;
             }
         }
         if (recreate && newFlags != null) {
-            event.context(new PlayerPositionLookS2CPacket(
-                    packet.teleportId(), new EntityPosition(position, deltaMovement, yaw, pitch), newFlags));
+            event.context(new ClientboundPlayerPositionPacket(
+                    packet.id(), new PositionMoveRotation(position, deltaMovement, yaw, pitch), newFlags));
         }
     }
 
-    public void onPreSetBack(Event<PlayerPositionLookS2CPacket> event) {
+    public void onPreSetBack(Event<ClientboundPlayerPositionPacket> event) {
         if (autoResyncRot.get() && !modifyPacketRot.get()) {
-            restoreRot = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
-            mc.player.setPitch(PlayerStateManager.INSTANCE.lastPitch);
-            mc.player.setYaw(PlayerStateManager.INSTANCE.lastYaw);
+            restoreRot = new Vec2(mc.player.getXRot(), mc.player.getYRot());
+            mc.player.setXRot(PlayerStateManager.INSTANCE.lastPitch);
+            mc.player.setYRot(PlayerStateManager.INSTANCE.lastYaw);
         }
     }
 
-    public void onPreRotate(Event<PlayerRotationS2CPacket> eventRotate) {
+    public void onPreRotate(Event<ClientboundPlayerRotationPacket> eventRotate) {
         if (autoResyncRot.get()) {
             if (modifyPacketRot.get()) {
                 eventRotate.cancel();
             } else {
-                restoreRot = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
-                mc.player.setPitch(PlayerStateManager.INSTANCE.lastPitch);
-                mc.player.setYaw(PlayerStateManager.INSTANCE.lastYaw);
+                restoreRot = new Vec2(mc.player.getXRot(), mc.player.getYRot());
+                mc.player.setXRot(PlayerStateManager.INSTANCE.lastPitch);
+                mc.player.setYRot(PlayerStateManager.INSTANCE.lastYaw);
             }
         }
     }
 
-    public void onPostSetBack(Event<PlayerPositionLookS2CPacket> event) {
+    public void onPostSetBack(Event<ClientboundPlayerPositionPacket> event) {
         if (restoreRot != null) {
             EntityUtils.setEntityPitchSafe(mc.player, restoreRot.x);
             PlayerStateManager.setPlayerYawSafe(mc.player, restoreRot.y);
@@ -217,7 +217,7 @@ public class AutoResync extends BaseModule {
         }
     }
 
-    public void onPostRotate(Event<PlayerRotationS2CPacket> eventRotate) {
+    public void onPostRotate(Event<ClientboundPlayerRotationPacket> eventRotate) {
         if (restoreRot != null) {
             EntityUtils.setEntityPitchSafe(mc.player, restoreRot.x);
             PlayerStateManager.setPlayerYawSafe(mc.player, restoreRot.y);
@@ -225,10 +225,10 @@ public class AutoResync extends BaseModule {
         }
     }
 
-    public void executeResyncTo(Vec3d resyncPos, Vec3d resyncToPos, boolean currentOnGround) {
-        mc.player.setPosition(resyncPos);
+    public void executeResyncTo(Vec3 resyncPos, Vec3 resyncToPos, boolean currentOnGround) {
+        mc.player.setPos(resyncPos);
         mc.player.setOnGround(false);
-        //                    mc.getNetworkHandler().sendPacket(new
+        //                    mc.getConnection().sendPacket(new
         // PlayerMoveC2SPacket.PositionAndOnGround(mc.player.getX(), mc.player.getY(), mc.player.getZ(),
         // false));
         if (currentOnGround) {
@@ -239,9 +239,9 @@ public class AutoResync extends BaseModule {
         pos = null;
     }
 
-    public Vec3d getPosition(PlayerPositionLookS2CPacket packet) {
-        EntityPosition entityPosition = EntityPosition.fromEntity(mc.player);
-        EntityPosition entityPosition2 = EntityPosition.apply(entityPosition, packet.change(), packet.relatives());
+    public Vec3 getPosition(ClientboundPlayerPositionPacket packet) {
+        PositionMoveRotation entityPosition = PositionMoveRotation.of(mc.player);
+        PositionMoveRotation entityPosition2 = PositionMoveRotation.calculateAbsolute(entityPosition, packet.change(), packet.relatives());
         return entityPosition2.position();
     }
 

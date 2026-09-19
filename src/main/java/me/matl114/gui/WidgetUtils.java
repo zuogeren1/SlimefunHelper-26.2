@@ -24,17 +24,17 @@ import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.ValueAccessor;
 import me.matl114.utils.config.kv.ListAttrKeyValue;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 
 public class WidgetUtils {
     public static final ConfigScreenLayout DEFAULT_CONFIG_SCREEN_LAYOUT = new ConfigScreenLayout(140, 10, 180, 18, 2);
 
     public static WidgetUtils.ConfigScreenPalette DEFAULT_PALETTE = new WidgetUtils.ConfigScreenPalette(
-            () -> Colors.WHITE,
+            () -> CommonColors.WHITE,
             () -> new WrapColor(("#984FDB")).withAlpha(255),
-            () -> Colors.WHITE,
+            () -> CommonColors.WHITE,
             () -> new WrapColor(("#323232")).withAlpha(255));
 
     public static DrawableWidget getFocusedWidget(DrawableWidget drawable) {
@@ -130,8 +130,8 @@ public class WidgetUtils {
     }
 
     public static DrawableWidget createMutableRecordEditScreen(
-            Text title,
-            Supplier<List<Text>> titleTooltips,
+            Component title,
+            Supplier<List<Component>> titleTooltips,
             MutableRecord configs,
             Function<String, String> translationKeyFunction,
             ConfigScreenLayout layout,
@@ -147,8 +147,8 @@ public class WidgetUtils {
     }
 
     public static DrawableWidget createValueAccessorsEditScreen(
-            Text title,
-            Supplier<List<Text>> titleTooltips,
+            Component title,
+            Supplier<List<Component>> titleTooltips,
             List<Pair<String, ValueAccessor<?>>> accessors,
             ConfigScreenLayout layout,
             ConfigScreenPalette palette) {
@@ -156,8 +156,8 @@ public class WidgetUtils {
     }
 
     public static DrawableWidget createValueAccessorsEditScreen(
-            Text title,
-            Supplier<List<Text>> titleTooltips,
+            Component title,
+            Supplier<List<Component>> titleTooltips,
             List<Pair<String, ValueAccessor<?>>> accessors,
             ConfigScreenLayout layout,
             ConfigScreenPalette palette,

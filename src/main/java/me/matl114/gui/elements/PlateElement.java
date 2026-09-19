@@ -4,7 +4,7 @@ import me.matl114.gui.basic.AbstractElement;
 import me.matl114.gui.basic.DrawableWidget;
 import me.matl114.gui.basic.ExecutableWidget;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public class PlateElement extends AbstractElement {
     private static final int xTextureOffset = 0;

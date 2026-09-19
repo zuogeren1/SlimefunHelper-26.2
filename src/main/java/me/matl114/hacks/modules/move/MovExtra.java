@@ -18,9 +18,9 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.api.VDataFlag;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.world.phys.Vec3;
 
 public class MovExtra extends BaseModule {
     public final ModulePath moveSafety = makePath(Configs.MOV_CONFIG, "move-safety");
@@ -57,17 +57,17 @@ public class MovExtra extends BaseModule {
         if (mc.player == null) return;
         if (mc.player.isFallFlying()) {
             // stop fallflying
-            mc.getNetworkHandler()
-                    .sendPacket(new ClientCommandC2SPacket(mc.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+            mc.getConnection()
+                    .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
             EntityAccess.of(mc.player).setDataFlag(VDataFlag.FALL_FLYING_FLAG_INDEX, false);
         } else {
             if (mc.player.getAbilities().flying) {
                 mc.player.getAbilities().flying = false;
-            } else if (mc.player.getAbilities().allowFlying) {
+            } else if (mc.player.getAbilities().mayfly) {
                 mc.player.getAbilities().flying = true;
                 // mc.player.setPos(mc.player.getX(), mc.player.getY() + 0.001, mc.player.getZ());
-                Vec3d vec3d = mc.player.getVelocity();
-                mc.player.setVelocity(vec3d.x, 0, vec3d.z);
+                Vec3 vec3d = mc.player.getDeltaMovement();
+                mc.player.setDeltaMovement(vec3d.x, 0, vec3d.z);
                 mc.player.setOnGround(false);
             } else {
                 Debug.chat("You are not allowed to fly");
@@ -86,11 +86,11 @@ public class MovExtra extends BaseModule {
 
     public void sendSprintPacketsForInventoryAction() {
         if (fuckGrimACSprint.get()) {
-            ClientPlayerEntity player = mc.player;
+            LocalPlayer player = mc.player;
             // only sprint need to be toggled
             if (PlayerStateManager.INSTANCE.lastSprint) {
-                mc.getNetworkHandler()
-                        .sendPacket(new ClientCommandC2SPacket(mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
+                mc.getConnection()
+                        .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
                 ClientPlayerAccess.of(player).setLastSprintFlag(false);
             }
         }
@@ -98,12 +98,12 @@ public class MovExtra extends BaseModule {
 
     public void sendInputPacketsForInventoryAction() {
         if (fuckGrimAC.get() && ViaFabricPlusHooks.isSupportEndTick()) {
-            ClientPlayerEntity player = mc.player;
+            LocalPlayer player = mc.player;
             sendNoMultiActionInputPacket(player);
         }
     }
 
-    private void sendNoMultiActionInputPacket(ClientPlayerEntity player) {
+    private void sendNoMultiActionInputPacket(LocalPlayer player) {
         if (PlayerStateManager.INSTANCE.lastInput.hasMovement() || PlayerStateManager.INSTANCE.lastInput.sprint()) {
             PlayerInputUtils.Input input = PlayerInputUtils.of(player);
             input.right(false)

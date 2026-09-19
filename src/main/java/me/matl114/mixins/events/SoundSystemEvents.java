@@ -10,8 +10,14 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.hud.SubtitlesHud;
-import net.minecraft.client.sound.*;
+import net.minecraft.client.gui.components.SubtitleOverlay;
+import net.minecraft.client.resources.sounds.Sound;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.client.sounds.*;
+import net.minecraft.client.sounds.SoundEngine;
+import net.minecraft.client.sounds.SoundEventListener;
+import net.minecraft.client.sounds.SoundManager;
+import net.minecraft.client.sounds.WeighedSoundEvents;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -21,11 +27,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(SoundSystem.class)
+@Mixin(SoundEngine.class)
 public abstract class SoundSystemEvents {
     @Shadow
     @Final
-    private List<SoundInstanceListener> listeners;
+    private List<SoundEventListener> listeners;
 
     @Shadow
     @Final
@@ -33,19 +39,19 @@ public abstract class SoundSystemEvents {
 
     @WrapOperation(
             method =
-                    "play(Lnet/minecraft/client/sound/SoundInstance;)Lnet/minecraft/client/sound/SoundSystem$PlayResult;",
+                    "play(Lnet/minecraft/client/resources/sounds/SoundInstance;)Lnet/minecraft/client/sounds/SoundEngine$PlayResult;",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/sound/SoundInstanceListener;onSoundPlayed(Lnet/minecraft/client/sound/SoundInstance;Lnet/minecraft/client/sound/WeightedSoundSet;F)V"))
+                                    "Lnet/minecraft/client/sounds/SoundEventListener;onPlaySound(Lnet/minecraft/client/resources/sounds/SoundInstance;Lnet/minecraft/client/sounds/WeighedSoundEvents;F)V"))
     private void play(
-            SoundInstanceListener instance,
+            SoundEventListener instance,
             SoundInstance soundInstance,
-            WeightedSoundSet weightedSoundSet,
+            WeighedSoundEvents weightedSoundSet,
             float v,
             Operation<Void> original) {
-        if (instance instanceof SubtitlesHud hud) {
+        if (instance instanceof SubtitleOverlay hud) {
             Event<SoundInstance> event = new Event<>(soundInstance, true, false);
             Listener.getSoundAddToHudEvent().handleValue(event);
             if (event.isCancelled()) {
@@ -60,17 +66,17 @@ public abstract class SoundSystemEvents {
 
     @Inject(
             method =
-                    "play(Lnet/minecraft/client/sound/SoundInstance;)Lnet/minecraft/client/sound/SoundSystem$PlayResult;",
+                    "play(Lnet/minecraft/client/resources/sounds/SoundInstance;)Lnet/minecraft/client/sounds/SoundEngine$PlayResult;",
             at = @At("HEAD"),
             cancellable = true)
     private void onInterceptPlay(
             SoundInstance sound,
-            CallbackInfoReturnable<SoundSystem.PlayResult> cir,
+            CallbackInfoReturnable<SoundEngine.PlayResult> cir,
             @Local(argsOnly = true) LocalRef<SoundInstance> args) {
         Event<SoundInstance> event = new Event<>(sound, true, true);
         Listener.getSoundPlayEvent().handleValue(event);
         if (event.isCancelled()) {
-            cir.setReturnValue(SoundSystem.PlayResult.NOT_STARTED);
+            cir.setReturnValue(SoundEngine.PlayResult.NOT_STARTED);
             onSoundPlayed(event.context);
             return;
         }
@@ -82,35 +88,35 @@ public abstract class SoundSystemEvents {
     @Unique
     private void onSoundPlayed(SoundInstance sound) {
         // need getSoundSet to initialize getSound , wtf mojang pieces of shit
-        WeightedSoundSet weightedSoundSet = sound.getSoundSet(this.soundManager);
+        WeighedSoundEvents weightedSoundSet = sound.resolve(this.soundManager);
         if (weightedSoundSet == null) {
             return;
         }
         Sound sound2 = sound.getSound();
         if (sound2 == SoundManager.INTENTIONALLY_EMPTY_SOUND) {
             return;
-        } else if (sound2 == SoundManager.MISSING_SOUND) {
+        } else if (sound2 == SoundManager.EMPTY_SOUND) {
             return;
         }
         if (!this.listeners.isEmpty()) {
 
             boolean bl = sound.isRelative();
-            SoundInstance.AttenuationType attenuationType = sound.getAttenuationType();
+            SoundInstance.Attenuation attenuationType = sound.getAttenuation();
             float f = sound.getVolume();
-            float g = Math.max(f, 1.0F) * (float) sound2.getAttenuation();
-            float j = !bl && attenuationType != SoundInstance.AttenuationType.NONE ? g : Float.POSITIVE_INFINITY;
+            float g = Math.max(f, 1.0F) * (float) sound2.getAttenuationDistance();
+            float j = !bl && attenuationType != SoundInstance.Attenuation.NONE ? g : Float.POSITIVE_INFINITY;
             Iterator var13 = this.listeners.iterator();
 
             while (var13.hasNext()) {
-                SoundInstanceListener soundInstanceListener = (SoundInstanceListener) var13.next();
-                if (soundInstanceListener instanceof SubtitlesHud) {
+                SoundEventListener soundInstanceListener = (SoundEventListener) var13.next();
+                if (soundInstanceListener instanceof SubtitleOverlay) {
                     Event<SoundInstance> event = new Event<>(sound, true, true);
                     Listener.getSoundAddToHudEvent().handleValue(event);
                     if (event.isCancelled()) {
                         continue;
                     }
                 }
-                soundInstanceListener.onSoundPlayed(sound, weightedSoundSet, j);
+                soundInstanceListener.onPlaySound(sound, weightedSoundSet, j);
             }
         }
     }

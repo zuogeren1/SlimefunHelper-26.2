@@ -13,7 +13,7 @@ import me.matl114.hacks.utils.config.StringFormat;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
 import me.matl114.utils.Debug;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class ModuleSettings extends BaseModule {
     public static ModuleSettings INSTANCE;
@@ -62,7 +62,7 @@ public class ModuleSettings extends BaseModule {
             .build();
 
     public boolean shouldNotExecuteConditionHotkey() {
-        if (mc.currentScreen != null) {
+        if (mc.gui.screen() != null) {
             if (hotkeyPolicy.getValue() == HotkeyPolicy.RUN_IN_ALL_SCREEN) {
                 return false;
             }
@@ -74,7 +74,7 @@ public class ModuleSettings extends BaseModule {
                     return true;
                 }
                 case WHEN_NO_INPUT_SCREEN: {
-                    var focused = mc.currentScreen.getFocused();
+                    var focused = mc.gui.screen().getFocused();
                     if (focused instanceof TextFieldAccess) {
                         return true;
                     }
@@ -104,13 +104,13 @@ public class ModuleSettings extends BaseModule {
         if (checkNull()) return;
         if (moduleToggleNotify.get()) {
             StringFormat format = result ? moduleOnNotifyFormat.get() : moduleOffNotify.get();
-            ChatHudAccess access = ChatHudAccess.of(mc.inGameHud.getChatHud());
+            ChatHudAccess access = ChatHudAccess.of(mc.gui.hud.chat);
             String uniqueId = TOGGLE_UNIQUE_ID + message;
             if (moduleToggleCompress.get()) {
                 access.clearUniqueMessages(uniqueId);
             }
             access.setUniqueMessageId(uniqueId);
-            Debug.chat(format.formatText(Text.translatableWithFallback(message, message)));
+            Debug.chat(format.formatText(Component.translatableWithFallback(message, message)));
             access.setUniqueMessageId(null);
         }
     }

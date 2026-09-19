@@ -3,18 +3,18 @@ package me.matl114.utils;
 import java.awt.*;
 import java.io.IOException;
 import me.matl114.utils.process.NotificationServerProcess;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
 
 public class WindowUtils {
-    public static final MinecraftClient mc = MinecraftClient.getInstance();
-    public static final Util.OperatingSystem OP = Util.getOperatingSystem();
+    public static final Minecraft mc = Minecraft.getInstance();
+    public static final Util.OS OP = Util.getPlatform();
     private static final String DEFAULT_TITLE = "SlimefunHelper";
     private static final String MESSAGE_BOX_SCRIPT =
             "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($env:SLIMEFUNHELPER_MESSAGE, $env:SLIMEFUNHELPER_TITLE) | Out-Null";
 
     public static boolean isWindowsSystem() {
-        return OP == Util.OperatingSystem.WINDOWS;
+        return OP == Util.OS.WINDOWS;
     }
 
     public static boolean createScriptNotificationWindow(String title, String message) {

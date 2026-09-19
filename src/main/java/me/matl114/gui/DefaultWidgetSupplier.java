@@ -13,10 +13,10 @@ import me.matl114.gui.complex.RawTextElement;
 import me.matl114.gui.elements.ButtonElement;
 import me.matl114.gui.elements.IconElement;
 import me.matl114.gui.elements.TextFieldElement;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 public final class DefaultWidgetSupplier implements WidgetSupplier {
     public static final DefaultWidgetSupplier INSTANCE = new DefaultWidgetSupplier();
@@ -62,38 +62,52 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
 
     @Override
     public ElementHandler create(WidgetSupplier.TextFieldBuilder builder) {
-        TextFieldWidget textFieldWidget = builder.textFieldWidget != null
+        EditBox textFieldWidget = builder.textFieldWidget != null
                 ? builder.textFieldWidget
-                : new TextFieldWidget(
-                        MinecraftClient.getInstance().textRenderer,
+                : new EditBox(
+                        Minecraft.getInstance().font,
                         0,
                         0,
                         0,
                         0,
-                        builder.message == null ? Text.empty() : builder.message);
+                        builder.message == null ? Component.empty() : builder.message);
         if (builder.textPredicate != null) {
-            textFieldWidget.setTextPredicate(builder.textPredicate);
+            // 26.2 移除了 EditBox.setFilter(Predicate)，改用 setResponder 实现等价的输入过滤：
+            // 逐个字符用 predicate 校验，剔除不合法的字符后回写。
+            textFieldWidget.setResponder(value -> {
+                StringBuilder sb = new StringBuilder(value.length());
+                for (int i = 0; i < value.length(); i++) {
+                    char c = value.charAt(i);
+                    if (builder.textPredicate.test(String.valueOf(c))) {
+                        sb.append(c);
+                    }
+                }
+                String filtered = sb.toString();
+                if (!filtered.equals(value)) {
+                    textFieldWidget.setValue(filtered);
+                }
+            });
         }
         textFieldWidget.setMaxLength(builder.maxLength);
         if (builder.editable != null) {
             textFieldWidget.setEditable(builder.editable);
         }
         if (builder.placeholder != null) {
-            textFieldWidget.setPlaceholder(builder.placeholder);
+            textFieldWidget.setHint(builder.placeholder);
         }
         if (builder.suggestion != null) {
             textFieldWidget.setSuggestion(builder.suggestion);
         }
         if (builder.editableColor != null) {
-            textFieldWidget.setEditableColor(builder.editableColor);
+            textFieldWidget.setTextColor(builder.editableColor);
         }
         if (builder.uneditableColor != null) {
-            textFieldWidget.setUneditableColor(builder.uneditableColor);
+            textFieldWidget.setTextColorUneditable(builder.uneditableColor);
         }
         TextFieldElement element = new TextFieldElement(textFieldWidget);
         element.setText(builder.text == null ? "" : builder.text);
         if (builder.cursorToEnd != null) {
-            textFieldWidget.setCursorToEnd(builder.cursorToEnd);
+            textFieldWidget.moveCursorToEnd(builder.cursorToEnd);
         }
         if (builder.borderColorProvider != null) {
             element.setBorderColorProvider(builder.borderColorProvider);
@@ -191,6 +205,6 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
     }
 
     private TextProvider safeTextProvider(TextProvider provider) {
-        return provider == null ? TextProvider.of(Text.empty()) : provider;
+        return provider == null ? TextProvider.of(Component.empty()) : provider;
     }
 }

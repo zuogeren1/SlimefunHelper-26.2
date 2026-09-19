@@ -8,25 +8,59 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import me.matl114.utils.annotations.NeedTest;
-import net.minecraft.block.*;
-import net.minecraft.block.enums.DoubleBlockHalf;
-import net.minecraft.block.enums.SlabType;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.CamelHuskEntity;
-import net.minecraft.entity.mob.ZombieHorseEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.HappyGhastEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.camel.CamelHusk;
+import net.minecraft.world.entity.animal.equine.ZombieHorse;
+import net.minecraft.world.entity.animal.happyghast.HappyGhast;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BeehiveBlock;
+import net.minecraft.world.level.block.BeetrootBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.CakeBlock;
+import net.minecraft.world.level.block.CandleBlock;
+import net.minecraft.world.level.block.CandleCakeBlock;
+import net.minecraft.world.level.block.CarvedPumpkinBlock;
+import net.minecraft.world.level.block.CaveVines;
+import net.minecraft.world.level.block.CocoaBlock;
+import net.minecraft.world.level.block.ComparatorBlock;
+import net.minecraft.world.level.block.ComposterBlock;
+import net.minecraft.world.level.block.CopperGolemStatueBlock;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.FlowerBedBlock;
+import net.minecraft.world.level.block.FlowerPotBlock;
+import net.minecraft.world.level.block.LeafLitterBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.NetherWartBlock;
+import net.minecraft.world.level.block.NoteBlock;
+import net.minecraft.world.level.block.PitcherCropBlock;
+import net.minecraft.world.level.block.PumpkinBlock;
+import net.minecraft.world.level.block.RepeaterBlock;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.SeaPickleBlock;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.SnowLayerBlock;
+import net.minecraft.world.level.block.SweetBerryBushBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 @NeedTest
 public class FarmingUtils {
@@ -112,7 +146,7 @@ public class FarmingUtils {
             Items.CACTUS_FLOWER);
 
     private static final Set<Class<? extends Entity>> FOOD_ONLY_ENTITY_TYPES =
-            Set.of(CamelHuskEntity.class, HappyGhastEntity.class, ZombieHorseEntity.class);
+            Set.of(CamelHusk.class, HappyGhast.class, ZombieHorse.class);
 
     private static final Predicate<ItemStack> ALWAYS_TRUE = stack -> true;
 
@@ -137,22 +171,22 @@ public class FarmingUtils {
     }
 
     @NeedTest
-    public static BlockHitResult tryPlantAt(World world, BlockPos pos, PlantType plantType) {
+    public static BlockHitResult tryPlantAt(Level world, BlockPos pos, PlantType plantType) {
         if (world == null || pos == null || plantType == null) {
             return null;
         }
 
         BlockState current = world.getBlockState(pos);
-        if (!current.isAir() && !current.isOf(Blocks.WATER)) {
+        if (!current.isAir() && !current.is(Blocks.WATER)) {
             return null;
         }
 
         for (BlockState state : plantType.getPlacementStates()) {
-            if (state.canPlaceAt(world, pos)) {
+            if (state.canSurvive(world, pos)) {
                 Direction supportDirection = getSupportDirection(state);
-                BlockPos supportPos = pos.offset(supportDirection);
+                BlockPos supportPos = pos.relative(supportDirection);
                 return new BlockHitResult(
-                        Vec3d.ofCenter(supportPos), supportDirection.getOpposite(), supportPos, false);
+                        Vec3.atCenterOf(supportPos), supportDirection.getOpposite(), supportPos, false);
             }
         }
         return null;
@@ -160,7 +194,7 @@ public class FarmingUtils {
 
     @NeedTest
     public static Pair<Predicate<ItemStack>, BlockHitResult> getInteractTransition(
-            World world, BlockPos pos, BlockState state1, BlockState state2) {
+            Level world, BlockPos pos, BlockState state1, BlockState state2) {
         if (world == null || pos == null || state1 == null || state2 == null) {
             return null;
         }
@@ -170,52 +204,52 @@ public class FarmingUtils {
 
         if (block1 == block2) {
             if (block1 instanceof SlabBlock
-                    && state1.get(SlabBlock.TYPE) != SlabType.DOUBLE
+                    && state1.getValue(SlabBlock.TYPE) != SlabType.DOUBLE
                     && state2.equals(
-                            state1.with(SlabBlock.TYPE, SlabType.DOUBLE).with(SlabBlock.WATERLOGGED, false))) {
-                BlockHitResult hit = state1.get(SlabBlock.TYPE) == SlabType.BOTTOM
+                            state1.setValue(SlabBlock.TYPE, SlabType.DOUBLE).setValue(SlabBlock.WATERLOGGED, false))) {
+                BlockHitResult hit = state1.getValue(SlabBlock.TYPE) == SlabType.BOTTOM
                         ? hit(pos, Direction.UP, 0.5, 1.0, 0.5)
                         : hit(pos, Direction.DOWN, 0.5, 0.0, 0.5);
                 return Pair.of(isItem(block1.asItem()), hit);
             }
 
-            if (block1 instanceof SnowBlock
-                    && state2.equals(state1.with(SnowBlock.LAYERS, Math.min(8, state1.get(SnowBlock.LAYERS) + 1)))) {
+            if (block1 instanceof SnowLayerBlock
+                    && state2.equals(state1.setValue(SnowLayerBlock.LAYERS, Math.min(8, state1.getValue(SnowLayerBlock.LAYERS) + 1)))) {
                 return Pair.of(isItem(block1.asItem()), hit(pos, Direction.UP, 0.5, 1.0, 0.5));
             }
 
             if (block1 instanceof CandleBlock) {
-                if (state1.get(CandleBlock.CANDLES) < 4
-                        && state2.equals(state1.with(CandleBlock.CANDLES, state1.get(CandleBlock.CANDLES) + 1))) {
+                if (state1.getValue(CandleBlock.CANDLES) < 4
+                        && state2.equals(state1.setValue(CandleBlock.CANDLES, state1.getValue(CandleBlock.CANDLES) + 1))) {
                     return Pair.of(isItem(block1.asItem()), null);
                 }
-                if (state1.get(CandleBlock.LIT) && state2.equals(state1.with(CandleBlock.LIT, false))) {
+                if (state1.getValue(CandleBlock.LIT) && state2.equals(state1.setValue(CandleBlock.LIT, false))) {
                     return Pair.of(ItemStack::isEmpty, null);
                 }
-                if (!state1.get(CandleBlock.LIT)
-                        && !state1.get(CandleBlock.WATERLOGGED)
-                        && state2.equals(state1.with(CandleBlock.LIT, true))) {
+                if (!state1.getValue(CandleBlock.LIT)
+                        && !state1.getValue(CandleBlock.WATERLOGGED)
+                        && state2.equals(state1.setValue(CandleBlock.LIT, true))) {
                     return Pair.of(isAnyOf(Items.FLINT_AND_STEEL, Items.FIRE_CHARGE), null);
                 }
             }
 
             if (block1 instanceof SeaPickleBlock
-                    && state1.get(SeaPickleBlock.PICKLES) < 4
-                    && state2.equals(state1.with(SeaPickleBlock.PICKLES, state1.get(SeaPickleBlock.PICKLES) + 1))) {
+                    && state1.getValue(SeaPickleBlock.PICKLES) < 4
+                    && state2.equals(state1.setValue(SeaPickleBlock.PICKLES, state1.getValue(SeaPickleBlock.PICKLES) + 1))) {
                 return Pair.of(isItem(block1.asItem()), null);
             }
 
-            if (block1 instanceof FlowerbedBlock
-                    && state1.get(FlowerbedBlock.FLOWER_AMOUNT) < 4
+            if (block1 instanceof FlowerBedBlock
+                    && state1.getValue(FlowerBedBlock.AMOUNT) < 4
                     && state2.equals(
-                            state1.with(FlowerbedBlock.FLOWER_AMOUNT, state1.get(FlowerbedBlock.FLOWER_AMOUNT) + 1))) {
+                            state1.setValue(FlowerBedBlock.AMOUNT, state1.getValue(FlowerBedBlock.AMOUNT) + 1))) {
                 return Pair.of(isItem(block1.asItem()), null);
             }
 
             if (block1 instanceof LeafLitterBlock
-                    && state1.get(LeafLitterBlock.SEGMENT_AMOUNT) < 4
-                    && state2.equals(state1.with(
-                            LeafLitterBlock.SEGMENT_AMOUNT, state1.get(LeafLitterBlock.SEGMENT_AMOUNT) + 1))) {
+                    && state1.getValue(LeafLitterBlock.AMOUNT) < 4
+                    && state2.equals(state1.setValue(
+                            LeafLitterBlock.AMOUNT, state1.getValue(LeafLitterBlock.AMOUNT) + 1))) {
                 return Pair.of(isItem(block1.asItem()), null);
             }
 
@@ -224,15 +258,15 @@ public class FarmingUtils {
             }
 
             if (block1 instanceof ComparatorBlock
-                    && state1.get(ComparatorBlock.MODE) != state2.get(ComparatorBlock.MODE)
-                    && state2.get(ComparatorBlock.MODE)
-                            == state1.cycle(ComparatorBlock.MODE).get(ComparatorBlock.MODE)
-                    && state1.get(ComparatorBlock.FACING) == state2.get(ComparatorBlock.FACING)) {
+                    && state1.getValue(ComparatorBlock.MODE) != state2.getValue(ComparatorBlock.MODE)
+                    && state2.getValue(ComparatorBlock.MODE)
+                            == state1.cycle(ComparatorBlock.MODE).getValue(ComparatorBlock.MODE)
+                    && state1.getValue(ComparatorBlock.FACING) == state2.getValue(ComparatorBlock.FACING)) {
                 return Pair.of(ALWAYS_TRUE, null);
             }
 
             if (block1 instanceof NoteBlock
-                    && state2.equals(state1.with(NoteBlock.NOTE, (state1.get(NoteBlock.NOTE) + 1) % 25))) {
+                    && state2.equals(state1.setValue(NoteBlock.NOTE, (state1.getValue(NoteBlock.NOTE) + 1) % 25))) {
                 return Pair.of(ALWAYS_TRUE, hit(pos, Direction.NORTH, 0.5, 0.5, 0.0));
             }
 
@@ -240,12 +274,12 @@ public class FarmingUtils {
                 return Pair.of(ALWAYS_TRUE, null);
             }
 
-            if (block1 instanceof TrapdoorBlock && state2.equals(state1.cycle(TrapdoorBlock.OPEN))) {
+            if (block1 instanceof TrapDoorBlock && state2.equals(state1.cycle(TrapDoorBlock.OPEN))) {
                 return Pair.of(ALWAYS_TRUE, null);
             }
 
             if (block1 instanceof FenceGateBlock
-                    && state1.get(FenceGateBlock.FACING) == state2.get(FenceGateBlock.FACING)
+                    && state1.getValue(FenceGateBlock.FACING) == state2.getValue(FenceGateBlock.FACING)
                     && state2.equals(state1.cycle(FenceGateBlock.OPEN))) {
                 return Pair.of(ALWAYS_TRUE, null);
             }
@@ -255,39 +289,39 @@ public class FarmingUtils {
             }
 
             if (block1 instanceof ButtonBlock
-                    && !state1.get(ButtonBlock.POWERED)
-                    && state2.equals(state1.with(ButtonBlock.POWERED, true))) {
+                    && !state1.getValue(ButtonBlock.POWERED)
+                    && state2.equals(state1.setValue(ButtonBlock.POWERED, true))) {
                 return Pair.of(ALWAYS_TRUE, null);
             }
 
             if (block1 instanceof CakeBlock
-                    && state1.get(CakeBlock.BITES) < 6
-                    && state2.equals(state1.with(CakeBlock.BITES, state1.get(CakeBlock.BITES) + 1))) {
+                    && state1.getValue(CakeBlock.BITES) < 6
+                    && state2.equals(state1.setValue(CakeBlock.BITES, state1.getValue(CakeBlock.BITES) + 1))) {
                 return Pair.of(ALWAYS_TRUE, null);
             }
 
             if (block1 instanceof RespawnAnchorBlock
-                    && state1.get(RespawnAnchorBlock.CHARGES) < 4
+                    && state1.getValue(RespawnAnchorBlock.CHARGE) < 4
                     && state2.equals(
-                            state1.with(RespawnAnchorBlock.CHARGES, state1.get(RespawnAnchorBlock.CHARGES) + 1))) {
+                            state1.setValue(RespawnAnchorBlock.CHARGE, state1.getValue(RespawnAnchorBlock.CHARGE) + 1))) {
                 return Pair.of(isItem(Items.GLOWSTONE), null);
             }
 
             if (block1 instanceof FlowerPotBlock pot1 && block2 instanceof FlowerPotBlock pot2) {
-                if (pot1.getContent() != Blocks.AIR && pot2.getContent() == Blocks.AIR) {
+                if (pot1.getPotted() != Blocks.AIR && pot2.getPotted() == Blocks.AIR) {
                     return Pair.of(ItemStack::isEmpty, null);
                 }
             }
 
             if (block1 instanceof BeehiveBlock
-                    && state1.get(BeehiveBlock.HONEY_LEVEL) >= 5
-                    && state2.equals(state1.with(BeehiveBlock.HONEY_LEVEL, 0))) {
+                    && state1.getValue(BeehiveBlock.HONEY_LEVEL) >= 5
+                    && state2.equals(state1.setValue(BeehiveBlock.HONEY_LEVEL, 0))) {
                 return Pair.of(isAnyOf(Items.SHEARS, Items.GLASS_BOTTLE), null);
             }
 
             if (block1 instanceof ComposterBlock) {
-                int level1 = state1.get(ComposterBlock.LEVEL);
-                int level2 = state2.get(ComposterBlock.LEVEL);
+                int level1 = state1.getValue(ComposterBlock.LEVEL);
+                int level2 = state2.getValue(ComposterBlock.LEVEL);
                 if (level1 == 0 && level2 == 1) {
                     return Pair.of(FarmingUtils::canIncreaseComposterLevel, null);
                 }
@@ -297,16 +331,16 @@ public class FarmingUtils {
             }
 
             if (block1 instanceof CopperGolemStatueBlock
-                    && state1.get(CopperGolemStatueBlock.POSE).getNext() == state2.get(CopperGolemStatueBlock.POSE)
-                    && state1.get(CopperGolemStatueBlock.FACING) == state2.get(CopperGolemStatueBlock.FACING)
-                    && state1.get(CopperGolemStatueBlock.WATERLOGGED)
-                            == state2.get(CopperGolemStatueBlock.WATERLOGGED)) {
+                    && state1.getValue(CopperGolemStatueBlock.POSE).getNextPose() == state2.getValue(CopperGolemStatueBlock.POSE)
+                    && state1.getValue(CopperGolemStatueBlock.FACING) == state2.getValue(CopperGolemStatueBlock.FACING)
+                    && state1.getValue(CopperGolemStatueBlock.WATERLOGGED)
+                            == state2.getValue(CopperGolemStatueBlock.WATERLOGGED)) {
                 return Pair.of(FarmingUtils::isStatuePoseSwitchItem, null);
             }
         }
 
         if (block1 instanceof CakeBlock && block2 instanceof CandleCakeBlock) {
-            if (state1.get(CakeBlock.BITES) == 0) {
+            if (state1.getValue(CakeBlock.BITES) == 0) {
                 Item candleItem = getRequiredCandleItem(block2);
                 if (candleItem != null) {
                     return Pair.of(isItem(candleItem), null);
@@ -315,23 +349,23 @@ public class FarmingUtils {
         }
 
         if (block1 instanceof CandleCakeBlock && block2 instanceof CakeBlock) {
-            if (state2.equals(Blocks.CAKE.getDefaultState().with(CakeBlock.BITES, 1))) {
+            if (state2.equals(Blocks.CAKE.defaultBlockState().setValue(CakeBlock.BITES, 1))) {
                 return Pair.of(ALWAYS_TRUE, null);
             }
         }
 
         if (block1 instanceof CandleCakeBlock && block2 instanceof CandleCakeBlock) {
-            if (state1.get(CandleCakeBlock.LIT) && state2.equals(state1.with(CandleCakeBlock.LIT, false))) {
+            if (state1.getValue(CandleCakeBlock.LIT) && state2.equals(state1.setValue(CandleCakeBlock.LIT, false))) {
                 return Pair.of(ItemStack::isEmpty, hit(pos, Direction.UP, 0.5, 0.75, 0.5));
             }
-            if (!state1.get(CandleCakeBlock.LIT) && state2.equals(state1.with(CandleCakeBlock.LIT, true))) {
+            if (!state1.getValue(CandleCakeBlock.LIT) && state2.equals(state1.setValue(CandleCakeBlock.LIT, true))) {
                 return Pair.of(isAnyOf(Items.FLINT_AND_STEEL, Items.FIRE_CHARGE), null);
             }
         }
 
         if (block1 instanceof FlowerPotBlock pot1 && block2 instanceof FlowerPotBlock pot2) {
-            if (pot1.getContent() == Blocks.AIR && pot2.getContent() != Blocks.AIR) {
-                Block content = pot2.getContent();
+            if (pot1.getPotted() == Blocks.AIR && pot2.getPotted() != Blocks.AIR) {
+                Block content = pot2.getPotted();
                 return Pair.of(
                         stack -> stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() == content,
                         null);
@@ -339,7 +373,7 @@ public class FarmingUtils {
         }
 
         if (block1 instanceof PumpkinBlock && block2 == Blocks.CARVED_PUMPKIN) {
-            Direction facing = state2.get(CarvedPumpkinBlock.FACING);
+            Direction facing = state2.getValue(CarvedPumpkinBlock.FACING);
             return Pair.of(isItem(Items.SHEARS), hit(pos, facing, 0.5, 0.5, 0.5));
         }
 
@@ -348,21 +382,21 @@ public class FarmingUtils {
 
     @NeedTest
     public static boolean isBreedable(Entity entity) {
-        return entity instanceof AnimalEntity
+        return entity instanceof Animal
                 && !isFoodOnlyEntity(entity)
                 && !getBreedItems(entity).isEmpty();
     }
 
     @NeedTest
     public static Set<ItemStack> getBreedItems(Entity entity) {
-        if (!(entity instanceof AnimalEntity animalEntity) || isFoodOnlyEntity(entity)) {
+        if (!(entity instanceof Animal animalEntity) || isFoodOnlyEntity(entity)) {
             return Set.of();
         }
 
         Set<ItemStack> result = new LinkedHashSet<>();
         for (Item item : BREED_ITEM_CANDIDATES) {
             ItemStack stack = new ItemStack(item);
-            if (animalEntity.isBreedingItem(stack)) {
+            if (animalEntity.isFood(stack)) {
                 result.add(stack);
             }
         }
@@ -371,7 +405,7 @@ public class FarmingUtils {
 
     @NeedTest
     private static Predicate<ItemStack> isItem(Item item) {
-        return stack -> stack != null && stack.isOf(item);
+        return stack -> stack != null && stack.is(item);
     }
 
     @NeedTest
@@ -381,7 +415,7 @@ public class FarmingUtils {
                 return false;
             }
             for (Item item : items) {
-                if (stack.isOf(item)) {
+                if (stack.is(item)) {
                     return true;
                 }
             }
@@ -392,29 +426,29 @@ public class FarmingUtils {
     @NeedTest
     private static boolean canIncreaseComposterLevel(ItemStack stack) {
         return stack != null
-                && ComposterBlock.ITEM_TO_LEVEL_INCREASE_CHANCE.containsKey(stack.getItem())
-                && ComposterBlock.ITEM_TO_LEVEL_INCREASE_CHANCE.getFloat(stack.getItem()) > 0.0F;
+                && ComposterBlock.COMPOSTABLES.containsKey(stack.getItem())
+                && ComposterBlock.COMPOSTABLES.getFloat(stack.getItem()) > 0.0F;
     }
 
     @NeedTest
     private static boolean isStatuePoseSwitchItem(ItemStack stack) {
-        return stack != null && !stack.isIn(ItemTags.AXES) && !stack.isOf(Items.HONEYCOMB);
+        return stack != null && !stack.is(ItemTags.AXES) && !stack.is(Items.HONEYCOMB);
     }
 
     @NeedTest
     private static Item getRequiredCandleItem(Block candleCakeBlock) {
-        var blockId = Registries.BLOCK.getId(candleCakeBlock);
+        var blockId = BuiltInRegistries.BLOCK.getKey(candleCakeBlock);
         String path = blockId.getPath();
         if (!path.endsWith("_cake")) {
             return null;
         }
-        Item item = Registries.ITEM.get(blockId.withPath(path.substring(0, path.length() - 5)));
+        Item item = BuiltInRegistries.ITEM.getValue(blockId.withPath(path.substring(0, path.length() - 5)));
         return item == Items.AIR ? null : item;
     }
 
     @NeedTest
     private static BlockHitResult hit(BlockPos pos, Direction side, double x, double y, double z) {
-        return new BlockHitResult(new Vec3d(pos.getX() + x, pos.getY() + y, pos.getZ() + z), side, pos, false);
+        return new BlockHitResult(new Vec3(pos.getX() + x, pos.getY() + y, pos.getZ() + z), side, pos, false);
     }
 
     @NeedTest
@@ -429,10 +463,10 @@ public class FarmingUtils {
 
     @NeedTest
     private static Direction getSupportDirection(BlockState state) {
-        if (state.contains(CocoaBlock.FACING)) {
-            return state.get(CocoaBlock.FACING);
+        if (state.hasProperty(CocoaBlock.FACING)) {
+            return state.getValue(CocoaBlock.FACING);
         }
-        if (state.isOf(Blocks.CAVE_VINES) || state.isOf(Blocks.CAVE_VINES_PLANT)) {
+        if (state.is(Blocks.CAVE_VINES) || state.is(Blocks.CAVE_VINES_PLANT)) {
             return Direction.UP;
         }
         return Direction.DOWN;
@@ -448,7 +482,7 @@ public class FarmingUtils {
     private static Set<BlockState> allStates(Block... blocks) {
         Set<BlockState> result = new LinkedHashSet<>();
         for (Block block : blocks) {
-            result.addAll(block.getStateManager().getStates());
+            result.addAll(block.getStateDefinition().getPossibleStates());
         }
         return Collections.unmodifiableSet(result);
     }
@@ -463,13 +497,13 @@ public class FarmingUtils {
     }
 
     @NeedTest
-    private static boolean isVerticalHarvestable(World world, BlockPos pos, Block... blocks) {
+    private static boolean isVerticalHarvestable(Level world, BlockPos pos, Block... blocks) {
         BlockState state = world.getBlockState(pos);
-        BlockState below = world.getBlockState(pos.down());
+        BlockState below = world.getBlockState(pos.below());
         for (Block block : blocks) {
-            if (state.isOf(block)) {
+            if (state.is(block)) {
                 for (Block support : blocks) {
-                    if (below.isOf(support)) {
+                    if (below.is(support)) {
                         return true;
                     }
                 }
@@ -479,23 +513,23 @@ public class FarmingUtils {
     }
 
     @NeedTest
-    private static boolean isBambooHarvestable(World world, BlockPos pos) {
+    private static boolean isBambooHarvestable(Level world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
-        if (!state.isOf(Blocks.BAMBOO)) {
+        if (!state.is(Blocks.BAMBOO)) {
             return false;
         }
-        BlockState below = world.getBlockState(pos.down());
-        return below.isOf(Blocks.BAMBOO) || below.isOf(Blocks.BAMBOO_SAPLING);
+        BlockState below = world.getBlockState(pos.below());
+        return below.is(Blocks.BAMBOO) || below.is(Blocks.BAMBOO_SAPLING);
     }
 
     @NeedTest
-    private static boolean isAttachedFruitHarvestable(World world, BlockPos pos, Block fruit, Block attachedStem) {
+    private static boolean isAttachedFruitHarvestable(Level world, BlockPos pos, Block fruit, Block attachedStem) {
         BlockState state = world.getBlockState(pos);
-        if (!state.isOf(fruit)) {
+        if (!state.is(fruit)) {
             return false;
         }
-        for (Direction direction : Direction.Type.HORIZONTAL) {
-            if (world.getBlockState(pos.offset(direction)).isOf(attachedStem)) {
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            if (world.getBlockState(pos.relative(direction)).is(attachedStem)) {
                 return true;
             }
         }
@@ -503,18 +537,18 @@ public class FarmingUtils {
     }
 
     @NeedTest
-    private static boolean isPitcherHarvestable(World world, BlockPos pos) {
+    private static boolean isPitcherHarvestable(Level world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
-        if (!state.isOf(Blocks.PITCHER_CROP)) {
+        if (!state.is(Blocks.PITCHER_CROP)) {
             return false;
         }
-        if (state.get(PitcherCropBlock.HALF) == DoubleBlockHalf.LOWER) {
-            return state.get(PitcherCropBlock.AGE) >= 4;
+        if (state.getValue(PitcherCropBlock.HALF) == DoubleBlockHalf.LOWER) {
+            return state.getValue(PitcherCropBlock.AGE) >= 4;
         }
-        BlockState below = world.getBlockState(pos.down());
-        return below.isOf(Blocks.PITCHER_CROP)
-                && below.get(PitcherCropBlock.HALF) == DoubleBlockHalf.LOWER
-                && below.get(PitcherCropBlock.AGE) >= 4;
+        BlockState below = world.getBlockState(pos.below());
+        return below.is(Blocks.PITCHER_CROP)
+                && below.getValue(PitcherCropBlock.HALF) == DoubleBlockHalf.LOWER
+                && below.getValue(PitcherCropBlock.AGE) >= 4;
     }
 
     @NeedTest
@@ -524,138 +558,138 @@ public class FarmingUtils {
                 true,
                 allStates(Blocks.WHEAT),
                 Set.of(Blocks.WHEAT),
-                setOf(Blocks.WHEAT.getDefaultState()),
+                setOf(Blocks.WHEAT.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return state.isOf(Blocks.WHEAT) && state.get(CropBlock.AGE) >= 7;
+                    return state.is(Blocks.WHEAT) && state.getValue(CropBlock.AGE) >= 7;
                 }),
         CARROT(
                 Items.CARROT,
                 true,
                 allStates(Blocks.CARROTS),
                 Set.of(Blocks.CARROTS),
-                setOf(Blocks.CARROTS.getDefaultState()),
+                setOf(Blocks.CARROTS.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return state.isOf(Blocks.CARROTS) && state.get(CropBlock.AGE) >= 7;
+                    return state.is(Blocks.CARROTS) && state.getValue(CropBlock.AGE) >= 7;
                 }),
         POTATO(
                 Items.POTATO,
                 true,
                 allStates(Blocks.POTATOES),
                 Set.of(Blocks.POTATOES),
-                setOf(Blocks.POTATOES.getDefaultState()),
+                setOf(Blocks.POTATOES.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return state.isOf(Blocks.POTATOES) && state.get(CropBlock.AGE) >= 7;
+                    return state.is(Blocks.POTATOES) && state.getValue(CropBlock.AGE) >= 7;
                 }),
         BEETROOT(
                 Items.BEETROOT_SEEDS,
                 true,
                 allStates(Blocks.BEETROOTS),
                 Set.of(Blocks.BEETROOTS),
-                setOf(Blocks.BEETROOTS.getDefaultState()),
+                setOf(Blocks.BEETROOTS.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return state.isOf(Blocks.BEETROOTS) && state.get(BeetrootsBlock.AGE) >= 3;
+                    return state.is(Blocks.BEETROOTS) && state.getValue(BeetrootBlock.AGE) >= 3;
                 }),
         TORCHFLOWER(
                 Items.TORCHFLOWER_SEEDS,
                 true,
                 allStates(Blocks.TORCHFLOWER_CROP, Blocks.TORCHFLOWER),
                 Set.of(Blocks.TORCHFLOWER),
-                setOf(Blocks.TORCHFLOWER_CROP.getDefaultState()),
-                (world, pos) -> world.getBlockState(pos).isOf(Blocks.TORCHFLOWER)),
+                setOf(Blocks.TORCHFLOWER_CROP.defaultBlockState()),
+                (world, pos) -> world.getBlockState(pos).is(Blocks.TORCHFLOWER)),
         PITCHER(
                 Items.PITCHER_POD,
                 true,
                 allStates(Blocks.PITCHER_CROP),
                 Set.of(Blocks.PITCHER_CROP),
-                setOf(Blocks.PITCHER_CROP.getDefaultState().with(PitcherCropBlock.HALF, DoubleBlockHalf.LOWER)),
+                setOf(Blocks.PITCHER_CROP.defaultBlockState().setValue(PitcherCropBlock.HALF, DoubleBlockHalf.LOWER)),
                 FarmingUtils::isPitcherHarvestable),
         MELON(
                 Items.MELON_SEEDS,
                 false,
                 allStates(Blocks.MELON_STEM, Blocks.ATTACHED_MELON_STEM, Blocks.MELON),
                 Set.of(Blocks.MELON),
-                setOf(Blocks.MELON_STEM.getDefaultState()),
+                setOf(Blocks.MELON_STEM.defaultBlockState()),
                 (world, pos) -> isAttachedFruitHarvestable(world, pos, Blocks.MELON, Blocks.ATTACHED_MELON_STEM)),
         PUMPKIN(
                 Items.PUMPKIN_SEEDS,
                 false,
                 allStates(Blocks.PUMPKIN_STEM, Blocks.ATTACHED_PUMPKIN_STEM, Blocks.PUMPKIN),
                 Set.of(Blocks.PUMPKIN),
-                setOf(Blocks.PUMPKIN_STEM.getDefaultState()),
+                setOf(Blocks.PUMPKIN_STEM.defaultBlockState()),
                 (world, pos) -> isAttachedFruitHarvestable(world, pos, Blocks.PUMPKIN, Blocks.ATTACHED_PUMPKIN_STEM)),
         NETHER_WART(
                 Items.NETHER_WART,
                 true,
                 allStates(Blocks.NETHER_WART),
                 Set.of(Blocks.NETHER_WART),
-                setOf(Blocks.NETHER_WART.getDefaultState()),
+                setOf(Blocks.NETHER_WART.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return state.isOf(Blocks.NETHER_WART) && state.get(NetherWartBlock.AGE) >= 3;
+                    return state.is(Blocks.NETHER_WART) && state.getValue(NetherWartBlock.AGE) >= 3;
                 }),
         COCOA(
                 Items.COCOA_BEANS,
                 true,
                 allStates(Blocks.COCOA),
                 Set.of(Blocks.COCOA),
-                setOf(Blocks.COCOA.getDefaultState()),
+                setOf(Blocks.COCOA.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return state.isOf(Blocks.COCOA) && state.get(CocoaBlock.AGE) >= 2;
+                    return state.is(Blocks.COCOA) && state.getValue(CocoaBlock.AGE) >= 2;
                 }),
         SWEET_BERRY(
                 Items.SWEET_BERRIES,
                 false,
                 allStates(Blocks.SWEET_BERRY_BUSH),
                 Set.of(Blocks.SWEET_BERRY_BUSH),
-                setOf(Blocks.SWEET_BERRY_BUSH.getDefaultState()),
+                setOf(Blocks.SWEET_BERRY_BUSH.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return state.isOf(Blocks.SWEET_BERRY_BUSH) && state.get(SweetBerryBushBlock.AGE) > 1;
+                    return state.is(Blocks.SWEET_BERRY_BUSH) && state.getValue(SweetBerryBushBlock.AGE) > 1;
                 }),
         CACTUS(
                 Items.CACTUS,
                 false,
                 allStates(Blocks.CACTUS, Blocks.CACTUS_FLOWER),
                 Set.of(Blocks.CACTUS, Blocks.CACTUS_FLOWER),
-                setOf(Blocks.CACTUS.getDefaultState()),
-                (world, pos) -> world.getBlockState(pos).isOf(Blocks.CACTUS_FLOWER)
+                setOf(Blocks.CACTUS.defaultBlockState()),
+                (world, pos) -> world.getBlockState(pos).is(Blocks.CACTUS_FLOWER)
                         || isVerticalHarvestable(world, pos, Blocks.CACTUS)),
         SUGAR_CANE(
                 Items.SUGAR_CANE,
                 false,
                 allStates(Blocks.SUGAR_CANE),
                 Set.of(Blocks.SUGAR_CANE),
-                setOf(Blocks.SUGAR_CANE.getDefaultState()),
+                setOf(Blocks.SUGAR_CANE.defaultBlockState()),
                 (world, pos) -> isVerticalHarvestable(world, pos, Blocks.SUGAR_CANE)),
         BAMBOO(
                 Items.BAMBOO,
                 false,
                 allStates(Blocks.BAMBOO, Blocks.BAMBOO_SAPLING),
                 Set.of(Blocks.BAMBOO),
-                setOf(Blocks.BAMBOO_SAPLING.getDefaultState(), Blocks.BAMBOO.getDefaultState()),
+                setOf(Blocks.BAMBOO_SAPLING.defaultBlockState(), Blocks.BAMBOO.defaultBlockState()),
                 FarmingUtils::isBambooHarvestable),
         KELP(
                 Items.KELP,
                 false,
                 allStates(Blocks.KELP, Blocks.KELP_PLANT),
                 Set.of(Blocks.KELP, Blocks.KELP_PLANT),
-                setOf(Blocks.KELP.getDefaultState()),
+                setOf(Blocks.KELP.defaultBlockState()),
                 (world, pos) -> isVerticalHarvestable(world, pos, Blocks.KELP, Blocks.KELP_PLANT)),
         GLOW_BERRY(
                 Items.GLOW_BERRIES,
                 false,
                 allStates(Blocks.CAVE_VINES, Blocks.CAVE_VINES_PLANT),
                 Set.of(Blocks.CAVE_VINES, Blocks.CAVE_VINES_PLANT),
-                setOf(Blocks.CAVE_VINES.getDefaultState()),
+                setOf(Blocks.CAVE_VINES.defaultBlockState()),
                 (world, pos) -> {
                     BlockState state = world.getBlockState(pos);
-                    return (state.isOf(Blocks.CAVE_VINES) || state.isOf(Blocks.CAVE_VINES_PLANT))
-                            && state.get(CaveVines.BERRIES);
+                    return (state.is(Blocks.CAVE_VINES) || state.is(Blocks.CAVE_VINES_PLANT))
+                            && state.getValue(CaveVines.BERRIES);
                 });
 
         private final Item seedItem;
@@ -664,7 +698,7 @@ public class FarmingUtils {
         private final Set<Block> harvestableBlocks;
         private final Set<BlockState> placementStates;
         private final Set<Block> relatedBlocks;
-        private final BiPredicate<World, BlockPos> harvestPredicate;
+        private final BiPredicate<Level, BlockPos> harvestPredicate;
 
         PlantType(
                 Item seedItem,
@@ -672,7 +706,7 @@ public class FarmingUtils {
                 Set<BlockState> optionalStates,
                 Set<Block> harvestableBlocks,
                 Set<BlockState> placementStates,
-                BiPredicate<World, BlockPos> harvestPredicate) {
+                BiPredicate<Level, BlockPos> harvestPredicate) {
             this.seedItem = seedItem;
             this.needReplant = needReplant;
             this.optionalStates = optionalStates;
@@ -703,7 +737,7 @@ public class FarmingUtils {
         }
 
         @NeedTest
-        public boolean canHarvest(World world, BlockPos pos) {
+        public boolean canHarvest(Level world, BlockPos pos) {
             return harvestPredicate.test(world, pos);
         }
 

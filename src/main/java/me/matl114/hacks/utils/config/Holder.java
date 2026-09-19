@@ -11,9 +11,9 @@ import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.RegistryAttrKeyValue;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 
 public record Holder<T>(Registry<T> registry, @Nullable T entry, String asString) implements NBTParsable<Holder<T>> {
     public static <W> Class<Holder<W>> parameter() {
@@ -30,11 +30,11 @@ public record Holder<T>(Registry<T> registry, @Nullable T entry, String asString
     }
 
     public static <T> Holder<T> of(Registry<T> registry, T entry) {
-        Identifier string = ((Registry<Registry>) (Registry) Registries.REGISTRIES).getId(registry);
+        Identifier string = ((Registry<Registry>) (Registry) BuiltInRegistries.REGISTRY).getKey(registry);
         if (entry == null) {
             return new Holder<>(registry, null, string + SPLITTER + DEFAULT_EMPTY_STRING);
         } else {
-            Identifier entryIdentifier = registry.getId(entry);
+            Identifier entryIdentifier = registry.getKey(entry);
             if (entryIdentifier != null) {
                 return new Holder<>(registry, entry, string + SPLITTER + entryIdentifier.toString());
             } else {
@@ -48,14 +48,14 @@ public record Holder<T>(Registry<T> registry, @Nullable T entry, String asString
         if (split.length == 2) {
             Identifier identifier = Identifier.tryParse(split[0]);
             if (identifier != null) {
-                Registry<T> registry = (Registry<T>) Registries.REGISTRIES.get(identifier);
+                Registry<T> registry = (Registry<T>) BuiltInRegistries.REGISTRY.getValue(identifier);
                 if (registry != null) {
                     Identifier entryIdentifier = Identifier.tryParse(split[1]);
                     if (entryIdentifier != null) {
                         if (Objects.equals(entryIdentifier, DEFAULT_EMPTY)) {
                             return DataResult.success(new Holder<>(registry, null, s));
                         } else {
-                            T val = registry.get(entryIdentifier);
+                            T val = registry.getValue(entryIdentifier);
                             if (val != null) {
                                 return DataResult.success(new Holder<>(registry, val, s));
                             } else {
@@ -105,7 +105,7 @@ public record Holder<T>(Registry<T> registry, @Nullable T entry, String asString
                             .generateValueWidget(x, y, dx, dy);
                 },
                 WrapperFactory.of(s -> Holder.<T>parse(s).getOrThrow(), Holder::asString),
-                Holder.of((Registry<T>) Registries.ITEM, null));
+                Holder.of((Registry<T>) BuiltInRegistries.ITEM, null));
     }
 
     public static final NBTType<Holder<Object>> TYPE = Holder.create();

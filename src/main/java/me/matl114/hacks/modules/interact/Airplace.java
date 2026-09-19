@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.interact;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.function.Predicate;
 import me.matl114.events.Event;
@@ -23,22 +24,28 @@ import me.matl114.utils.MathUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.algorithms.StateMachine;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
-import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class Airplace extends BaseModule {
     public final ModulePath interactionTweaks = makePath(Configs.INTERACT_CONFIG, "interaction-tweaks");
@@ -87,7 +94,7 @@ public class Airplace extends BaseModule {
         registerListener(Listener.getPreHandleInputEvents(), this::onInput);
         registerListener(RenderListener.getRender3DEvent(), this::onRenderPos);
         registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(NetworkSide.CLIENTBOUND), this::onPacketAcceptQueue);
+                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onPacketAcceptQueue);
         registerListener(Listener.getPostTick(), this::onPostTick);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onShutdownQueue);
     }
@@ -100,17 +107,17 @@ public class Airplace extends BaseModule {
 
     public void onInteract(Event<HitResult> event) {
         if (!event.isCancelled() && enable.get()) {
-            Hand hand = event.getArgs(0);
-            ItemStack stack = mc.player.getStackInHand(hand);
+            InteractionHand hand = event.getArgs(0);
+            ItemStack stack = mc.player.getItemInHand(hand);
             if (!stack.isEmpty() && stack.getItem() instanceof BlockItem) {
                 HitResult hitResult = event.context();
                 if (hitResult.getType() == HitResult.Type.MISS) {
-                    HitResult result = getCameraEntity().raycast(range.get(), 0, false);
+                    HitResult result = getCameraEntity().pick(range.get(), 0, false);
                     if (result.getType() == HitResult.Type.MISS && result instanceof BlockHitResult block) {
                         switch (enableAirWall.get()) {
                             case VANILLA -> {
                                 BlockHitResult newResult = new BlockHitResult(
-                                        block.getPos(), block.getSide(), block.getBlockPos(), block.isInsideBlock());
+                                        block.getLocation(), block.getDirection(), block.getBlockPos(), block.isInside());
                                 event.context(newResult);
                                 return;
                             }
@@ -197,22 +204,22 @@ public class Airplace extends BaseModule {
     public void onInputGrimWall() {
         if (enable.get()
                 && targetPos != null
-                && mc.player.getStackInHand(Hand.MAIN_HAND).getItem() instanceof BlockItem block
+                && mc.player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof BlockItem block
                 && block != Items.AIR
-                && targetPos.toCenterPos().subtract(mc.player.getEyePos()).horizontalLengthSquared()
-                        <= MathUtils.s2(mc.player.getBlockInteractionRange() + 1)) {
+                && Vec3.atCenterOf(targetPos).subtract(mc.player.getEyePosition()).horizontalDistanceSqr()
+                        <= MathUtils.s2(mc.player.blockInteractionRange() + 1)) {
             for (var i = 1; i < 256; ++i) {
-                BlockPos checkPos = targetPos.add(0, -i, 0);
-                BlockState state = mc.world.getBlockState(checkPos);
-                if (!state.isAir() && !state.isLiquid()) {
+                BlockPos checkPos = targetPos.offset(0, -i, 0);
+                BlockState state = mc.level.getBlockState(checkPos);
+                if (!state.isAir() && !state.liquid()) {
                     if (i == 1) targetPos = null;
                     var ppp = checkPos;
-                    RenderTasks.drawBox(Box.from(new BlockBox(ppp)), 50, Color.MAGENTA);
+                    RenderTasks.drawBox(AABB.of(new BoundingBox(ppp)), 50, Color.MAGENTA);
                     InteractionTasks.interactBlock(
-                            Hand.MAIN_HAND,
-                            new BlockHitResult(ppp.toBottomCenterPos().add(0, 1, 0), Direction.UP, ppp, false),
+                            InteractionHand.MAIN_HAND,
+                            new BlockHitResult(Vec3.atBottomCenterOf(ppp).add(0, 1, 0), Direction.UP, ppp, false),
                             false);
-                    mc.player.swingHand(Hand.MAIN_HAND);
+                    mc.player.swing(InteractionHand.MAIN_HAND);
                     // work by magic
                     // work by placeAfterPlace bypass
                     if (!PlayerInputUtils.of(mc.options).hasWASDMovement()) {
@@ -229,12 +236,12 @@ public class Airplace extends BaseModule {
     FastPlaceTaskInfo currentTask;
 
     public static record FastPlaceTaskInfo(
-            BlockPos.Mutable startPos,
+            BlockPos.MutableBlockPos startPos,
             BlockPos targetPos,
             int itemCount,
             ItemStack item,
             int selectedSlot,
-            Hand hand,
+            InteractionHand hand,
             int way) {}
 
     int startWaitTick = 0;
@@ -255,18 +262,18 @@ public class Airplace extends BaseModule {
         return currentTask != null;
     }
 
-    public void onGrimFastWall(BlockHitResult hitResult, Hand hand) {
+    public void onGrimFastWall(BlockHitResult hitResult, InteractionHand hand) {
         clearFastWall();
         if (DisablerManager.INSTANCE.isGrimSelfCheckDisabled()) {
             if (!DisablerManager.INSTANCE.autoFlushPlaceQueue.get()) {
                 Debug.chat(
                         "[AirWall] 请先在",
-                        Text.translatable("config.index.disablers"),
+                        Component.translatable("config.index.disablers"),
                         "中启用配置项: ",
-                        Text.translatable("disablers.auto-flush-multi-place-queue"));
+                        Component.translatable("disablers.auto-flush-multi-place-queue"));
                 return;
             }
-            ItemStack usingItem = mc.player.getStackInHand(hand);
+            ItemStack usingItem = mc.player.getItemInHand(hand);
             if (usingItem.isEmpty()) return;
             if (usingItem.getCount() < 2) {
                 Debug.chat("[AirWall] 手上物品太少,无法执行,该模式下手上尽可能有足够多的方块");
@@ -277,21 +284,21 @@ public class Airplace extends BaseModule {
                 Debug.chat("[AirWall] 提示: 我们推荐该模式手上最好有足够多(>= %d)的方块,当前数量可能会导致放置较慢".formatted(recommendCnt));
             }
             BlockPos startPos = hitResult.getBlockPos();
-            Vec3d centerPos = startPos.toCenterPos();
+            Vec3 centerPos = Vec3.atCenterOf(startPos);
             // under eye -> from down, else from up
-            int way = centerPos.y < mc.player.getEyePos().y ? -1 : 1;
+            int way = centerPos.y < mc.player.getEyePosition().y ? -1 : 1;
             BlockPos fastStartPos = null;
             for (var i = 1; i < 256; ++i) {
-                BlockPos checkPos = startPos.add(0, way * i, 0);
-                BlockState state = mc.world.getBlockState(checkPos);
-                if (!state.isAir() && !state.isLiquid()) {
+                BlockPos checkPos = startPos.offset(0, way * i, 0);
+                BlockState state = mc.level.getBlockState(checkPos);
+                if (!state.isAir() && !state.liquid()) {
                     fastStartPos = checkPos;
                     break;
                 }
             }
             if (fastStartPos != null) {
                 currentTask = new FastPlaceTaskInfo(
-                        fastStartPos.mutableCopy(),
+                        fastStartPos.mutable(),
                         startPos,
                         usingItem.getCount(),
                         usingItem.copy(),
@@ -309,11 +316,11 @@ public class Airplace extends BaseModule {
         if (enable.get() && currentTask != null && stateMachine != null) {
             BlockPos targetPos = currentTask.targetPos;
             ItemStack stack = currentTask.item;
-            Hand hand = currentTask.hand;
-            ItemStack stackInHand = mc.player.getStackInHand(hand);
-            if (ItemStack.areItemsEqual(stackInHand, stack)) {
-                if (targetPos.toCenterPos().subtract(mc.player.getEyePos()).horizontalLengthSquared()
-                        <= MathUtils.s2(mc.player.getBlockInteractionRange() + 1)) {
+            InteractionHand hand = currentTask.hand;
+            ItemStack stackInHand = mc.player.getItemInHand(hand);
+            if (ItemStack.isSameItem(stackInHand, stack)) {
+                if (Vec3.atCenterOf(targetPos).subtract(mc.player.getEyePosition()).horizontalDistanceSqr()
+                        <= MathUtils.s2(mc.player.blockInteractionRange() + 1)) {
                     stateMachine.step();
                 } else {
                     Debug.chat("[AirWall] 你移动的位置太多了, 终止任务");
@@ -348,16 +355,16 @@ public class Airplace extends BaseModule {
     }
 
     public int onPlace(StateMachine machine) {
-        BlockPos.Mutable mutable = currentTask.startPos;
+        BlockPos.MutableBlockPos mutable = currentTask.startPos;
         int endY = currentTask.targetPos.getY();
         int canPlaceCount = Math.min(maxBatch.get(), currentTask.itemCount - 1);
         int placeCnt = 0;
         for (; mutable.getY() != endY; ) {
-            BlockPos pos = mutable.toImmutable();
+            BlockPos pos = mutable.immutable();
             Direction dir = currentTask.way < 0 ? Direction.UP : Direction.DOWN;
-            BlockHitResult hitResult = new BlockHitResult(pos.toCenterPos().offset(dir, 0.5), dir, pos, false);
-            mc.interactionManager.sendSequencedPacket(
-                    mc.world, (seq) -> new PlayerInteractBlockC2SPacket(currentTask.hand, hitResult, seq));
+            BlockHitResult hitResult = new BlockHitResult(Vec3.atCenterOf(pos).relative(dir, 0.5), dir, pos, false);
+            mc.gameMode.startPrediction(
+                    mc.level, (seq) -> new ServerboundUseItemOnPacket(currentTask.hand, hitResult, seq));
             mutable.move(0, -currentTask.way, 0);
             placeCnt += 1;
             if (placeCnt >= canPlaceCount) {
@@ -376,21 +383,21 @@ public class Airplace extends BaseModule {
         int sleepLimit = invSleepTick.get();
         if (startWaitTick == sleepLimit) {
             //
-            ItemStack stackCopy = mc.player.getStackInHand(currentTask.hand).copy();
+            ItemStack stackCopy = mc.player.getItemInHand(currentTask.hand).copy();
             // make desync inventory packets
-            mc.player.setStackInHand(currentTask.hand, ItemStack.EMPTY);
+            mc.player.setItemInHand(currentTask.hand, ItemStack.EMPTY);
             try {
                 int hotbarIndex = mc.player
-                        .currentScreenHandler
-                        .getSlotIndex(mc.player.getInventory(), currentTask.selectedSlot)
+                        .containerMenu
+                        .findSlot(mc.player.getInventory(), currentTask.selectedSlot)
                         .orElse(-1);
-                mc.interactionManager.clickSlot(
-                        mc.player.currentScreenHandler.syncId, hotbarIndex, 40, SlotActionType.SWAP, mc.player);
-                mc.interactionManager.clickSlot(
-                        mc.player.currentScreenHandler.syncId, hotbarIndex, 40, SlotActionType.SWAP, mc.player);
+                mc.gameMode.handleContainerInput(
+                        mc.player.containerMenu.containerId, hotbarIndex, 40, ContainerInput.SWAP, mc.player);
+                mc.gameMode.handleContainerInput(
+                        mc.player.containerMenu.containerId, hotbarIndex, 40, ContainerInput.SWAP, mc.player);
 
             } finally {
-                mc.player.setStackInHand(currentTask.hand, stackCopy);
+                mc.player.setItemInHand(currentTask.hand, stackCopy);
             }
             Predicate<Event<?>> packetPredicate = (event) -> {
                 if (machine.getState() == FAST_STATE_WAIT_SLOT_UPDATE && startWaitTick < 20) {
@@ -399,8 +406,8 @@ public class Airplace extends BaseModule {
                 return true;
             };
             Listener.addPostPacketCatcher(
-                    new PacketCatcherImpl(ScreenHandlerSlotUpdateS2CPacket.class, packetPredicate));
-            Listener.addPostPacketCatcher(new PacketCatcherImpl(InventoryS2CPacket.class, packetPredicate));
+                    new PacketCatcherImpl(ClientboundContainerSetSlotPacket.class, packetPredicate));
+            Listener.addPostPacketCatcher(new PacketCatcherImpl(ClientboundContainerSetContentPacket.class, packetPredicate));
         }
         startWaitTick++;
         machine.markForEndState();
@@ -418,9 +425,9 @@ public class Airplace extends BaseModule {
             stateMachine = null;
             BlockPos pos = currentTask.targetPos;
             Direction dir = currentTask.way < 0 ? Direction.UP : Direction.DOWN;
-            BlockHitResult hitResult = new BlockHitResult(pos.toCenterPos().offset(dir, 0.5), dir, pos, false);
-            mc.interactionManager.sendSequencedPacket(
-                    mc.world, (seq) -> new PlayerInteractBlockC2SPacket(currentTask.hand, hitResult, seq));
+            BlockHitResult hitResult = new BlockHitResult(Vec3.atCenterOf(pos).relative(dir, 0.5), dir, pos, false);
+            mc.gameMode.startPrediction(
+                    mc.level, (seq) -> new ServerboundUseItemOnPacket(currentTask.hand, hitResult, seq));
             currentTask = null;
             Debug.chat("[AirWall] 任务完成");
             return FAST_STATE_NONE;
@@ -428,20 +435,20 @@ public class Airplace extends BaseModule {
         return FAST_STATE_WAIT_300MS;
     }
 
-    public void onRenderPos(Event<MatrixStack> event) {
+    public void onRenderPos(Event<PoseStack> event) {
         if (enable.get()) {
-            if (mc.player.getStackInHand(Hand.MAIN_HAND).isEmpty()
-                    && mc.player.getStackInHand(Hand.OFF_HAND).isEmpty()) {
+            if (mc.player.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()
+                    && mc.player.getItemInHand(InteractionHand.OFF_HAND).isEmpty()) {
                 return;
             }
-            MatrixStack stack = event.context();
-            if (mc.crosshairTarget.getType() == HitResult.Type.MISS) {
-                HitResult result = getCameraEntity().raycast(range.get(), 0, false);
+            PoseStack stack = event.context();
+            if (mc.hitResult.getType() == HitResult.Type.MISS) {
+                HitResult result = getCameraEntity().pick(range.get(), 0, false);
                 if (result.getType() == HitResult.Type.MISS && result instanceof BlockHitResult block) {
                     RenderUtils.startDrawVirtual(stack);
                     try {
                         BlockPos pos = block.getBlockPos();
-                        RenderUtils.drawOutlinedBox(stack, Vec3d.of(pos), Vec3d.of(pos.add(1, 1, 1)), Color.RED);
+                        RenderUtils.drawOutlinedBox(stack, Vec3.atLowerCornerOf(pos), Vec3.atLowerCornerOf(pos.offset(1, 1, 1)), Color.RED);
                     } finally {
                         RenderUtils.stopDrawVirtual(stack);
                     }

@@ -3,35 +3,35 @@ package me.matl114.accessors.access;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.matl114.accessors.events.ClientPlayerEntityAccess;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.screen.ScreenHandler;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 
 public interface ClientPlayerAccess extends ClientPlayerEntityAccess {
 
     @Nullable
-    public HandledScreen getKeepedInv();
+    public AbstractContainerScreen getKeepedInv();
 
     @Nullable
-    public ScreenHandler getKeepedInvHandler();
+    public AbstractContainerMenu getKeepedInvHandler();
 
     public void clearKeepedInventory(boolean closeInv);
 
     @Nonnull
-    public static ClientPlayerAccess of(@Nonnull ClientPlayerEntity player) {
+    public static ClientPlayerAccess of(@Nonnull LocalPlayer player) {
         return (ClientPlayerAccess) player;
     }
     // get the Screen object which handler related to the server(should)
-    default HandledScreen getServerOpeningScreen() {
+    default AbstractContainerScreen getServerOpeningScreen() {
         if (getKeepedInv() != null) return getKeepedInv();
-        else return MinecraftClient.getInstance().currentScreen instanceof HandledScreen<?> han ? han : null;
+        else return Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> han ? han : null;
     }
 
     @Nonnull
-    default ScreenHandler getServerScreenHandler() {
+    default AbstractContainerMenu getServerScreenHandler() {
         if (getKeepedInvHandler() != null) return getKeepedInvHandler();
-        else return ((ClientPlayerEntity) this).currentScreenHandler;
+        else return ((LocalPlayer) this).containerMenu;
     }
 
     public boolean isForceNoFall();

@@ -26,13 +26,13 @@ import me.matl114.utils.CodecUtils;
 import me.matl114.utils.collections.InitializationTask;
 import me.matl114.utils.config.*;
 import me.matl114.utils.config.kv.*;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.resources.Identifier;
 
 public interface NBTTypes {
     public static Map<String, NBTType<?>> PRIMITIVE_TYPES = new LinkedHashMap<>();
@@ -77,10 +77,10 @@ public interface NBTTypes {
                                     return DataResult.error(() -> "Color value out of range: " + s);
                                 }
                             },
-                            TextColor::getRgb)),
+                            TextColor::getValue)),
             NBTTypes::generateColorInputWidget,
             COLOR_FACTORY,
-            TextColor.fromFormatting(Formatting.BLACK));
+            TextColor.fromLegacyFormat(ChatFormatting.BLACK));
 
     public NBTType<MultiKeyBind> KEY_BIND_TYPE = new NBTType<>(
             "keybind",
@@ -100,13 +100,13 @@ public interface NBTTypes {
     @SuppressWarnings("unchecked")
     public NBTType<Registry<?>> REGISTRY_TYPE = new NBTType<>(
             "registry",
-            (Codec<Registry<?>>) (Codec<?>) Registries.REGISTRIES.getCodec(),
+            (Codec<Registry<?>>) (Codec<?>) BuiltInRegistries.REGISTRY.byNameCodec(),
             (s, x, y, dx, dy) ->
-                    RegistryAttrKeyValue.generateTextInputWithRegistrySearch(Registries.REGISTRIES, s, x, y, dx, dy),
+                    RegistryAttrKeyValue.generateTextInputWithRegistrySearch(BuiltInRegistries.REGISTRY, s, x, y, dx, dy),
             WrapperFactory.<String, Registry<?>>of(
-                    s -> Registries.REGISTRIES.get(Identifier.tryParse(s)),
-                    v -> ((Registry) Registries.REGISTRIES).getId(v).toString()),
-            Registries.BLOCK);
+                    s -> BuiltInRegistries.REGISTRY.getValue(Identifier.tryParse(s)),
+                    v -> ((Registry) BuiltInRegistries.REGISTRY).getKey(v).toString()),
+            BuiltInRegistries.BLOCK);
 
     public NBTType<Pattern> REGEX_TYPE =
             createComapFlatMap("pattern", STRING_TYPE, WrapperFactory.of(Pattern::compile, Pattern::pattern));
@@ -114,16 +114,16 @@ public interface NBTTypes {
     public NBTType<Identifier> IDENTIFIER_TYPE = createComapFlatMap(
             "identifier",
             STRING_TYPE,
-            WrapperFactory.of(Identifier::of, Identifier::toString),
-            Identifier.ofVanilla(""));
+            WrapperFactory.of(Identifier::parse, Identifier::toString),
+            Identifier.withDefaultNamespace(""));
 
-    public NBTType<NbtElement> NBT_ELEMENT_TYPE = createComapFlatMap("nbtelement", STRING_TYPE, NBT_FACTORY);
-    public NBTType<NbtCompound> NBT_COMPOUND_TYPE = new NBTType<NbtCompound>(
+    public NBTType<Tag> NBT_ELEMENT_TYPE = createComapFlatMap("nbtelement", STRING_TYPE, NBT_FACTORY);
+    public NBTType<CompoundTag> NBT_COMPOUND_TYPE = new NBTType<CompoundTag>(
             "nbtcompound",
-            NbtCompound.CODEC,
-            BaseAttrKeyValue.<NbtCompound>getWidgetFactory(),
+            CompoundTag.CODEC,
+            BaseAttrKeyValue.<CompoundTag>getWidgetFactory(),
             NBT_COMPOUND_FACTORY,
-            new NbtCompound());
+            new CompoundTag());
 
     public NBTType<WrapEnum<?>> CONFIG_ENUM_TYPE = WrapEnum.TYPE.cast();
 

@@ -8,80 +8,86 @@ import me.matl114.hacks.modules.extra.BadPacketsFix;
 import me.matl114.hacks.modules.move.AutoResync;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPosition;
-import net.minecraft.network.packet.s2c.play.*;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.PositionMoveRotation;
+import net.minecraft.world.entity.Relative;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientPlayNetworkHandler.class)
+@Mixin(ClientPacketListener.class)
 public abstract class ClientPlayNetworkHandlerMixin {
 
     @Inject(
-            method = "onCloseScreen",
+            method = "handleContainerClose",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/ClientPlayerEntity;closeScreen()V",
+                            target = "Lnet/minecraft/client/player/LocalPlayer;clientSideCloseContainer()V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
-    private void onCloseScreenClearKeepedInv(CloseScreenS2CPacket packet, CallbackInfo ci) {
-        ClientPlayerAccess access = ClientPlayerAccess.of(MinecraftClient.getInstance().player);
-        if (access.getKeepedInvHandler() != null && access.getKeepedInvHandler().syncId == packet.getSyncId()) {
+    private void onCloseScreenClearKeepedInv(ClientboundContainerClosePacket packet, CallbackInfo ci) {
+        ClientPlayerAccess access = ClientPlayerAccess.of(Minecraft.getInstance().player);
+        if (access.getKeepedInvHandler() != null && access.getKeepedInvHandler().containerId == packet.getContainerId()) {
             access.clearKeepedInventory(true);
         }
-        if (MinecraftClient.getInstance().player.currentScreenHandler.syncId != packet.getSyncId()) {
+        if (Minecraft.getInstance().player.containerMenu.containerId != packet.getContainerId()) {
             ci.cancel();
         }
     }
 
-    @Inject(method = "onScreenHandlerSlotUpdate", at = @At(value = "RETURN"), locals = LocalCapture.CAPTURE_FAILSOFT)
-    private void onScreenHandlerSlotUpdateSyncToKeeped(ScreenHandlerSlotUpdateS2CPacket packet, CallbackInfo ci) {
+    @Inject(method = "handleContainerSetSlot", at = @At(value = "RETURN"), locals = LocalCapture.CAPTURE_FAILSOFT)
+    private void onScreenHandlerSlotUpdateSyncToKeeped(ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
         // Debug.info("Received screen handler slot update packet
-        // ",packet.getSyncId(),packet.getSlot(),packet.getItemStack());
-        if (MinecraftClient.getInstance().player != null) {
-            ClientPlayerAccess access = ClientPlayerAccess.of(MinecraftClient.getInstance().player);
-            if (access.getKeepedInvHandler() != null && packet.getSyncId() == access.getKeepedInvHandler().syncId) {
-                access.getKeepedInvHandler().setStackInSlot(packet.getSlot(), packet.getRevision(), packet.getStack());
+        // ",packet.getContainerId(),packet.getSlot(),packet.getItemStack());
+        if (Minecraft.getInstance().player != null) {
+            ClientPlayerAccess access = ClientPlayerAccess.of(Minecraft.getInstance().player);
+            if (access.getKeepedInvHandler() != null && packet.getContainerId() == access.getKeepedInvHandler().containerId) {
+                access.getKeepedInvHandler().setItem(packet.getSlot(), packet.getStateId(), packet.getItem());
             }
         }
     }
 
-    @Inject(method = "onInventory", at = @At(value = "RETURN"), locals = LocalCapture.CAPTURE_FAILSOFT)
-    private void onInventorySyncToKeeped(InventoryS2CPacket packet, CallbackInfo ci) {
-        if (MinecraftClient.getInstance().player != null) {
-            ClientPlayerAccess access = ClientPlayerAccess.of(MinecraftClient.getInstance().player);
-            if (access.getKeepedInvHandler() != null && packet.syncId() == access.getKeepedInvHandler().syncId) {
+    @Inject(method = "handleContainerContent", at = @At(value = "RETURN"), locals = LocalCapture.CAPTURE_FAILSOFT)
+    private void onInventorySyncToKeeped(ClientboundContainerSetContentPacket packet, CallbackInfo ci) {
+        if (Minecraft.getInstance().player != null) {
+            ClientPlayerAccess access = ClientPlayerAccess.of(Minecraft.getInstance().player);
+            if (access.getKeepedInvHandler() != null && packet.containerId() == access.getKeepedInvHandler().containerId) {
                 access.getKeepedInvHandler()
-                        .updateSlotStacks(packet.revision(), packet.contents(), packet.cursorStack());
+                        .initializeContents(packet.stateId(), packet.items(), packet.carriedItem());
             }
         }
     }
 
     @Inject(
-            method = "onOpenScreen",
+            method = "handleOpenScreen",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/screen/ingame/HandledScreens;open(Lnet/minecraft/screen/ScreenHandlerType;Lnet/minecraft/client/MinecraftClient;ILnet/minecraft/text/Text;)V",
+                                    "Lnet/minecraft/client/gui/screens/MenuScreens;create(Lnet/minecraft/world/inventory/MenuType;Lnet/minecraft/client/Minecraft;ILnet/minecraft/network/chat/Component;)V",
                             shift = At.Shift.BEFORE))
-    private void onInventoryOpenCloseKeepInventory(OpenScreenS2CPacket packet, CallbackInfo ci) {
+    private void onInventoryOpenCloseKeepInventory(ClientboundOpenScreenPacket packet, CallbackInfo ci) {
         // for keepInv
-        if (MinecraftClient.getInstance().player != null) {
-            ClientPlayerAccess access = ClientPlayerAccess.of(MinecraftClient.getInstance().player);
+        if (Minecraft.getInstance().player != null) {
+            ClientPlayerAccess access = ClientPlayerAccess.of(Minecraft.getInstance().player);
             access.clearKeepedInventory(false);
         }
     }
 
     @Inject(
-            method = "onPlayerList",
+            method = "handlePlayerInfoUpdate",
             at =
                     @At(
                             value = "INVOKE",
@@ -89,25 +95,25 @@ public abstract class ClientPlayNetworkHandlerMixin {
                             shift = At.Shift.BEFORE,
                             remap = false),
             cancellable = true)
-    public void onInvalidPlayerEntry(PlayerListS2CPacket packet, CallbackInfo ci) {
+    public void onInvalidPlayerEntry(ClientboundPlayerInfoUpdatePacket packet, CallbackInfo ci) {
         if (BadPacketsFix.INSTANCE.fixInvalidPlayerEntryUpdate.get()) {
             ci.cancel();
         }
     }
 
     @WrapOperation(
-            method = "onPlayerPositionLook",
+            method = "handleMovePlayer",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayNetworkHandler;setPosition(Lnet/minecraft/entity/EntityPosition;Ljava/util/Set;Lnet/minecraft/entity/Entity;Z)Z"))
+                                    "Lnet/minecraft/client/multiplayer/ClientPacketListener;setValuesFromPositionPacket(Lnet/minecraft/world/entity/PositionMoveRotation;Ljava/util/Set;Lnet/minecraft/world/entity/Entity;Z)Z"))
     private boolean wrapSetPositionLook(
-            EntityPosition pos, Set<PositionFlag> flags, Entity entity, boolean bl, Operation<Boolean> original) {
+            PositionMoveRotation pos, Set<Relative> flags, Entity entity, boolean bl, Operation<Boolean> original) {
         if (AutoResync.INSTANCE.noVelocitySetback.get()) {
-            Vec3d currentVelocity = entity.getVelocity();
+            Vec3 currentVelocity = entity.getDeltaMovement();
             boolean re = original.call(pos, flags, entity, bl);
-            entity.setVelocity(currentVelocity);
+            entity.setDeltaMovement(currentVelocity);
             return re;
         } else {
             return original.call(pos, flags, entity, bl);

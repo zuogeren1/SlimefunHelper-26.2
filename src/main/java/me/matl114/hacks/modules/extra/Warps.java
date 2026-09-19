@@ -25,12 +25,11 @@ import me.matl114.utils.commands.params.api.ArgumentType;
 import me.matl114.utils.commands.params.api.CommandExecution;
 import me.matl114.utils.commands.params.api.TabResult;
 import me.matl114.utils.commands.params.types.ExecutePos;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.resources.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.joml.Vector3d;
 
@@ -42,7 +41,7 @@ public class Warps extends BaseModule {
 
     // todo: add render settings, add auto create settings
     public final List<String> cachedString = new ArrayList<>();
-    public final Map<String, Map<String, Map<String, Vec3d>>> parseVec3ds = new LinkedHashMap<>();
+    public final Map<String, Map<String, Map<String, Vec3>>> parseVec3ds = new LinkedHashMap<>();
 
     {
         cachedString.clear();
@@ -51,15 +50,15 @@ public class Warps extends BaseModule {
         // copy to avoid cmd
         for (String path : List.copyOf(mp.getOrDefault(SAVE_KEY, List.of()))) {
             String[] splits = path.split(SPLITTER_REGEX);
-            Vec3d pos;
+            Vec3 pos;
             String serverName;
             String worldName;
             String warpName;
             try {
                 String posStr = splits[splits.length - 1];
                 long longValue = Long.parseLong(posStr);
-                BlockPos blockPos = BlockPos.fromLong(longValue);
-                pos = new Vec3d(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+                BlockPos blockPos = BlockPos.of(longValue);
+                pos = new Vec3(blockPos.getX(), blockPos.getY(), blockPos.getZ());
                 serverName = splits[0];
                 worldName = splits[1];
                 String[] remainName = new String[splits.length - 3];
@@ -78,7 +77,7 @@ public class Warps extends BaseModule {
         this.saveMap.write(map, JavaOps.INSTANCE);
     }
 
-    private boolean putInternal(String serverName, String worldName, String warpName, Vec3d pos) {
+    private boolean putInternal(String serverName, String worldName, String warpName, Vec3 pos) {
         if (isInRange(pos)) {
             removeInternal(serverName, worldName, warpName);
             parseVec3ds
@@ -96,7 +95,7 @@ public class Warps extends BaseModule {
         Object val = computeEmpty(parseVec3ds, new String[] {serverName, worldName, warpName}, 0);
         if (val != null) {
             String name = String.join(SPLITTER, serverName, worldName, warpName) + SPLITTER;
-            if (val instanceof Vec3d vc3d) {
+            if (val instanceof Vec3 vc3d) {
                 name += Long.toString(toRangedVec(vc3d));
             }
             boolean var = cachedString.remove(name);
@@ -140,13 +139,13 @@ public class Warps extends BaseModule {
     }
 
     public static Optional<String> getCurrentWorldName() {
-        if (mc.world != null) {
-            return Optional.of(mc.world.getRegistryKey().getValue().toString());
+        if (mc.level != null) {
+            return Optional.of(mc.level.dimension().identifier().toString());
         }
         return Optional.empty();
     }
 
-    public boolean registerWarp(String world, String name, Vec3d pos) {
+    public boolean registerWarp(String world, String name, Vec3 pos) {
         if (isValidWarpName(name)) {
             String serverName = CommonUtils.getServerName();
             return putInternal(serverName, world, name, pos);
@@ -160,17 +159,17 @@ public class Warps extends BaseModule {
     }
 
     @Nonnull
-    public Map<String, Vec3d> getWorldWarps(String world) {
+    public Map<String, Vec3> getWorldWarps(String world) {
         String serverName = CommonUtils.getServerName();
         return parseVec3ds.getOrDefault(serverName, Map.of()).getOrDefault(world, Map.of());
     }
 
     @Nonnull
-    public Map<String, Map<String, Vec3d>> getServerWarps(String serverName) {
+    public Map<String, Map<String, Vec3>> getServerWarps(String serverName) {
         return parseVec3ds.getOrDefault(serverName, Map.of());
     }
 
-    public Optional<Map<String, Vec3d>> getCurrentWorldWarps() {
+    public Optional<Map<String, Vec3>> getCurrentWorldWarps() {
         return getCurrentWorldName().map(this::getWorldWarps);
     }
 
@@ -178,15 +177,15 @@ public class Warps extends BaseModule {
         return getCurrentWorldWarps().map(Map::keySet).stream().flatMap(Collection::stream);
     }
 
-    public boolean isInRange(Vec3d pos) {
-        BlockPos blockpos = BlockPos.ofFloored(pos);
+    public boolean isInRange(Vec3 pos) {
+        BlockPos blockpos = BlockPos.containing(pos);
         return Math.abs(blockpos.getX()) < (1 << 25)
                 && Math.abs(blockpos.getY()) < (1 << 11)
                 && Math.abs(blockpos.getZ()) < (1 << 25);
     }
 
-    public long toRangedVec(Vec3d vec3d) {
-        BlockPos pos = BlockPos.ofFloored(vec3d);
+    public long toRangedVec(Vec3 vec3d) {
+        BlockPos pos = BlockPos.containing(vec3d);
         return BlockPos.asLong(pos.getX(), pos.getY(), pos.getZ());
     }
     // all display and used name should be append a $
@@ -218,14 +217,14 @@ public class Warps extends BaseModule {
                         // consume this argument
                         reader.step();
                         String val = type.substring(1);
-                        Vec3d lookup = getCurrentWorldWarps().get().get(val);
+                        Vec3 lookup = getCurrentWorldWarps().get().get(val);
                         if (lookup != null) {
                             resolver.errMsg.accept(
-                                    Text.literal("使用传送点 " + type + " ").append(ChatUtils.getDisplayedLocation(lookup)));
+                                    Component.literal("使用传送点 " + type + " ").append(ChatUtils.getDisplayedLocation(lookup)));
                             resolver.resolve = Optional.of(lookup);
                         } else {
                             resolver.errMsg.accept(
-                                    Text.literal("不存在这样的传送点: " + type).formatted(Formatting.RED));
+                                    Component.literal("不存在这样的传送点: " + type).withStyle(ChatFormatting.RED));
                             resolver.resolve = Optional.empty();
                         }
                     }
@@ -244,8 +243,9 @@ public class Warps extends BaseModule {
                             .helper("message.command.warp_command.warp.list.help")
                             .arg(me.matl114.utils.commands.params.SimpleCommandArgs.argumentBuilder()
                                     .name("world")
-                                    .tabSupplier(() -> mc.getNetworkHandler().getWorldKeys().stream()
-                                            .map(RegistryKey::getValue)
+                                    // 26.2: getWorldKeys() -> levels()（返回 Set<ResourceKey<Level>>）
+                                    .tabSupplier(() -> mc.getConnection().levels().stream()
+                                            .map(net.minecraft.resources.ResourceKey::identifier)
                                             .map(Identifier::toString))
                                     .build())
                             .post(e -> e.executor(CommandContext.run(this::onList)))
@@ -297,12 +297,12 @@ public class Warps extends BaseModule {
         } else {
             vector3d = warpPos.getPosition(context);
         }
-        Vec3d vec3d = new Vec3d(vector3d.x, vector3d.y, vector3d.z);
+        Vec3 vec3d = new Vec3(vector3d.x, vector3d.y, vector3d.z);
 
-        if (mc.world != null && registerWarp(getCurrentWorldName().get(), warpName, vec3d)) {
+        if (mc.level != null && registerWarp(getCurrentWorldName().get(), warpName, vec3d)) {
             context.sendMessage("&a注册传送点 " + warpName + " 成功");
             context.sendMessage(
-                    Text.literal("位置: ").formatted(Formatting.GREEN).append(ChatUtils.getDisplayedLocation(vec3d)));
+                    Component.literal("位置: ").withStyle(ChatFormatting.GREEN).append(ChatUtils.getDisplayedLocation(vec3d)));
         } else {
             context.sendMessage("&c注册传送点失败!");
         }
@@ -312,7 +312,7 @@ public class Warps extends BaseModule {
 
     private boolean onRemove(CommandExecution context, ArgumentInputStream re, ArgumentReader rest) {
         String warpName = re.nextNonnull();
-        if (mc.world != null && unregisterWarp(getCurrentWorldName().get(), warpName)) {
+        if (mc.level != null && unregisterWarp(getCurrentWorldName().get(), warpName)) {
             context.sendMessage("&a移除传送点 " + warpName + " 成功");
         } else {
             context.sendMessage("&c移除传送点失败");
@@ -322,33 +322,33 @@ public class Warps extends BaseModule {
 
     private void onList(ArgumentInputStream re) {
         String worldName = re.nextArgOrDefault(getCurrentWorldName()::get);
-        Debug.chat(Text.literal("==".repeat(10)).formatted(Formatting.GREEN));
-        Debug.chat(Text.literal("== 当前世界" + worldName + "传送点列表 ==").formatted(Formatting.GREEN));
+        Debug.chat(Component.literal("==".repeat(10)).withStyle(ChatFormatting.GREEN));
+        Debug.chat(Component.literal("== 当前世界" + worldName + "传送点列表 ==").withStyle(ChatFormatting.GREEN));
         var s = getWorldWarps(worldName);
         int i = 0;
         for (var entry : s.entrySet()) {
             ++i;
             Debug.chat(
-                    Text.literal(i + ":").formatted(Formatting.YELLOW),
+                    Component.literal(i + ":").withStyle(ChatFormatting.YELLOW),
                     ChatUtils.stringToText(PREFIX_WARP + entry.getKey()),
                     " ",
                     ChatUtils.getDisplayedLocation(entry.getValue()));
         }
         Debug.chat();
-        Debug.chat(Text.literal("==".repeat(10)).formatted(Formatting.GREEN));
+        Debug.chat(Component.literal("==".repeat(10)).withStyle(ChatFormatting.GREEN));
     }
 
     private void onListAll(ArgumentInputStream re) {
         String serverName = re.nextArgOrDefault(CommonUtils::getServerName);
-        Debug.chat(Text.literal("==".repeat(10)).formatted(Formatting.GREEN));
-        Debug.chat(Text.literal("== 当前服务器" + serverName + "传送点列表 ==").formatted(Formatting.GREEN));
+        Debug.chat(Component.literal("==".repeat(10)).withStyle(ChatFormatting.GREEN));
+        Debug.chat(Component.literal("== 当前服务器" + serverName + "传送点列表 ==").withStyle(ChatFormatting.GREEN));
         var s = getServerWarps(serverName);
         int i = 0;
         for (var entry : s.entrySet()) {
             for (var entry2 : entry.getValue().entrySet()) {
                 ++i;
                 Debug.chat(
-                        Text.literal(i + ":").formatted(Formatting.YELLOW),
+                        Component.literal(i + ":").withStyle(ChatFormatting.YELLOW),
                         entry.getKey(),
                         ChatUtils.stringToText(PREFIX_WARP + entry2.getKey()),
                         " ",
@@ -356,6 +356,6 @@ public class Warps extends BaseModule {
             }
         }
         Debug.chat();
-        Debug.chat(Text.literal("==".repeat(10)).formatted(Formatting.GREEN));
+        Debug.chat(Component.literal("==".repeat(10)).withStyle(ChatFormatting.GREEN));
     }
 }

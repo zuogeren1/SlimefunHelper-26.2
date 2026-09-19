@@ -1,17 +1,17 @@
 package me.matl114.utils.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.util.math.MatrixStack;
 
 public interface RenderCollector<B> {
     void submit(B val, int color);
 
     void clear();
 
-    void render3D(MatrixStack matrices);
+    void render3D(PoseStack matrices);
 
     void render2D(VDrawContext vDrawContext);
 

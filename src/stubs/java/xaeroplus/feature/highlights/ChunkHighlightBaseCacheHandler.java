@@ -3,13 +3,13 @@ package xaeroplus.feature.highlights;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongCollection;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public abstract class ChunkHighlightBaseCacheHandler implements ChunkHighlightCache {
     public final Long2LongMap chunks = new Long2LongOpenHashMap();
-    public MinecraftClient mc = MinecraftClient.getInstance();
+    public Minecraft mc = Minecraft.getInstance();
 
     public ChunkHighlightBaseCacheHandler() {
         this.chunks.defaultReturnValue(-1);
@@ -21,7 +21,7 @@ public abstract class ChunkHighlightBaseCacheHandler implements ChunkHighlightCa
     }
 
     @Override
-    public void addHighlight(final int x, final int z, final RegistryKey<World> dimensionId) {
+    public void addHighlight(final int x, final int z, final ResourceKey<Level> dimensionId) {
         addHighlight(x, z);
     }
 
@@ -29,7 +29,7 @@ public abstract class ChunkHighlightBaseCacheHandler implements ChunkHighlightCa
     public void addHighlight(final int x, final int z, final long foundTime) {}
 
     @Override
-    public void addHighlight(final int x, final int z, final long foundTime, final RegistryKey<World> dimensionId) {
+    public void addHighlight(final int x, final int z, final long foundTime, final ResourceKey<Level> dimensionId) {
         addHighlight(x, z, foundTime);
     }
 
@@ -37,7 +37,7 @@ public abstract class ChunkHighlightBaseCacheHandler implements ChunkHighlightCa
     public void removeHighlight(final int x, final int z) {}
 
     @Override
-    public void removeHighlight(final int x, final int z, final RegistryKey<World> dimensionId) {
+    public void removeHighlight(final int x, final int z, final ResourceKey<Level> dimensionId) {
         removeHighlight(x, z);
     }
 
@@ -45,17 +45,17 @@ public abstract class ChunkHighlightBaseCacheHandler implements ChunkHighlightCa
     public void removeHighlights(final LongCollection toRemove) {}
 
     @Override
-    public void removeHighlights(final LongCollection toRemove, RegistryKey<World> dimensionId) {
+    public void removeHighlights(final LongCollection toRemove, ResourceKey<Level> dimensionId) {
         removeHighlights(toRemove);
     }
 
     @Override
-    public boolean isHighlighted(final int x, final int z, RegistryKey<World> dimensionId) {
+    public boolean isHighlighted(final int x, final int z, ResourceKey<Level> dimensionId) {
         return false;
     }
 
     @Override
-    public Long2LongMap getCacheMap(final RegistryKey<World> dimension) {
+    public Long2LongMap getCacheMap(final ResourceKey<Level> dimension) {
         return chunks;
     }
 

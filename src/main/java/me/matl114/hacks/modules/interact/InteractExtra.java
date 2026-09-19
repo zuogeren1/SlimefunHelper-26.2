@@ -12,9 +12,15 @@ import me.matl114.managers.config.DoubleRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
 import me.matl114.utils.MathUtils;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector2i;
 
 public class InteractExtra extends BaseModule {
@@ -106,7 +112,7 @@ public class InteractExtra extends BaseModule {
     }
 
     public double getBlockReachDistance() {
-        return mc.player.getAttributeValue(EntityAttributes.BLOCK_INTERACTION_RANGE) + reachDistance.get();
+        return mc.player.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) + reachDistance.get();
     }
 
     private final double[] FALL_FLYING_EYE_HEIGHTS = {0.4D, 1.62D, 1.27D};
@@ -115,7 +121,7 @@ public class InteractExtra extends BaseModule {
     public DoubleStream getPotentialEyeHeights() {
         if (grimExpandEyeHeight.get()) {
             double scale = mc.player.getScale();
-            if (mc.player.isFallFlying() || mc.player.isUsingRiptide() || mc.player.isSwimming()) {
+            if (mc.player.isFallFlying() || mc.player.isAutoSpinAttack() || mc.player.isSwimming()) {
                 return DoubleStream.concat(
                         Arrays.stream(FALL_FLYING_EYE_HEIGHTS).map(s -> s * scale),
                         DoubleStream.of(mc.player.dimensions.eyeHeight()));
@@ -127,40 +133,40 @@ public class InteractExtra extends BaseModule {
         return DoubleStream.of(mc.player.dimensions.eyeHeight());
     }
 
-    public Stream<Vec3d> getPotentialEyeHeights(Vec3d playerPos) {
+    public Stream<Vec3> getPotentialEyeHeights(Vec3 playerPos) {
         return getPotentialEyeHeights().mapToObj(s -> playerPos.add(0, s, 0));
     }
 
-    public boolean isWithinInteractRange(Vec3d pos, BlockPos bp) {
+    public boolean isWithinInteractRange(Vec3 pos, BlockPos bp) {
         return isWithinInteractRange(pos, bp, getBlockReachDistance());
     }
 
-    public boolean isWithinInteractRange(Vec3d pos, Box bp) {
+    public boolean isWithinInteractRange(Vec3 pos, AABB bp) {
         return isWithinInteractRange(pos, bp, getBlockReachDistance());
     }
 
-    public boolean isWithinInteractRange(Vec3d pos, BlockPos bp, double range) {
-        return isWithinInteractRange(pos, new Box(bp), range);
+    public boolean isWithinInteractRange(Vec3 pos, BlockPos bp, double range) {
+        return isWithinInteractRange(pos, new AABB(bp), range);
     }
 
-    public boolean isWithinInteractRange(Vec3d pos, Box box, double range) {
-        if (box.squaredMagnitude(pos) > MathUtils.s2(range + 2 + mc.player.dimensions.eyeHeight())) {
+    public boolean isWithinInteractRange(Vec3 pos, AABB box, double range) {
+        if (box.distanceToSqr(pos) > MathUtils.s2(range + 2 + mc.player.dimensions.eyeHeight())) {
             // filter all outofrange
             // optimize calculation
             return false;
         }
-        return getPotentialEyeHeights(pos).anyMatch(ps -> box.squaredMagnitude(ps) < MathUtils.s2(range));
+        return getPotentialEyeHeights(pos).anyMatch(ps -> box.distanceToSqr(ps) < MathUtils.s2(range));
     }
 
-    public Vec3d getBestInteractEyePos(Vec3d pos, BlockHitResult blockHitResult) {
+    public Vec3 getBestInteractEyePos(Vec3 pos, BlockHitResult blockHitResult) {
         BlockPos blockPos = blockHitResult.getBlockPos();
         //        Vec3d plateCenter = blockPos.toCenterPos().offset(direction, 0.5);
         //        Vec3d directionVector = Vec3d.of(direction.getVector());
-        Box blockBox = new Box(blockPos);
+        AABB blockBox = new AABB(blockPos);
         return getPotentialEyeHeights(pos)
-                .sorted(Comparator.comparingDouble(blockBox::squaredMagnitude))
+                .sorted(Comparator.comparingDouble(blockBox::distanceToSqr))
                 .findFirst()
-                .orElseGet(() -> pos.add(mc.player.getEyePos().subtract(mc.player.getPos())));
+                .orElseGet(() -> pos.add(mc.player.getEyePosition().subtract(mc.player.position())));
     }
 
     public void onCooldown(Event<Integer> event) {

@@ -13,11 +13,11 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EyeOfEnderEntity;
-import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.projectile.EyeOfEnder;
+import net.minecraft.world.phys.Vec3;
 
 public class EnderEyeLog extends BaseModule {
     public final ModulePath other = makePath(Configs.EXTRA_CONFIG, "other");
@@ -32,17 +32,17 @@ public class EnderEyeLog extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(EntitySpawnS2CPacket.class), this::onEnderEye);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundAddEntityPacket.class), this::onEnderEye);
         registerListener(Listener.getEntityRemoveListener(), this::onEntityRemove);
     }
 
-    private final Int2ObjectMap<Vec3d> tracked = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<Vec3> tracked = new Int2ObjectOpenHashMap<>();
 
-    public void onEnderEye(Event<EntitySpawnS2CPacket> event) {
-        EntitySpawnS2CPacket packet = event.context();
-        if (enable.get() && packet.getEntityType() == EntityType.EYE_OF_ENDER) {
-            Vec3d pos = new Vec3d(packet.getX(), packet.getY(), packet.getZ());
-            int id = packet.getEntityId();
+    public void onEnderEye(Event<ClientboundAddEntityPacket> event) {
+        ClientboundAddEntityPacket packet = event.context();
+        if (enable.get() && packet.getType() == EntityTypes.EYE_OF_ENDER) {
+            Vec3 pos = new Vec3(packet.getX(), packet.getY(), packet.getZ());
+            int id = packet.getId();
             tracked.put(id, pos);
         }
     }
@@ -62,13 +62,13 @@ public class EnderEyeLog extends BaseModule {
     }
 
     public void onEntityRemove(Event<Entity> event) {
-        if (enable.get() && event.context() instanceof EyeOfEnderEntity) {
-            Vec3d startPos = tracked.remove(event.context().getId());
+        if (enable.get() && event.context() instanceof EyeOfEnder) {
+            Vec3 startPos = tracked.remove(event.context().getId());
             if (startPos != null) {
-                Vec3d endPos = event.context().getPos();
-                Vec3d velocity = endPos.subtract(startPos);
+                Vec3 endPos = event.context().position();
+                Vec3 velocity = endPos.subtract(startPos);
                 velocity = velocity.normalize();
-                int startX = (int) startPos.getX();
+                int startX = (int) startPos.x();
                 Debug.chat("Start Calculating EyeOfEnder...");
                 if (velocity.x == 0) {
                     if (velocity.z > 0) {
@@ -84,8 +84,8 @@ public class EnderEyeLog extends BaseModule {
                     }
                 } else {
                     int deltaX = velocity.x > 0 ? 1 : -1;
-                    double k = velocity.getZ() / velocity.getX();
-                    double b = startPos.getZ() - k * startPos.getX();
+                    double k = velocity.z() / velocity.x();
+                    double b = startPos.z() - k * startPos.x();
                     CompletableFuture.<IntList>supplyAsync(() -> {
                                 IntList testPoints = new IntArrayList();
                                 int maxThresY = (int) ((long) (MAX_STRONGHOLD_COORD - b - k * startX) / (deltaX * k));

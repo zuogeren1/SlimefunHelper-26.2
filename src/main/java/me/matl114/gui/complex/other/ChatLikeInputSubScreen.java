@@ -8,11 +8,11 @@ import me.matl114.gui.basic.RenderHandler;
 import me.matl114.gui.basic.SubScreenWidget;
 import me.matl114.utils.config.PropertyTracker;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ChatInputSuggestor;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.util.Colors;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.CommandSuggestions;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.util.CommonColors;
+import net.minecraft.util.Mth;
 
 public class ChatLikeInputSubScreen extends SubScreenWidget {
     private Consumer<String> callback;
@@ -23,18 +23,18 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
         this.init();
     }
 
-    MinecraftClient mc = MinecraftClient.getInstance();
+    Minecraft mc = Minecraft.getInstance();
     int messageHistoryIndex;
     String chatLastMessage = "";
-    ContentDelegateWidget<TextFieldWidget> chatFieldWidget;
-    ChatInputSuggestor suggestor;
+    ContentDelegateWidget<EditBox> chatFieldWidget;
+    CommandSuggestions suggestor;
     ContentDelegateWidget<DrawableWidget> delegateInputSuggestor;
 
     protected void init() {
         resetHistoryIndex();
         chatFieldWidget = McWidgetHelpers.createTextFieldEditBox(
                 0, 0, this.dx, this.dy, PropertyTracker.event(this::onChatInputUpdate), "");
-        chatFieldWidget.getDelegate().setDrawsBackground(false);
+        chatFieldWidget.getDelegate().setBordered(false);
         chatFieldWidget.addToSub(this);
 
         // suggestor = new ChatInputSuggestor()
@@ -59,19 +59,19 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
                 // remove scroll chat function
                 //           else if (keyCode == 266) {
                 //
-                // MinecraftClient.getInstance().inGameHud.getChatHud().scroll(MinecraftClient.getInstance().inGameHud.getChatHud().getVisibleLineCount() - 1);
+                // Minecraft.getInstance().inGameHud.getChatHud().scroll(Minecraft.getInstance().inGameHud.getChatHud().getVisibleLineCount() - 1);
                 //                 return true;
                 //            } else if (keyCode == 267) {
                 //
-                // MinecraftClient.getInstance().inGameHud.getChatHud().scroll(-MinecraftClient.getInstance().inGameHud.getChatHud().getVisibleLineCount() + 1);
+                // Minecraft.getInstance().inGameHud.getChatHud().scroll(-Minecraft.getInstance().inGameHud.getChatHud().getVisibleLineCount() + 1);
                 //                return true;
                 //            }
                 else {
                     return false;
                 }
             } else {
-                this.onAcceptCallback(this.chatFieldWidget.getDelegate().getText());
-                this.chatFieldWidget.getDelegate().setText("");
+                this.onAcceptCallback(this.chatFieldWidget.getDelegate().getValue());
+                this.chatFieldWidget.getDelegate().setValue("");
                 return true;
             }
         } else {
@@ -93,14 +93,14 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
                 -2,
                 this.chatFieldWidget.getWidth(),
                 this.chatFieldWidget.getHeight() - 2,
-                mc.options.getTextBackgroundColor(Integer.MIN_VALUE));
+                mc.options.getBackgroundColor(Integer.MIN_VALUE));
         RenderHandler.drawHighlightFrame(
                 context,
                 -1,
                 -3,
                 this.chatFieldWidget.getWidth() + 2,
                 this.chatFieldWidget.getHeight() + 2,
-                this.isFocused() ? Colors.WHITE : Colors.GRAY);
+                this.isFocused() ? CommonColors.WHITE : CommonColors.GRAY);
         super.renderInDefaultMatrix(context, mouseX, mouseY, delta, disableSelect);
     }
 
@@ -124,25 +124,25 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
     }
 
     public void resetHistoryIndex() {
-        this.messageHistoryIndex = mc.inGameHud.getChatHud().getMessageHistory().size();
+        this.messageHistoryIndex = mc.gui.hud.chat.getRecentChat().size();
     }
 
     public void setChatFromHistory(int offset) {
         int i = this.messageHistoryIndex + offset;
-        int j = mc.inGameHud.getChatHud().getMessageHistory().size();
-        i = MathHelper.clamp(i, 0, j);
+        int j = mc.gui.hud.chat.getRecentChat().size();
+        i = Mth.clamp(i, 0, j);
         if (i != this.messageHistoryIndex) {
             if (i == j) {
                 this.messageHistoryIndex = j;
-                this.chatFieldWidget.getDelegate().setText(this.chatLastMessage);
+                this.chatFieldWidget.getDelegate().setValue(this.chatLastMessage);
             } else {
                 if (this.messageHistoryIndex == j) {
                     // save temp message
-                    this.chatLastMessage = this.chatFieldWidget.getDelegate().getText();
+                    this.chatLastMessage = this.chatFieldWidget.getDelegate().getValue();
                 }
 
-                this.chatFieldWidget.getDelegate().setText((String)
-                        mc.inGameHud.getChatHud().getMessageHistory().get(i));
+                this.chatFieldWidget.getDelegate().setValue((String)
+                        mc.gui.hud.chat.getRecentChat().get(i));
                 // this.chatInputSuggestor.setWindowActive(false);
                 this.messageHistoryIndex = i;
             }

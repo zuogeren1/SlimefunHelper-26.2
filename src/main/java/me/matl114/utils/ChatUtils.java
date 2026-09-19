@@ -10,12 +10,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import me.matl114.utils.chat.SimpleOrderedTextVisitor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.*;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Language;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentContents;
+import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.network.chat.contents.PlainTextContents;
+import net.minecraft.network.chat.*;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.FormattedCharSink;
 import net.minecraft.util.Unit;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableFloat;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -23,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class ChatUtils {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static boolean isHighSurrogate(char c) {
         return c >= 0xD800 && c <= 0xDBFF;
@@ -73,26 +85,32 @@ public class ChatUtils {
     private static final Style RESET = Style.EMPTY
             .withBold(false)
             .withItalic(false)
-            .withUnderline(false)
+            .withUnderlined(false)
             .withStrikethrough(false)
             .withObfuscated(false);
-    private static final Map<Character, Formatting> formatMap;
-    private static final Map<TextColor, Formatting> colorToFormat;
+    private static final Map<Character, ChatFormatting> formatMap;
+    private static final Map<TextColor, ChatFormatting> colorToFormat;
 
     static {
-        ImmutableMap.Builder<Character, Formatting> builder = ImmutableMap.builder();
-        for (Formatting format : Formatting.values()) {
+        ImmutableMap.Builder<Character, ChatFormatting> builder = ImmutableMap.builder();
+        for (ChatFormatting format : ChatFormatting.values()) {
             builder.put(Character.toLowerCase(format.toString().charAt(1)), format);
         }
         formatMap = builder.build();
         colorToFormat = new HashMap<>();
-        TextColor.FORMATTING_TO_COLOR.forEach((f, t) -> colorToFormat.put(t, f));
+        // 26.2 移除了 TextColor.LEGACY_FORMAT_TO_COLOR，改为逐个用 fromLegacyFormat 构建映射
+        for (ChatFormatting format : ChatFormatting.values()) {
+            TextColor legacyColor = TextColor.fromLegacyFormat(format);
+            if (legacyColor != null) {
+                colorToFormat.put(legacyColor, format);
+            }
+        }
     }
 
     @ApiMethod
-    public static MutableText textFromLegacyString(String value) {
+    public static MutableComponent textFromLegacyString(String value) {
         if (value == null) {
-            return Text.empty();
+            return Component.empty();
         }
         //        MutableText base = Text.empty();
         //        // Object currentStyle = ChatEnum.STYLE_EMPTY;
@@ -103,11 +121,11 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static List<Text> multiLineTextFromLegacyString(String value, int widthLimit) {
+    public static List<Component> multiLineTextFromLegacyString(String value, int widthLimit) {
         if (value == null) {
             return List.of();
         }
-        List<Text> texts = new ArrayList<>();
+        List<Component> texts = new ArrayList<>();
         MutableFloat width = new MutableFloat(0.0);
         // MutableText base = Text.empty();
         TextBuilder builder = new TextBuilder();
@@ -157,14 +175,14 @@ public class ChatUtils {
                     } else if (hexColor != null) {
                         hexColor.append(c);
                         if (hexColor.length() == 7) {
-                            builder.withStyle(RESET.withColor(TextColor.parse(hexColor.toString())
+                            builder.withStyle(RESET.withColor(TextColor.parseColor(hexColor.toString())
                                     .result()
                                     .get()));
                             hexColor = null;
                         }
                     } else {
-                        Formatting format = formatMap.get(c);
-                        if (format.isModifier() && format != Formatting.RESET) {
+                        ChatFormatting format = formatMap.get(c);
+                        if ((format.ordinal() >= 16) && format != ChatFormatting.RESET) {
                             switch (format) {
                                 case BOLD:
                                     builder.withBold(true);
@@ -260,8 +278,8 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static List<Text> splitToMultiLineText(Text text, int widthLimit) {
-        List<Text> texts = new ArrayList<>();
+    public static List<Component> splitToMultiLineText(Component text, int widthLimit) {
+        List<Component> texts = new ArrayList<>();
         TextBuilder builder = new TextBuilder();
         MutableFloat width = new MutableFloat(0.0);
         text.visit(
@@ -316,8 +334,8 @@ public class ChatUtils {
 
         for (var i = 0; i < len; ++i) {
             int codepoint = string.codePointAt(i);
-            OrderedText text = OrderedText.styled(codepoint, style);
-            float wid = mc.textRenderer.getTextHandler().getWidth(text);
+            FormattedCharSequence text = FormattedCharSequence.codepoint(codepoint, style);
+            float wid = mc.font.getSplitter().stringWidth(text);
             if (widthCounter.getValue() + wid > limit) {
                 return i;
             }
@@ -327,30 +345,30 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static Stream<Text> textStream(Text comp) {
+    public static Stream<Component> textStream(Component comp) {
         return com.google.common.collect.Streams.concat(
                 new Stream[] {Stream.of(comp), comp.getSiblings().stream().flatMap(ChatUtils::textStream)});
     }
 
     @ApiMethod
-    public static String textToLegacyString(Text component) {
+    public static String textToLegacyString(Component component) {
         if (component == null) return "";
         StringBuilder out = new StringBuilder();
 
         boolean hadFormat = false;
-        Iterator<Text> textIterator = textStream(component).iterator();
+        Iterator<Component> textIterator = textStream(component).iterator();
         while (textIterator.hasNext()) {
-            Text c = textIterator.next();
+            Component c = textIterator.next();
             Style modi = c.getStyle();
             TextColor color = modi.getColor();
-            if (c.getContent() != PlainTextContent.EMPTY || color != null) {
+            if (c.getContents() != PlainTextContents.EMPTY || color != null) {
                 if (color != null) {
-                    Formatting format = colorToFormat.get(color);
+                    ChatFormatting format = colorToFormat.get(color);
                     if (format != null) {
                         out.append(format);
                     } else {
                         out.append('§').append("x");
-                        for (char magic : color.getName().substring(1).toCharArray()) {
+                        for (char magic : color.serialize().substring(1).toCharArray()) {
                             out.append('§').append(magic);
                         }
                     }
@@ -361,26 +379,26 @@ public class ChatUtils {
                 }
             }
             if (modi.isBold()) {
-                out.append(Formatting.BOLD);
+                out.append(ChatFormatting.BOLD);
                 hadFormat = true;
             }
             if (modi.isItalic()) {
-                out.append(Formatting.ITALIC);
+                out.append(ChatFormatting.ITALIC);
                 hadFormat = true;
             }
             if (modi.isUnderlined()) {
-                out.append(Formatting.UNDERLINE);
+                out.append(ChatFormatting.UNDERLINE);
                 hadFormat = true;
             }
             if (modi.isStrikethrough()) {
-                out.append(Formatting.STRIKETHROUGH);
+                out.append(ChatFormatting.STRIKETHROUGH);
                 hadFormat = true;
             }
             if (modi.isObfuscated()) {
-                out.append(Formatting.OBFUSCATED);
+                out.append(ChatFormatting.OBFUSCATED);
                 hadFormat = true;
             }
-            c.getContent().visit((x) -> {
+            c.getContents().visit((x) -> {
                 out.append(x);
                 return Optional.empty();
             });
@@ -389,7 +407,7 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static String textToPlainString(Text component) {
+    public static String textToPlainString(Component component) {
         if (component == null) return "";
         StringBuilder out = new StringBuilder();
         component.visit(
@@ -407,24 +425,24 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static String translatedTextToLegacyString(Text component) {
+    public static String translatedTextToLegacyString(Component component) {
         if (component == null) return "";
         StringBuilder out = new StringBuilder();
         final MutableBoolean hadFormat = new MutableBoolean(false);
         component.visit(
-                (StringVisitable.StyledVisitor<? extends Object>) (style, str) -> {
+                (FormattedText.StyledContentConsumer<? extends Object>) (style, str) -> {
                     Style modi = style;
                     TextColor color = modi.getColor();
                     if (
                     // c.getContent() != PlainTextContent.EMPTY ||
                     color != null) {
                         if (color != null) {
-                            Formatting format = colorToFormat.get(color);
+                            ChatFormatting format = colorToFormat.get(color);
                             if (format != null) {
                                 out.append(format);
                             } else {
                                 out.append('§').append("x");
-                                for (char magic : color.getName().substring(1).toCharArray()) {
+                                for (char magic : color.serialize().substring(1).toCharArray()) {
                                     out.append('§').append(magic);
                                 }
                             }
@@ -435,23 +453,23 @@ public class ChatUtils {
                         }
                     }
                     if (modi.isBold()) {
-                        out.append(Formatting.BOLD);
+                        out.append(ChatFormatting.BOLD);
                         hadFormat.setValue(true); // = true;
                     }
                     if (modi.isItalic()) {
-                        out.append(Formatting.ITALIC);
+                        out.append(ChatFormatting.ITALIC);
                         hadFormat.setValue(true);
                     }
                     if (modi.isUnderlined()) {
-                        out.append(Formatting.UNDERLINE);
+                        out.append(ChatFormatting.UNDERLINE);
                         hadFormat.setValue(true);
                     }
                     if (modi.isStrikethrough()) {
-                        out.append(Formatting.STRIKETHROUGH);
+                        out.append(ChatFormatting.STRIKETHROUGH);
                         hadFormat.setValue(true);
                     }
                     if (modi.isObfuscated()) {
-                        out.append(Formatting.OBFUSCATED);
+                        out.append(ChatFormatting.OBFUSCATED);
                         hadFormat.setValue(true);
                     }
                     out.append(str);
@@ -467,7 +485,7 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static String orderedTextToLegacyString(OrderedText... text) {
+    public static String orderedTextToLegacyString(FormattedCharSequence... text) {
         if (text == null) return "";
         StringBuilder out = new StringBuilder();
         MutableObject<Style> currentStyle = new MutableObject<>(null);
@@ -481,12 +499,12 @@ public class ChatUtils {
                     TextColor color = modi.getColor();
 
                     if (color != null) {
-                        Formatting format = colorToFormat.get(color);
+                        ChatFormatting format = colorToFormat.get(color);
                         if (format != null) {
                             out.append(format);
                         } else {
                             out.append('§').append("x");
-                            for (char magic : color.getName().substring(1).toCharArray()) {
+                            for (char magic : color.serialize().substring(1).toCharArray()) {
                                 out.append('§').append(magic);
                             }
                         }
@@ -497,23 +515,23 @@ public class ChatUtils {
                     }
 
                     if (modi.isBold()) {
-                        out.append(Formatting.BOLD);
+                        out.append(ChatFormatting.BOLD);
                         hadFormat.setValue(true); // = true;
                     }
                     if (modi.isItalic()) {
-                        out.append(Formatting.ITALIC);
+                        out.append(ChatFormatting.ITALIC);
                         hadFormat.setValue(true);
                     }
                     if (modi.isUnderlined()) {
-                        out.append(Formatting.UNDERLINE);
+                        out.append(ChatFormatting.UNDERLINE);
                         hadFormat.setValue(true);
                     }
                     if (modi.isStrikethrough()) {
-                        out.append(Formatting.STRIKETHROUGH);
+                        out.append(ChatFormatting.STRIKETHROUGH);
                         hadFormat.setValue(true);
                     }
                     if (modi.isObfuscated()) {
-                        out.append(Formatting.OBFUSCATED);
+                        out.append(ChatFormatting.OBFUSCATED);
                         hadFormat.setValue(true);
                     }
                 }
@@ -541,7 +559,7 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static String textToString(Text com) {
+    public static String textToString(Component com) {
         try {
             String val = textToLegacyString(com);
             return translateAlternateColorCodes('§', '&', val);
@@ -551,17 +569,17 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static MutableText stringToText(String origin) {
+    public static MutableComponent stringToText(String origin) {
         try {
             String val = translateAlternateColorCodes('&', '§', origin);
             return textFromLegacyString(val);
         } catch (Throwable e) {
-            return Text.empty();
+            return Component.empty();
         }
     }
 
     @ApiMethod
-    public static Text getDisplayedLocation(double x, double z) {
+    public static Component getDisplayedLocation(double x, double z) {
         String suffixDirection = "";
         if (mc.player != null) {
             int xsgn = (int) MathUtils.sgn(x - mc.player.getX());
@@ -569,25 +587,25 @@ public class ChatUtils {
             suffixDirection = "\n" + MathUtils.getDirectionName(xsgn, zsgn) + " " + "X" + (xsgn >= 0 ? "+" : "-") + "Z"
                     + (zsgn >= 0 ? "+" : "-");
         }
-        return Text.literal("[%.2f,~,%.2f]".formatted(x, z))
+        return Component.literal("[%.2f,~,%.2f]".formatted(x, z))
                 .setStyle(Style.EMPTY
                         .withClickEvent(new ClickEvent.CopyToClipboard("%.2f ~ %.2f".formatted(x, z)))
-                        .withHoverEvent(new HoverEvent.ShowText(Text.literal("click to copy coord" + suffixDirection))))
-                .formatted(Formatting.GREEN);
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
+                .withStyle(ChatFormatting.GREEN);
     }
 
     @ApiMethod
-    public static Text getDisplayedLocation(Vec3d vec3d) {
+    public static Component getDisplayedLocation(Vec3 vec3d) {
         return getDisplayedLocation(vec3d.x, vec3d.y, vec3d.z);
     }
 
     @ApiMethod
-    public static Text getDisplayedLocationDouble(Vec3d vec3d) {
+    public static Component getDisplayedLocationDouble(Vec3 vec3d) {
         return getDisplayedLocationDouble(vec3d.x, vec3d.y, vec3d.z);
     }
 
     @ApiMethod
-    public static Text getDisplayedLocationDouble(double x, double y, double z) {
+    public static Component getDisplayedLocationDouble(double x, double y, double z) {
         String suffixDirection = "";
         if (mc.player != null) {
             int xsgn = (int) MathUtils.sgn(x - mc.player.getX());
@@ -595,24 +613,24 @@ public class ChatUtils {
             suffixDirection = "\n" + MathUtils.getDirectionName(xsgn, zsgn) + " " + "X" + (xsgn >= 0 ? "+" : "-") + "Z"
                     + (zsgn >= 0 ? "+" : "-");
         }
-        return Text.literal("[%.2f,%.2f,%.2f]".formatted(x, y, z))
+        return Component.literal("[%.2f,%.2f,%.2f]".formatted(x, y, z))
                 .setStyle(Style.EMPTY
                         .withClickEvent(new ClickEvent.CopyToClipboard("%.2f %.2f %.2f".formatted(x, y, z)))
-                        .withHoverEvent(new HoverEvent.ShowText(Text.literal("click to copy coord" + suffixDirection))))
-                .formatted(Formatting.GREEN);
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
+                .withStyle(ChatFormatting.GREEN);
     }
 
     @ApiMethod
-    public static Text getDisplayedLong(long l) {
-        return Text.literal("[" + Long.toString(l) + "]")
+    public static Component getDisplayedLong(long l) {
+        return Component.literal("[" + Long.toString(l) + "]")
                 .setStyle(Style.EMPTY
                         .withClickEvent(new ClickEvent.CopyToClipboard(Long.toString(l)))
-                        .withHoverEvent(new HoverEvent.ShowText(Text.literal("click to copy coord"))))
-                .formatted(Formatting.GREEN);
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy coord"))))
+                .withStyle(ChatFormatting.GREEN);
     }
 
     @ApiMethod
-    public static Text getDisplayedLocation(double x, double y, double z) {
+    public static Component getDisplayedLocation(double x, double y, double z) {
         String suffixDirection = "";
         if (mc.player != null) {
             int xsgn = (int) MathUtils.sgn(x - mc.player.getX());
@@ -620,24 +638,24 @@ public class ChatUtils {
             suffixDirection = "\n" + MathUtils.getDirectionName(xsgn, zsgn) + " " + "X" + (xsgn >= 0 ? "+" : "-") + "Z"
                     + (zsgn >= 0 ? "+" : "-");
         }
-        return Text.literal("[%d,%d,%d]".formatted((int) x, (int) y, (int) z))
+        return Component.literal("[%d,%d,%d]".formatted((int) x, (int) y, (int) z))
                 .setStyle(Style.EMPTY
                         .withClickEvent(new ClickEvent.CopyToClipboard("%.2f %.2f %.2f".formatted(x, y, z)))
-                        .withHoverEvent(new HoverEvent.ShowText(Text.literal("click to copy coord" + suffixDirection))))
-                .formatted(Formatting.GREEN);
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy coord" + suffixDirection))))
+                .withStyle(ChatFormatting.GREEN);
     }
 
     @ApiMethod
-    public static MutableText getClickCopyTargetText(String literal) {
+    public static MutableComponent getClickCopyTargetText(String literal) {
         String targetShow = "[%s]".formatted(literal);
         return getClickCopyText(targetShow, literal);
     }
 
     @ApiMethod
-    public static MutableText getClickCopyText(String literal, String copy) {
-        return Text.literal(literal)
+    public static MutableComponent getClickCopyText(String literal, String copy) {
+        return Component.literal(literal)
                 .setStyle(Style.EMPTY
-                        .withHoverEvent(new HoverEvent.ShowText(Text.literal("click to copy text")))
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("click to copy text")))
                         .withClickEvent(new ClickEvent.CopyToClipboard(copy)));
     }
 
@@ -662,12 +680,12 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static MutableText concatLineText(List<Text> texts) {
+    public static MutableComponent concatLineText(List<Component> texts) {
         int size = texts.size();
-        MutableText text = Text.empty();
+        MutableComponent text = Component.empty();
 
         for (int i = 0; i < size; i++) {
-            Text text0 = texts.get(i);
+            Component text0 = texts.get(i);
             text.append(text0);
             if (i < size - 1) {
                 text.append("\n");
@@ -678,41 +696,41 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static MutableText getHoverShowText(String literal, List<Text> showText) {
-        return Text.literal(literal)
+    public static MutableComponent getHoverShowText(String literal, List<Component> showText) {
+        return Component.literal(literal)
                 .setStyle(Style.EMPTY.withHoverEvent(new HoverEvent.ShowText(concatLineText(showText))));
     }
 
     @ApiMethod
-    public static HoverEvent getHoverShowText(List<Text> showText) {
+    public static HoverEvent getHoverShowText(List<Component> showText) {
         return new HoverEvent.ShowText(concatLineText(showText));
     }
 
     @ApiMethod
     @Nullable
     public static String parseTranslation(String key) {
-        return Language.getInstance().get(key, key);
+        return Language.getInstance().getOrDefault(key, key);
     }
 
     @ApiMethod
     @Nullable
     public static String parseTranslation(String key, String defaultV) {
-        return Language.getInstance().get(key, defaultV);
+        return Language.getInstance().getOrDefault(key, defaultV);
     }
 
     public static boolean hasTranslation(String key) {
-        return Language.getInstance().hasTranslation(key);
+        return Language.getInstance().has(key);
     }
 
     @ApiMethod
-    public static List<Text> parseTooltipsTranslation(String key, String defaultVal) {
-        String tooltipValue = Language.getInstance().get(key, defaultVal);
+    public static List<Component> parseTooltipsTranslation(String key, String defaultVal) {
+        String tooltipValue = Language.getInstance().getOrDefault(key, defaultVal);
         if (tooltipValue == null || tooltipValue.isEmpty()) return List.of();
         String[] splites = tooltipValue.split("\n");
-        return Arrays.stream(splites).map(Text::literal).map(Text.class::cast).toList();
+        return Arrays.stream(splites).map(Component::literal).map(Component.class::cast).toList();
     }
 
-    public static String getOrderedTextString(OrderedText... text) {
+    public static String getOrderedTextString(FormattedCharSequence... text) {
         var re = new SimpleOrderedTextVisitor();
         for (var txt : text) {
             txt.accept(re);
@@ -721,8 +739,8 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static MutableText copyText(Text text) {
-        MutableText newLine = MutableText.of(text.getContent());
+    public static MutableComponent copyText(Component text) {
+        MutableComponent newLine = MutableComponent.create(text.getContents());
         newLine.setStyle(text.getStyle());
         text.getSiblings().forEach(newLine::append);
         return newLine;
@@ -731,11 +749,11 @@ public class ChatUtils {
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
     @ApiMethod
-    public static String textToJsonString(Text text) {
+    public static String textToJsonString(Component text) {
         if (text == null) return null;
         try {
-            var re = TextCodecs.CODEC
-                    .encodeStart(ItemStackUtils.registry().getOps(JsonOps.INSTANCE), text)
+            var re = ComponentSerialization.CODEC
+                    .encodeStart(ItemStackUtils.registry().createSerializationContext(JsonOps.INSTANCE), text)
                     .getOrThrow(JsonParseException::new);
             return GSON.toJson(re);
         } catch (Throwable e) {
@@ -744,14 +762,14 @@ public class ChatUtils {
     }
 
     @ApiMethod
-    public static Text textFromJsonString(String jsonRaw) {
+    public static Component textFromJsonString(String jsonRaw) {
         try {
             if (jsonRaw == null) return null;
             JsonElement jsonElement = JsonParser.parseString(jsonRaw);
             return jsonElement == null
                     ? null
-                    : TextCodecs.CODEC
-                            .parse(ItemStackUtils.registry().getOps(JsonOps.INSTANCE), jsonElement)
+                    : ComponentSerialization.CODEC
+                            .parse(ItemStackUtils.registry().createSerializationContext(JsonOps.INSTANCE), jsonElement)
                             .getOrThrow(JsonParseException::new);
         } catch (Throwable e) {
             return null;
@@ -769,9 +787,9 @@ public class ChatUtils {
     //    }
 
     public static class TextBuilder
-            implements StringVisitable.StyledVisitor<Unit>, CharacterVisitor, StringVisitable.Visitor<Unit> {
+            implements FormattedText.StyledContentConsumer<Unit>, FormattedCharSink, FormattedText.ContentConsumer<Unit> {
         Style style = Style.EMPTY;
-        MutableText empty = Text.empty();
+        MutableComponent empty = Component.empty();
         StringBuilder builder = new StringBuilder();
 
         public TextBuilder() {}
@@ -784,7 +802,7 @@ public class ChatUtils {
             if (!builder.isEmpty()) {
                 String str = builder.toString();
                 builder = new StringBuilder();
-                empty.append(Text.literal(str).setStyle(style));
+                empty.append(Component.literal(str).setStyle(style));
             }
         }
 
@@ -796,7 +814,7 @@ public class ChatUtils {
             return this;
         }
 
-        public TextBuilder withReset(Formatting color, boolean hasReset) {
+        public TextBuilder withReset(ChatFormatting color, boolean hasReset) {
             Style previous = this.style;
             Style currentStyle = ((!hasReset ? RESET : EMPTY).withColor(color));
             // currentStyle = (!hasReset ? RESET : EMPTY).withColor(format);
@@ -813,13 +831,13 @@ public class ChatUtils {
                 currentStyle = currentStyle.withStrikethrough(false);
             }
             if (previous.isUnderlined()) {
-                currentStyle = currentStyle.withUnderline(false);
+                currentStyle = currentStyle.withUnderlined(false);
             }
             return withStyle(currentStyle);
         }
 
-        public TextBuilder withFormat(Formatting format) {
-            return withStyle(style.withFormatting(format));
+        public TextBuilder withFormat(ChatFormatting format) {
+            return withStyle(style.applyFormat(format));
         }
 
         @Override
@@ -845,18 +863,18 @@ public class ChatUtils {
             return this;
         }
 
-        public MutableText build() {
-            MutableText text = empty;
-            empty = Text.empty();
+        public MutableComponent build() {
+            MutableComponent text = empty;
+            empty = Component.empty();
             return text;
         }
 
         public TextBuilder withGlobal(Style parent) {
-            empty.setStyle(empty.getStyle().withParent(parent));
+            empty.setStyle(empty.getStyle().applyTo(parent));
             return this;
         }
 
-        public MutableText peek() {
+        public MutableComponent peek() {
             return empty;
         }
 
@@ -895,7 +913,7 @@ public class ChatUtils {
                         } else if (hexColor != null) {
                             hexColor.append(c);
                             if (hexColor.length() == 7) {
-                                builder.withStyle(RESET.withColor(TextColor.parse(hexColor.toString())
+                                builder.withStyle(RESET.withColor(TextColor.parseColor(hexColor.toString())
                                         .result()
                                         .get()));
                                 //                            currentStyle =
@@ -905,8 +923,8 @@ public class ChatUtils {
                                 hexColor = null;
                             }
                         } else {
-                            Formatting format = formatMap.get(c);
-                            if (format.isModifier() && format != Formatting.RESET) {
+                            ChatFormatting format = formatMap.get(c);
+                            if ((format.ordinal() >= 16) && format != ChatFormatting.RESET) {
                                 switch (format) {
                                     case BOLD:
                                         builder.withBold(true);
@@ -962,24 +980,24 @@ public class ChatUtils {
             return this;
         }
 
-        public TextBuilder withText(StringVisitable text) {
+        public TextBuilder withText(FormattedText text) {
             text.visit(this, Style.EMPTY);
             return this;
         }
 
-        public TextBuilder withText(StringVisitable text, Style style) {
+        public TextBuilder withText(FormattedText text, Style style) {
             text.visit(this, style);
             return this;
         }
 
-        public TextBuilder appendText(Text text) {
+        public TextBuilder appendText(Component text) {
             end();
-            this.empty.append(this.style.isEmpty() ? text : text.copy().styled(s -> s.withParent(this.style)));
+            this.empty.append(this.style.isEmpty() ? text : text.copy().withStyle(s -> s.applyTo(this.style)));
             return this;
         }
 
-        public TextBuilder withContent(TextContent content) {
-            content.visit(this, style.withParent(Style.EMPTY));
+        public TextBuilder withContent(ComponentContents content) {
+            content.visit(this, style.applyTo(Style.EMPTY));
             return this;
         }
 
@@ -1060,7 +1078,7 @@ public class ChatUtils {
             return withStyle(style.withColor(color));
         }
 
-        public TextBuilder withColor(@Nullable Formatting color) {
+        public TextBuilder withColor(@Nullable ChatFormatting color) {
             return withStyle(style.withColor(color));
         }
 
@@ -1077,7 +1095,7 @@ public class ChatUtils {
         }
 
         public TextBuilder withUnderline(@Nullable Boolean underline) {
-            return withStyle(style.withUnderline(underline));
+            return withStyle(style.withUnderlined(underline));
         }
 
         public TextBuilder withStrikethrough(@Nullable Boolean strikethrough) {
@@ -1100,20 +1118,20 @@ public class ChatUtils {
             return withStyle(style.withInsertion(insertion));
         }
 
-        public TextBuilder withFormatting(Formatting formatting) {
-            return withStyle(style.withFormatting(formatting));
+        public TextBuilder withFormatting(ChatFormatting formatting) {
+            return withStyle(style.applyFormat(formatting));
         }
 
-        public TextBuilder withExclusiveFormatting(Formatting formatting) {
-            return withStyle(style.withExclusiveFormatting(formatting));
+        public TextBuilder withExclusiveFormatting(ChatFormatting formatting) {
+            return withStyle(style.applyLegacyFormat(formatting));
         }
 
-        public TextBuilder withFormatting(Formatting... formattings) {
-            return withStyle(style.withFormatting(formattings));
+        public TextBuilder withFormatting(ChatFormatting... formattings) {
+            return withStyle(style.applyFormats(formattings));
         }
 
         public TextBuilder withParent(Style parent) {
-            return withStyle(style.withParent(parent));
+            return withStyle(style.applyTo(parent));
         }
     }
 }

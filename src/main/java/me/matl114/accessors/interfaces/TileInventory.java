@@ -1,11 +1,11 @@
 package me.matl114.accessors.interfaces;
 
 import me.matl114.utils.world.ContainerPosition;
-import net.minecraft.block.Block;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.Nullable;
 
 public interface TileInventory {
@@ -13,7 +13,7 @@ public interface TileInventory {
     public BlockPos getPos();
 
     @Nullable
-    public ClientWorld getWorld();
+    public ClientLevel getWorld();
 
     @Nullable
     public Block getBlockType();
@@ -26,23 +26,23 @@ public interface TileInventory {
         return getContainerPosition() == null;
     }
 
-    static TileInventory of(HandledScreen<?> handledScreen) {
+    static TileInventory of(AbstractContainerScreen<?> handledScreen) {
         return (TileInventory) handledScreen;
     }
 
-    public HandledScreen<?> castHandled();
+    public AbstractContainerScreen<?> castHandled();
 
-    default ScreenHandler castHandler() {
-        return castHandled().getScreenHandler();
+    default AbstractContainerMenu castHandler() {
+        return castHandled().getMenu();
     }
 
     public static interface Handler extends TileInventory {
-        default HandledScreen<?> castHandled() {
+        default AbstractContainerScreen<?> castHandled() {
             throw new UnsupportedOperationException();
         }
 
-        default ScreenHandler castHandler() {
-            return (ScreenHandler) this;
+        default AbstractContainerMenu castHandler() {
+            return (AbstractContainerMenu) this;
         }
 
         public void sync(TileInventory tileInventory);

@@ -2,33 +2,33 @@ package me.matl114.jsApi;
 
 import java.util.concurrent.locks.LockSupport;
 import me.matl114.utils.ApiMethod;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
 
 @ApiMethod
 public class ClientHelper {
-    static MinecraftClient mc = MinecraftClient.getInstance();
+    static Minecraft mc = Minecraft.getInstance();
 
-    public static MinecraftClient getClient() {
+    public static Minecraft getClient() {
         return mc;
     }
 
-    public static ClientPlayerEntity getPlayer() {
+    public static LocalPlayer getPlayer() {
         return mc.player;
     }
 
-    public static ClientPlayerInteractionManager getInteractions() {
-        return mc.interactionManager;
+    public static MultiPlayerGameMode getInteractions() {
+        return mc.gameMode;
     }
 
-    public static ClientWorld getWorld() {
-        return mc.world;
+    public static ClientLevel getWorld() {
+        return mc.level;
     }
 
-    public static GameOptions getGameOptions() {
+    public static Options getGameOptions() {
         return mc.options;
     }
 
@@ -55,6 +55,6 @@ public class ClientHelper {
     }
 
     public static boolean isOnThread() {
-        return mc.isOnThread();
+        return mc.isSameThread();
     }
 }

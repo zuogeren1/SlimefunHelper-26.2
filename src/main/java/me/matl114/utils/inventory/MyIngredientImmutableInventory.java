@@ -3,12 +3,12 @@ package me.matl114.utils.inventory;
 import java.util.Arrays;
 import me.matl114.hacks.utils.recipes.RecipeIngredient;
 import me.matl114.managers.Tasks;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
-public class MyIngredientImmutableInventory implements Inventory {
+public class MyIngredientImmutableInventory implements Container {
     public MyIngredientImmutableInventory(RecipeIngredient[] val) {
         this.ingredients = val;
     }
@@ -16,7 +16,7 @@ public class MyIngredientImmutableInventory implements Inventory {
     RecipeIngredient[] ingredients;
 
     @Override
-    public int size() {
+    public int getContainerSize() {
         return ingredients.length;
     }
 
@@ -29,35 +29,35 @@ public class MyIngredientImmutableInventory implements Inventory {
         ItemStack[] itemStacks = ingredient.matchingStack();
         return itemStacks.length == 0
                 ? ItemStack.EMPTY
-                : itemStacks[MathHelper.floor(Tasks.getTick() / 30.0F) % itemStacks.length];
+                : itemStacks[Mth.floor(Tasks.getTick() / 30.0F) % itemStacks.length];
     }
 
     @Override
-    public ItemStack getStack(int slot) {
+    public ItemStack getItem(int slot) {
         return getCurrentItemStack(ingredients[slot]);
     }
 
     @Override
-    public ItemStack removeStack(int slot, int amount) {
+    public ItemStack removeItem(int slot, int amount) {
         return ItemStack.EMPTY;
     }
 
     @Override
-    public ItemStack removeStack(int slot) {
+    public ItemStack removeItemNoUpdate(int slot) {
         return ItemStack.EMPTY;
     }
 
     @Override
-    public void setStack(int slot, ItemStack stack) {}
+    public void setItem(int slot, ItemStack stack) {}
 
     @Override
-    public void markDirty() {}
+    public void setChanged() {}
 
     @Override
-    public boolean canPlayerUse(PlayerEntity player) {
+    public boolean stillValid(Player player) {
         return false;
     }
 
     @Override
-    public void clear() {}
+    public void clearContent() {}
 }

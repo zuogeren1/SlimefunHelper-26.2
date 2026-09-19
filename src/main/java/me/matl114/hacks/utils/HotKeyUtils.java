@@ -5,15 +5,15 @@ import me.matl114.hacks.modules.task.ModuleSettings;
 import me.matl114.managers.config.Config;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.input.SimpleHotKey;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 public class HotKeyUtils {
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static boolean isValidState() {
-        if (mc.currentScreen == null) {
+        if (mc.gui.screen() == null) {
             return true;
         }
         if (ModuleSettings.INSTANCE.shouldNotExecuteConditionHotkey()) {
@@ -76,7 +76,7 @@ public class HotKeyUtils {
         if (flag != null) {
             var toggleTask = HotKeyUtils.wrapFlagAsToggle(commonPath, flag);
             return (ih, m) -> {
-                ClientPlayerEntity player = m.getClient().player;
+                LocalPlayer player = m.getClient().player;
                 if (player != null && HotKeyUtils.isValidState()) {
                     toggleTask.run();
                     return ModuleSettings.INSTANCE.toggleKeysStopVanilla.get();

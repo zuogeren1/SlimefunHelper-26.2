@@ -1,6 +1,7 @@
 package me.matl114.hacks.modules.combat;
 
 import com.google.common.base.Preconditions;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -27,17 +28,16 @@ import me.matl114.utils.ColorUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.RenderUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BowItem;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class BowTp extends BaseModule {
     public final ModulePath bowAtt = makePath(Configs.COMBAT_CONFIG, "bow-att");
@@ -70,25 +70,25 @@ public class BowTp extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onBowAction, -999);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBowAction, -999);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
 
-    public void onBowAction(Event<PlayerActionC2SPacket> packetEvent) {
+    public void onBowAction(Event<ServerboundPlayerActionPacket> packetEvent) {
         if (packetEvent.isCancelled()) return;
         var actionPacket = packetEvent.context();
-        if (actionPacket.getAction() == PlayerActionC2SPacket.Action.RELEASE_USE_ITEM && enable.get() && canTp()) {
-            if (mc.player != null && mc.player.getActiveItem().getItem() instanceof BowItem bowItem) {
+        if (actionPacket.getAction() == ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM && enable.get() && canTp()) {
+            if (mc.player != null && mc.player.getUseItem().getItem() instanceof BowItem bowItem) {
                 var targetSelector = CombatTasks.getTargetSelector();
                 Entity entity = targetSelector.searchAttackEntity(
                         targetingDistance.get(), true, e -> targetSelector.checkWeapon(e, true));
                 // rewrite tp system
                 if (entity != null) {
-                    Debug.chat(Text.literal("[Bow Attack] Aim at %s"
-                                    .formatted(entity instanceof PlayerEntity ? "player " : "entity "))
+                    Debug.chat(Component.literal("[Bow Attack] Aim at %s"
+                                    .formatted(entity instanceof Player ? "player " : "entity "))
                             .append(EntityUtils.getEntityDisplayable(entity))
-                            .formatted(Formatting.GREEN));
+                            .withStyle(ChatFormatting.GREEN));
                     onBowTpAttack(packetEvent, entity);
                 } else {
                     return;
@@ -97,15 +97,15 @@ public class BowTp extends BaseModule {
         }
     }
 
-    public void onBowTpAttack(Event<PlayerActionC2SPacket> packetEvent, Entity target) {
+    public void onBowTpAttack(Event<ServerboundPlayerActionPacket> packetEvent, Entity target) {
         var player = mc.player;
         Deque<MovTasks.MovInfo> movementStack = new ArrayDeque<>();
         Deque<MovTasks.MovInfo> shouldMoveBackStack = new ArrayDeque<>();
-        Vec3d currentStartPos = mc.player.getPos();
-        float pitch = mc.player.getPitch();
-        float yaw = mc.player.getYaw();
-        movementStack.addLast(MovTasks.MovInfo.createNoUpdate(mc.player.getPos()));
-        shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNoUpdate(mc.player.getPos()));
+        Vec3 currentStartPos = mc.player.position();
+        float pitch = mc.player.getXRot();
+        float yaw = mc.player.getYRot();
+        movementStack.addLast(MovTasks.MovInfo.createNoUpdate(mc.player.position()));
+        shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNoUpdate(mc.player.position()));
         // mace hack、
         if (!processExactBowTp(player, target, movementStack, shouldMoveBackStack)) {
             return;
@@ -122,7 +122,7 @@ public class BowTp extends BaseModule {
         // start execute
         var iter = movementStack.iterator();
         Preconditions.checkArgument(iter.hasNext());
-        Vec3d vec3d1 = iter.next().vec3d();
+        Vec3 vec3d1 = iter.next().vec3d();
         MovTasks.MovingContext movingContext = MovTasks.MovingContext.create(vec3d1);
         List<MovTasks.MovInfo> moveInfos = new ArrayList<>();
         iter.forEachRemaining(moveInfos::add);
@@ -153,14 +153,14 @@ public class BowTp extends BaseModule {
             }
         }
         // force resync position to origin
-        mc.player.setPosition(currentStartPos);
-        mc.player.setPitch(pitch);
-        mc.player.setYaw(yaw);
+        mc.player.setPos(currentStartPos);
+        mc.player.setXRot(pitch);
+        mc.player.setYRot(yaw);
         // feature
         MovTasks.setupAutoResync();
 
         // check fall damage
-        ClientPlayerAccess.of((ClientPlayerEntity) player).setForceNoFall(true);
+        ClientPlayerAccess.of((LocalPlayer) player).setForceNoFall(true);
         // in case that resync packet cause OnGround falldamage
         player.setOnGround(false);
         packetEvent.cancel();
@@ -168,7 +168,7 @@ public class BowTp extends BaseModule {
     }
 
     private boolean processExactBowTp(
-            PlayerEntity player,
+            Player player,
             Entity target,
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack) {
@@ -177,18 +177,18 @@ public class BowTp extends BaseModule {
         // should teleport the player to the pos of target entity
         PositionPredict positionPredict = CombatTasks.getPositionPredict();
         double range = this.targetingDistance.get();
-        Vec3d current = player.getPos();
+        Vec3 current = player.position();
         // feat : teleporting position should met the need of antishield
-        Vec3d targetPos = positionPredict.getExactAttackPosition(target);
+        Vec3 targetPos = positionPredict.getExactAttackPosition(target);
 
         if (targetPos != null) {
             // target pos should be higher
             targetPos = targetPos.add(0, getFireArrowPositionHeight(player, target), 0);
             // common atttack?
             if (RenderTasks.DEBUG_RENDER_COMBAT)
-                RenderTasks.drawBox(player.dimensions.getBoxAt(targetPos), 150, Color.GREEN);
-            List<Vec3d> tpSequence = MovTasks.generateTpSequence(current, targetPos, false, 1.5 * range, true);
-            List<Vec3d> tpSequenceBack = MovTasks.generateTpSequence(targetPos, current, false, 1.5 * range, true);
+                RenderTasks.drawBox(player.dimensions.makeBoundingBox(targetPos), 150, Color.GREEN);
+            List<Vec3> tpSequence = MovTasks.generateTpSequence(current, targetPos, false, 1.5 * range, true);
+            List<Vec3> tpSequenceBack = MovTasks.generateTpSequence(targetPos, current, false, 1.5 * range, true);
             if ((tpSequence.size() == 2 || tpSequence.size() == 4)
                     && (tpSequenceBack.size() == 2 || tpSequenceBack.size() == 4)) {
                 // correct tp sequence
@@ -216,14 +216,14 @@ public class BowTp extends BaseModule {
     }
 
     private boolean processBowVClip(
-            PlayerEntity player,
+            Player player,
             Entity target,
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack) {
         if (canTp()) {
             double maxMace = tpDistance.get();
             player.setOnGround(false);
-            Vec3d playerPos = movementStack.peekLast().vec3d();
+            Vec3 playerPos = movementStack.peekLast().vec3d();
             double deltaY = target.getY() - playerPos.y;
             // error: down search returns negative value
             double height = MovTasks.searchFirstNoCollisionSpaceYHeight(
@@ -234,14 +234,14 @@ public class BowTp extends BaseModule {
             double minAvailableHeight = 0.0F;
 
             if (maceHeightMultiplier - minAvailableHeight > 0.0) {
-                Debug.chat(Text.literal("[Bow Attack] Bow Attack Simulation: simulate height %.2f"
+                Debug.chat(Component.literal("[Bow Attack] Bow Attack Simulation: simulate height %.2f"
                                 .formatted(maceHeightMultiplier))
-                        .formatted(Formatting.GREEN));
+                        .withStyle(ChatFormatting.GREEN));
                 movementStack.addLast(MovTasks.MovInfo.createNoUpdate(playerPos.add(0, maceHeightMultiplier, 0)));
                 // Debug.info("add", playerPos.add(0, maceHeightMultiplier,0));
                 // create the movement with pitchYaw update
                 movementStack.addLast(new MovTasks.MovInfo(
-                        playerPos.add(0, minAvailableHeight, 0), null, false, new Vec2f(89, mc.player.getYaw())));
+                        playerPos.add(0, minAvailableHeight, 0), null, false, new Vec2(89, mc.player.getYRot())));
 
                 return true;
             }
@@ -249,11 +249,11 @@ public class BowTp extends BaseModule {
         return false;
     }
 
-    public void onRender(Event<MatrixStack> stackE) {
+    public void onRender(Event<PoseStack> stackE) {
         var stack = stackE.context;
         if (enable.get() && mc.player != null && render.get()) {
             float tickDelta = (Float) stackE.extraArgs[0];
-            if (mc.player.isUsingItem() && mc.player.getActiveItem().getItem() instanceof BowItem bow) {
+            if (mc.player.isUsingItem() && mc.player.getUseItem().getItem() instanceof BowItem bow) {
                 // filter bow, but keep shield
                 RenderUtils.startDrawVirtual(stack);
                 try {
@@ -263,9 +263,9 @@ public class BowTp extends BaseModule {
                     if (entity != null) {
                         float dist = entity.distanceTo(mc.player);
                         float opacity = Math.min(0.6F, 0.10F + dist * 0.02F);
-                        Box box = RenderUtils.getLerpedBox(entity, tickDelta);
+                        AABB box = RenderUtils.getLerpedBox(entity, tickDelta);
                         RenderUtils.drawSolidBox(
-                                stack, box.getMinPos(), box.getMaxPos(), ColorUtils.withAlpha(Color.GREEN, opacity));
+                                stack, box.getMinPosition(), box.getMaxPosition(), ColorUtils.withAlpha(Color.GREEN, opacity));
                     }
                 } finally {
                     RenderUtils.stopDrawVirtual(stack);
@@ -274,9 +274,9 @@ public class BowTp extends BaseModule {
         }
     }
 
-    private double getFireArrowPositionHeight(PlayerEntity player, Entity target) {
+    private double getFireArrowPositionHeight(Player player, Entity target) {
         // real height is owner.getEyeY() - 0.10000000149011612
-        return target.getBoundingBox().getLengthY() - player.getEyeHeight(player.getPose()) + 0.11 + deltaY.get();
+        return target.getBoundingBox().getYsize() - player.getEyeHeight(player.getPose()) + 0.11 + deltaY.get();
     }
 
     private boolean canTp() {

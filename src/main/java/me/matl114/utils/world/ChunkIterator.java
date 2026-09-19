@@ -2,24 +2,24 @@ package me.matl114.utils.world;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientChunkManager;
-import net.minecraft.world.chunk.Chunk;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientChunkCache;
+import net.minecraft.world.level.chunk.ChunkAccess;
 
-public class ChunkIterator implements Iterator<Chunk> {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
-    private final ClientChunkManager.ClientChunkMap map = (mc.world.getChunkManager()).chunks;
+public class ChunkIterator implements Iterator<ChunkAccess> {
+    private static final Minecraft mc = Minecraft.getInstance();
+    private final ClientChunkCache.Storage map = (mc.level.getChunkSource()).storage;
     private final boolean onlyWithLoadedNeighbours;
 
-    private Chunk chunk;
+    private ChunkAccess chunk;
     private final int minX, maxX, maxZ;
     private int currentX, currentZ;
 
     public ChunkIterator(boolean onlyWithLoadedNeighbours) {
         this.onlyWithLoadedNeighbours = onlyWithLoadedNeighbours;
-        int realRange = Math.min(map.radius, Math.max(2, mc.options.getClampedViewDistance()) + 3);
-        int centerX = map.centerChunkX;
-        int centerZ = map.centerChunkZ;
+        int realRange = Math.min(map.chunkRadius, Math.max(2, mc.options.getEffectiveRenderDistance()) + 3);
+        int centerX = map.viewCenterX;
+        int centerZ = map.viewCenterZ;
         minX = centerX - realRange;
         maxX = centerX + realRange;
         int minZ = centerZ - realRange;
@@ -29,8 +29,8 @@ public class ChunkIterator implements Iterator<Chunk> {
         getNext();
     }
 
-    private Chunk getNext() {
-        Chunk prev = chunk;
+    private ChunkAccess getNext() {
+        ChunkAccess prev = chunk;
         chunk = null;
         search:
         while (currentZ <= maxZ) {
@@ -46,14 +46,14 @@ public class ChunkIterator implements Iterator<Chunk> {
         return prev;
     }
 
-    private boolean isInRadius(Chunk chunk) {
+    private boolean isInRadius(ChunkAccess chunk) {
         int x = chunk.getPos().x;
         int z = chunk.getPos().z;
 
-        return mc.world.getChunkManager().isChunkLoaded(x + 1, z)
-                && mc.world.getChunkManager().isChunkLoaded(x - 1, z)
-                && mc.world.getChunkManager().isChunkLoaded(x, z + 1)
-                && mc.world.getChunkManager().isChunkLoaded(x, z - 1);
+        return mc.level.getChunkSource().hasChunk(x + 1, z)
+                && mc.level.getChunkSource().hasChunk(x - 1, z)
+                && mc.level.getChunkSource().hasChunk(x, z + 1)
+                && mc.level.getChunkSource().hasChunk(x, z - 1);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class ChunkIterator implements Iterator<Chunk> {
     }
 
     @Override
-    public Chunk next() {
+    public ChunkAccess next() {
         if (chunk == null) {
             throw new NoSuchElementException();
         }

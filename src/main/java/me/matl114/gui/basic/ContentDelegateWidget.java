@@ -1,20 +1,20 @@
 package me.matl114.gui.basic;
 
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.Widget;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.input.MouseInput;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.layouts.LayoutElement;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 
 /**
  * this class handles the delegate content's render and click behaviour, but the position and transformation is applied before the handle's
  */
-public class ContentDelegateWidget<W extends Element & Drawable & Selectable> extends DrawableWidget
+public class ContentDelegateWidget<W extends GuiEventListener & Renderable & NarratableEntry> extends DrawableWidget
         implements Draggable {
 
     public ContentDelegateWidget(int x, int y, int dx, int dy) {
@@ -34,11 +34,11 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
     }
 
     public int getHeight() {
-        return this.getDelegate() instanceof Widget widget ? widget.getHeight() : this.dy;
+        return this.getDelegate() instanceof LayoutElement widget ? widget.getHeight() : this.dy;
     }
 
     public int getWidth() {
-        return this.getDelegate() instanceof Widget widget ? widget.getWidth() : this.dx;
+        return this.getDelegate() instanceof LayoutElement widget ? widget.getWidth() : this.dx;
     }
 
     @Override
@@ -63,7 +63,7 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
 
                 draw.render0(context, translatedMouseX, translatedMouseY, delta, disableSelect);
             } else {
-                this.getDelegate().render(context.pushMatrix(), translatedMouseX, translatedMouseY, delta);
+                this.getDelegate().extractRenderState(context.pushMatrix(), translatedMouseX, translatedMouseY, delta);
                 context.popMatrix();
             }
         }
@@ -88,10 +88,10 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
             } else {
                 if (this.getDelegate()
                         .mouseClicked(
-                                new Click(
+                                new MouseButtonEvent(
                                         translatedMouseX,
                                         translatedMouseY,
-                                        new MouseInput(button, DrawableWidget.THREAD_SAFE_MODIFIER_CACHE)),
+                                        new MouseButtonInfo(button, DrawableWidget.THREAD_SAFE_MODIFIER_CACHE)),
                                 DrawableWidget.THREAD_SAFE_DOUBLE_CLICK)) {
                     return true;
                 }
@@ -118,10 +118,10 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
                 }
             } else {
                 if (this.getDelegate()
-                        .mouseReleased(new Click(
+                        .mouseReleased(new MouseButtonEvent(
                                 translatedMouseX,
                                 translatedMouseY,
-                                new MouseInput(button, DrawableWidget.THREAD_SAFE_MODIFIER_CACHE)))) {
+                                new MouseButtonInfo(button, DrawableWidget.THREAD_SAFE_MODIFIER_CACHE)))) {
                     return true;
                 }
             }
@@ -164,10 +164,10 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
             } else {
                 if (this.getDelegate()
                         .mouseDragged(
-                                new Click(
+                                new MouseButtonEvent(
                                         translatedMouseX,
                                         translatedMouseY,
-                                        new MouseInput(button, DrawableWidget.THREAD_SAFE_MODIFIER_CACHE)),
+                                        new MouseButtonInfo(button, DrawableWidget.THREAD_SAFE_MODIFIER_CACHE)),
                                 deltaX * textureScale,
                                 deltaY * textureScale)) {
                     return true;
@@ -202,7 +202,7 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
             return drawable.keyPressed(keyCode, scanCode, modifiers);
         } else
             return this.getDelegate() != null
-                    && this.getDelegate().keyPressed(new KeyInput(keyCode, scanCode, modifiers));
+                    && this.getDelegate().keyPressed(new KeyEvent(keyCode, scanCode, modifiers));
     }
 
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
@@ -210,14 +210,14 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
             return drawable.keyReleased(keyCode, scanCode, modifiers);
         } else
             return this.getDelegate() != null
-                    && this.getDelegate().keyReleased(new KeyInput(keyCode, scanCode, modifiers));
+                    && this.getDelegate().keyReleased(new KeyEvent(keyCode, scanCode, modifiers));
     }
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
         if (this.getDelegate() instanceof DrawableWidget drawable) {
             return drawable.charTyped(chr, modifiers);
-        } else return this.getDelegate() != null && this.getDelegate().charTyped(new CharInput(chr, modifiers));
+        } else return this.getDelegate() != null && this.getDelegate().charTyped(new CharacterEvent(chr));
     }
 
     @Override
@@ -237,10 +237,10 @@ public class ContentDelegateWidget<W extends Element & Drawable & Selectable> ex
         if (this.getDelegate() != null) this.getDelegate().setFocused(focused);
     }
 
-    public SelectionType getType() {
+    public NarrationPriority narrationPriority() {
         return this.getDelegate() == null
-                ? SelectionType.NONE
-                : this.getDelegate().getType();
+                ? NarrationPriority.NONE
+                : this.getDelegate().narrationPriority();
     }
 
     @Override

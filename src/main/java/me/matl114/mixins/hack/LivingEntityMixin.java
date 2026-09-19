@@ -10,12 +10,17 @@ import me.matl114.hacks.modules.move.ElytraExtra;
 import me.matl114.utils.EntityUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.*;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -29,20 +34,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class LivingEntityMixin extends Entity implements LivingEntityAccess {
 
     @Shadow
-    protected int glidingTicks;
+    protected int fallFlyTicks;
 
-    @Accessor("jumpingCooldown")
+    @Accessor("noJumpDelay")
     public abstract void setJumpingCooldown(int cooldown);
 
     @Shadow
-    public abstract float getYaw(float tickDelta);
+    public abstract float getViewYRot(float tickDelta);
 
-    public LivingEntityMixin(EntityType<?> type, World world) {
+    public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @Shadow
-    protected abstract float getJumpVelocity(float st);
+    protected abstract float getJumpPower(float st);
 
     @Shadow
     public abstract boolean isFallFlying();
@@ -51,15 +56,15 @@ public abstract class LivingEntityMixin extends Entity implements LivingEntityAc
     public abstract void remove(RemovalReason reason);
 
     @Shadow
-    public abstract void equipStack(EquipmentSlot slot, ItemStack stack);
+    public abstract void setItemSlot(EquipmentSlot slot, ItemStack stack);
 
     @Shadow
-    protected abstract boolean isTravellingInFluid(FluidState state);
+    protected abstract boolean shouldTravelInFluid(FluidState state);
 
     @Unique
     @Override
     public float getJumpUpwardSpeed(float strength) {
-        return getJumpVelocity(1.0f);
+        return getJumpPower(1.0f);
     }
 
     //    @Inject(method = "tick", at = @At(value = "INVOKE", target =
@@ -73,30 +78,30 @@ public abstract class LivingEntityMixin extends Entity implements LivingEntityAc
     //    }
 
     @Inject(
-            method = "jump",
+            method = "jumpFromGround",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/LivingEntity;addVelocityInternal(Lnet/minecraft/util/math/Vec3d;)V",
+                                    "Lnet/minecraft/world/entity/LivingEntity;addDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
-    private void fixJumpingWhileSprintingBackward(CallbackInfo ci, @Local Vec3d vec3d) {
+    private void fixJumpingWhileSprintingBackward(CallbackInfo ci, @Local Vec3 vec3d) {
         if (MovTasks.getSprint().directionalSprint.get()) {
             //            float g = this.getYaw() * 0.017453292F;
-            Vec3d rot = EntityUtils.pitchYawToRotation(0.0F, this.getYaw());
+            Vec3 rot = EntityUtils.pitchYawToRotation(0.0F, this.getYRot());
             if (rot.x * vec3d.x + rot.z * vec3d.z < 0) {
                 // inversed
-                this.addVelocityInternal(rot.normalize().multiply(-0.2));
-                velocityDirty = true;
+                this.addDeltaMovement(rot.normalize().scale(-0.2));
+                needsSync = true;
                 ci.cancel();
             }
         }
     }
 
     @ModifyExpressionValue(
-            method = "travelMidAir",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/block/Block;getSlipperiness()F"))
+            method = "travelInAir",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/Block;getFriction()F"))
     private float onIgnoreSlipperiness(float original) {
         if (MovTasks.getNoSlowDown().blockFrac.get()) {
             return 0.6F;
@@ -111,40 +116,40 @@ public abstract class LivingEntityMixin extends Entity implements LivingEntityAc
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/LivingEntity;travelInFluid(Lnet/minecraft/util/math/Vec3d;)V",
+                                    "Lnet/minecraft/world/entity/LivingEntity;travelInFluid(Lnet/minecraft/world/phys/Vec3;)V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
-    private void onWaterGlide(Vec3d movementInput, CallbackInfo ci) {
+    private void onWaterGlide(Vec3 movementInput, CallbackInfo ci) {
         if (checkClientPlayer()) {
             if (isFallFlying()
                     && ((ElytraExtra.INSTANCE.canFireworkControlMotion()))
                     && (ElytraExtra.INSTANCE.fireworksLiquidFly.get()
                             || ElytraExtra.INSTANCE.hasFireworkVelocityOverrides())) {
                 ci.cancel();
-                Vec3d overriding = ElytraExtra.INSTANCE.requestNextOverrideVelocity();
-                Vec3d vec3d = this.getVelocity();
+                Vec3 overriding = ElytraExtra.INSTANCE.requestNextOverrideVelocity();
+                Vec3 vec3d = this.getDeltaMovement();
                 if (overriding != null) {
-                    this.setVelocity(overriding);
+                    this.setDeltaMovement(overriding);
                 } else {
-                    this.setVelocity(EntityUtils.calculateGlidingVelocity(
-                            (ClientPlayerEntity) (Entity) this, vec3d, this.getRotationVector(), !this.hasNoGravity()));
+                    this.setDeltaMovement(EntityUtils.calculateGlidingVelocity(
+                            (LocalPlayer) (Entity) this, vec3d, this.getLookAngle(), !this.isNoGravity()));
                 }
                 ;
-                this.move(MovementType.SELF, this.getVelocity());
+                this.move(MoverType.SELF, this.getDeltaMovement());
             }
         }
     }
 
     @WrapOperation(
-            method = "travelGliding",
+            method = "travelFallFlying",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/LivingEntity;calcGlidingVelocity(Lnet/minecraft/util/math/Vec3d;)Lnet/minecraft/util/math/Vec3d;"))
-    private Vec3d travelGliding(LivingEntity instance, Vec3d oldVelocity, Operation<Vec3d> original) {
+                                    "Lnet/minecraft/world/entity/LivingEntity;updateFallFlyingMovement(Lnet/minecraft/world/phys/Vec3;)Lnet/minecraft/world/phys/Vec3;"))
+    private Vec3 travelGliding(LivingEntity instance, Vec3 oldVelocity, Operation<Vec3> original) {
         if (checkClientPlayer()) {
-            Vec3d velocity = ElytraExtra.INSTANCE.requestNextOverrideVelocity();
+            Vec3 velocity = ElytraExtra.INSTANCE.requestNextOverrideVelocity();
             if (velocity == null) {
                 velocity = original.call(instance, oldVelocity);
             }

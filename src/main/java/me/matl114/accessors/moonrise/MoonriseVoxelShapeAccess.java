@@ -2,8 +2,8 @@ package me.matl114.accessors.moonrise;
 
 import me.matl114.utils.world.CachedShapeData;
 import me.matl114.utils.world.CachedToAABBs;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public interface MoonriseVoxelShapeAccess {
     public double moonrise$offsetX();
@@ -19,7 +19,7 @@ public interface MoonriseVoxelShapeAccess {
     public double[] moonrise$rootCoordinatesZ();
 
     // rets null if not possible to represent this shape as one AABB
-    public Box moonrise$getSingleAABBRepresentation();
+    public AABB moonrise$getSingleAABBRepresentation();
 
     CachedToAABBs moonrise$cachedToAABBs();
 

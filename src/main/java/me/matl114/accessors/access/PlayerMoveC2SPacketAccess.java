@@ -1,6 +1,6 @@
 package me.matl114.accessors.access;
 
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 
 public interface PlayerMoveC2SPacketAccess {
     public void setOnGround(boolean onGround);
@@ -13,16 +13,16 @@ public interface PlayerMoveC2SPacketAccess {
 
     public Cause getCause();
 
-    public static PlayerMoveC2SPacket setCause(PlayerMoveC2SPacket packet, Cause cause) {
+    public static ServerboundMovePlayerPacket setCause(ServerboundMovePlayerPacket packet, Cause cause) {
         PlayerMoveC2SPacketAccess.of(packet).setCause(cause);
         return packet;
     }
 
-    public static PlayerMoveC2SPacket setCauseFrom(PlayerMoveC2SPacket packet, PlayerMoveC2SPacket packet2) {
+    public static ServerboundMovePlayerPacket setCauseFrom(ServerboundMovePlayerPacket packet, ServerboundMovePlayerPacket packet2) {
         return setCause(packet, of(packet2).getCause());
     }
 
-    public static PlayerMoveC2SPacketAccess of(PlayerMoveC2SPacket packet) {
+    public static PlayerMoveC2SPacketAccess of(ServerboundMovePlayerPacket packet) {
         return (PlayerMoveC2SPacketAccess) packet;
     }
     //

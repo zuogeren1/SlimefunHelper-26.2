@@ -10,7 +10,7 @@ import me.matl114.hacks.utils.config.OptionalPrimitive;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.player.LocalPlayer;
 
 public class WalkControl extends BaseModule {
     public static WalkControl INSTANCE;
@@ -59,21 +59,21 @@ public class WalkControl extends BaseModule {
 
     boolean currentSneak;
 
-    public void onPreGameTick(Event<ClientPlayerEntity> event) {
+    public void onPreGameTick(Event<LocalPlayer> event) {
         if (enable.get()) {
             if (enableForward.get()) {
                 switch (mode.get()) {
                     case NONE -> currentForward = true;
                     case PRESS_TOGGLE -> {
-                        if (lastForwardTicks <= 0 && mc.options.forwardKey.isPressed()) {
+                        if (lastForwardTicks <= 0 && mc.options.keyUp.isDown()) {
                             currentForward = !currentForward;
                         }
                         if (longPressReset.get().test((u) -> lastForwardTicks >= u)) {
-                            currentForward = mc.options.forwardKey.isPressed();
+                            currentForward = mc.options.keyUp.isDown();
                         }
                     }
                     case HOLD_USE -> {
-                        currentForward = mc.options.forwardKey.isPressed();
+                        currentForward = mc.options.keyUp.isDown();
                     }
                 }
             } else {
@@ -83,15 +83,15 @@ public class WalkControl extends BaseModule {
                 switch (mode.get()) {
                     case NONE -> currentJump = true;
                     case PRESS_TOGGLE -> {
-                        if (lastJumpTicks <= 0 && mc.options.jumpKey.isPressed()) {
+                        if (lastJumpTicks <= 0 && mc.options.keyJump.isDown()) {
                             currentJump = !currentJump;
                         }
                         if (longPressReset.get().test((u) -> lastJumpTicks >= u)) {
-                            currentJump = mc.options.jumpKey.isPressed();
+                            currentJump = mc.options.keyJump.isDown();
                         }
                     }
                     case HOLD_USE -> {
-                        currentJump = mc.options.jumpKey.isPressed();
+                        currentJump = mc.options.keyJump.isDown();
                     }
                 }
             } else {
@@ -101,15 +101,15 @@ public class WalkControl extends BaseModule {
                 switch (mode.get()) {
                     case NONE -> currentSneak = true;
                     case PRESS_TOGGLE -> {
-                        if (lastSneakTicks <= 0 && mc.options.sneakKey.isPressed()) {
+                        if (lastSneakTicks <= 0 && mc.options.keyShift.isDown()) {
                             currentSneak = !currentSneak;
                         }
                         if (longPressReset.get().test((u) -> lastSneakTicks >= u)) {
-                            currentSneak = mc.options.sneakKey.isPressed();
+                            currentSneak = mc.options.keyShift.isDown();
                         }
                     }
                     case HOLD_USE -> {
-                        currentSneak = mc.options.sneakKey.isPressed();
+                        currentSneak = mc.options.keyShift.isDown();
                     }
                 }
             } else {
@@ -135,17 +135,17 @@ public class WalkControl extends BaseModule {
                 PlayerInputManager.INSTANCE.addInputModifier(modifier);
             }
         }
-        if (mc.options.forwardKey.isPressed()) {
+        if (mc.options.keyUp.isDown()) {
             lastForwardTicks++;
         } else {
             lastForwardTicks = 0;
         }
-        if (mc.options.jumpKey.isPressed()) {
+        if (mc.options.keyJump.isDown()) {
             lastJumpTicks++;
         } else {
             lastJumpTicks = 0;
         }
-        if (mc.options.sneakKey.isPressed()) {
+        if (mc.options.keyShift.isDown()) {
             lastSneakTicks++;
         } else {
             lastSneakTicks = 0;

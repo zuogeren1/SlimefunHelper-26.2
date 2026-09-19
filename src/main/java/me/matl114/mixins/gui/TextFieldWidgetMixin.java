@@ -10,14 +10,14 @@ import me.matl114.gui.basic.ColorProvider;
 import me.matl114.utils.config.PropertyTracker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -27,25 +27,25 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(TextFieldWidget.class)
+@Mixin(EditBox.class)
 @Environment(EnvType.CLIENT)
-public abstract class TextFieldWidgetMixin extends ClickableWidget implements TextFieldAccess {
+public abstract class TextFieldWidgetMixin extends AbstractWidget implements TextFieldAccess {
     @Unique
     private static final ColorProvider ORIGIN_PROVIDER = McWidgetHelpers.getDefaultTextBoxColorProvider();
 
     @Final
     @Shadow
-    private TextRenderer textRenderer;
+    private Font font;
 
     @Shadow
-    private String text;
+    private String value;
 
     @Shadow
-    private int firstCharacterIndex;
+    private int displayPos;
 
     @Unique
-    TextFieldWidget cast() {
-        return (TextFieldWidget) (Object) this;
+    EditBox cast() {
+        return (EditBox) (Object) this;
     }
 
     @Unique
@@ -59,23 +59,23 @@ public abstract class TextFieldWidgetMixin extends ClickableWidget implements Te
     }
 
     @Shadow
-    public abstract void setChangedListener(Consumer<String> changedListener);
+    public abstract void setResponder(Consumer<String> changedListener);
 
     @Shadow
-    private int selectionStart;
+    private int cursorPos;
 
     @Shadow
-    protected abstract void onChanged(String newText);
+    protected abstract void onValueChange(String newText);
 
     @Unique
     public void setListener(PropertyTracker<TextFieldAccess, String> tracker) {
-        setChangedListener((str) -> tracker.valueChange(this, str));
+        setResponder((str) -> tracker.valueChange(this, str));
     }
 
     @Unique
     private ColorProvider boxColorProvider = null;
 
-    public TextFieldWidgetMixin(int x, int y, int width, int height, Text message) {
+    public TextFieldWidgetMixin(int x, int y, int width, int height, Component message) {
         super(x, y, width, height, message);
     }
 
@@ -85,9 +85,9 @@ public abstract class TextFieldWidgetMixin extends ClickableWidget implements Te
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/DrawContext;drawGuiTexture(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/util/Identifier;IIII)V"))
+                                    "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"))
     public void redirectBorderBoxRender(
-            DrawContext instance,
+            GuiGraphicsExtractor instance,
             RenderPipeline pipeline,
             Identifier sprite,
             int x,
@@ -105,9 +105,9 @@ public abstract class TextFieldWidgetMixin extends ClickableWidget implements Te
     }
 
     @Inject(method = "keyPressed", at = @At(value = "RETURN"), cancellable = true)
-    public void fixInventoryKeyPressedWhenFocused(KeyInput input, CallbackInfoReturnable<Boolean> cir) {
+    public void fixInventoryKeyPressedWhenFocused(KeyEvent input, CallbackInfoReturnable<Boolean> cir) {
         if (this.isFocused()
-                && MinecraftClient.getInstance().options.inventoryKey.matchesKey(input)) {
+                && Minecraft.getInstance().options.keyInventory.matches(input)) {
             cir.setReturnValue(true);
         }
     }
@@ -115,15 +115,15 @@ public abstract class TextFieldWidgetMixin extends ClickableWidget implements Te
     @Unique
     public void dragSelect(int deltaX, int deltaY, boolean shiftDownAction) {
         int i = deltaX;
-        if (cast().drawsBackground()) {
+        if (cast().isBordered()) {
             i -= 4;
         }
 
-        String string = this.textRenderer.trimToWidth(
-                this.text.substring(this.firstCharacterIndex), this.cast().getInnerWidth());
+        String string = this.font.plainSubstrByWidth(
+                this.value.substring(this.displayPos), this.cast().getInnerWidth());
         this.cast()
-                .setCursor(
-                        this.textRenderer.trimToWidth(string, i).length() + this.firstCharacterIndex, shiftDownAction);
+                .moveCursorTo(
+                        this.font.plainSubstrByWidth(string, i).length() + this.displayPos, shiftDownAction);
     }
 
     @Unique
@@ -140,7 +140,7 @@ public abstract class TextFieldWidgetMixin extends ClickableWidget implements Te
 
     @Unique
     public void resetSelect() {
-        this.cast().setSelectionEnd(this.selectionStart);
-        this.onChanged(this.text);
+        this.cast().setHighlightPos(this.cursorPos);
+        this.onValueChange(this.value);
     }
 }

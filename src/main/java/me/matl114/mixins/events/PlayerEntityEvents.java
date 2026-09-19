@@ -7,21 +7,21 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(PlayerEntity.class)
+@Mixin(Player.class)
 public abstract class PlayerEntityEvents {
     @Inject(method = "travel", at = @At("HEAD"), cancellable = true)
-    private void onPlayerTravel(Vec3d movementInput, CallbackInfo ci, @Local(argsOnly = true) LocalRef<Vec3d> move) {
-        if ((Object) this instanceof ClientPlayerEntity clientPlayerEntity) {
-            Event<Vec3d> event = new Event<>(movementInput, true, true, clientPlayerEntity);
+    private void onPlayerTravel(Vec3 movementInput, CallbackInfo ci, @Local(argsOnly = true) LocalRef<Vec3> move) {
+        if ((Object) this instanceof LocalPlayer clientPlayerEntity) {
+            Event<Vec3> event = new Event<>(movementInput, true, true, clientPlayerEntity);
             Listener.getPlayerTravelingTick().handleValue(event);
             if (event.isCancelled()) {
                 ci.cancel();
@@ -44,8 +44,8 @@ public abstract class PlayerEntityEvents {
     }
 
     @Inject(method = "travel", at = @At("RETURN"))
-    private void onPlayerTravelReturn(Vec3d movementInput, CallbackInfo ci) {
-        if ((Object) this instanceof ClientPlayerEntity clientPlayerEntity) {
+    private void onPlayerTravelReturn(Vec3 movementInput, CallbackInfo ci) {
+        if ((Object) this instanceof LocalPlayer clientPlayerEntity) {
             ClientPlayerAccess.of(clientPlayerEntity)
                     .getLegalMovementManager()
                     .postTravelTick(clientPlayerEntity, new Event<>(movementInput, false, false, clientPlayerEntity));

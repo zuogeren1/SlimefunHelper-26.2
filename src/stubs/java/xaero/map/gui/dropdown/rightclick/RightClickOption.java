@@ -1,6 +1,6 @@
 package xaero.map.gui.dropdown.rightclick;
 
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screens.Screen;
 import xaero.map.gui.IRightClickableElement;
 
 public abstract class RightClickOption {

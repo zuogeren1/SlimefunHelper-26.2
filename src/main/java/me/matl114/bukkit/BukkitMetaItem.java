@@ -2,9 +2,9 @@ package me.matl114.bukkit;
 
 import com.google.common.base.Preconditions;
 import java.util.*;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -110,7 +110,7 @@ public class BukkitMetaItem implements Cloneable, ConfigurationSerializable {
             Object nbtMap = this.attributes.get("PublicBukkitValues");
             if (nbtMap != null) {
                 BukkitPersistentDataContainer container = new BukkitPersistentDataContainer();
-                container.putData((NbtCompound) BukkitConfigDeserializor.deserializeObject(nbtMap));
+                container.putData((CompoundTag) BukkitConfigDeserializor.deserializeObject(nbtMap));
                 return container;
             }
         }

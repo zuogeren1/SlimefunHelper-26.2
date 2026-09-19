@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import me.matl114.accessors.access.ClientPlayerAccess;
-import me.matl114.accessors.access.PlayerInteractEntityC2SPacketAccess;
 import me.matl114.accessors.access.PlayerMoveC2SPacketAccess;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
@@ -30,15 +29,22 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundAttackPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class Criticals extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath attBot = makePath(Configs.COMBAT_CONFIG, "att-bot");
@@ -138,24 +144,24 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractEntityC2SPacket.class), this::onPlayerAttack);
-        registerListener(Listener.getPacketPoint().getChannel(HandSwingC2SPacket.class), this::onSwing);
+                Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onPlayerAttack);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundSwingPacket.class), this::onSwing);
         //        registerListener(
         //                Listener.getPacketPostHandlePoint().getChannel(PlayerPositionLookS2CPacket.class),
         //                this::onTeleportConfirm2);
         //        registerListener(
         //            Listener.getPacketPostSendPoint().getChannel(TeleportConfirmC2SPacket.class),
         // this::onTeleportConfirm);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onTeleportConfirmPre);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onTeleportConfirmPre);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
         ;
     }
 
     private boolean canNotCrit() {
-        return mc.player.isTouchingWater() || mc.player.hasVehicle() || PlayerStateManager.INSTANCE.lastInWeb;
+        return mc.player.isInWater() || mc.player.isPassenger() || PlayerStateManager.INSTANCE.lastInWeb;
     }
 
-    public void onPlayerAttack(Event<PlayerInteractEntityC2SPacket> event) {
+    public void onPlayerAttack(Event<ServerboundAttackPacket> event) {
         // can not crit in water or boat
         if (checkNull() || event.isCancelled() || canNotCrit()) return;
         if (PlayerStateManager.INSTANCE.fallDistance > 1E-6) return;
@@ -163,11 +169,8 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
         cooldownTimer.mark();
         if (!canRun) return;
         if (enable.get()
-                && PlayerInteractEntityC2SPacketAccess.of(event.context).isAttack()
-                && mc.world != null
-                && mc.world.getEntityById(PlayerInteractEntityC2SPacketAccess.of(event.context)
-                                .getEntityId())
-                        instanceof LivingEntity lv) {
+                && mc.level != null
+                && mc.level.getEntity(event.context.entityId()) instanceof LivingEntity lv) {
             handleCritical(event);
         }
     }
@@ -176,7 +179,7 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
     boolean nextAttackIsKillarua = false;
     TimerExecutor cooldownTimer = new TimerExecutor();
 
-    public void handleCritical(Event<PlayerInteractEntityC2SPacket> event) {
+    public void handleCritical(Event<ServerboundAttackPacket> event) {
         // todo: handle wall critical, handle in wall critical
 
         // todo: handle sprint, handle inWater, handle condition
@@ -195,83 +198,83 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                 // do not influence tp
                 if (!CombatTasks.getAttack().canUseTp()) {
                     if (mc.player.isSprinting()) {
-                        mc.getNetworkHandler()
-                                .sendPacket(new ClientCommandC2SPacket(
-                                        mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
+                        mc.getConnection()
+                                .send(new ServerboundPlayerCommandPacket(
+                                        mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
                         ClientPlayerAccess.of(mc.player).setLastSprintFlag(false);
                     }
-                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y + 5.0E-4, z, false, false));
-                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y + 1.0E-4, z, false, false));
+                    mc.getConnection().send(VPacket.newPositionAndOnGround(x, y + 5.0E-4, z, false, false));
+                    mc.getConnection().send(VPacket.newPositionAndOnGround(x, y + 1.0E-4, z, false, false));
                 }
             }
                 //            case OLD_GRIM_V2 -> {
                 //                if (mc.player.isOnGround()
                 //                        && !PlayerInputUtils.of(mc.player).hasWASDMovement()) {
-                //                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
+                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
                 // false, false));
-                //                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
+                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
                 // false));
-                //                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y + 1.0E-7, z,
+                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 1.0E-7, z,
                 // false, false));
-                //                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
+                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, false,
                 // false));
                 //                }
                 //            }
                 //            case OLD_GRIM_V3 -> {
                 //                if (mc.player.isOnGround()
                 //                        && !PlayerInputUtils.of(mc.player).hasWASDMovement()) {
-                //                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y, z, true,
+                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y, z, true,
                 // false));
-                //                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
+                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.0625, z,
                 // false, false));
-                //                    mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.04535,
+                //                    mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(x, y + 0.04535,
                 // z, false, false));
                 //                }
                 //            }
             case FREEZE -> {
                 if (lastOnGroundT) {
-                    mc.getNetworkHandler()
-                            .sendPacket(VPacket.newLookAndOnGround(
-                                    mc.player.getYaw(), mc.player.getPitch(), false, mc.player.horizontalCollision));
+                    mc.getConnection()
+                            .send(VPacket.newLookAndOnGround(
+                                    mc.player.getYRot(), mc.player.getXRot(), false, mc.player.horizontalCollision));
                 }
             }
             case GRIM_GROUND_SIMULATION -> {
-                if (mc.player.isOnGround()) {
+                if (mc.player.onGround()) {
                     if (mc.player.isSprinting()) {
-                        mc.getNetworkHandler()
-                                .sendPacket(new ClientCommandC2SPacket(
-                                        mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
+                        mc.getConnection()
+                                .send(new ServerboundPlayerCommandPacket(
+                                        mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
                         ClientPlayerAccess.of(mc.player).setLastSprintFlag(false);
                     }
                     if (!shouldApplyGrimGroundSimulationAutoFakeGround()) {
-                        mc.getNetworkHandler()
-                                .sendPacket(VPacket.newPositionAndOnGround(x, y + MIN_HEIGHT_DELTA, z, true, false));
+                        mc.getConnection()
+                                .send(VPacket.newPositionAndOnGround(x, y + MIN_HEIGHT_DELTA, z, true, false));
                     }
                     // trigger simulation to sync our position from y + 1.0E-5 -> y, critical
                     switch (setBackType.get()) {
                         case CRASH_PACKETS -> {
-                            mc.getNetworkHandler()
-                                    .sendPacket(PlayerMoveC2SPacketAccess.setCause(
+                            mc.getConnection()
+                                    .send(PlayerMoveC2SPacketAccess.setCause(
                                             VPacket.newPositionAndOnGround(
                                                     x, Double.POSITIVE_INFINITY, z, false, false),
                                             PlayerMoveC2SPacketAccess.Cause.TRIGGER_SIMULATION));
                         }
                         case SIMULATION -> {
-                            mc.getNetworkHandler()
-                                    .sendPacket(PlayerMoveC2SPacketAccess.setCause(
+                            mc.getConnection()
+                                    .send(PlayerMoveC2SPacketAccess.setCause(
                                             VPacket.newPositionAndOnGround(x, y + 1, z, false, false),
                                             PlayerMoveC2SPacketAccess.Cause.TRIGGER_SIMULATION));
                         }
                     }
                     event.cancel();
                     cache = event.context;
-                    cachedHandStack = mc.player.getStackInHand(Hand.MAIN_HAND).copy();
+                    cachedHandStack = mc.player.getItemInHand(InteractionHand.MAIN_HAND).copy();
                     lastStartCacheTick = Tasks.getTick();
                     fakeMovementThisTick = true;
                 }
             }
             case GRIM_WALL -> {
-                if (mc.player.isOnGround()
+                if (mc.player.onGround()
                         && (PlayerStateManager.INSTANCE.lastInWall || PlayerStateManager.INSTANCE.lastUnderBlock)) {
                     handleCriticalWall(event);
                 }
@@ -279,19 +282,19 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
         }
     }
 
-    public void handleCriticalWall(Event<PlayerInteractEntityC2SPacket> event) {
+    public void handleCriticalWall(Event<ServerboundAttackPacket> event) {
         var x = mc.player.getX();
         var y = mc.player.getY();
         var z = mc.player.getZ();
-        mc.getNetworkHandler()
-                .sendPacket(VPacket.newPositionAndOnGround(x, y + customInWallJumpPacketHeight.get(), z, false, false));
-        mc.getNetworkHandler()
-                .sendPacket(VPacket.newPositionAndOnGround(
+        mc.getConnection()
+                .send(VPacket.newPositionAndOnGround(x, y + customInWallJumpPacketHeight.get(), z, false, false));
+        mc.getConnection()
+                .send(VPacket.newPositionAndOnGround(
                         x, y + customInWallJumpPacketHeight.get() * 0.75, z, false, false));
         ClientPlayerAccess.of(mc.player).resyncPos();
     }
 
-    public void onSwing(Event<HandSwingC2SPacket> eventSwing) {
+    public void onSwing(Event<ServerboundSwingPacket> eventSwing) {
         cooldownTimer.mark();
         if (cache != null) {
             eventSwing.cancel();
@@ -299,7 +302,7 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
     }
 
     boolean fakeMovementThisTick;
-    PlayerInteractEntityC2SPacket cache;
+    ServerboundAttackPacket cache;
     ItemStack cachedHandStack;
     int setbackFlag = 0;
     int lastStartCacheTick = 0;
@@ -312,27 +315,27 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
     //        }
     //    }
 
-    public void onTeleportConfirmPre(Event<PlayerMoveC2SPacket> event) {
+    public void onTeleportConfirmPre(Event<ServerboundMovePlayerPacket> event) {
         if (cache != null
                 && event.context instanceof PlayerMoveC2SPacketAccess acc
                 && acc.getCause() == PlayerMoveC2SPacketAccess.Cause.SET_BACK) {
             setbackFlag = 1;
-            Entity entity = mc.world.getEntityById(
-                    PlayerInteractEntityC2SPacketAccess.of(cache).getEntityId());
+            Entity entity = mc.level.getEntity(
+                    cache.entityId());
             var pkt0 = event.context;
-            Vec2f useLegacySnap = null;
+            Vec2 useLegacySnap = null;
             if (entity != null) {
                 boolean canDirectlyHit = RaycastUtils.canRaycastHit(
                         mc.player,
-                        pkt0.getPitch(PlayerStateManager.INSTANCE.lastPitch),
-                        pkt0.getYaw(PlayerStateManager.INSTANCE.lastYaw),
+                        pkt0.getXRot(PlayerStateManager.INSTANCE.lastPitch),
+                        pkt0.getYRot(PlayerStateManager.INSTANCE.lastYaw),
                         entity);
                 if (canDirectlyHit) {
                     // escape rot
                 } else {
-                    Vec3d predictedEyePos = mc.player.getEyePos();
-                    Vec3d eyePos = entity.getEyePos();
-                    Vec3d cacheDirection = eyePos.subtract(predictedEyePos).normalize();
+                    Vec3 predictedEyePos = mc.player.getEyePosition();
+                    Vec3 eyePos = entity.getEyePosition();
+                    Vec3 cacheDirection = eyePos.subtract(predictedEyePos).normalize();
                     var py = EntityUtils.rotationToPitchYaw(cacheDirection);
                     if (ViaFabricPlusHooks.isSupportDupRot()) {
                         useLegacySnap = py;
@@ -344,9 +347,9 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
             }
             var pkt = cache;
             var stack = cachedHandStack;
-            final Vec2f legacySnapTarget = useLegacySnap;
+            final Vec2 legacySnapTarget = useLegacySnap;
             PacketManager.schedulePostCallback(event.context, () -> {
-                var weapon = mc.player.getStackInHand(Hand.MAIN_HAND);
+                var weapon = mc.player.getItemInHand(InteractionHand.MAIN_HAND);
                 // Debug.chat("Attack");
                 if (legacySnapTarget != null) {
                     LegacySnapRotManager.INSTANCE.snapAt(legacySnapTarget.x, legacySnapTarget.y, false);
@@ -355,15 +358,15 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                 if (delaySwap.get()
                         && stack != null
                         && !stack.isEmpty()
-                        && !ItemStack.areItemsAndComponentsEqual(weapon, stack)) {
+                        && !ItemStack.isSameItemSameComponents(weapon, stack)) {
                     var res = InventoryUtils.findPlayerItem(
-                            it -> ItemStack.areItemsAndComponentsEqual(it, stack), true, false);
+                            it -> ItemStack.isSameItemSameComponents(it, stack), true, false);
                     if (res != null) {
                         callback = InvExtra.INSTANCE.swapInventoryIndexToHand(res.index());
                     }
                 }
                 Listener.sendPacketNoEvents(pkt);
-                mc.player.swingHand(Hand.MAIN_HAND);
+                mc.player.swing(InteractionHand.MAIN_HAND);
                 if (callback != null) {
                     callback.run();
                 }
@@ -385,7 +388,7 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
 
     public boolean shouldApplyGrimGroundSimulationAutoFakeGround() {
         return (autoFakeGround.get() || nextAttackIsKillarua)
-                && mc.player.isOnGround()
+                && mc.player.onGround()
                 && shouldApplyCriticalConditionCheck();
     }
 
@@ -393,14 +396,14 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
     public static final double MIN_HEIGHT_DELTA = 1E-5;
 
     boolean lastShiftUp = false;
-    Vec3d storedRotation1205;
+    Vec3 storedRotation1205;
     int lastSetBackCriticalTick = 0;
 
     @Override
     public void applyBeforeMovementPacketModify(Event<LegalMovementManager> movementManagerEvent) {
         // todo: optimize using falldistance
         boolean lastLastOnGround = lastOnGroundT;
-        lastOnGroundT = mc.player.isOnGround() && !movementManagerEvent.context.playerStatus.onGround;
+        lastOnGroundT = mc.player.onGround() && !movementManagerEvent.context.playerStatus.onGround;
         if (enable.get()
                 && mode.get() == Mode.FREEZE
                 && shouldApplyCriticalConditionCheck()
@@ -412,16 +415,16 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                         && (PlayerStateManager.INSTANCE.lastUnderBlock || PlayerStateManager.INSTANCE.lastInWall)) {
                     // wall shit
                     double jumpMin = customInWallJumpFreezeHeight.get() / 4.0D;
-                    Box oldBox = mc.player.dimensions.getBoxAt(movementManagerEvent.context.playerStatus.pos);
+                    AABB oldBox = mc.player.dimensions.makeBoundingBox(movementManagerEvent.context.playerStatus.pos);
                     Set<BlockPos> moveablePoses =
-                            new HashSet<>(CollisionUtil.getIntersectingBlockPositions(mc.world, oldBox, false));
+                            new HashSet<>(CollisionUtil.getIntersectingBlockPositions(mc.level, oldBox, false));
                     List<BlockPos> moveDownWards =
-                            CollisionUtil.getIntersectingBlockPositions(mc.world, oldBox.offset(0, -jumpMin, 0), false);
+                            CollisionUtil.getIntersectingBlockPositions(mc.level, oldBox.move(0, -jumpMin, 0), false);
                     boolean realOnGround = moveDownWards.stream().anyMatch(pos -> !moveablePoses.contains(pos));
                     if (realOnGround) {
                         double yLevel = mc.player.getY() + jumpMin * 4;
                         movementManagerEvent.context.playerStatus.restorePos();
-                        mc.player.setPosition(mc.player.getPos().withAxis(Direction.Axis.Y, yLevel));
+                        mc.player.setPos(mc.player.position().with(Direction.Axis.Y, yLevel));
                         mc.player.setOnGround(false);
                         lastShiftUp = true;
                         break how_to_apply;
@@ -433,7 +436,7 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                         } else if (lastShiftUp) {
                             lastShiftUp = false;
                             movementManagerEvent.context.playerStatus.restorePos();
-                            mc.player.setPosition(mc.player.getPos().add(0, -jumpMin, 0));
+                            mc.player.setPos(mc.player.position().add(0, -jumpMin, 0));
                             mc.player.setOnGround(false);
                             break how_to_apply;
                         }
@@ -475,21 +478,21 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                 // may be flag as duplicate rot
                 double delta;
                 boolean move = mc.player
-                                        .getPos()
+                                        .position()
                                         .subtract(movementManagerEvent.context.playerStatus.pos)
-                                        .horizontalLengthSquared()
+                                        .horizontalDistanceSqr()
                                 > MathUtils.s2(2E-4)
-                        || Math.abs(mc.player.getPos().y - movementManagerEvent.context.playerStatus.pos.y) > 2E-4;
+                        || Math.abs(mc.player.position().y - movementManagerEvent.context.playerStatus.pos.y) > 2E-4;
                 delta = MIN_HEIGHT_DELTA;
                 double thres = MIN_HEIGHT_THRESHOLD;
                 double thresNeg = 1.0D / thres;
                 double newYLevel = (((int) (yLevel * thresNeg)) * thres) + delta;
-                Vec3d pos = mc.player.getPos();
-                mc.player.setPosition(pos.withAxis(Direction.Axis.Y, newYLevel));
-                if (!Objects.equals(pos, mc.player.getPos())) {
+                Vec3 pos = mc.player.position();
+                mc.player.setPos(pos.with(Direction.Axis.Y, newYLevel));
+                if (!Objects.equals(pos, mc.player.position())) {
                     // must resend because of ojng's shit move threshold
                     if (!move && ViaFabricPlusHooks.isSupportDupRot()) {
-                        storedRotation1205 = mc.player.getRotationVector();
+                        storedRotation1205 = mc.player.getLookAngle();
                         PlayerStateManager.INSTANCE.restoreLastRotation(mc.player);
                     }
                     ClientPlayerAccess.of(mc.player).resyncPos();

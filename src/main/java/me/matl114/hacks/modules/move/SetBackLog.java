@@ -11,8 +11,8 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.world.phys.Vec3;
 
 public class SetBackLog extends BaseModule {
     public final ModulePath moveSafety = makePath(Configs.MOV_CONFIG, "move-safety");
@@ -43,25 +43,25 @@ public class SetBackLog extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketListenerPoint(PlayerPositionLookS2CPacket.class), this::onSetBack);
+        registerListener(Listener.getPacketListenerPoint(ClientboundPlayerPositionPacket.class), this::onSetBack);
     }
 
     public int maxTpId = -1;
-    public Vec3d lastDesyncPos = Vec3d.ZERO;
+    public Vec3 lastDesyncPos = Vec3.ZERO;
 
-    public void onSetBack(Event<PlayerPositionLookS2CPacket> event) {
-        PlayerPositionLookS2CPacket packet0 = event.context;
-        int tpId = packet0.teleportId();
+    public void onSetBack(Event<ClientboundPlayerPositionPacket> event) {
+        ClientboundPlayerPositionPacket packet0 = event.context;
+        int tpId = packet0.id();
         maxTpId = Math.max(maxTpId, tpId);
         if (mc.player != null) {
-            lastDesyncPos = mc.player.getPos();
+            lastDesyncPos = mc.player.position();
         }
         var packet = packet0.change().position();
 
         if (logResync.get()) {
             StringFormat logFormat = logResyncFormat.get();
             Debug.chat(logFormat.formatText(
-                    ChatUtils.getDisplayedLocationDouble(packet.getX(), packet.getY(), packet.getZ())));
+                    ChatUtils.getDisplayedLocationDouble(packet.x(), packet.y(), packet.z())));
         }
         if (logAc.get()) {
 
@@ -71,7 +71,7 @@ public class SetBackLog extends BaseModule {
                     try {
                         Debug.chat(logFormat.formatText(
                                 tpId,
-                                ChatUtils.getDisplayedLocationDouble(packet.getX(), packet.getY(), packet.getZ())));
+                                ChatUtils.getDisplayedLocationDouble(packet.x(), packet.y(), packet.z())));
                     } catch (Throwable e) {
                         Debug.chat(ChatUtils.stringToText("&cInvalid format string: " + e.getMessage()));
                     }

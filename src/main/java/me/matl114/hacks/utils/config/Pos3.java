@@ -11,9 +11,9 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 
 @With
 public record Pos3(int x, int y, int z) implements NBTParsable<Pos3> {
@@ -51,19 +51,19 @@ public record Pos3(int x, int y, int z) implements NBTParsable<Pos3> {
                                 .generateValueWidget(2 * half, 0, half, dy))
                         .addDrawableChild(ExecutableWidget.instance(3 * half, 0, half / 2, dy)
                                 .setElementHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         "widget.nbt-parsable.pos3.here", "Here")),
                                                 ButtonAction.run(() -> {
-                                                    var pl = MinecraftClient.getInstance().player;
+                                                    var pl = Minecraft.getInstance().player;
                                                     if (pl != null) {
-                                                        s.valueChangeInternal(null, from(pl.getBlockPos()));
+                                                        s.valueChangeInternal(null, from(pl.blockPosition()));
                                                     }
                                                 }))
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                                 "widget.nbt-parsable.pos3.here.tooltips", "")))))
                         .addDrawableChild(ExecutableWidget.instance(4 * half - half / 2, 0, half / 2, dy)
                                 .setElementHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         "widget.nbt-parsable.pos3.zero", "Zero")),
                                                 ButtonAction.run(() -> {
                                                     s.valueChangeInternal(null, new Pos3(0, 0, 0));

@@ -39,25 +39,34 @@ import me.matl114.utils.commands.params.impl.PosArgumentResult;
 import me.matl114.utils.commands.params.impl.PosArgumentType;
 import me.matl114.utils.commands.params.types.ExecutePos;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.*;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.apache.commons.lang3.function.Consumers;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.jetbrains.annotations.Nullable;
@@ -66,44 +75,44 @@ import org.jetbrains.annotations.Nullable;
 public class MovTasks {
     public static void init() {}
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     // todo more optimize
 
     // teleport module
     @ApiMethod(deprecate = true)
-    public static void farawayMoveTo(Vec3d vec3d, boolean updatePlayer) {
-        farawayMoveFromTo(mc.player.getPos(), vec3d, null, updatePlayer);
+    public static void farawayMoveTo(Vec3 vec3d, boolean updatePlayer) {
+        farawayMoveFromTo(mc.player.position(), vec3d, null, updatePlayer);
     }
 
     @ApiMethod(deprecate = true)
-    public static void farawayMove(Vec3d vec3d, boolean updatePlayer) {
-        farawayMoveFromTo(mc.player.getPos(), mc.player.getPos().add(vec3d), null, updatePlayer);
+    public static void farawayMove(Vec3 vec3d, boolean updatePlayer) {
+        farawayMoveFromTo(mc.player.position(), mc.player.position().add(vec3d), null, updatePlayer);
     }
 
     @ApiMethod(deprecate = true)
-    public static void farawayMoveFromTo(Vec3d from, Vec3d to, Boolean onGroundOverride, boolean updatePlayer) {
-        Vec3d vec3d = to.subtract(from);
+    public static void farawayMoveFromTo(Vec3 from, Vec3 to, Boolean onGroundOverride, boolean updatePlayer) {
+        Vec3 vec3d = to.subtract(from);
         double len = vec3d.length();
         // tiny movements considered as a method to reset falldistance
 
-        if (mc.player.hasVehicle()) {
+        if (mc.player.isPassenger()) {
             Entity vehicle = mc.player.getVehicle();
             double maxOnceLen = 10 - 1E-2;
             if (len >= maxOnceLen) {
                 double speedArg = 10;
                 int packetNum = (int) (((len + 1) / speedArg));
                 // calculate when elytra
-                // boolean mc.world.getGameRules().get()
+                // boolean mc.level.getGameRules().get()
                 if (packetNum > 0)
                     for (var p = 0; p <= packetNum; ++p)
-                        mc.getNetworkHandler().sendPacket(VPacket.newVehicleMove(vehicle));
+                        mc.getConnection().send(VPacket.newVehicleMove(vehicle));
             }
             double deltaY = vehicle.getY() - mc.player.getY();
-            vehicle.setPosition(to.add(0, deltaY, 0));
-            mc.getNetworkHandler().sendPacket(VPacket.newVehicleMove(vehicle));
+            vehicle.setPos(to.add(0, deltaY, 0));
+            mc.getConnection().send(VPacket.newVehicleMove(vehicle));
             if (updatePlayer) {
-                mc.player.setPosition(to);
+                mc.player.setPos(to);
             }
         } else {
             double maxOnceLen = (mc.player.isFallFlying() ? (10 * Math.sqrt(3)) : 10) - 1E-2;
@@ -112,77 +121,77 @@ public class MovTasks {
                 double speedArg = 10;
                 int packetNum = (int) (((len + 1) / speedArg));
                 // calculate when elytra
-                // boolean mc.world.getGameRules().get()
+                // boolean mc.level.getGameRules().get()
                 if (packetNum > 0)
                     for (var p = 0; p <= packetNum; ++p)
-                        mc.getNetworkHandler().sendPacket(VPacket.newOnGroundOnly(mc.player.isOnGround(), false));
+                        mc.getConnection().send(VPacket.newOnGroundOnly(mc.player.onGround(), false));
             }
 
             if (onGroundOverride != null) {
                 mc.player.setOnGround(onGroundOverride);
             }
-            mc.getNetworkHandler()
-                    .sendPacket(VPacket.newPositionAndOnGround(
-                            to.getX(), to.getY(), to.getZ(), mc.player.isOnGround(), false));
-            if (updatePlayer) mc.player.setPosition(to);
+            mc.getConnection()
+                    .send(VPacket.newPositionAndOnGround(
+                            to.x(), to.y(), to.z(), mc.player.onGround(), false));
+            if (updatePlayer) mc.player.setPos(to);
         }
     }
 
-    public static void moveToWithPackets(Vec3d to, Boolean onGroundOverride) {
+    public static void moveToWithPackets(Vec3 to, Boolean onGroundOverride) {
         Entity entity = mc.player.getRootVehicle();
-        if (Objects.equals(to, mc.player.getPos())) {
-            if (mc.player.hasVehicle()) {
-                mc.getNetworkHandler().sendPacket(VPacket.newVehicleMove(entity));
+        if (Objects.equals(to, mc.player.position())) {
+            if (mc.player.isPassenger()) {
+                mc.getConnection().send(VPacket.newVehicleMove(entity));
             } else {
-                mc.getNetworkHandler()
-                        .sendPacket(VPacket.newOnGroundOnly(
-                                onGroundOverride != null ? onGroundOverride : mc.player.isOnGround(), false));
+                mc.getConnection()
+                        .send(VPacket.newOnGroundOnly(
+                                onGroundOverride != null ? onGroundOverride : mc.player.onGround(), false));
             }
         } else {
             double deltaY = entity.getY() - mc.player.getY();
             //            Vec3d curr = entity.getPos();
             //            Vec3d currPlayer = mc.player.getPos();
-            entity.setPosition(to.add(0, deltaY, 0));
-            mc.player.setPosition(to);
-            if (mc.player.hasVehicle()) {
-                mc.getNetworkHandler().sendPacket(VPacket.newVehicleMove(entity));
+            entity.setPos(to.add(0, deltaY, 0));
+            mc.player.setPos(to);
+            if (mc.player.isPassenger()) {
+                mc.getConnection().send(VPacket.newVehicleMove(entity));
             } else {
-                mc.getNetworkHandler()
-                        .sendPacket(VPacket.newPositionAndOnGround(
-                                to.getX(),
-                                to.getY(),
-                                to.getZ(),
-                                onGroundOverride != null ? onGroundOverride : mc.player.isOnGround(),
+                mc.getConnection()
+                        .send(VPacket.newPositionAndOnGround(
+                                to.x(),
+                                to.y(),
+                                to.z(),
+                                onGroundOverride != null ? onGroundOverride : mc.player.onGround(),
                                 false));
             }
         }
     }
 
     @With
-    public static record MovInfo(Vec3d vec3d, Boolean oGroundOverride, boolean updatePlayer, Vec2f rotationOverride) {
-        public static MovInfo create(Vec3d to) {
+    public static record MovInfo(Vec3 vec3d, Boolean oGroundOverride, boolean updatePlayer, Vec2 rotationOverride) {
+        public static MovInfo create(Vec3 to) {
             return new MovInfo(to, null, true, null);
         }
 
-        public static MovInfo createNotOnGround(Vec3d to) {
+        public static MovInfo createNotOnGround(Vec3 to) {
             return new MovInfo(to, Boolean.FALSE, true, null);
         }
 
-        public static MovInfo createNoUpdate(Vec3d to) {
+        public static MovInfo createNoUpdate(Vec3 to) {
             return new MovInfo(to, null, false, null);
         }
 
-        public boolean isEmptyTo(Vec3d currentPos) {
-            return vec3d.squaredDistanceTo(currentPos) < 1e-4 && rotationOverride == null && oGroundOverride == null;
+        public boolean isEmptyTo(Vec3 currentPos) {
+            return vec3d.distanceToSqr(currentPos) < 1e-4 && rotationOverride == null && oGroundOverride == null;
         }
     }
 
     public static record MovingContext(
-            MutableObject<Vec3d> from,
-            MutableObject<Vec3d> tickFirstGoodVec,
+            MutableObject<Vec3> from,
+            MutableObject<Vec3> tickFirstGoodVec,
             AtomicInteger currentTokenLimit,
             AtomicInteger currentTokenInTick) {
-        public static MovingContext create(Vec3d from) {
+        public static MovingContext create(Vec3 from) {
             return new MovingContext(
                     new MutableObject<>(from), new MutableObject<>(from), new AtomicInteger(0), new AtomicInteger(0));
         }
@@ -198,54 +207,54 @@ public class MovTasks {
 
     @ApiMethod
     public static MovingContext createMovContext(double a1, double b1, double c1) {
-        return MovingContext.create(new Vec3d(a1, b1, c1));
+        return MovingContext.create(new Vec3(a1, b1, c1));
     }
 
     @ApiMethod
-    public static MovingContext createMovContext(Vec3d vec3d) {
+    public static MovingContext createMovContext(Vec3 vec3d) {
         return MovingContext.create(vec3d);
     }
 
     @ApiMethod
     public static MovingContext createPlayerMovContext() {
-        return MovingContext.create(mc.player.getPos());
+        return MovingContext.create(mc.player.position());
     }
 
     @ApiMethod
-    public static MovInfo createNotOnGround(Vec3d vec3) {
+    public static MovInfo createNotOnGround(Vec3 vec3) {
         return MovInfo.createNotOnGround(vec3);
     }
 
     @ApiMethod
-    public static MovInfo createMovInfo(Vec3d to) {
+    public static MovInfo createMovInfo(Vec3 to) {
         return MovInfo.create(to);
     }
 
     @ApiMethod
-    public static MovInfo createMovInfo(Vec3d to, Boolean onGround, boolean updatePlayerPos, Vec2f rotationOverride) {
+    public static MovInfo createMovInfo(Vec3 to, Boolean onGround, boolean updatePlayerPos, Vec2 rotationOverride) {
         return new MovInfo(to, onGround, updatePlayerPos, rotationOverride);
     }
 
     @ApiMethod
-    public static List<MovInfo> createMovInfoList(List<Vec3d> vec3ds) {
+    public static List<MovInfo> createMovInfoList(List<Vec3> vec3ds) {
         return vec3ds.stream().map(MovTasks::createMovInfo).collect(Collectors.toCollection(ArrayList::new));
     }
 
     @ApiMethod
     public static List<MovInfo> createMovInfoList(
-            List<Vec3d> vec3ds, boolean onGround, boolean updateplayerpos, Vec2f rotation) {
+            List<Vec3> vec3ds, boolean onGround, boolean updateplayerpos, Vec2 rotation) {
         return vec3ds.stream()
                 .map(v -> MovTasks.createMovInfo(v, onGround, updateplayerpos, rotation))
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
     @ApiMethod
-    public static List<MovInfo> createNotOnGroundList(List<Vec3d> vec3ds) {
+    public static List<MovInfo> createNotOnGroundList(List<Vec3> vec3ds) {
         return vec3ds.stream().map(MovTasks::createNotOnGround).collect(Collectors.toCollection(ArrayList::new));
     }
 
     public static void scheuleFarawayMove(
-            Vec3d from, List<MovInfo> deltaMovements, boolean allowNextTick, boolean considerNoFall) {
+            Vec3 from, List<MovInfo> deltaMovements, boolean allowNextTick, boolean considerNoFall) {
 
         scheduleFarawayMoveInternal(deltaMovements, allowNextTick, MovingContext.create(from), considerNoFall);
     }
@@ -260,7 +269,7 @@ public class MovTasks {
             List<MovInfo> deltaMovements, boolean allowNextTick, MovingContext context, boolean considerNoFall) {
 
         //        boolean shouldCheckSpeed = ! mc.player.isFallFlying() || (!
-        // mc.world.getGameRules().getBoolean(GameRules.DISABLE_ELYTRA_MOVEMENT_CHECK));
+        // mc.level.getGameRules().getBoolean(GameRules.DISABLE_ELYTRA_MOVEMENT_CHECK));
         //        double maxOnceLen = (mc.player.isFallFlying()? (10 * Math.sqrt(3)) : 10) - 1E-2;
         // filter front not-needed packets
         if (true) {
@@ -315,7 +324,7 @@ public class MovTasks {
         public void run() {
             tasks.forEach(Runnable::run);
             for (var packet : packets) {
-                mc.getNetworkHandler().sendPacket(packet);
+                mc.getConnection().send(packet);
             }
             postTasks.forEach(Runnable::run);
             // post move task
@@ -328,7 +337,7 @@ public class MovTasks {
     public static List<StepActionBundle> createMovingPacketsForMovSequence(
             MovingContext context, List<MovInfo> deltaMovements, boolean allowFailure, boolean considerNoFall) {
         //        boolean shouldCheckSpeed = ! mc.player.isFallFlying() || (!
-        // mc.world.getGameRules().getBoolean(GameRules.DISABLE_ELYTRA_MOVEMENT_CHECK));
+        // mc.level.getGameRules().getBoolean(GameRules.DISABLE_ELYTRA_MOVEMENT_CHECK));
         //        double maxOnceLen = (mc.player.isFallFlying()? (10 * Math.sqrt(3)) : 10) - 1E-2;
         // filter front not-needed packets
         List<StepActionBundle> packets = new ArrayList<>();
@@ -340,7 +349,7 @@ public class MovTasks {
         {
             boolean startFirstMove = false;
             List<MovInfo> moveList = new ArrayList<>();
-            Vec3d currentVec330 = context.from.getValue();
+            Vec3 currentVec330 = context.from.getValue();
             for (int i = 0; i < deltaMovements.size(); ++i) {
                 // filter packets that are not removing at the front
                 if (!startFirstMove && deltaMovements.get(i).isEmptyTo(currentVec330)) {
@@ -355,24 +364,24 @@ public class MovTasks {
             deltaMovements = moveList;
         }
 
-        Vec3d originalPositionTick = context.tickFirstGoodVec.getValue();
-        boolean riding = mc.player.hasVehicle();
+        Vec3 originalPositionTick = context.tickFirstGoodVec.getValue();
+        boolean riding = mc.player.isPassenger();
         Entity rootEntity = mc.player.getRootVehicle();
         double deltaY = rootEntity.getY() - mc.player.getY();
         double minY = context.from.getValue().y;
         double maxY = minY;
-        boolean currentOnGround = !considerNoFall && mc.player.isOnGround();
-        Vec2f currentPitchYaw = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
+        boolean currentOnGround = !considerNoFall && mc.player.onGround();
+        Vec2 currentPitchYaw = new Vec2(mc.player.getXRot(), mc.player.getYRot());
         // calculate current tokens if it is the first move of the tick
         if (context.currentTokenInTick.get() == 0) {
             // gain tokens
             int maxTokenNeeded = 0;
-            Vec3d lastPos = originalPositionTick;
+            Vec3 lastPos = originalPositionTick;
             int packetCount = 0;
             for (var move : deltaMovements) {
                 packetCount += 1;
-                Vec3d movingPos = move.vec3d();
-                Vec3d movement = movingPos.subtract(lastPos);
+                Vec3 movingPos = move.vec3d();
+                Vec3 movement = movingPos.subtract(lastPos);
 
                 lastPos = movingPos;
                 double d7 = movement.length();
@@ -410,7 +419,7 @@ public class MovTasks {
                     } else {
                         packets.get(emptyMoveCnt).add(VPacket.newOnGroundOnly(currentOnGround, false));
                         //
-                        // mc.getNetworkHandler().sendPacket(VPacket.newOnGroundOnly(mc.player.isOnGround()));
+                        // mc.getConnection().sendPacket(VPacket.newOnGroundOnly(mc.player.isOnGround()));
                     }
                 }
             }
@@ -418,8 +427,8 @@ public class MovTasks {
         // calculate tokens depends on paper sourceocode
         for (int i = 0; i < deltaMovements.size(); ++i) {
             MovInfo info = deltaMovements.get(i);
-            Vec3d fromNow = context.from.getValue();
-            Vec3d vec3d = info.vec3d().subtract(fromNow);
+            Vec3 fromNow = context.from.getValue();
+            Vec3 vec3d = info.vec3d().subtract(fromNow);
             maxY = Math.max(maxY, info.vec3d().y);
             minY = Math.min(minY, info.vec3d().y);
             double len = vec3d.length();
@@ -438,12 +447,12 @@ public class MovTasks {
                 boolean hasRot =
                         info.rotationOverride != null && !Objects.equals(info.rotationOverride, currentPitchYaw);
                 if (hasRot) {
-                    currentPitchYaw = new Vec2f(info.rotationOverride.x, info.rotationOverride.y);
+                    currentPitchYaw = new Vec2(info.rotationOverride.x, info.rotationOverride.y);
                     final float px = currentPitchYaw.x;
                     final float py = currentPitchYaw.y;
                     packets.get(i + emptyMoveCnt).add(() -> {
-                        mc.player.setPitch(px);
-                        mc.player.setYaw(py);
+                        mc.player.setXRot(px);
+                        mc.player.setYRot(py);
                     });
                 }
                 if (riding) {
@@ -498,20 +507,20 @@ public class MovTasks {
                 boolean hasRot =
                         info.rotationOverride != null && !Objects.equals(info.rotationOverride, currentPitchYaw);
                 if (hasRot) {
-                    currentPitchYaw = new Vec2f(info.rotationOverride.x, info.rotationOverride.y);
+                    currentPitchYaw = new Vec2(info.rotationOverride.x, info.rotationOverride.y);
                     final float px = currentPitchYaw.x;
                     final float py = currentPitchYaw.y;
                     packets.get(i + emptyMoveCnt).add(() -> {
-                        mc.player.setPitch(px);
-                        mc.player.setYaw(py);
+                        mc.player.setXRot(px);
+                        mc.player.setYRot(py);
                     });
                 }
-                Vec3d to = info.vec3d();
+                Vec3 to = info.vec3d();
                 if (riding) {
                     packets.get(i + emptyMoveCnt).add(() -> {
-                        rootEntity.setPosition(to.add(0, deltaY, 0));
+                        rootEntity.setPos(to.add(0, deltaY, 0));
                         if (info.updatePlayer()) {
-                            mc.player.setPosition(to);
+                            mc.player.setPos(to);
                         }
                     });
                     packets.get(i + emptyMoveCnt).add(VPacket.newVehicleMove(rootEntity));
@@ -519,18 +528,18 @@ public class MovTasks {
                 } else {
                     var packet = hasRot
                             ? VPacket.newFull(
-                                    to.getX(),
-                                    to.getY(),
-                                    to.getZ(),
+                                    to.x(),
+                                    to.y(),
+                                    to.z(),
                                     currentPitchYaw.y,
                                     currentPitchYaw.x,
                                     currentOnGround,
                                     false)
-                            : VPacket.newPositionAndOnGround(to.getX(), to.getY(), to.getZ(), currentOnGround, false);
+                            : VPacket.newPositionAndOnGround(to.x(), to.y(), to.z(), currentOnGround, false);
                     packets.get(i + emptyMoveCnt).add(packet);
                     if (info.updatePlayer()) {
                         packets.get(i + emptyMoveCnt).add(() -> {
-                            mc.player.setPosition(to);
+                            mc.player.setPos(to);
                         });
                     }
                     context.from.setValue(to);
@@ -549,11 +558,11 @@ public class MovTasks {
         return packets;
     }
 
-    public static double searchFirstNoCollisionSpaceYHeight(Vec3d origin, double min, double max, boolean upOrDown) {
-        Box boundingBox = mc.player.dimensions.getBoxAt(origin);
+    public static double searchFirstNoCollisionSpaceYHeight(Vec3 origin, double min, double max, boolean upOrDown) {
+        AABB boundingBox = mc.player.dimensions.makeBoundingBox(origin);
         double tmin = upOrDown ? min : -max;
         double tmax = upOrDown ? max : -min;
-        Box involved = CollisionUtil.resetY(
+        AABB involved = CollisionUtil.resetY(
                 boundingBox,
                 origin.y + tmin,
                 origin.y + tmax); //  boundingBox.stretch(0, max * (upOrDown? 1.0D : -1.0D), 0).stretch();
@@ -561,10 +570,10 @@ public class MovTasks {
         STATIC_DEBUG_COLOR = Color.RED;
         debugBox(involved);
         DEBUG_RENDER_COLLISION_RENDERING = false;
-        final List<Box> collisionsBB = new java.util.ArrayList<>();
+        final List<AABB> collisionsBB = new java.util.ArrayList<>();
         final List<VoxelShape> collisionsVoxel = new java.util.ArrayList<>();
         CollisionUtil.getCollisions(
-                mc.world,
+                mc.level,
                 mc.player,
                 involved,
                 collisionsVoxel,
@@ -579,14 +588,14 @@ public class MovTasks {
 
     public static double searchFirstNoYConflictYHeight(
             double originY,
-            List<Box> collisionsBB,
+            List<AABB> collisionsBB,
             List<VoxelShape> collisionShapes,
             double min,
             double max,
             boolean upOrDown) {
-        List<Box> allBoxes = new ArrayList<>(collisionsBB);
+        List<AABB> allBoxes = new ArrayList<>(collisionsBB);
         for (VoxelShape shape : collisionShapes) {
-            allBoxes.addAll(shape.getBoundingBoxes());
+            allBoxes.addAll(shape.toAabbs());
         }
         allBoxes.sort(Comparator.comparingDouble(b -> b.minY * (upOrDown ? 1.0D : -1.0D)));
         DEBUG_RENDER_COLLISION_RENDERING = true;
@@ -643,10 +652,10 @@ public class MovTasks {
 
     @ApiMethod
     public static boolean isCollidingWithEnvironment(Entity entity) {
-        final List<Box> collisionsBB = new java.util.ArrayList<>();
+        final List<AABB> collisionsBB = new java.util.ArrayList<>();
         final List<VoxelShape> collisionsVoxel = new java.util.ArrayList<>();
         return CollisionUtil.getCollisionsForBlocksOrWorldBorder(
-                entity.getEntityWorld(),
+                entity.level(),
                 entity,
                 entity.getBoundingBox(),
                 collisionsVoxel,
@@ -659,11 +668,11 @@ public class MovTasks {
     }
 
     @ApiMethod
-    public static boolean isCollidingWithEnvironment(Entity entity, Box box) {
-        final List<Box> collisionsBB = new java.util.ArrayList<>();
+    public static boolean isCollidingWithEnvironment(Entity entity, AABB box) {
+        final List<AABB> collisionsBB = new java.util.ArrayList<>();
         final List<VoxelShape> collisionsVoxel = new java.util.ArrayList<>();
         return CollisionUtil.getCollisionsForBlocksOrWorldBorder(
-                mc.world,
+                mc.level,
                 entity,
                 box,
                 collisionsVoxel,
@@ -677,21 +686,21 @@ public class MovTasks {
 
     @ApiMethod
     private static boolean checkEnvironmentCollision(
-            Entity entity, Vec3d pos, boolean checkLiquid, boolean ignoreChunkBorder) {
+            Entity entity, Vec3 pos, boolean checkLiquid, boolean ignoreChunkBorder) {
         // should also consider entity collision, shit shulker
         // set position for bounding box update!
-        final List<Box> collisionsBB = new java.util.ArrayList<>();
+        final List<AABB> collisionsBB = new java.util.ArrayList<>();
         final List<VoxelShape> collisionsVoxel = new java.util.ArrayList<>();
-        Box oldBox = entity.getBoundingBox();
-        Box newBox = entity.dimensions.getBoxAt(pos);
-        BiFunction<BlockState, BlockPos, Box> currentFromToPredicateFilter = checkLiquid
+        AABB oldBox = entity.getBoundingBox();
+        AABB newBox = entity.dimensions.makeBoundingBox(pos);
+        BiFunction<BlockState, BlockPos, AABB> currentFromToPredicateFilter = checkLiquid
                 ? (blockstate, blockpos) -> {
                     if (blockstate != null) {
                         Block block = blockstate.getBlock();
                         // I DO NOT WANT BY TP SEQUENCE ENTER ANY OF THESE FIRE BLOCKS BECAUSE IT MAY LIT ME UP!
                         if (block == Blocks.LAVA || block == Blocks.SOUL_FIRE || block == Blocks.FIRE) {
                             // filter lava blocks, we should be careful
-                            Box lavaBlockBox = Box.enclosing(blockpos, blockpos);
+                            AABB lavaBlockBox = AABB.encapsulatingFullBlocks(blockpos, blockpos);
                             if (CollisionUtil.voxelShapeIntersectHorizontal(lavaBlockBox, newBox)
                                     || CollisionUtil.voxelShapeIntersectHorizontal(lavaBlockBox, oldBox)) {
                                 return lavaBlockBox;
@@ -702,7 +711,7 @@ public class MovTasks {
                 }
                 : null;
         CollisionUtil.getCollisions(
-                entity.getEntityWorld(),
+                entity.level(),
                 entity,
                 newBox,
                 collisionsVoxel,
@@ -717,7 +726,7 @@ public class MovTasks {
                 currentFromToPredicateFilter);
 
         for (int i = 0, len = collisionsBB.size(); i < len; ++i) {
-            final Box box = collisionsBB.get(i);
+            final AABB box = collisionsBB.get(i);
             if (!CollisionUtil.voxelShapeIntersect(box, oldBox)) {
                 return true;
             }
@@ -747,8 +756,8 @@ public class MovTasks {
     //            Vec3d movement = pos.subtract(savedPosition);
     //            Vec3d simu = collide(mc.player, movement);
     //            return  validMovementAsServer(simu, movement) && !checkEnvironmentCollision(mc.player, pos,
-    // );//!isPlayerCollidingWithAnythingNew(mc.world, mc.player.getBoundingBox(), pos.x, pos.y, pos.z) ;//
-    // mc.world.isSpaceEmpty(mc.player, mc.player.getBoundingBox()))
+    // );//!isPlayerCollidingWithAnythingNew(mc.level, mc.player.getBoundingBox(), pos.x, pos.y, pos.z) ;//
+    // mc.level.isSpaceEmpty(mc.player, mc.player.getBoundingBox()))
     //        }finally {
     //            mc.player.setPosition(savedPosition);
     //        }
@@ -756,31 +765,31 @@ public class MovTasks {
     //    }
     private static final double maxYDelta = 190;
     public static boolean doingTp = false;
-    public static Vec3d LAST_TP_REQUEST;
-    public static Vec3d LAST_TP_FROM;
+    public static Vec3 LAST_TP_REQUEST;
+    public static Vec3 LAST_TP_FROM;
 
     @ApiMethod
-    public static void executeTp(Vec3d target, double farawayTp, boolean command, boolean considerNoFall) {
+    public static void executeTp(Vec3 target, double farawayTp, boolean command, boolean considerNoFall) {
         if (mc.player == null) return;
-        LAST_TP_FROM = mc.player.getPos();
-        LAST_TP_REQUEST = Vec3d.ZERO.add(target);
-        scheduleTpInternal(MovingContext.create(mc.player.getPos()), target, farawayTp, command, false, considerNoFall);
+        LAST_TP_FROM = mc.player.position();
+        LAST_TP_REQUEST = Vec3.ZERO.add(target);
+        scheduleTpInternal(MovingContext.create(mc.player.position()), target, farawayTp, command, false, considerNoFall);
     }
     // TODO: add height limit: based on world height limit: some world do not want player to reach lower than height
     // limit-or higher than bedrock or sth
     @ApiMethod
-    public static List<Vec3d> generateTpSequence(MovingContext context, Vec3d target, boolean considerEnvironment) {
+    public static List<Vec3> generateTpSequence(MovingContext context, Vec3 target, boolean considerEnvironment) {
         return generateTpSequence(context.from().getValue(), target, false, 200, considerEnvironment);
     }
 
     @ApiMethod
-    public static List<Vec3d> generateTpSequence(
-            Vec3d current, Vec3d target, boolean command, double farawayTp, boolean considerEnvironment) {
+    public static List<Vec3> generateTpSequence(
+            Vec3 current, Vec3 target, boolean command, double farawayTp, boolean considerEnvironment) {
         return ENGIN.generateTpSequence(current, target, command, farawayTp, considerEnvironment);
     }
 
-    private static List<Vec3d> generateTpSequenceInternal(
-            Vec3d current, Vec3d target, boolean command, double farawayTp, boolean considerEnvironment) {
+    private static List<Vec3> generateTpSequenceInternal(
+            Vec3 current, Vec3 target, boolean command, double farawayTp, boolean considerEnvironment) {
         boolean collideAtTarget = checkEnvironmentCollision(mc.player, target, false, true);
         if (collideAtTarget) {
             if (command) {
@@ -789,49 +798,49 @@ public class MovTasks {
             return List.of();
         }
 
-        Vec3d movement0 = target.subtract(current);
-        Vec3d sim = simulateMovement(mc.player, current, movement0, true);
+        Vec3 movement0 = target.subtract(current);
+        Vec3 sim = simulateMovement(mc.player, current, movement0, true);
         if (validMovementAsServer(movement0, sim)) {
             return List.of(current, current.add(movement0));
         }
-        Vec3d horizontalMovement;
-        horizontalMovement = new Vec3d(movement0.x, 0, movement0.z);
+        Vec3 horizontalMovement;
+        horizontalMovement = new Vec3(movement0.x, 0, movement0.z);
 
         double len = horizontalMovement.length();
         //        Box tpHorizontalPlate = mc.player.dimensions.getBoxAt(current).stretch(horizontalMovement);
-        Box tpSmallerAxisPlate;
-        Box tpLargerAxisPlate;
+        AABB tpSmallerAxisPlate;
+        AABB tpLargerAxisPlate;
         if (Math.abs(movement0.x) > Math.abs(movement0.z)) {
-            tpSmallerAxisPlate = mc.player.dimensions.getBoxAt(current).stretch(movement0.x, 0, 0);
+            tpSmallerAxisPlate = mc.player.dimensions.makeBoundingBox(current).expandTowards(movement0.x, 0, 0);
             tpLargerAxisPlate = mc.player
                     .dimensions
-                    .getBoxAt(current)
-                    .offset(movement0.x, 0, 0)
-                    .stretch(0, 0, movement0.z);
+                    .makeBoundingBox(current)
+                    .move(movement0.x, 0, 0)
+                    .expandTowards(0, 0, movement0.z);
         } else {
-            tpSmallerAxisPlate = mc.player.dimensions.getBoxAt(current).stretch(0, 0, movement0.z);
+            tpSmallerAxisPlate = mc.player.dimensions.makeBoundingBox(current).expandTowards(0, 0, movement0.z);
             tpLargerAxisPlate = mc.player
                     .dimensions
-                    .getBoxAt(current)
-                    .offset(0, 0, movement0.z)
-                    .stretch(movement0.x, 0, 0);
+                    .makeBoundingBox(current)
+                    .move(0, 0, movement0.z)
+                    .expandTowards(movement0.x, 0, 0);
         }
 
         double currentY = current.y;
         double targetY = target.y;
-        World world = mc.world;
+        Level world = mc.level;
         double horizontalY;
 
         if (len <= farawayTp) {
-            if (currentY >= world.getBottomY() && currentY <= world.getBottomY() + world.getHeight()) {
-                Box boundariesFromBox = mc.player.dimensions.getBoxAt(current);
-                Box boundariesToBox = mc.player.dimensions.getBoxAt(target);
-                Box boundariesSmallAxis;
-                Box boundariesLargeAxis;
+            if (currentY >= world.getMinY() && currentY <= world.getMinY() + world.getHeight()) {
+                AABB boundariesFromBox = mc.player.dimensions.makeBoundingBox(current);
+                AABB boundariesToBox = mc.player.dimensions.makeBoundingBox(target);
+                AABB boundariesSmallAxis;
+                AABB boundariesLargeAxis;
                 boundariesSmallAxis = CollisionUtil.resetY(
-                        tpSmallerAxisPlate, world.getBottomY(), world.getBottomY() + world.getHeight());
+                        tpSmallerAxisPlate, world.getMinY(), world.getMinY() + world.getHeight());
                 boundariesLargeAxis = CollisionUtil.resetY(
-                        tpLargerAxisPlate, world.getBottomY(), world.getBottomY() + world.getHeight());
+                        tpLargerAxisPlate, world.getMinY(), world.getMinY() + world.getHeight());
                 boolean debug0 = DEBUG_RENDER_COLLISION_RENDERING;
                 // DEBUG_RENDER_COLLISION_RENDERING = true;
                 STATIC_DEBUG_COLOR = Color.CYAN;
@@ -842,17 +851,17 @@ public class MovTasks {
                 debugBox(boundariesLargeAxis);
                 //  DEBUG_RENDER_COLLISION_RENDERING = debug0;
                 //
-                ArrayList<Box> intoAABB = new ArrayList<>();
+                ArrayList<AABB> intoAABB = new ArrayList<>();
                 ArrayList<VoxelShape> intoVoxels = new ArrayList<>();
                 // should add LAVA with current/target xz coord into to avoid searching TP into them
-                BiFunction<BlockState, BlockPos, Box> currentFromToPredicateFilter = considerEnvironment
+                BiFunction<BlockState, BlockPos, AABB> currentFromToPredicateFilter = considerEnvironment
                         ? (blockstate, blockpos) -> {
                             if (blockstate != null) {
                                 Block block = blockstate.getBlock();
                                 // I DO NOT WANT BY TP SEQUENCE ENTER ANY OF THESE FIRE BLOCKS BECAUSE IT MAY LIT ME UP!
                                 if (block == Blocks.LAVA || block == Blocks.SOUL_FIRE || block == Blocks.FIRE) {
                                     // filter lava blocks, we should be careful
-                                    Box lavaBlockBox = Box.enclosing(blockpos, blockpos);
+                                    AABB lavaBlockBox = AABB.encapsulatingFullBlocks(blockpos, blockpos);
                                     if (CollisionUtil.voxelShapeIntersectHorizontal(lavaBlockBox, boundariesFromBox)
                                             || CollisionUtil.voxelShapeIntersectHorizontal(
                                                     lavaBlockBox, boundariesToBox)) {
@@ -898,7 +907,7 @@ public class MovTasks {
                 if (!intoAABB.isEmpty() || !intoVoxels.isEmpty()) {
                     //                        Box startPlace;
                     //                        Vec3d movement ;
-                    Vec3d result;
+                    Vec3 result;
                     //                        Box lastPlace;
                     double height1 = searchFirstNoYConflictYHeight(currentY, intoAABB, intoVoxels, 0, 180, true);
                     double height2 = searchFirstNoYConflictYHeight(currentY, intoAABB, intoVoxels, 0, 180, false);
@@ -909,12 +918,12 @@ public class MovTasks {
                     } else {
                         height = height1;
                     }
-                    result = new Vec3d(0, height, 0);
+                    result = new Vec3(0, height, 0);
                     boolean debug = DEBUG_RENDER_COLLISION_RENDERING;
                     RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = true;
                     RenderTasks.STATIC_DEBUG_COLOR = Color.WHITE;
-                    debugBox(tpSmallerAxisPlate.offset(0, height, 0));
-                    debugBox(tpLargerAxisPlate.offset(0, height, 0));
+                    debugBox(tpSmallerAxisPlate.move(0, height, 0));
+                    debugBox(tpLargerAxisPlate.move(0, height, 0));
                     RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = debug;
                     horizontalY = height + currentY;
 
@@ -936,31 +945,31 @@ public class MovTasks {
             if (command) Debug.chat("y 差距过大,当前tp模式无法完成");
             return List.of();
         }
-        Vec3d vec3d1 = current;
-        Vec3d vec3d2 = vec3d1.add(new Vec3d(0, horizontalY - currentY, 0));
-        Vec3d vec3d3 = vec3d2.add(horizontalMovement);
-        Vec3d vec3d4 = vec3d3.add(new Vec3d(0, targetY - horizontalY, 0));
+        Vec3 vec3d1 = current;
+        Vec3 vec3d2 = vec3d1.add(new Vec3(0, horizontalY - currentY, 0));
+        Vec3 vec3d3 = vec3d2.add(horizontalMovement);
+        Vec3 vec3d4 = vec3d3.add(new Vec3(0, targetY - horizontalY, 0));
         return List.of(vec3d1, vec3d2, vec3d3, vec3d4);
     }
 
     @ApiMethod
     public static void scheduleTpInternal(
             MovingContext context,
-            Vec3d target,
+            Vec3 target,
             double farawayThreshold,
             boolean command,
             boolean fastMode,
             boolean considerNoFall) {
         if (mc.player == null) return;
         if (command) Debug.chat("正在向", ChatUtils.getDisplayedLocationDouble(target), "执行tp行为");
-        Vec3d current = context.from.getValue();
+        Vec3 current = context.from.getValue();
         // simulate direct move
-        Vec3d movement0 = target.subtract(current);
+        Vec3 movement0 = target.subtract(current);
         // flying into lava fuck, so we consider Environment
-        List<Vec3d> vc3d0 = generateTpSequence(current, target, command, farawayThreshold, true);
+        List<Vec3> vc3d0 = generateTpSequence(current, target, command, farawayThreshold, true);
         if (vc3d0.size() == 2) {
             boolean downward = movement0.y < -4;
-            Vec3d target0 = vc3d0.get(1);
+            Vec3 target0 = vc3d0.get(1);
             MovInfo mainMove = new MovInfo(target0, downward ? Boolean.FALSE : null, true, null);
             List<MovInfo> movements =
                     // downward ? List.of(mainMove, MovInfo.create(target0.add(0, 9E-8,0))):
@@ -974,10 +983,10 @@ public class MovTasks {
             if (command) {
                 Debug.chat("执行TP序列");
             }
-            Vec3d vec3d1 = vc3d0.get(0);
-            Vec3d vec3d2 = vc3d0.get(1);
-            Vec3d vec3d3 = vc3d0.get(2);
-            Vec3d vec3d4 = vc3d0.get(3);
+            Vec3 vec3d1 = vc3d0.get(0);
+            Vec3 vec3d2 = vc3d0.get(1);
+            Vec3 vec3d3 = vc3d0.get(2);
+            Vec3 vec3d4 = vc3d0.get(3);
             boolean downWard = vec3d1.y > vec3d2.y + 4;
             boolean downWard0 = vec3d3.y > vec3d4.y + 4;
             context.from.setValue(vec3d1);
@@ -1048,7 +1057,7 @@ public class MovTasks {
         //        }
     }
 
-    private static boolean doIntercepteMovingPacketsWhileTp(PlayerMoveC2SPacket packet) {
+    private static boolean doIntercepteMovingPacketsWhileTp(ServerboundMovePlayerPacket packet) {
         if (doingTp) {
             // capture no-tp packets
             return false;
@@ -1056,21 +1065,21 @@ public class MovTasks {
         return true;
     }
 
-    private static boolean doIntercepteMoveVehiclePacketsWhileTp(VehicleMoveC2SPacket packet) {
+    private static boolean doIntercepteMoveVehiclePacketsWhileTp(ServerboundMoveVehiclePacket packet) {
         if (doingTp) {
             return false;
         }
         return true;
     }
 
-    private static void doStopPlayerSendMovementPackets(Event<ClientPlayerEntity> entity) {
+    private static void doStopPlayerSendMovementPackets(Event<LocalPlayer> entity) {
 
         if (doingTp) {
             entity.cancel();
         }
     }
 
-    private static void configureTpMaskPlayer(Event<ClientPlayerEntity> plaayer) {
+    private static void configureTpMaskPlayer(Event<LocalPlayer> plaayer) {
         doingTp = false;
         // remove tick Movement packets when doing tp
         ClientPlayerAccess.of(plaayer.context)
@@ -1120,14 +1129,14 @@ public class MovTasks {
     }
 
     // movement simulation
-    public static boolean hasCollidedSoftly(Vec3d adjustedMovement) {
-        float f = mc.player.getYaw() * 0.017453292F;
-        double d = (double) MathHelper.sin(f);
-        double e = (double) MathHelper.cos(f);
-        double g = (double) mc.player.sidewaysSpeed * e - (double) mc.player.forwardSpeed * d;
-        double h = (double) mc.player.forwardSpeed * e + (double) mc.player.sidewaysSpeed * d;
-        double i = MathHelper.square(g) + MathHelper.square(h);
-        double j = MathHelper.square(adjustedMovement.x) + MathHelper.square(adjustedMovement.z);
+    public static boolean hasCollidedSoftly(Vec3 adjustedMovement) {
+        float f = mc.player.getYRot() * 0.017453292F;
+        double d = (double) Mth.sin(f);
+        double e = (double) Mth.cos(f);
+        double g = (double) mc.player.xxa * e - (double) mc.player.zza * d;
+        double h = (double) mc.player.zza * e + (double) mc.player.xxa * d;
+        double i = Mth.square(g) + Mth.square(h);
+        double j = Mth.square(adjustedMovement.x) + Mth.square(adjustedMovement.z);
         if (!(i < 9.999999747378752E-6) && !(j < 9.999999747378752E-6)) {
             double k = g * adjustedMovement.x + h * adjustedMovement.z;
             double l = Math.acos(k / Math.sqrt(i * j));
@@ -1137,11 +1146,11 @@ public class MovTasks {
         }
     }
 
-    public static EntityMovementStatus<ClientPlayerEntity> startSimulation() {
+    public static EntityMovementStatus<LocalPlayer> startSimulation() {
         return new EntityMovementStatus<>(mc.player);
     }
 
-    public static Vec3d collide(Entity entity, Vec3d movement) {
+    public static Vec3 collide(Entity entity, Vec3 movement) {
         // Paper start - optimise collisions
         final boolean xZero = movement.x == 0.0;
         final boolean yZero = movement.y == 0.0;
@@ -1149,13 +1158,13 @@ public class MovTasks {
         if (xZero & yZero & zZero) {
             return movement;
         }
-        final double stepHeight = (double) entity.getStepHeight();
+        final double stepHeight = (double) entity.maxUpStep();
 
-        final Box currBoundingBox = entity.getBoundingBox();
-        final List<Box> potentialCollisionsBB = new ArrayList<>();
+        final AABB currBoundingBox = entity.getBoundingBox();
+        final List<AABB> potentialCollisionsBB = new ArrayList<>();
         final List<VoxelShape> potentialCollisionsVoxel = new ArrayList<>();
         collectBoxInvolvingInMovements(
-                entity, entity.getPos(), movement, potentialCollisionsBB, potentialCollisionsVoxel, true);
+                entity, entity.position(), movement, potentialCollisionsBB, potentialCollisionsVoxel, true);
         //        if (CollisionUtil.isEmpty(currBoundingBox)) {
         //            return movement;
         //        }
@@ -1173,23 +1182,23 @@ public class MovTasks {
                 potentialCollisionsVoxel,
                 potentialCollisionsBB,
                 stepHeight,
-                entity.isOnGround());
+                entity.onGround());
         // Paper end - optimise collisions
     }
 
     private static void collectBoxInvolvingInMovements(
             Entity entity,
-            Vec3d startPos,
-            Vec3d movement,
-            List<Box> intoAABB,
+            Vec3 startPos,
+            Vec3 movement,
+            List<AABB> intoAABB,
             List<VoxelShape> intoVoxels,
             boolean ignoreUnloadedChunk) {
-        final Box currBoundingBox = entity.dimensions.getBoxAt(startPos);
+        final AABB currBoundingBox = entity.dimensions.makeBoundingBox(startPos);
         if (CollisionUtil.isEmpty(currBoundingBox)) return;
-        Box collisionBox = makeCollectorBoxInvolvingCollision(
-                currBoundingBox, movement, entity.getStepHeight(), entity.isOnGround());
+        AABB collisionBox = makeCollectorBoxInvolvingCollision(
+                currBoundingBox, movement, entity.maxUpStep(), entity.onGround());
         CollisionUtil.getCollisions(
-                entity.getEntityWorld(),
+                entity.level(),
                 entity,
                 collisionBox,
                 intoVoxels,
@@ -1205,7 +1214,7 @@ public class MovTasks {
                 debugBox(coll);
             }
             for (var voxel : intoVoxels) {
-                for (var box : voxel.getBoundingBoxes()) {
+                for (var box : voxel.toAabbs()) {
 
                     debugBox(box);
                 }
@@ -1213,13 +1222,13 @@ public class MovTasks {
         }
     }
 
-    public static Box makeCollectorBoxInvolvingCollision(
-            Box currBoundingBox, Vec3d movement, double stepHeight, boolean onGround) {
+    public static AABB makeCollectorBoxInvolvingCollision(
+            AABB currBoundingBox, Vec3 movement, double stepHeight, boolean onGround) {
 
         final boolean xZero = movement.x == 0.0;
         final boolean yZero = movement.y == 0.0;
         final boolean zZero = movement.z == 0.0;
-        final Box collisionBox;
+        final AABB collisionBox;
 
         if (xZero & zZero) {
             if (movement.y > 0.0) {
@@ -1234,12 +1243,12 @@ public class MovTasks {
                 // don't bother getting the collisions if we don't need them.
                 if (movement.y <= 0.0) {
                     collisionBox = CollisionUtil.expandUpwards(
-                            currBoundingBox.stretch(movement.x, movement.y, movement.z), stepHeight);
+                            currBoundingBox.expandTowards(movement.x, movement.y, movement.z), stepHeight);
                 } else {
-                    collisionBox = currBoundingBox.stretch(movement.x, Math.max(stepHeight, movement.y), movement.z);
+                    collisionBox = currBoundingBox.expandTowards(movement.x, Math.max(stepHeight, movement.y), movement.z);
                 }
             } else {
-                collisionBox = currBoundingBox.stretch(movement.x, movement.y, movement.z);
+                collisionBox = currBoundingBox.expandTowards(movement.x, movement.y, movement.z);
             }
         }
         return collisionBox;
@@ -1248,11 +1257,11 @@ public class MovTasks {
     private static final ThreadLocal<Boolean> INTERNAL_VALUE_USE_STEPHEIGHT =
             ThreadLocal.withInitial(() -> Boolean.FALSE);
 
-    public static Vec3d collideWithTrustedList(
-            Box currBoundingBox,
-            Vec3d movement,
+    public static Vec3 collideWithTrustedList(
+            AABB currBoundingBox,
+            Vec3 movement,
             List<VoxelShape> potentialCollisionsVoxel,
-            List<Box> potentialCollisionsBB,
+            List<AABB> potentialCollisionsBB,
             double stepHeight,
             boolean onGround) {
         if (potentialCollisionsVoxel.isEmpty() && potentialCollisionsBB.isEmpty()) {
@@ -1261,7 +1270,7 @@ public class MovTasks {
         }
 
         STATIC_DEBUG_COLOR = Color.YELLOW;
-        final Vec3d limitedMoveVector = CollisionUtil.performCollisions(
+        final Vec3 limitedMoveVector = CollisionUtil.performCollisions(
                 movement, currBoundingBox, potentialCollisionsVoxel, potentialCollisionsBB);
 
         if (!getMovExtra().noStepHeightFeature.get()
@@ -1272,8 +1281,8 @@ public class MovTasks {
             // mark as not planned in 1.21.1; will do it in 1.21.6 version
             // auto jump to go across, do not move
             STATIC_DEBUG_COLOR = Color.BLUE;
-            Vec3d vec3d2 = CollisionUtil.performCollisions(
-                    new Vec3d(movement.x, stepHeight, movement.z),
+            Vec3 vec3d2 = CollisionUtil.performCollisions(
+                    new Vec3(movement.x, stepHeight, movement.z),
                     currBoundingBox,
                     potentialCollisionsVoxel,
                     potentialCollisionsBB);
@@ -1281,31 +1290,31 @@ public class MovTasks {
             RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = false;
             // speed up jumping head
 
-            final Vec3d vec3d3 = CollisionUtil.performCollisions(
-                    new Vec3d(0.0, stepHeight, 0.0),
-                    currBoundingBox.stretch(movement.x, 0.0, movement.z),
+            final Vec3 vec3d3 = CollisionUtil.performCollisions(
+                    new Vec3(0.0, stepHeight, 0.0),
+                    currBoundingBox.expandTowards(movement.x, 0.0, movement.z),
                     potentialCollisionsVoxel,
                     potentialCollisionsBB);
 
             if (vec3d3.y < stepHeight) {
-                final Vec3d vec3d4 = CollisionUtil.performCollisions(
-                                new Vec3d(movement.x, 0.0D, movement.z),
-                                currBoundingBox.offset(vec3d3),
+                final Vec3 vec3d4 = CollisionUtil.performCollisions(
+                                new Vec3(movement.x, 0.0D, movement.z),
+                                currBoundingBox.move(vec3d3),
                                 potentialCollisionsVoxel,
                                 potentialCollisionsBB)
                         .add(vec3d3);
 
-                if (vec3d4.horizontalLengthSquared() > vec3d2.horizontalLengthSquared()) {
+                if (vec3d4.horizontalDistanceSqr() > vec3d2.horizontalDistanceSqr()) {
                     vec3d2 = vec3d4;
                 }
             }
             RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = debug;
-            if (vec3d2.horizontalLengthSquared() > limitedMoveVector.horizontalLengthSquared()) {
+            if (vec3d2.horizontalDistanceSqr() > limitedMoveVector.horizontalDistanceSqr()) {
                 //                STATIC_DEBUG_COLOR = Color.PINK;
                 INTERNAL_VALUE_USE_STEPHEIGHT.set(true);
                 return vec3d2.add(CollisionUtil.performCollisions(
-                        new Vec3d(0.0D, -vec3d2.y + movement.y, 0.0D),
-                        currBoundingBox.offset(vec3d2),
+                        new Vec3(0.0D, -vec3d2.y + movement.y, 0.0D),
+                        currBoundingBox.move(vec3d2),
                         potentialCollisionsVoxel,
                         potentialCollisionsBB));
             }
@@ -1317,13 +1326,13 @@ public class MovTasks {
         }
     }
 
-    public static boolean doMovementInvolveStepheight(Entity entity, Vec3d movement) {
+    public static boolean doMovementInvolveStepheight(Entity entity, Vec3 movement) {
         boolean stepheightFlag = getMovExtra().noStepHeightFeature.get();
         // enable stepheight feature to simulate
         getMovExtra().noStepHeightFeature.set(false);
         INTERNAL_VALUE_USE_STEPHEIGHT.set(false);
         DEBUG_RENDER_COLLISION_RENDERING = true;
-        Vec3d c = collide(entity, movement);
+        Vec3 c = collide(entity, movement);
         DEBUG_RENDER_COLLISION_RENDERING = false;
         boolean useStepheight = INTERNAL_VALUE_USE_STEPHEIGHT.get();
         getMovExtra().noStepHeightFeature.set(stepheightFlag);
@@ -1331,21 +1340,21 @@ public class MovTasks {
     }
 
     @ApiMethod
-    public static Vec3d simulateMovement(Entity entity, Vec3d from, Vec3d vec3d, boolean serverMode) {
+    public static Vec3 simulateMovement(Entity entity, Vec3 from, Vec3 vec3d, boolean serverMode) {
         // var simu = startSimulation();
         Entity rootEnity = entity.getRootVehicle();
         double deltaY = rootEnity.getY() - entity.getY();
         //        entity.setPosition(from);
-        Vec3d rootVec = rootEnity.getPos();
-        rootEnity.setPosition(from.add(0, deltaY, 0));
+        Vec3 rootVec = rootEnity.position();
+        rootEnity.setPos(from.add(0, deltaY, 0));
         // allow down velocity
         //
 
-        //        vec3d = ((PlayerEntity)mc.player).adjustMovementForSneaking(vec3d, MovementType.PLAYER);
+        //        vec3d = ((Player)mc.player).adjustMovementForSneaking(vec3d, MovementType.PLAYER);
         //        Vec3d movement = mc.player.adjustMovementForCollisions(vec3d);
         // mc.player.move(MovementType.PLAYER, vec3d);
 
-        Vec3d result;
+        Vec3 result;
         RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = true;
 
         //        if(!serverMode){
@@ -1371,48 +1380,48 @@ public class MovTasks {
         result = collide(rootEnity, vec3d);
         //        }
         RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = false;
-        rootEnity.setPosition(rootVec);
+        rootEnity.setPos(rootVec);
         //  simu.restore();
         return result;
     }
 
-    public static boolean hasHorizontalCollision(Entity entity, Vec3d move) {
-        if (entity.hasPassengers()) {
+    public static boolean hasHorizontalCollision(Entity entity, Vec3 move) {
+        if (entity.isVehicle()) {
             return false;
         } else {
-            Vec3d movement = simulateMovement(entity, entity.getPos(), move, true);
-            return !MathHelper.approximatelyEquals(movement.x, move.x)
-                    || !MathHelper.approximatelyEquals(movement.z, move.z);
+            Vec3 movement = simulateMovement(entity, entity.position(), move, true);
+            return !Mth.equal(movement.x, move.x)
+                    || !Mth.equal(movement.z, move.z);
         }
     }
 
-    public static boolean validMovementAsServer(Vec3d expect, Vec3d sim) {
-        return mc.interactionManager.getCurrentGameMode().isCreative()
+    public static boolean validMovementAsServer(Vec3 expect, Vec3 sim) {
+        return mc.gameMode.getPlayerMode().isCreative()
                 || MathUtils.s2(expect.x - sim.x) + MathUtils.s2(expect.z - sim.z) < 0.0625D;
     }
 
-    private static final Random rand = Random.create();
+    private static final RandomSource rand = RandomSource.create();
 
-    public static List<Vec3d> tpAttackSearch(
-            Vec3d from, Box to, double availableRange, double maxAtOnce, int maxAttempt) {
+    public static List<Vec3> tpAttackSearch(
+            Vec3 from, AABB to, double availableRange, double maxAtOnce, int maxAttempt) {
         double avRS = MathUtils.s2(availableRange);
-        List<Vec3d> vec = new ArrayList<>();
+        List<Vec3> vec = new ArrayList<>();
         // store player information
-        Vec3d playerVec = mc.player.getVelocity();
-        Vec3d playerPos = mc.player.getPos();
+        Vec3 playerVec = mc.player.getDeltaMovement();
+        Vec3 playerPos = mc.player.position();
 
-        Vec3d currentPos = from;
+        Vec3 currentPos = from;
         for_loop:
         for (int i = 0; i < maxAttempt; ++i) {
             // Debug.chat("on loop", i);
             if (!vec.isEmpty()) {
                 currentPos = vec.get(vec.size() - 1);
             }
-            Vec3d currentTry = to.getHorizontalCenter().subtract(currentPos);
+            Vec3 currentTry = to.getBottomCenter().subtract(currentPos);
             double len = Math.max(1.0F, currentTry.length() - availableRange + 1.0F);
-            currentTry = currentTry.normalize().multiply(Math.min(maxAtOnce, len));
+            currentTry = currentTry.normalize().scale(Math.min(maxAtOnce, len));
             if (len >= maxAtOnce) {
-                currentTry = currentTry.multiply(maxAtOnce / len);
+                currentTry = currentTry.scale(maxAtOnce / len);
             }
             // mc.player.move(MovementType.PLAYER, currentTry);
             switch (validMovToEntity(ENGIN, currentPos, currentTry, to, avRS, vec)) {
@@ -1447,20 +1456,20 @@ public class MovTasks {
             // can not continue move
             // back to currentPos
         }
-        mc.player.setVelocity(playerVec);
-        mc.player.setPosition(playerPos);
+        mc.player.setDeltaMovement(playerVec);
+        mc.player.setPos(playerPos);
         return vec;
     }
 
     private static int validMovToEntity(
-            CollisionContext engin, Vec3d currentPos, Vec3d currentTry, Box to, double avRS, List<Vec3d> vec) {
-        Vec3d testMov = engin.simulateMovement(mc.player, currentPos, currentTry);
-        Vec3d testPos = currentPos.add(testMov);
+            CollisionContext engin, Vec3 currentPos, Vec3 currentTry, AABB to, double avRS, List<Vec3> vec) {
+        Vec3 testMov = engin.simulateMovement(mc.player, currentPos, currentTry);
+        Vec3 testPos = currentPos.add(testMov);
 
         // test back
         // can back
-        Vec3d expectedBack = Vec3d.ZERO.subtract(testMov);
-        Vec3d backTry = engin.simulateMovement(mc.player, testPos, expectedBack);
+        Vec3 expectedBack = Vec3.ZERO.subtract(testMov);
+        Vec3 backTry = engin.simulateMovement(mc.player, testPos, expectedBack);
         //        if(collisionDebugRender()){
         //            Vec3d backPos = testPos.add(backTry);
         //            RenderTasks.registerVirtualRenderTask(new RenderTasks.BoxRenderingTask(testPos.add(new Vec3d(-0.5,
@@ -1474,7 +1483,7 @@ public class MovTasks {
         if (validMovementAsServer(expectedBack, backTry)) {
             // distance available
             // check collision for safety
-            if (to.squaredMagnitude(testPos) < avRS && !engin.checkEnvironmentCollision(mc.player, testPos, false)) {
+            if (to.distanceToSqr(testPos) < avRS && !engin.checkEnvironmentCollision(mc.player, testPos, false)) {
                 vec.add(testPos);
                 //  Debug.chat("add finish pos", RenderTasks.getDisplayedLocationDouble(testPos), "move",
                 // RenderTasks.getDisplayedLocationDouble(testMov));
@@ -1484,7 +1493,7 @@ public class MovTasks {
             // move available
 
             else if (validMovementAsServer(currentTry, testMov)) {
-                Vec3d nextPos = currentPos.add(currentTry);
+                Vec3 nextPos = currentPos.add(currentTry);
                 // fixme use expected Pos as target
                 // fixme no need to check expected pos because of movement mech
                 // check collision for safety
@@ -1503,22 +1512,22 @@ public class MovTasks {
     public static final CollisionContext ENGIN = new CollisionContext() {};
     public static final CollisionContext ENGIN_LOADED = new CollisionContext() {
         @Override
-        public boolean checkEnvironmentCollision(Entity entity, Vec3d vec, boolean checkLiquid) {
+        public boolean checkEnvironmentCollision(Entity entity, Vec3 vec, boolean checkLiquid) {
             return MovTasks.checkEnvironmentCollision(entity, vec, checkLiquid, false);
         }
     };
 
     public static interface CollisionContext {
-        default Vec3d simulateMovement(Entity entity, Vec3d currentPos, Vec3d currentTry) {
+        default Vec3 simulateMovement(Entity entity, Vec3 currentPos, Vec3 currentTry) {
             return MovTasks.simulateMovement(entity, currentPos, currentTry, true);
         }
 
-        default boolean checkEnvironmentCollision(Entity entity, Vec3d vec, boolean checkLiquid) {
+        default boolean checkEnvironmentCollision(Entity entity, Vec3 vec, boolean checkLiquid) {
             return MovTasks.checkEnvironmentCollision(entity, vec, checkLiquid, true);
         }
 
-        default List<Vec3d> generateTpSequence(
-                Vec3d current, Vec3d target, boolean command, double farawayTp, boolean considerEnvironment) {
+        default List<Vec3> generateTpSequence(
+                Vec3 current, Vec3 target, boolean command, double farawayTp, boolean considerEnvironment) {
             return MovTasks.generateTpSequenceInternal(current, target, command, farawayTp, considerEnvironment);
         }
         // todo: add raycast methods
@@ -1526,14 +1535,14 @@ public class MovTasks {
 
     public static class CollisionCache implements CollisionContext {
         Entity entity;
-        Vec3d startPos;
-        Vec3d endPos;
-        List<Box> intoAABBs;
+        Vec3 startPos;
+        Vec3 endPos;
+        List<AABB> intoAABBs;
         List<VoxelShape> intoVoxels;
-        List<Box> allBoxes;
+        List<AABB> allBoxes;
         boolean ignoreChunkBorder;
 
-        public CollisionCache(Entity entity, Vec3d startPos, Vec3d endPos, boolean ignoreChunkBorder) {
+        public CollisionCache(Entity entity, Vec3 startPos, Vec3 endPos, boolean ignoreChunkBorder) {
             this.entity = entity;
             this.startPos = startPos;
             this.endPos = endPos;
@@ -1547,48 +1556,48 @@ public class MovTasks {
             allBoxes = new ArrayList<>();
             allBoxes.addAll(intoAABBs);
             for (var voxel : intoVoxels) {
-                allBoxes.addAll(voxel.getBoundingBoxes());
+                allBoxes.addAll(voxel.toAabbs());
             }
         }
 
-        public Vec3d simulateMovement(Entity entity, Vec3d currentPos, Vec3d currentTry) {
+        public Vec3 simulateMovement(Entity entity, Vec3 currentPos, Vec3 currentTry) {
             Entity rootEntity = entity.getRootVehicle();
             //  double y = entity.getY() - rootEntity.getY();
             //            Vec3d originRoot = rootEntity.getPos();
             //            rootEntity.setPosition(currentPos);
             RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = true;
-            Vec3d simu = collideWithTrustedList(
-                    rootEntity.dimensions.getBoxAt(currentPos),
+            Vec3 simu = collideWithTrustedList(
+                    rootEntity.dimensions.makeBoundingBox(currentPos),
                     currentTry,
                     this.intoVoxels,
                     this.intoAABBs,
-                    rootEntity.getStepHeight(),
-                    rootEntity.isOnGround());
+                    rootEntity.maxUpStep(),
+                    rootEntity.onGround());
             RenderTasks.DEBUG_RENDER_COLLISION_RENDERING = false;
             //            rootEntity.setPosition(originRoot);
             return simu;
         }
 
-        public boolean checkEnvironmentCollision(Entity entity, Vec3d vec, boolean checkLiquid) {
+        public boolean checkEnvironmentCollision(Entity entity, Vec3 vec, boolean checkLiquid) {
             return MovTasks.checkEnvironmentCollision(entity, vec, checkLiquid, this.ignoreChunkBorder);
         }
 
         @Override
-        public List<Vec3d> generateTpSequence(
-                Vec3d current, Vec3d target, boolean command, double farawayTp, boolean considerEnvironment) {
+        public List<Vec3> generateTpSequence(
+                Vec3 current, Vec3 target, boolean command, double farawayTp, boolean considerEnvironment) {
             return CollisionContext.super.generateTpSequence(current, target, command, farawayTp, considerEnvironment);
         }
     }
 
-    public static boolean validMoveTo(CollisionContext engin, Vec3d currentPos, Vec3d currentTry) {
+    public static boolean validMoveTo(CollisionContext engin, Vec3 currentPos, Vec3 currentTry) {
         // fixme: currentPos may not be a suitable place for player to stay
         if (engin.checkEnvironmentCollision(mc.player, currentPos, false)) {
             return false;
         }
-        Vec3d testMov = engin.simulateMovement(mc.player, currentPos, currentTry);
+        Vec3 testMov = engin.simulateMovement(mc.player, currentPos, currentTry);
 
         if (validMovementAsServer(currentTry, testMov)) {
-            Vec3d currentForward = currentPos.add(currentTry);
+            Vec3 currentForward = currentPos.add(currentTry);
             // check collision for safety
             if (!engin.checkEnvironmentCollision(mc.player, currentForward, false)) {
                 return true;
@@ -1597,20 +1606,20 @@ public class MovTasks {
         return false;
     }
 
-    public static boolean validMoveToAndBack(CollisionContext engin, Vec3d currentPos, Vec3d currentTry) {
+    public static boolean validMoveToAndBack(CollisionContext engin, Vec3 currentPos, Vec3 currentTry) {
         // fixme: currentPos may not be a suitable place for player to stay
         if (engin.checkEnvironmentCollision(mc.player, currentPos, false)) {
             return false;
         }
-        Vec3d testMov = engin.simulateMovement(mc.player, currentPos, currentTry);
+        Vec3 testMov = engin.simulateMovement(mc.player, currentPos, currentTry);
 
         if (validMovementAsServer(currentTry, testMov)) {
             // use expected position as server success position
-            Vec3d currentForward = currentPos.add(currentTry);
+            Vec3 currentForward = currentPos.add(currentTry);
             // check collision for safety
             if (!engin.checkEnvironmentCollision(mc.player, currentForward, false)) {
-                Vec3d backMov = Vec3d.ZERO.subtract(currentTry);
-                Vec3d testBackMov = engin.simulateMovement(mc.player, currentForward, backMov);
+                Vec3 backMov = Vec3.ZERO.subtract(currentTry);
+                Vec3 testBackMov = engin.simulateMovement(mc.player, currentForward, backMov);
                 if (validMovementAsServer(backMov, testBackMov)) {
                     return true;
                 }
@@ -1622,20 +1631,20 @@ public class MovTasks {
     // copied from wurst
     // seems not work
     // shit
-    public void onSpeedUp(ClientPlayerEntity player) {
+    public void onSpeedUp(LocalPlayer player) {
         // return if sneaking or not walking
-        if (player.isSneaking() || player.forwardSpeed == 0 && player.sidewaysSpeed == 0) return;
+        if (player.isShiftKeyDown() || player.zza == 0 && player.xxa == 0) return;
 
         // activate sprint if walking forward
-        if (player.forwardSpeed > 0 && !player.horizontalCollision) player.setSprinting(true);
+        if (player.zza > 0 && !player.horizontalCollision) player.setSprinting(true);
 
         // activate mini jump if on ground
-        if (!player.isOnGround()) return;
+        if (!player.onGround()) return;
 
-        Vec3d v = player.getVelocity();
-        player.setVelocity(v.x * 1.8, v.y + 0.1, v.z * 1.8);
+        Vec3 v = player.getDeltaMovement();
+        player.setDeltaMovement(v.x * 1.8, v.y + 0.1, v.z * 1.8);
 
-        v = player.getVelocity();
+        v = player.getDeltaMovement();
         double currentSpeed = Math.sqrt(Math.pow(v.x, 2) + Math.pow(v.z, 2));
 
         // limit speed to highest value that works on NoCheat+ version
@@ -1644,26 +1653,26 @@ public class MovTasks {
         double maxSpeed = 0.66F;
 
         if (currentSpeed > maxSpeed)
-            player.setVelocity(v.x / currentSpeed * maxSpeed, v.y, v.z / currentSpeed * maxSpeed);
+            player.setDeltaMovement(v.x / currentSpeed * maxSpeed, v.y, v.z / currentSpeed * maxSpeed);
     }
 
     private static boolean noBlocksAround(Entity entity) {
         // Paper start - stop using streams, this is already a known fixed problem in Entity#move
-        Box box = entity.getBoundingBox().expand(0.0625D).stretch(0.0D, -0.55D, 0.0D);
-        int minX = MathHelper.floor(box.minX);
-        int minY = MathHelper.floor(box.minY);
-        int minZ = MathHelper.floor(box.minZ);
-        int maxX = MathHelper.floor(box.maxX);
-        int maxY = MathHelper.floor(box.maxY);
-        int maxZ = MathHelper.floor(box.maxZ);
+        AABB box = entity.getBoundingBox().inflate(0.0625D).expandTowards(0.0D, -0.55D, 0.0D);
+        int minX = Mth.floor(box.minX);
+        int minY = Mth.floor(box.minY);
+        int minZ = Mth.floor(box.minZ);
+        int maxX = Mth.floor(box.maxX);
+        int maxY = Mth.floor(box.maxY);
+        int maxZ = Mth.floor(box.maxZ);
 
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
         for (int y = minY; y <= maxY; ++y) {
             for (int z = minZ; z <= maxZ; ++z) {
                 for (int x = minX; x <= maxX; ++x) {
                     pos.set(x, y, z);
-                    BlockState type = mc.world.getBlockState(pos);
+                    BlockState type = mc.level.getBlockState(pos);
 
                     if (type != null && !type.isAir()) {
 
@@ -1680,14 +1689,14 @@ public class MovTasks {
     public static boolean seenAsFloating(boolean fakeGilding) {
         // add serverPacket result, if toggle flight at server, stop seen as floating, no need to antiKick
         return !flight.serverSideCanFly
-                && mc.player.getVelocity().y >= -0.03125D
-                && mc.interactionManager.getCurrentGameMode() != GameMode.SPECTATOR
-                && !mc.player.hasStatusEffect(StatusEffects.LEVITATION)
+                && mc.player.getDeltaMovement().y >= -0.03125D
+                && mc.gameMode.getPlayerMode() != GameType.SPECTATOR
+                && !mc.player.hasEffect(MobEffects.LEVITATION)
                 && (fakeGilding || !mc.player.isFallFlying())
-                && !mc.player.isUsingRiptide()
+                && !mc.player.isAutoSpinAttack()
                 && !mc.player.isSleeping()
-                && !mc.player.isRiding()
-                && !mc.player.isDead()
+                && !mc.player.isHandsBusy()
+                && !mc.player.isDeadOrDying()
                 && noBlocksAround(mc.player);
     }
 
@@ -1696,19 +1705,19 @@ public class MovTasks {
     //    public static boolean onPacketFlyToggle(PlayerAbilitiesS2CPacket packet1){
     //        Tasks.scheduleDelayed(()->{
     //
-    //            serverPacketAllowFlight = packet1.allowFlying();
+    //            serverPacketAllowFlight = packet1.canFly();
     //            if(mc.player != null){
     //                PlayerAbilities abilities = mc.player.getAbilities();
     //                //abilities.allowFlying = abilities.allowFlying;
-    //                abilities.creativeMode = packet1.isCreativeMode();
+    //                abilities.creativeMode = packet1.canInstabuild();
     //                abilities.invulnerable = packet1.isInvulnerable();
     //                if(! HotKeys.getHotkeyToggleManager().getState(HotKeys.TOGGLE_FLIGHT)){
-    //                    abilities.allowFlying = packet1.allowFlying();
+    //                    abilities.allowFlying = packet1.canFly();
     //                }
     //                if(!overrideFly.get()){
-    //                    abilities.setFlySpeed(packet1.getFlySpeed());
+    //                    abilities.setFlySpeed(packet1.getFlyingSpeed());
     //                }
-    //                abilities.setWalkSpeed(packet1.getWalkSpeed());
+    //                abilities.setWalkSpeed(packet1.getWalkingSpeed());
     //                //mc.player.getAbilities().flying = isFly;
     //            }
     //
@@ -1739,7 +1748,7 @@ public class MovTasks {
     //
     //            @Override
     //            public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
-    //                ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+    //                ClientPlayer player = movementManagerEvent.context.playerStatus.entity;
     //                if( HotKeys.getHotkeyToggleManager().getState(HotKeys.TOGGLE_FLIGHT)){
     //                    if( !player.getAbilities().allowFlying ){
     //                        player.getAbilities().allowFlying = true;
@@ -1760,7 +1769,7 @@ public class MovTasks {
     // fixme: fake flight causes fallflying fly
 
     @ApiMethod
-    public static void setupAutoResync(Vec3d pos) {
+    public static void setupAutoResync(Vec3 pos) {
         getAutoResync().setAutoResyncSchedule(Optional.of(pos));
     }
 
@@ -1816,7 +1825,7 @@ public class MovTasks {
     //        }
     //        noFallSetbackResponse = false;
     //    }
-    //    private boolean canStartSprinting(ClientPlayerEntity player) {
+    //    private boolean canStartSprinting(ClientPlayer player) {
     //        return !player.isSprinting() && player.isWalking() && this.canSprint() && !this.isUsingItem() &&
     // !this.hasStatusEffect(StatusEffects.BLINDNESS) && (!this.hasVehicle() ||
     // this.canVehicleSprint(this.getVehicle())) && !this.isFallFlying();
@@ -1851,7 +1860,7 @@ public class MovTasks {
     //            }
     //            @Override
     //            public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
-    //                ClientPlayerEntity args = movementManagerEvent.context.playerStatus.entity;
+    //                ClientPlayer args = movementManagerEvent.context.playerStatus.entity;
     //                //filter creative playerGaming
     //                if(args.getAbilities().invulnerable){
     //                    return;
@@ -1925,7 +1934,7 @@ public class MovTasks {
     //                                lastOnGroundHeight = args.getY();
     //
     //                                args.setPosition(args.getPos().add(0, + 1E-8, 0));
-    //                                mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(args.getX(),
+    //                                mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(args.getX(),
     // args.getY() , args.getZ(), !forceNoFall && args.isOnGround()));
     //                                noFallSetbackResponse = true;
     //
@@ -1939,7 +1948,7 @@ public class MovTasks {
     //                                lastOnGroundHeight = args.getY();
     //
     //                                args.setPosition(args.getPos().add(0, + 1E-8, 0));
-    //                                mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(args.getX(),
+    //                                mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(args.getX(),
     // args.getY() , args.getZ(), false));
     //                                noFallSetbackResponse = true;
     //                            }
@@ -2003,7 +2012,7 @@ public class MovTasks {
     //                                    lastOnGroundHeight = entity.pos.getY();
     //// todo: try send it eariler
     //
-    // mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(entity.pos.getX(), entity.pos.getY() + 1E-8,
+    // mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(entity.pos.getX(), entity.pos.getY() + 1E-8,
     // entity.pos.getZ(), false));
     //                                    //todo: 测试终止横向动量 减少grimac发包
     ////                                    entity.entity.setPos(entity.pos.getX(), entity.entity.getY() ,
@@ -2019,7 +2028,7 @@ public class MovTasks {
     //                    } else if(noFallMode.getValue() == Configs.NofallBypassMode.BYPASS_GRIM && runningThisTick){
     ////                    movementManagerEvent.cancel();
     ////                    movementManagerEvent.context().playerStatus.restorePos();
-    //                        ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+    //                        ClientPlayer player = movementManagerEvent.context.playerStatus.entity;
     ////                    if(waitingForSetback && waitForSetbackId == waitForSetBack){
     ////                        waitTimeout += 1;
     ////                        if(waitTimeout >= 5){
@@ -2118,7 +2127,7 @@ public class MovTasks {
     // 51.04938473524123 75.00133607911214 29.17552569387324 false
     ////                            [04:08:02] [Render thread/INFO] (SlimefunHelper) sending move PositionAndOnGround
     // 51.04938473524123 75.16610936093821 29.17552569387324 false
-    //                            mc.getNetworkHandler().sendPacket(VPacket.newOnGroundOnly(true));
+    //                            mc.getConnection().sendPacket(VPacket.newOnGroundOnly(true));
     //                            //包吃住 不要过
     //                            noFallSetbackResponse = false;
     //                            ClientPlayerAccess.of(player).setForceNoFall(false);
@@ -2128,7 +2137,7 @@ public class MovTasks {
     //                            canDoJump = true;
     //                            waitTimeout = 0;
     //                            runningThisTick = false;
-    ////                        mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(player.getX(),
+    ////                        mc.getConnection().sendPacket(VPacket.newPositionAndOnGround(player.getX(),
     // player.getY(), player.getZ(),false));
     //
     //
@@ -2155,7 +2164,7 @@ public class MovTasks {
     // movementManagerEvent.context.playerStatus.entity.isOnGround();
     //                }
     //                if(canDoJump)return true;
-    //                ClientPlayerEntity player = movementManagerEvent.context().playerStatus.entity;
+    //                ClientPlayer player = movementManagerEvent.context().playerStatus.entity;
     //                if(doJump){
     //
     //                    mc.options.jumpKey.setPressed(false);
@@ -2174,7 +2183,7 @@ public class MovTasks {
 
     // TODO I believe we can gain more advantage from grimac
 
-    public static void configurePipelinesForPlayer(Event<ClientPlayerEntity> playerEvent) {
+    public static void configurePipelinesForPlayer(Event<LocalPlayer> playerEvent) {
         var player = playerEvent.context();
         var legalMovement = ClientPlayerAccess.of(player).getLegalMovementManager();
         PLAYER_PIPELINE_0.resetForNewPlayer(player);
@@ -2337,15 +2346,15 @@ public class MovTasks {
 
         //        Listener.registerSinglePacketListener(PlayerPositionLookS2CPacket.class,
         // MovTasks::listenPositionResync);
-        Listener.registerSinglePacketListener(PlayerMoveC2SPacket.class, MovTasks::doIntercepteMovingPacketsWhileTp);
+        Listener.registerSinglePacketListener(ServerboundMovePlayerPacket.class, MovTasks::doIntercepteMovingPacketsWhileTp);
         Listener.getClientPlayerSendMovementPoint().registerHandler(MovTasks::doStopPlayerSendMovementPackets);
 
         moduleManager.registerFactories(MovTasks::initModules);
         HackModules.registerModuleGroup(moduleManager);
     }
 
-    public static Optional<Vec3d> getTpaCommandResult(
-            CommandExecution p, List<InputArgument<?>> args, ArgumentReader reader, Consumer<Text> errMsg) {
+    public static Optional<Vec3> getTpaCommandResult(
+            CommandExecution p, List<InputArgument<?>> args, ArgumentReader reader, Consumer<Component> errMsg) {
         TpaCommandEvent event = new TpaPositionResolver(reader, p, args, errMsg);
         EventContainer<TpaCommandEvent> container = new EventContainer<>(TpaCommandEvent.class, event);
         Listener.getCustomListener().broadcast(container);
@@ -2379,20 +2388,20 @@ public class MovTasks {
     }
 
     public static class TpaPositionResolver extends TpaCommandEvent {
-        public Optional<Vec3d> resolve = null;
+        public Optional<Vec3> resolve = null;
 
         public boolean hasResolved() {
             return resolve != null;
         }
 
-        public final Consumer<Text> errMsg;
+        public final Consumer<Component> errMsg;
         public ArgumentReader arguments;
 
         public TpaPositionResolver(
                 ArgumentReader arguments,
                 CommandExecution player,
                 List<InputArgument<?>> inputs,
-                Consumer<Text> errMsg) {
+                Consumer<Component> errMsg) {
             super(EventMode.RESOLVE, player, inputs);
             this.arguments = arguments;
             this.errMsg = errMsg;
@@ -2439,7 +2448,7 @@ public class MovTasks {
                                     resolver.resolvePosition(reader, event.player.getExecutor(), eventResolver.errMsg));
                         } else {
                             eventResolver.errMsg.accept(
-                                    Text.literal("不存在这样的特殊位置: " + type).formatted(Formatting.RED));
+                                    Component.literal("不存在这样的特殊位置: " + type).withStyle(ChatFormatting.RED));
                             eventResolver.resolve = Optional.empty();
                         }
                     }
@@ -2449,12 +2458,12 @@ public class MovTasks {
     }
 
     public static final TabResult playerName = TabResult.ofStreamSupplier(
-            () -> mc.world != null ? EntityUtils.getWorldPlayerNames(false).map(name -> "@" + name) : Stream.empty());
+            () -> mc.level != null ? EntityUtils.getWorldPlayerNames(false).map(name -> "@" + name) : Stream.empty());
 
-    public static final TabResult crossHairTarget = TabResult.ofStreamSupplier(() -> (mc.crosshairTarget != null
-                    && mc.crosshairTarget.getType() == HitResult.Type.ENTITY)
+    public static final TabResult crossHairTarget = TabResult.ofStreamSupplier(() -> (mc.hitResult != null
+                    && mc.hitResult.getType() == HitResult.Type.ENTITY)
             ? Stream.of(
-                    "@" + ((EntityHitResult) (mc.crosshairTarget)).getEntity().getUuidAsString())
+                    "@" + ((EntityHitResult) (mc.hitResult)).getEntity().getStringUUID())
             : Stream.empty());
 
     public static final ArgumentType<?> entityAtArgumentType = SimpleCommandArgs.argumentBuilder(
@@ -2480,12 +2489,12 @@ public class MovTasks {
                 if (reader.hasNext()) {
                     String raw = reader.peek();
                     if (!raw.startsWith("@")) {
-                        PlayerEntity player = mc.world == null ? null : EntityUtils.getPlayerByName(raw);
+                        Player player = mc.level == null ? null : EntityUtils.getPlayerByName(raw);
                         if (player == null) {
                             return;
                         }
                         reader.step();
-                        resolver.resolve = Optional.of(player.getPos());
+                        resolver.resolve = Optional.of(player.position());
                         return;
                     }
                     int startIndex = reader.cursor();
@@ -2503,75 +2512,75 @@ public class MovTasks {
     }
 
     public static interface SpecialPositionResolver {
-        public Vec3d resolvePosition(ArgumentReader re, PlayerEntity var1, Consumer<Text> errMsg);
+        public Vec3 resolvePosition(ArgumentReader re, Player var1, Consumer<Component> errMsg);
     }
 
     public static Map<String, SpecialPositionResolver> specialPositionRegistry = new LinkedHashMap<>();
-    public static Vec3d MARK = null;
+    public static Vec3 MARK = null;
 
     static {
-        specialPositionRegistry.put("this", (re, var1, errMsg) -> var1.getPos());
+        specialPositionRegistry.put("this", (re, var1, errMsg) -> var1.position());
         specialPositionRegistry.put("near", (re, var1, errMsg) -> {
-            var player = mc.world.getPlayers().stream()
+            var player = mc.level.players().stream()
                     .filter(m -> m != var1)
-                    .sorted(Comparator.comparingDouble(m -> m.getPos().squaredDistanceTo(var1.getPos())))
+                    .sorted(Comparator.comparingDouble(m -> m.position().distanceToSqr(var1.position())))
                     .findFirst()
                     .orElse(null);
             if (player == null) {
-                errMsg.accept(Text.literal("附近没有其他玩家!").formatted(Formatting.RED));
+                errMsg.accept(Component.literal("附近没有其他玩家!").withStyle(ChatFormatting.RED));
                 return null;
             } else {
-                errMsg.accept(Text.literal("找到附近的玩家: " + player.getName()).formatted(Formatting.GREEN));
+                errMsg.accept(Component.literal("找到附近的玩家: " + player.getName()).withStyle(ChatFormatting.GREEN));
             }
-            return player.getPos();
+            return player.position();
         });
         specialPositionRegistry.put("mark", (re, var1, errMsg) -> {
             if (MovTasks.MARK != null) {
-                Vec3d pos = Vec3d.ZERO.add(MovTasks.MARK);
-                errMsg.accept(Text.literal("使用记录坐标： ").append(ChatUtils.getDisplayedLocationDouble(pos)));
+                Vec3 pos = Vec3.ZERO.add(MovTasks.MARK);
+                errMsg.accept(Component.literal("使用记录坐标： ").append(ChatUtils.getDisplayedLocationDouble(pos)));
                 return pos;
             } else {
-                errMsg.accept(Text.literal("暂未记录坐标!"));
+                errMsg.accept(Component.literal("暂未记录坐标!"));
                 return null;
             }
         });
         specialPositionRegistry.put("back", (re, var1, errMsg) -> {
             if (MovTasks.LAST_TP_FROM != null) {
                 errMsg.accept(
-                        Text.literal("使用上一个位置: ").append(ChatUtils.getDisplayedLocationDouble(MovTasks.LAST_TP_FROM)));
+                        Component.literal("使用上一个位置: ").append(ChatUtils.getDisplayedLocationDouble(MovTasks.LAST_TP_FROM)));
                 return MovTasks.LAST_TP_FROM;
             }
-            errMsg.accept(Text.literal("找不到上一个位置"));
+            errMsg.accept(Component.literal("找不到上一个位置"));
             return null;
         });
         specialPositionRegistry.put("desync", (re, var1, errMsg) -> {
             if (MovTasks.setBackLog.lastDesyncPos != null) {
-                errMsg.accept(Text.literal("使用上次客户端同步之前的位置")
+                errMsg.accept(Component.literal("使用上次客户端同步之前的位置")
                         .append(ChatUtils.getDisplayedLocationDouble(MovTasks.setBackLog.lastDesyncPos)));
                 return MovTasks.setBackLog.lastDesyncPos;
             }
-            errMsg.accept(Text.literal("找不到上一次的客户端同步记录"));
+            errMsg.accept(Component.literal("找不到上一次的客户端同步记录"));
             return null;
         });
         specialPositionRegistry.put("lasttp", (re, var1, errMsg) -> {
             if (MovTasks.LAST_TP_REQUEST != null) {
-                errMsg.accept(Text.literal("使用上一个TP请求: ")
+                errMsg.accept(Component.literal("使用上一个TP请求: ")
                         .append(ChatUtils.getDisplayedLocationDouble(MovTasks.LAST_TP_REQUEST)));
                 return MovTasks.LAST_TP_REQUEST;
             }
-            errMsg.accept(Text.literal("找不到上一个TP请求"));
+            errMsg.accept(Component.literal("找不到上一个TP请求"));
             return null;
         });
         specialPositionRegistry.put("death", (re, var1, errMsg) -> {
-            var b0 = var1.getLastDeathPos();
+            var b0 = var1.getLastDeathLocation();
             if (b0.isPresent()) {
-                if (Objects.equals(b0.get().dimension(), mc.world.getRegistryKey())) {
-                    return b0.get().pos().toBottomCenterPos();
+                if (Objects.equals(b0.get().dimension(), mc.level.dimension())) {
+                    return Vec3.atBottomCenterOf(b0.get().pos());
                 } else {
-                    errMsg.accept(Text.literal("上次死亡位置不在该世界"));
+                    errMsg.accept(Component.literal("上次死亡位置不在该世界"));
                 }
             } else {
-                errMsg.accept(Text.literal("暂未死亡历史记录"));
+                errMsg.accept(Component.literal("暂未死亡历史记录"));
             }
             return null;
         });
@@ -2580,15 +2589,15 @@ public class MovTasks {
         });
     }
 
-    public static Vec3d resolveCommandSpecialPositions(
-            String type, ArgumentReader reader, PlayerEntity var1, Consumer<Text> errMsg) {
+    public static Vec3 resolveCommandSpecialPositions(
+            String type, ArgumentReader reader, Player var1, Consumer<Component> errMsg) {
         if (type.startsWith("#")) {
             String val = type.substring(1);
             if (specialPositionRegistry.containsKey(val)) {
                 SpecialPositionResolver resolver = specialPositionRegistry.get(val);
                 return resolver.resolvePosition(reader, var1, errMsg);
             } else {
-                errMsg.accept(Text.literal("不存在这样的特殊位置: " + type).formatted(Formatting.RED));
+                errMsg.accept(Component.literal("不存在这样的特殊位置: " + type).withStyle(ChatFormatting.RED));
             }
         }
         return null;
@@ -2672,8 +2681,8 @@ public class MovTasks {
     //            .build()
     //    );
 
-    private static Vec3d resolveCoord(Entity entity, InputArgument argx, InputArgument argy, InputArgument argz) {
-        Vec3d parsedCoord;
+    private static Vec3 resolveCoord(Entity entity, InputArgument argx, InputArgument argy, InputArgument argz) {
+        Vec3 parsedCoord;
         if (argx.nonnullResultAsString().startsWith("^")) {
             // use polar coord
             if (!(argy.nonnullResultAsString().startsWith("^")
@@ -2689,7 +2698,7 @@ public class MovTasks {
             parsedCoord = EntityUtils.lookCoordToAbsolutePos(entity, x, y, z);
         } else {
             // use simple coord
-            Vec3d pos = entity.getPos();
+            Vec3 pos = entity.position();
             double x = 0;
             double y = 0;
             double z = 0;
@@ -2718,7 +2727,7 @@ public class MovTasks {
                 z += CommandUtils.gdouble(zcoord, argz.getType());
             }
 
-            parsedCoord = new Vec3d(x, y, z);
+            parsedCoord = new Vec3(x, y, z);
         }
         return parsedCoord;
     }
@@ -2739,7 +2748,7 @@ public class MovTasks {
                 CommandExecution execution, List<InputArgument<?>> args, ArgumentReader reader) {
             if (reader.hasNext()) {
                 int startIndex = reader.cursor();
-                Optional<Vec3d> parsePos = getTpaCommandResult(execution, args, reader, Consumers.nop());
+                Optional<Vec3> parsePos = getTpaCommandResult(execution, args, reader, Consumers.nop());
                 if (parsePos != null) {
                     // parsed success, maybe null
                     // output.forEach(execution::sendMessage);
@@ -2781,7 +2790,7 @@ public class MovTasks {
                 CommandExecution execution, List<InputArgument<?>> args, ArgumentReader reader) {
             if (reader.hasNext()) {
                 int startIndex = reader.cursor();
-                Optional<Vec3d> parsePos = getTpaCommandResult(execution, args, reader, Consumers.nop());
+                Optional<Vec3> parsePos = getTpaCommandResult(execution, args, reader, Consumers.nop());
                 if (parsePos != null) {
                     // parsed success, maybe null
                     //  output.forEach(execution::sendMessage);

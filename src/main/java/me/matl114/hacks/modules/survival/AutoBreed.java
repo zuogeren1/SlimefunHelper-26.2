@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.survival;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -33,16 +34,15 @@ import me.matl114.utils.RenderUtils;
 import me.matl114.utils.annotations.NeedTest;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 @NeedTest
 public class AutoBreed extends BaseModule {
@@ -78,16 +78,16 @@ public class AutoBreed extends BaseModule {
     public final FlagRef render = flagBuilder(root.add("render")).build();
 
     public final NBTRef<WrapColor> renderColor = builder(root.add("render-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.GREEN))
+            .defaultValue(new WrapColor(ChatFormatting.GREEN))
             .build();
 
     public final NBTRef<WrapColor> renderPenColor = builder(root.add("render-pen-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.YELLOW))
+            .defaultValue(new WrapColor(ChatFormatting.YELLOW))
             .build();
 
     public final NBTRef<WrapColor> renderOtherAnimalColor = builder(
                     root.add("render-other-animal-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.AQUA))
+            .defaultValue(new WrapColor(ChatFormatting.AQUA))
             .build();
 
     public final NBTRef<EntityTypeRegex> entityWhitelist = builder(root.add("entity-whitelist"), EntityTypeRegex.class)
@@ -95,7 +95,7 @@ public class AutoBreed extends BaseModule {
             .build();
 
     private final PathingSchedular pathingSchedular = new PathingSchedular();
-    private AnimalEntity targetAnimal;
+    private Animal targetAnimal;
     private AnimalPen targetPen;
     private int lastInteractTick;
 
@@ -118,14 +118,14 @@ public class AutoBreed extends BaseModule {
         pathingSchedular.disable();
     }
 
-    private boolean isBreedTarget(AnimalEntity animal) {
+    private boolean isBreedTarget(Animal animal) {
         return EntityUtils.isEntityValid(animal)
                 && entityWhitelist.get().test(animal.getType())
                 && FarmingUtils.isBreedable(animal)
                 && isInteractionTarget(animal);
     }
 
-    private boolean isInteractionTarget(AnimalEntity animal) {
+    private boolean isInteractionTarget(Animal animal) {
         if (animal.isBaby()) {
             return enableFeedBaby.get() && getBabyBreedCount(animal) < babyFeedLimit.get();
         }
@@ -136,7 +136,7 @@ public class AutoBreed extends BaseModule {
         if (targetAnimal != null && isBreedTarget(targetAnimal)) {
             targetPen = locateAnimalPen(targetAnimal);
             if (targetPen != null) {
-                AnimalEntity bestInPen = findBestTargetInPen(targetPen);
+                Animal bestInPen = findBestTargetInPen(targetPen);
                 if (bestInPen != null) {
                     targetAnimal = bestInPen;
                 }
@@ -146,19 +146,19 @@ public class AutoBreed extends BaseModule {
         targetAnimal = null;
         targetPen = null;
 
-        List<AnimalEntity> animals = mc.world.getEntitiesByClass(
-                AnimalEntity.class,
-                mc.player.getBoundingBox().expand(SEARCH_RADIUS, SEARCH_RADIUS / 2.0, SEARCH_RADIUS),
+        List<Animal> animals = mc.level.getEntitiesOfClass(
+                Animal.class,
+                mc.player.getBoundingBox().inflate(SEARCH_RADIUS, SEARCH_RADIUS / 2.0, SEARCH_RADIUS),
                 this::isBreedTarget);
-        AnimalEntity best = animals.stream()
-                .min(Comparator.comparingDouble(animal -> animal.squaredDistanceTo(mc.player)))
+        Animal best = animals.stream()
+                .min(Comparator.comparingDouble(animal -> animal.distanceToSqr(mc.player)))
                 .orElse(null);
         if (best == null) {
             return;
         }
         targetPen = locateAnimalPen(best);
         if (targetPen != null) {
-            AnimalEntity bestInPen = findBestTargetInPen(targetPen);
+            Animal bestInPen = findBestTargetInPen(targetPen);
             targetAnimal = bestInPen != null ? bestInPen : best;
         } else {
             targetAnimal = best;
@@ -177,7 +177,7 @@ public class AutoBreed extends BaseModule {
     public void tickBreed() {
         if (targetAnimal == null
                 || pathingSchedular.isPathing()
-                || !TargetSelector.INSTANCE.isWithinAttackRange(mc.player.getPos(), targetAnimal)) {
+                || !TargetSelector.INSTANCE.isWithinAttackRange(mc.player.position(), targetAnimal)) {
             return;
         }
         IndexEntry<ItemStack> breedItem = findBreedItem(targetAnimal);
@@ -196,7 +196,7 @@ public class AutoBreed extends BaseModule {
         lastInteractTick = Tasks.getTick();
     }
 
-    private int getBabyBreedCount(AnimalEntity animal) {
+    private int getBabyBreedCount(Animal animal) {
         if (!(animal instanceof MetadataHolder holder)) {
             return 0;
         }
@@ -204,26 +204,26 @@ public class AutoBreed extends BaseModule {
         return count == null ? 0 : count;
     }
 
-    private void incrementBabyBreedCount(AnimalEntity animal) {
+    private void incrementBabyBreedCount(Animal animal) {
         if (animal instanceof MetadataHolder holder) {
             holder.getMetadata().put(this, BABY_BREED_COUNT_KEY, getBabyBreedCount(animal) + 1);
         }
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (!enable.get() || !render.get() || targetAnimal == null) {
             return;
         }
         float partialTicks = event.getArgs(0);
         RenderUtils.startDrawVirtual(event.context);
         try {
-            RenderCollector<Box> collector = RenderCollectors.createBoxCollector(true, false, false);
+            RenderCollector<AABB> collector = RenderCollectors.createBoxCollector(true, false, false);
             collector.submit(
                     RenderUtils.getLerpedBox(targetAnimal, partialTicks),
                     renderColor.get().withAlpha(255));
-            if (targetPen != null && targetPen.innerBox().contains(targetAnimal.getPos())) {
+            if (targetPen != null && targetPen.innerBox().contains(targetAnimal.position())) {
                 collector.submit(targetPen.outerBox(), renderPenColor.get().withAlpha(255));
-                for (AnimalEntity animal : getBreedTargetsInPen(targetPen)) {
+                for (Animal animal : getBreedTargetsInPen(targetPen)) {
                     if (animal != targetAnimal) {
                         collector.submit(
                                 RenderUtils.getLerpedBox(animal, partialTicks),
@@ -237,20 +237,20 @@ public class AutoBreed extends BaseModule {
         }
     }
 
-    private List<AnimalEntity> getBreedTargetsInPen(AnimalPen pen) {
-        return mc.world.getEntitiesByClass(AnimalEntity.class, pen.innerBox(), this::isBreedTarget);
+    private List<Animal> getBreedTargetsInPen(AnimalPen pen) {
+        return mc.level.getEntitiesOfClass(Animal.class, pen.innerBox(), this::isBreedTarget);
     }
 
-    private Predicate<ItemStack> breedItemPredicate(AnimalEntity animal) {
+    private Predicate<ItemStack> breedItemPredicate(Animal animal) {
         Set<ItemStack> breedItems = FarmingUtils.getBreedItems(animal);
-        return stack -> !stack.isEmpty() && breedItems.stream().anyMatch(item -> stack.isOf(item.getItem()));
+        return stack -> !stack.isEmpty() && breedItems.stream().anyMatch(item -> stack.is(item.getItem()));
     }
 
-    private IndexEntry<ItemStack> findBreedItem(AnimalEntity animal) {
+    private IndexEntry<ItemStack> findBreedItem(Animal animal) {
         return InventoryUtils.findPlayerItem(breedItemPredicate(animal), true, false);
     }
 
-    private boolean shouldReplenish(AnimalEntity animal) {
+    private boolean shouldReplenish(Animal animal) {
         return findBreedItem(animal) == null;
     }
 
@@ -267,12 +267,12 @@ public class AutoBreed extends BaseModule {
             return null;
         }
         if (targetPen != null) {
-            BlockPos perimeterStop = targetPen.selectPerimeterStop(mc.player.getPos());
+            BlockPos perimeterStop = targetPen.selectPerimeterStop(mc.player.position());
             if (perimeterStop != null) {
                 return PathingSchedular.pathToOrNearStopGoal(perimeterStop, 1.5);
             }
         }
-        return PathingSchedular.pathToOrNearStopGoal(targetAnimal.getBlockPos(), 1.5);
+        return PathingSchedular.pathToOrNearStopGoal(targetAnimal.blockPosition(), 1.5);
     }
 
     {
@@ -285,22 +285,22 @@ public class AutoBreed extends BaseModule {
                 .processGoal(this::processGoal);
     }
 
-    private AnimalEntity findBestTargetInPen(AnimalPen pen) {
+    private Animal findBestTargetInPen(AnimalPen pen) {
         if (pen == null) {
             return null;
         }
-        List<AnimalEntity> animals =
-                mc.world.getEntitiesByClass(AnimalEntity.class, pen.innerBox(), this::isBreedTarget);
+        List<Animal> animals =
+                mc.level.getEntitiesOfClass(Animal.class, pen.innerBox(), this::isBreedTarget);
         return animals.stream()
-                .min(Comparator.comparingDouble(animal -> animal.squaredDistanceTo(mc.player)))
+                .min(Comparator.comparingDouble(animal -> animal.distanceToSqr(mc.player)))
                 .orElse(null);
     }
 
-    private AnimalPen locateAnimalPen(AnimalEntity anchor) {
-        if (mc.world == null || mc.player == null || anchor == null) {
+    private AnimalPen locateAnimalPen(Animal anchor) {
+        if (mc.level == null || mc.player == null || anchor == null) {
             return null;
         }
-        BlockPos origin = anchor.getBlockPos();
+        BlockPos origin = anchor.blockPosition();
         BlockPos west = findWall(origin, Direction.WEST);
         BlockPos east = findWall(origin, Direction.EAST);
         BlockPos north = findWall(origin, Direction.NORTH);
@@ -328,7 +328,7 @@ public class AutoBreed extends BaseModule {
 
     private BlockPos findWall(BlockPos origin, Direction direction) {
         for (int i = 1; i <= PEN_SEARCH_RADIUS; i++) {
-            BlockPos pos = origin.offset(direction, i);
+            BlockPos pos = origin.relative(direction, i);
             if (isWallBlock(pos)) {
                 return pos;
             }
@@ -351,18 +351,18 @@ public class AutoBreed extends BaseModule {
     }
 
     private boolean isWallBlock(BlockPos pos) {
-        if (mc.world == null || mc.player == null) {
+        if (mc.level == null || mc.player == null) {
             return false;
         }
-        var state = mc.world.getBlockState(pos);
-        if (state.isAir() || state.isLiquid()) {
+        var state = mc.level.getBlockState(pos);
+        if (state.isAir() || state.liquid()) {
             return false;
         }
-        VoxelShape shape = state.getCollisionShape(mc.world, pos, ShapeContext.of(mc.player));
+        VoxelShape shape = state.getCollisionShape(mc.level, pos, CollisionContext.of(mc.player));
         if (shape.isEmpty()) {
             return false;
         }
-        Box box = shape.getBoundingBox();
+        AABB box = shape.bounds();
         double width = box.maxX - box.minX;
         double height = box.maxY - box.minY;
         double depth = box.maxZ - box.minZ;
@@ -370,35 +370,35 @@ public class AutoBreed extends BaseModule {
     }
 
     private record AnimalPen(int minX, int maxX, int minZ, int maxZ, int y) {
-        Box outerBox() {
-            return new Box(minX, y, minZ, maxX + 1.0D, y + 2.0D, maxZ + 1.0D);
+        AABB outerBox() {
+            return new AABB(minX, y, minZ, maxX + 1.0D, y + 2.0D, maxZ + 1.0D);
         }
 
-        Box innerBox() {
-            return new Box(minX + 1.0D, y, minZ + 1.0D, maxX, y + 2.0D, maxZ);
+        AABB innerBox() {
+            return new AABB(minX + 1.0D, y, minZ + 1.0D, maxX, y + 2.0D, maxZ);
         }
 
-        BlockPos selectPerimeterStop(Vec3d playerPos) {
+        BlockPos selectPerimeterStop(Vec3 playerPos) {
             int standY = y + 1;
-            int px = BlockPos.ofFloored(playerPos).getX();
-            int pz = BlockPos.ofFloored(playerPos).getZ();
+            int px = BlockPos.containing(playerPos).getX();
+            int pz = BlockPos.containing(playerPos).getZ();
             BlockPos west = new BlockPos(minX - 1, standY, clamp(pz, minZ, maxZ));
             BlockPos east = new BlockPos(maxX + 1, standY, clamp(pz, minZ, maxZ));
             BlockPos north = new BlockPos(clamp(px, minX, maxX), standY, minZ - 1);
             BlockPos south = new BlockPos(clamp(px, minX, maxX), standY, maxZ + 1);
             BlockPos best = west;
-            double bestScore = west.toCenterPos().squaredDistanceTo(playerPos);
-            double eastScore = east.toCenterPos().squaredDistanceTo(playerPos);
+            double bestScore = Vec3.atCenterOf(west).distanceToSqr(playerPos);
+            double eastScore = Vec3.atCenterOf(east).distanceToSqr(playerPos);
             if (eastScore < bestScore) {
                 best = east;
                 bestScore = eastScore;
             }
-            double northScore = north.toCenterPos().squaredDistanceTo(playerPos);
+            double northScore = Vec3.atCenterOf(north).distanceToSqr(playerPos);
             if (northScore < bestScore) {
                 best = north;
                 bestScore = northScore;
             }
-            double southScore = south.toCenterPos().squaredDistanceTo(playerPos);
+            double southScore = Vec3.atCenterOf(south).distanceToSqr(playerPos);
             if (southScore < bestScore) {
                 best = south;
             }

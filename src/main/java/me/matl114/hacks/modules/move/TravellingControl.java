@@ -32,13 +32,13 @@ import me.matl114.utils.commands.params.ArgumentReader;
 import me.matl114.utils.commands.params.SimpleCommandArgs;
 import me.matl114.utils.commands.params.api.CommandExecution;
 import me.matl114.utils.commands.params.types.ExecutePos;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.s2c.play.EnterReconfigurationS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundStartConfigurationPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3d;
 
 public class TravellingControl extends BaseModule implements LegalMovementManager.MovementModifier {
@@ -202,10 +202,10 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
         registerCommandBootstrap(this::bootStrapTravelCommand);
         registerListener(Listener.getCustomListener().getChannel(FlightVelocity.class), this::onElytraVelocity);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(EnterReconfigurationS2CPacket.class),
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundStartConfigurationPacket.class),
                 this::onReconfiguration);
         registerListener(
-                Listener.getPacketPreHandlePoint().getChannel(PlayerPositionLookS2CPacket.class),
+                Listener.getPacketPreHandlePoint().getChannel(ClientboundPlayerPositionPacket.class),
                 this::onPlayerPositionLook);
         registerListener(Listener.getPreTick(), this::onTick);
     }
@@ -223,7 +223,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
         };
     }
 
-    private void onPlayerPositionLook(Event<PlayerPositionLookS2CPacket> eventPosition) {
+    private void onPlayerPositionLook(Event<ClientboundPlayerPositionPacket> eventPosition) {
         if (travelDelegate instanceof TravelMoveVoid2 void2) {
             void2.onPlayerPositionLook(eventPosition);
         }
@@ -231,7 +231,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
 
     boolean currentReconfiguration = false;
 
-    private void onReconfiguration(Event<EnterReconfigurationS2CPacket> eventKick) {
+    private void onReconfiguration(Event<ClientboundStartConfigurationPacket> eventKick) {
         currentReconfiguration = true;
     }
 
@@ -247,7 +247,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
                 var info = travelTask;
                 if (info.pause) {
                     Debug.chat("重新加载上一个Travel task中...");
-                    info.onStart(this, mc.player.getPos());
+                    info.onStart(this, mc.player.position());
                     travelDelegate.onStop();
                     travelDelegate.onStart(info);
                     Debug.chat("上一个travel task重新加载完成,使用travel cancel取消");
@@ -298,12 +298,12 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
         ExecutePos pos = streamArgs.nextArg();
         if (pos != null) {
             Vector3d vector3d = pos.getPosition(var1);
-            onTravel(var1.getExecutor(), new Vec3d(vector3d.x, vector3d.y, vector3d.z));
+            onTravel(var1.getExecutor(), new Vec3(vector3d.x, vector3d.y, vector3d.z));
         }
         return true;
     }
 
-    public void onTravel(PlayerEntity var1, Vec3d parsedCoord) {
+    public void onTravel(Player var1, Vec3 parsedCoord) {
         checkSelf();
         if (travelTask != null) {
             Debug.chat("上一个travel task仍旧在执行,自动取消中");
@@ -338,13 +338,13 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
         }
     }
 
-    public void travelMode(Optional<Vec3d> traget) {
+    public void travelMode(Optional<Vec3> traget) {
         Type type = controlType.get();
         Debug.chat("当前运动类型: " + type.getDisplay().getString());
         TravelInfo info = new TravelInfo();
         info.pos0 = traget;
 
-        info.onStart(this, mc.player.getPos());
+        info.onStart(this, mc.player.position());
 
         travelTask = info;
         double initY = mc.player.getY();
@@ -369,7 +369,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
         long usedSec = (System.currentTimeMillis() - ti.startingTime) / 1000L;
         Debug.info("using time", usedSec);
         if (mc.player != null) {
-            double len = mc.player.getPos().distanceTo(ti.startPos);
+            double len = mc.player.position().distanceTo(ti.startPos);
             double avgSpeed = usedSec > 0 ? len / usedSec : 0;
             Debug.chat(
                     "时间开销:",
@@ -442,20 +442,20 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
             double horizontalSpeed = speed.get();
 
             if (ti.state == TravelState.STABLE) {
-                Vec3d towards = ti.getCurrentFlyingTarget().subtract(mc.player.getPos());
-                Vec3d towardsHorizontal = new Vec3d(towards.x, 0, towards.z).normalize();
+                Vec3 towards = ti.getCurrentFlyingTarget().subtract(mc.player.position());
+                Vec3 towardsHorizontal = new Vec3(towards.x, 0, towards.z).normalize();
 
                 if (moveAndCheckFinish(
-                        ti, towardsHorizontal.multiply(horizontalSpeed).add(0, -0.05, 0))) {
+                        ti, towardsHorizontal.scale(horizontalSpeed).add(0, -0.05, 0))) {
                     return true;
                 }
                 if (moveAndCheckFinish(
-                        ti, towardsHorizontal.multiply(horizontalSpeed).add(0, -0.05, 0))) {
+                        ti, towardsHorizontal.scale(horizontalSpeed).add(0, -0.05, 0))) {
                     return true;
                 }
                 if (tickCNT % 3 == 0) {
                     if (moveAndCheckFinish(
-                            ti, towardsHorizontal.multiply(horizontalSpeed).add(0, -0.05, 0))) {
+                            ti, towardsHorizontal.scale(horizontalSpeed).add(0, -0.05, 0))) {
                         return true;
                     }
                 }
@@ -469,7 +469,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
                     deltaY = -0.3;
                 }
 
-                Vec3d delta = new Vec3d(0, deltaY, 0);
+                Vec3 delta = new Vec3(0, deltaY, 0);
                 if (moveAndCheckFinish(ti, delta)) {
                     return true;
                 }
@@ -500,7 +500,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
             this.info = state;
         }
 
-        public void onPlayerPositionLook(Event<PlayerPositionLookS2CPacket> event) {
+        public void onPlayerPositionLook(Event<ClientboundPlayerPositionPacket> event) {
             catchResyncPackets = true;
         }
 
@@ -527,18 +527,18 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
                 if (checkFinish(ti)) {
                     return true;
                 }
-                Vec3d towards = ti.getCurrentFlyingTarget().subtract(mc.player.getPos());
-                towards = new Vec3d(towards.x, 0, towards.z);
-                double len = towards.horizontalLengthSquared();
-                Vec3d towardsHorizontal = towards.normalize();
-                Vec3d delta = towardsHorizontal
-                        .multiply(horizontalSpeed)
+                Vec3 towards = ti.getCurrentFlyingTarget().subtract(mc.player.position());
+                towards = new Vec3(towards.x, 0, towards.z);
+                double len = towards.horizontalDistanceSqr();
+                Vec3 towardsHorizontal = towards.normalize();
+                Vec3 delta = towardsHorizontal
+                        .scale(horizontalSpeed)
                         .add(0, -0.05, 0)
-                        .multiply(void2Arg.get());
-                if (delta.horizontalLengthSquared() > len) {
+                        .scale(void2Arg.get());
+                if (delta.horizontalDistanceSqr() > len) {
                     delta = towards;
                 }
-                Vec3d targetPos = mc.player.getPos().add(delta);
+                Vec3 targetPos = mc.player.position().add(delta);
                 if (catchResyncPackets) {
                     catchResyncPackets = false;
                 } else {
@@ -556,7 +556,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
                     deltaY = -0.3;
                 }
 
-                Vec3d delta = new Vec3d(0, deltaY, 0);
+                Vec3 delta = new Vec3(0, deltaY, 0);
                 if (moveAndCheckFinish(ti, delta)) {
                     return true;
                 }
@@ -573,7 +573,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
     }
 
     private class TravelMoveVelocity implements TravelDelegate {
-        private Vec3d elytraPos = null;
+        private Vec3 elytraPos = null;
         int tickCNT = 0;
 
         @Override
@@ -609,13 +609,13 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
                 if (checkFinish(ti)) {
                     return true;
                 }
-                Vec3d currentPos = mc.player.getPos();
-                Vec3d towards = ti.getCurrentFlyingTarget().subtract(currentPos);
-                Vec3d direction = towards.normalize()
-                        .withAxis(Direction.Axis.Y, 0)
-                        .multiply(elySpeed)
+                Vec3 currentPos = mc.player.position();
+                Vec3 towards = ti.getCurrentFlyingTarget().subtract(currentPos);
+                Vec3 direction = towards.normalize()
+                        .with(Direction.Axis.Y, 0)
+                        .scale(elySpeed)
                         .add(0, -0.05, 0);
-                elytraPos = currentPos.add(direction.multiply(10));
+                elytraPos = currentPos.add(direction.scale(10));
             } else {
                 // 高度修正目标
                 double targetY;
@@ -633,7 +633,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
                     deltaY = -0.3;
                 }
 
-                elytraPos = mc.player.getPos().add(0, deltaY, 0);
+                elytraPos = mc.player.position().add(0, deltaY, 0);
             }
 
             return false;
@@ -646,7 +646,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
             EventContainer<FlightVelocity> eventContainer = event.context();
             if (eventContainer.getValue().mode() != FlightVelocity.Mode.ELYTRA_FLIGHT) return;
             FlightVelocity velocity = eventContainer.getValue();
-            Vec3d towards = elytraPos.subtract(mc.player.getPos()).normalize().multiply(speed.get());
+            Vec3 towards = elytraPos.subtract(mc.player.position()).normalize().scale(speed.get());
             velocity.x(towards.x).y(towards.y).z(towards.z);
         }
     }
@@ -680,8 +680,8 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
 
         public int onStateUpdate(StateMachine machine, int state) {
             counter2 += 1;
-            Vec3d currentPos = mc.player.getPos();
-            Vec3d towards = ti.getCurrentFlyingTarget().subtract(currentPos);
+            Vec3 currentPos = mc.player.position();
+            Vec3 towards = ti.getCurrentFlyingTarget().subtract(currentPos);
             // anti afk
 
             float yaw = EntityUtils.rotationToPitchYaw(towards.normalize()).y;
@@ -771,11 +771,11 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
                 // reset fucking jump input
                 MovTasks.getMovExtra().sendPacketsForInventoryAction();
                 // launch event from this method
-                if (mc.player.checkGliding()) {
+                if (mc.player.tryToStartFallFlying()) {
                     MovExtra.INSTANCE.sendPacketsForPreStartFallFlying();
-                    mc.getNetworkHandler()
-                            .sendPacket(new ClientCommandC2SPacket(
-                                    mc.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                    mc.getConnection()
+                            .send(new ServerboundPlayerCommandPacket(
+                                    mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                     MovExtra.INSTANCE.sendPacketsForPostStartFallFlying();
                 }
 
@@ -921,7 +921,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
         @Override
         public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
             if (ti == null || ti.shouldNotRun()) return;
-            ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+            LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
             control.updateState(ti, player.getY());
             checkNotStart();
             if (startWork) {
@@ -959,7 +959,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
 
         @Override
         public int onStateUpdate(StateMachine machine, int state) {
-            Vec3d velocity = PlayerStateManager.INSTANCE.lastKnownChangePosMovementSpeed;
+            Vec3 velocity = PlayerStateManager.INSTANCE.lastKnownChangePosMovementSpeed;
 
             currentDangerousVelocity = ElytraGrimAccelerate.INSTANCE.fixOldVersionVelocityShit.get()
                     && (Math.abs(velocity.x) >= 3.8 || Math.abs(velocity.y) >= 3.8 || Math.abs(velocity.z) >= 3.8);
@@ -1020,7 +1020,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
         @Override
         public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
             if (ti == null || ti.shouldNotRun()) return;
-            ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+            LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
             control.updateState(ti, player.getY());
             checkNotStart();
             if (startWork) {
@@ -1044,12 +1044,12 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
     }
 
     // 封装原 move() 和 finish() 逻辑，返回 true 表示任务结束
-    private boolean moveAndCheckFinish(TravelInfo ti, Vec3d delta) {
+    private boolean moveAndCheckFinish(TravelInfo ti, Vec3 delta) {
         if (delta.length() == 0) {
-            MovTasks.moveToWithPackets(mc.player.getPos(), null);
+            MovTasks.moveToWithPackets(mc.player.position(), null);
             return false;
         } else {
-            MovTasks.moveToWithPackets(mc.player.getPos().add(delta), false);
+            MovTasks.moveToWithPackets(mc.player.position().add(delta), false);
             return checkFinish(ti);
         }
     }
@@ -1057,7 +1057,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
     private boolean checkFinish(TravelInfo ti) {
         if (travelTask != ti
                 || ti.instance != this
-                || mc.player.getPos().subtract(ti.getCurrentFlyingTarget()).horizontalLengthSquared() < 900) {
+                || mc.player.position().subtract(ti.getCurrentFlyingTarget()).horizontalDistanceSqr() < 900) {
             outputTravelStats(ti);
             if (mc.player != null) {
                 mc.player.setOnGround(false);
@@ -1116,16 +1116,16 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
     public static TravelInfo travelTask;
 
     public static class TravelInfo {
-        public Optional<Vec3d> pos0;
+        public Optional<Vec3> pos0;
         public long startingTime;
-        public Vec3d startPos;
+        public Vec3 startPos;
         public TravelState state;
         public boolean stop = false;
         public TravellingControl instance;
         public boolean stopManually = false;
         public boolean pause;
 
-        public void onStart(TravellingControl instance, Vec3d startPos) {
+        public void onStart(TravellingControl instance, Vec3 startPos) {
             startingTime = System.currentTimeMillis();
             stop = false;
             stopManually = false;
@@ -1134,11 +1134,11 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
             this.startPos = startPos;
         }
 
-        public Vec3d getCurrentFlyingTarget() {
+        public Vec3 getCurrentFlyingTarget() {
             return pos0.orElseGet(() -> {
-                Vec3d playerPos = mc.player.getPos();
-                Vec3d horizontal = EntityUtils.pitchYawToRotation(0, mc.player.getYaw());
-                return playerPos.add(horizontal.multiply(10000)).withAxis(Direction.Axis.Y, playerPos.getY());
+                Vec3 playerPos = mc.player.position();
+                Vec3 horizontal = EntityUtils.pitchYawToRotation(0, mc.player.getYRot());
+                return playerPos.add(horizontal.scale(10000)).with(Direction.Axis.Y, playerPos.y());
             });
         }
 

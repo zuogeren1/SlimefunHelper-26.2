@@ -1,7 +1,7 @@
 package fi.dy.masa.malilib.util;
 
 import com.mojang.serialization.Codec;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 
 public class LayerRange {
     public static Codec<LayerRange> CODEC = null;

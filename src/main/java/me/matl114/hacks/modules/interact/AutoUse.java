@@ -15,11 +15,16 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.*;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Hand;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TridentItem;
 
 public class AutoUse extends BaseModule {
     public AutoUse() {
@@ -44,11 +49,11 @@ public class AutoUse extends BaseModule {
     public final FlagRef useFood = flagBuilder(path.add("use-food")).build();
 
     public final NBTRef<EntrySet<Item>> whiteList = builder(path.add("use-item-white-list"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*spear|.*sword|shield)$"), Registries.ITEM))
+            .defaultValue(new EntrySet<>(new Regex("^(.*spear|.*sword|shield)$"), BuiltInRegistries.ITEM))
             .build();
 
     public boolean isUsableNotFood(ItemStack stack) {
-        var block = stack.get(DataComponentTypes.BLOCKS_ATTACKS);
+        var block = stack.get(DataComponents.BLOCKS_ATTACKS);
         if (block != null) return true;
         if (VItem.getInstance().isSpear(stack)) return true;
         var item = stack.getItem();
@@ -67,14 +72,14 @@ public class AutoUse extends BaseModule {
         super.onDisableModule();
         if (!checkNull() && lastAutoUsingSpear) {
             lastAutoUsingSpear = false;
-            KeyBindAccess.of(mc.options.useKey).resetKeyState();
+            KeyBindAccess.of(mc.options.keyUse).resetKeyState();
         }
     }
 
     private boolean pass() {
         if (onlyWhenEnemyNear.get()
                 && TargetSelector.INSTANCE.searchAttackEntity(
-                                nearDistance.get(), true, pl -> pl instanceof PlayerEntity)
+                                nearDistance.get(), true, pl -> pl instanceof Player)
                         == null) {
             return false;
         }
@@ -92,49 +97,49 @@ public class AutoUse extends BaseModule {
     public void onInputEvent(Event<Void> event) {
         if (enable.get() && pass()) {
             if (!mc.player.isUsingItem()) {
-                ItemStack mainHand = mc.player.getMainHandStack();
-                ItemStack offHand = mc.player.getOffHandStack();
-                Hand useHand;
+                ItemStack mainHand = mc.player.getMainHandItem();
+                ItemStack offHand = mc.player.getOffhandItem();
+                InteractionHand useHand;
                 if (isWorkingAcceptable(mainHand)) {
-                    useHand = Hand.MAIN_HAND;
+                    useHand = InteractionHand.MAIN_HAND;
                 } else if (isWorkingAcceptable(offHand)) {
-                    useHand = Hand.OFF_HAND;
+                    useHand = InteractionHand.OFF_HAND;
                 } else {
                     useHand = null;
                 }
                 if (useHand != null) {
                     ClientAccess.of(mc).simulateUseItem(useHand);
-                    if (mc.player.isUsingItem() && mc.player.getActiveHand() == useHand) {
-                        mc.options.useKey.setPressed(true);
+                    if (mc.player.isUsingItem() && mc.player.getUsedItemHand() == useHand) {
+                        mc.options.keyUse.setDown(true);
                         if (log.get()) {
                             Debug.chat(
                                     ChatUtils.stringToText("&c[Use] &fStart to use"),
-                                    VItem.getInstance().getFormattedName(mc.player.getActiveItem()));
+                                    VItem.getInstance().getFormattedName(mc.player.getUseItem()));
                         }
                     } else {
-                        KeyBindAccess.of(mc.options.useKey).resetKeyState();
+                        KeyBindAccess.of(mc.options.keyUse).resetKeyState();
                     }
                 } else {
                     if (lastAutoUsingSpear) {
                         lastAutoUsingSpear = false;
-                        KeyBindAccess.of(mc.options.useKey).resetKeyState();
+                        KeyBindAccess.of(mc.options.keyUse).resetKeyState();
                     }
                 }
             } else {
-                if (isWorkingAcceptable(mc.player.getActiveItem())) {
-                    mc.options.useKey.setPressed(true);
+                if (isWorkingAcceptable(mc.player.getUseItem())) {
+                    mc.options.keyUse.setDown(true);
                     lastAutoUsingSpear = true;
                 } else {
                     if (lastAutoUsingSpear) {
                         lastAutoUsingSpear = false;
-                        KeyBindAccess.of(mc.options.useKey).resetKeyState();
+                        KeyBindAccess.of(mc.options.keyUse).resetKeyState();
                     }
                 }
             }
         } else {
             if (lastAutoUsingSpear) {
                 lastAutoUsingSpear = false;
-                KeyBindAccess.of(mc.options.useKey).resetKeyState();
+                KeyBindAccess.of(mc.options.keyUse).resetKeyState();
             }
         }
     }

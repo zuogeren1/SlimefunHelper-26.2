@@ -13,7 +13,7 @@ import me.matl114.managers.config.NBTType;
 import me.matl114.managers.config.Ref;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.PairLikeFactory;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 @With
 public record LabelPrimitive<T>(String label, Primitive<T> primitive) implements NBTParsable<LabelPrimitive<T>> {
@@ -28,7 +28,7 @@ public record LabelPrimitive<T>(String label, Primitive<T> primitive) implements
                     LabelPrimitive::new, LabelPrimitive::label, LabelPrimitive::primitive),
             (string, x, y, dx, dy) -> {
                 return DisplayWidget.instance(0, 0, 2 * dy, dy)
-                        .setRenderHandler(new RawTextElement(Text.translatableWithFallback(string, string), -1)
+                        .setRenderHandler(new RawTextElement(Component.translatableWithFallback(string, string), -1)
                                 .withTooltips(TooltipHandler.of(
                                         ChatUtils.parseTooltipsTranslation(string + ".tooltips", ""))));
             },

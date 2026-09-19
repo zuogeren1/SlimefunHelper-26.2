@@ -3,7 +3,7 @@ package me.matl114.gui.basic;
 import java.util.ArrayList;
 import java.util.List;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screens.Screen;
 
 public class DynamicListWidget extends DrawableWidget implements SubSelectable {
     public DynamicListWidget(int x, int y, int width) {

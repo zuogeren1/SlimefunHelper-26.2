@@ -15,11 +15,11 @@ import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.BaseAttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 
 public interface AttrKeyValues {
     public static final AttrKeyValue.CustomWidgetFactory<Boolean> BOOLEAN_WIDGET_FACTORY = (s, x, y, inputDx, dy) -> {
@@ -70,7 +70,7 @@ public interface AttrKeyValues {
         }
 
         public int clampInput(int val) {
-            return MathHelper.clamp(val, min, max);
+            return Mth.clamp(val, min, max);
         }
     }
 
@@ -83,18 +83,18 @@ public interface AttrKeyValues {
     WrapperFactory<String, String> STRING_FACTORY = WrapperFactory.of(Function.identity(), Function.identity());
 
     WrapperFactory<String, TextColor> COLOR_FACTORY =
-            WrapperFactory.of((s) -> TextColor.parse(s).getOrThrow(), TextColor::getName);
+            WrapperFactory.of((s) -> TextColor.parseColor(s).getOrThrow(), TextColor::serialize);
 
-    public static final WrapperFactory<String, NbtElement> NBT_FACTORY = WrapperFactory.of(
+    public static final WrapperFactory<String, Tag> NBT_FACTORY = WrapperFactory.of(
             s -> {
                 if (s == null || s.isEmpty()) return null;
                 return VNbt.getInstance().readNbtNoRegistry(s);
             },
             val -> val == null ? "" : VNbt.getInstance().writeNbt(val));
-    public static final WrapperFactory<String, NbtCompound> NBT_COMPOUND_FACTORY = WrapperFactory.of(
+    public static final WrapperFactory<String, CompoundTag> NBT_COMPOUND_FACTORY = WrapperFactory.of(
             s -> {
                 if (s == null || s.isEmpty()) return null;
-                if (VNbt.getInstance().readNbtNoRegistry(s) instanceof NbtCompound cpd) {
+                if (VNbt.getInstance().readNbtNoRegistry(s) instanceof CompoundTag cpd) {
                     return cpd;
                 }
                 throw WrapperFactory.PARSE_FAILURE;

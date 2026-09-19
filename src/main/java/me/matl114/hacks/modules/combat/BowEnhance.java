@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,23 +29,22 @@ import me.matl114.utils.ColorUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.RenderUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BowItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.RangedWeaponItem;
-import net.minecraft.item.TridentItem;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class BowEnhance extends BaseModule {
     public final ModulePath bowAtt = makePath(Configs.COMBAT_CONFIG, "bow-att");
@@ -90,16 +90,16 @@ public class BowEnhance extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onBowAction, 999);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBowAction, 999);
         registerListener(RenderListener.getRender3DEvent(), this::onRenderAimTarget);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
 
-    public void onBowAction(Event<PlayerActionC2SPacket> actionEvent) {
+    public void onBowAction(Event<ServerboundPlayerActionPacket> actionEvent) {
         if (actionEvent.isCancelled()) return;
         if (!enable.get()) return;
         var actionPacket = actionEvent.context();
-        if (actionPacket.getAction() == PlayerActionC2SPacket.Action.RELEASE_USE_ITEM && mc.player != null) {
+        if (actionPacket.getAction() == ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM && mc.player != null) {
             // delay tp do not run BowAction logic and let it go
             // may not using item anymore
 
@@ -108,7 +108,7 @@ public class BowEnhance extends BaseModule {
                 return;
             }
             // run main logic
-            ItemStack stack = mc.player.getActiveItem();
+            ItemStack stack = mc.player.getUseItem();
             // only consider BowItem
             if (stack.isEmpty()) return;
 
@@ -119,10 +119,10 @@ public class BowEnhance extends BaseModule {
                 if (searchEntity) {
                     Entity entity = TargetSelector.INSTANCE.searchAimableEntity(stack.getItem() instanceof BowItem);
                     if (entity != null) {
-                        Debug.chat(Text.literal("[Bow Aim] Aim at %s"
-                                        .formatted(entity instanceof PlayerEntity player ? "player " : "entity "))
+                        Debug.chat(Component.literal("[Bow Aim] Aim at %s"
+                                        .formatted(entity instanceof Player player ? "player " : "entity "))
                                 .append(EntityUtils.getEntityDisplayable(entity))
-                                .formatted(Formatting.GREEN));
+                                .withStyle(ChatFormatting.GREEN));
                         // calculate lerp by speed
                         targetEntity = entity;
                     } else {
@@ -134,7 +134,7 @@ public class BowEnhance extends BaseModule {
                 }
                 // goes accelerate with bowTP
                 if (stack.getItem() instanceof BowItem) {
-                    velocity = (72000 - mc.player.getItemUseTimeLeft()) / 20F;
+                    velocity = (72000 - mc.player.getUseItemRemainingTicks()) / 20F;
                     velocity = (velocity * velocity + velocity * 2) / 3;
                     if (velocity > 1) velocity = 1;
                     velocity = (velocity * 3.0F);
@@ -154,22 +154,22 @@ public class BowEnhance extends BaseModule {
         }
     }
 
-    public void onRenderAimTarget(Event<MatrixStack> stackE) {
+    public void onRenderAimTarget(Event<PoseStack> stackE) {
         var stack = stackE.context;
         if (enable.get() && enableAim.get() && renderTarget.get() && mc.player != null && mc.player.isUsingItem()) {
             float tickDelta = (Float) stackE.extraArgs[0];
-            ItemStack itemInUse = mc.player.getActiveItem();
+            ItemStack itemInUse = mc.player.getUseItem();
             if (!itemInUse.isEmpty()
-                    && (itemInUse.getItem() instanceof RangedWeaponItem
+                    && (itemInUse.getItem() instanceof ProjectileWeaponItem
                             || itemInUse.getItem() instanceof TridentItem)) {
                 RenderUtils.startDrawVirtual(stack);
                 try {
                     Entity entity =
                             CombatTasks.getTargetSelector().searchAimableEntity(itemInUse.getItem() instanceof BowItem);
                     if (entity != null) {
-                        Box box = RenderUtils.getLerpedBox(entity, tickDelta);
+                        AABB box = RenderUtils.getLerpedBox(entity, tickDelta);
                         RenderUtils.drawSolidBox(
-                                stack, box.getMinPos(), box.getMaxPos(), ColorUtils.withAlpha(Color.GREEN, 0.25F));
+                                stack, box.getMinPosition(), box.getMaxPosition(), ColorUtils.withAlpha(Color.GREEN, 0.25F));
                     }
                 } finally {
                     RenderUtils.stopDrawVirtual(stack);
@@ -178,19 +178,19 @@ public class BowEnhance extends BaseModule {
         }
     }
 
-    public void bowActionMovement(Event<PlayerActionC2SPacket> event, @Nullable Entity entity, float initialVelocity) {
-        Vec2f playerPitchYaw = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
+    public void bowActionMovement(Event<ServerboundPlayerActionPacket> event, @Nullable Entity entity, float initialVelocity) {
+        Vec2 playerPitchYaw = new Vec2(mc.player.getXRot(), mc.player.getYRot());
         var facing = entity == null
-                ? mc.player.getRotationVector().normalize()
+                ? mc.player.getLookAngle().normalize()
                 : CombatTasks.getPositionPredict()
                         .predictAimPositionForEntity(entity, 3600000)
-                        .subtract(mc.player.getEyePos());
+                        .subtract(mc.player.getEyePosition());
         Entity nowMePointingTheEntity =
-                (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.ENTITY)
-                        ? ((EntityHitResult) mc.crosshairTarget).getEntity()
+                (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)
+                        ? ((EntityHitResult) mc.hitResult).getEntity()
                         : null;
         if (nowMePointingTheEntity != null
-                && nowMePointingTheEntity.getPos().squaredDistanceTo(mc.player.getEyePos()) > 50) {
+                && nowMePointingTheEntity.position().distanceToSqr(mc.player.getEyePosition()) > 50) {
             nowMePointingTheEntity = null;
         }
         boolean makeAim = enableAim.get();
@@ -201,10 +201,10 @@ public class BowEnhance extends BaseModule {
                 // add movements to accelerate the projectile
                 boolean exactTp = enhanceTp.get();
                 double range = tpDistance.get();
-                Vec3d facingNorm = facing.normalize();
-                Vec3d oppositeFacing = Vec3d.ZERO.subtract(facingNorm);
-                Vec3d finalMove = Vec3d.ZERO;
-                Vec3d currentPlayerPos = mc.player.getPos();
+                Vec3 facingNorm = facing.normalize();
+                Vec3 oppositeFacing = Vec3.ZERO.subtract(facingNorm);
+                Vec3 finalMove = Vec3.ZERO;
+                Vec3 currentPlayerPos = mc.player.position();
                 boolean shouldResetRotation = true;
                 test_tp_position:
                 {
@@ -212,22 +212,22 @@ public class BowEnhance extends BaseModule {
                     MovTasks.CollisionContext context = new MovTasks.CollisionCache(
                             mc.player,
                             currentPlayerPos,
-                            currentPlayerPos.add(oppositeFacing.multiply(range + 1.0d)),
+                            currentPlayerPos.add(oppositeFacing.scale(range + 1.0d)),
                             true);
                     double test = range;
                     for (; test > 10.0D; test -= 1.0D) {
                         if (exactTp) {
-                            Vec3d oppositeMultiply = oppositeFacing.multiply(test);
+                            Vec3 oppositeMultiply = oppositeFacing.scale(test);
                             if (MovTasks.validMoveTo(
                                     context,
                                     currentPlayerPos.add(oppositeMultiply),
-                                    Vec3d.ZERO.subtract(oppositeMultiply))) {
+                                    Vec3.ZERO.subtract(oppositeMultiply))) {
                                 finalMove = oppositeMultiply;
                                 break test_tp_position;
                             }
                         } else {
-                            if (MovTasks.validMoveToAndBack(context, currentPlayerPos, oppositeFacing.multiply(test))) {
-                                finalMove = oppositeFacing.multiply(test);
+                            if (MovTasks.validMoveToAndBack(context, currentPlayerPos, oppositeFacing.scale(test))) {
+                                finalMove = oppositeFacing.scale(test);
                                 break test_tp_position;
                             }
                         }
@@ -236,12 +236,12 @@ public class BowEnhance extends BaseModule {
                     // check again
                     test = 10.0D;
                     for (; test > 0.0D; test -= 0.5D) {
-                        Vec3d oppositeMultiply = oppositeFacing.multiply(test);
+                        Vec3 oppositeMultiply = oppositeFacing.scale(test);
                         if (exactTp) {
                             if (MovTasks.validMoveTo(
                                     context,
                                     currentPlayerPos.add(oppositeMultiply),
-                                    Vec3d.ZERO.subtract(oppositeMultiply))) {
+                                    Vec3.ZERO.subtract(oppositeMultiply))) {
                                 finalMove = oppositeMultiply;
                                 break test_tp_position;
                             }
@@ -251,15 +251,15 @@ public class BowEnhance extends BaseModule {
                                 break test_tp_position;
                             }
                         }
-                        Vec3d oppoHorizontal = new Vec3d(oppositeMultiply.x, 0.0d, oppositeMultiply.z);
-                        Vec3d simulateMove = context.simulateMovement(mc.player, currentPlayerPos, oppoHorizontal);
+                        Vec3 oppoHorizontal = new Vec3(oppositeMultiply.x, 0.0d, oppositeMultiply.z);
+                        Vec3 simulateMove = context.simulateMovement(mc.player, currentPlayerPos, oppoHorizontal);
                         if (MovTasks.validMovementAsServer(oppoHorizontal, simulateMove)) {
-                            Vec3d simulateDownMove = context.simulateMovement(
-                                    mc.player, currentPlayerPos.add(simulateMove), new Vec3d(0, oppositeMultiply.y, 0));
-                            Vec3d wholeMovement = simulateMove.add(simulateDownMove);
+                            Vec3 simulateDownMove = context.simulateMovement(
+                                    mc.player, currentPlayerPos.add(simulateMove), new Vec3(0, oppositeMultiply.y, 0));
+                            Vec3 wholeMovement = simulateMove.add(simulateDownMove);
                             // y does not matter , xz matters
                             if (MovTasks.validMoveTo(
-                                    context, currentPlayerPos.add(wholeMovement), wholeMovement.multiply(-1))) {
+                                    context, currentPlayerPos.add(wholeMovement), wholeMovement.scale(-1))) {
                                 finalMove = wholeMovement;
                                 break test_tp_position;
                             }
@@ -267,18 +267,18 @@ public class BowEnhance extends BaseModule {
                     }
                     // should strengthen move when test < 10,
                 }
-                if (finalMove.lengthSquared() > 1E-4) {
+                if (finalMove.lengthSqr() > 1E-4) {
                     // 随便写的阈值 速度太快不需要转向
                     double velocity = finalMove.length();
                     finalVelocity += velocity;
                     shouldResetRotation = velocity < 10d;
-                    java.util.List<Vec3d> tpSequence = MovTasks.generateTpSequence(
+                    java.util.List<Vec3> tpSequence = MovTasks.generateTpSequence(
                             currentPlayerPos, currentPlayerPos.add(finalMove), false, 161, true);
                     if (!tpSequence.isEmpty()) {
-                        Vec2f redirectTarget = null;
+                        Vec2 redirectTarget = null;
                         Debug.chat(
-                                Text.literal("[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
-                                        .formatted(Formatting.GREEN));
+                                Component.literal("[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
+                                        .withStyle(ChatFormatting.GREEN));
                         List<MovTasks.MovInfo> movements = new ArrayList<>();
                         int size = tpSequence.size();
                         for (int i = 0; i < size; ++i) {
@@ -313,14 +313,14 @@ public class BowEnhance extends BaseModule {
 
                     // send packets to simulate movements
                 }
-                Debug.chat(Text.literal("[Bow TP] Projectile Velocity fail to simulate"));
+                Debug.chat(Component.literal("[Bow TP] Projectile Velocity fail to simulate"));
             }
         }
         if (makeAim && entity != null && entity != nowMePointingTheEntity) {
 
             // add use item feature
 
-            Vec2f red = CombatTasks.calculatePitchYawPredict(finalVelocity, Vec3d.ZERO, facing);
+            Vec2 red = CombatTasks.calculatePitchYawPredict(finalVelocity, Vec3.ZERO, facing);
             if (Float.isNaN(red.x) || Float.isInfinite(red.x) || Float.isNaN(red.y) || Float.isInfinite(red.y)) {
                 Debug.chat("[Bow Aim] Arrow failed to reach the target");
             } else {
@@ -329,19 +329,19 @@ public class BowEnhance extends BaseModule {
             }
         }
 
-        mc.player.setPitch(playerPitchYaw.x);
-        mc.player.setYaw(playerPitchYaw.y);
+        mc.player.setXRot(playerPitchYaw.x);
+        mc.player.setYRot(playerPitchYaw.y);
     }
 
     public void bowActionDelayMovement(
-            Event<PlayerActionC2SPacket> event, @Nullable Entity entity, float initialVelocity) {
+            Event<ServerboundPlayerActionPacket> event, @Nullable Entity entity, float initialVelocity) {
         // it is from a delayed packet, or, I can fire it without event
         if (canTp()) {
             Debug.chat("[BowEh] Arrow Velocity Simulate not enabled in Legal Mode");
         }
         if (entity == null) return;
         event.cancel();
-        PlayerActionC2SPacket delayedPacket = event.context();
+        ServerboundPlayerActionPacket delayedPacket = event.context();
         ClientPlayerAccess.of(mc.player)
                 .getLegalMovementManager()
                 .addMovementModifier(new LegalMovementManager.MovementModifier() {
@@ -352,12 +352,12 @@ public class BowEnhance extends BaseModule {
 
                     @Override
                     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
-                        ClientPlayerEntity player = movementManagerEvent.context().playerStatus.entity;
-                        Vec3d targetAt =
+                        LocalPlayer player = movementManagerEvent.context().playerStatus.entity;
+                        Vec3 targetAt =
                                 CombatTasks.getPositionPredict().predictAimPositionForEntity(entity, initialVelocity);
-                        Vec3d targetAtFacing = targetAt.subtract(player.getEyePos());
-                        Vec2f pitchYaw = CombatTasks.calculatePitchYawPredict(
-                                (float) (initialVelocity), player.getVelocity(), targetAtFacing);
+                        Vec3 targetAtFacing = targetAt.subtract(player.getEyePosition());
+                        Vec2 pitchYaw = CombatTasks.calculatePitchYawPredict(
+                                (float) (initialVelocity), player.getDeltaMovement(), targetAtFacing);
                         if (Float.isNaN(pitchYaw.x)
                                 || Float.isInfinite(pitchYaw.x)
                                 || Float.isNaN(pitchYaw.y)
@@ -375,7 +375,7 @@ public class BowEnhance extends BaseModule {
                     public boolean postModify(
                             Event<LegalMovementManager> movementManagerEvent, boolean enabledThisTick) {
                         // add post packets
-                        // mc.getNetworkHandler().sendPacket(actionPacket);
+                        // mc.getConnection().sendPacket(actionPacket);
                         if (true)
                             ACTasks.addPostTransactionAction((handler) -> {
                                 Listener.sendPacketNoEvents(handler.getConnection(), delayedPacket);
@@ -386,19 +386,19 @@ public class BowEnhance extends BaseModule {
     }
 
     public void bowActionInteractItem(
-            Event<PlayerActionC2SPacket> event, @Nullable Entity entity, float initialVelocity) {
-        Vec2f playerPitchYaw = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
+            Event<ServerboundPlayerActionPacket> event, @Nullable Entity entity, float initialVelocity) {
+        Vec2 playerPitchYaw = new Vec2(mc.player.getXRot(), mc.player.getYRot());
         var facing = entity == null
-                ? mc.player.getRotationVector().normalize()
+                ? mc.player.getLookAngle().normalize()
                 : CombatTasks.getPositionPredict()
                         .predictAimPositionForEntity(entity, 3600000)
-                        .subtract(mc.player.getEyePos());
+                        .subtract(mc.player.getEyePosition());
         Entity nowMePointingTheEntity =
-                (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.ENTITY)
-                        ? ((EntityHitResult) mc.crosshairTarget).getEntity()
+                (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)
+                        ? ((EntityHitResult) mc.hitResult).getEntity()
                         : null;
         if (nowMePointingTheEntity != null
-                && nowMePointingTheEntity.getPos().squaredDistanceTo(mc.player.getEyePos()) > 50) {
+                && nowMePointingTheEntity.position().distanceToSqr(mc.player.getEyePosition()) > 50) {
             nowMePointingTheEntity = null;
         }
         boolean makeAim = enableAim.get();
@@ -409,10 +409,10 @@ public class BowEnhance extends BaseModule {
                 // add movements to accelerate the projectile
                 boolean exactTp = enhanceTp.get();
                 double range = tpDistance.get();
-                Vec3d facingNorm = facing.normalize();
-                Vec3d oppositeFacing = Vec3d.ZERO.subtract(facingNorm);
-                Vec3d finalMove = Vec3d.ZERO;
-                Vec3d currentPlayerPos = mc.player.getPos();
+                Vec3 facingNorm = facing.normalize();
+                Vec3 oppositeFacing = Vec3.ZERO.subtract(facingNorm);
+                Vec3 finalMove = Vec3.ZERO;
+                Vec3 currentPlayerPos = mc.player.position();
                 boolean shouldResetRotation = true;
                 test_tp_position:
                 {
@@ -420,22 +420,22 @@ public class BowEnhance extends BaseModule {
                     MovTasks.CollisionContext context = new MovTasks.CollisionCache(
                             mc.player,
                             currentPlayerPos,
-                            currentPlayerPos.add(oppositeFacing.multiply(range + 1.0d)),
+                            currentPlayerPos.add(oppositeFacing.scale(range + 1.0d)),
                             true);
                     double test = range;
                     for (; test > 10.0D; test -= 1.0D) {
                         if (exactTp) {
-                            Vec3d oppositeMultiply = oppositeFacing.multiply(test);
+                            Vec3 oppositeMultiply = oppositeFacing.scale(test);
                             if (MovTasks.validMoveTo(
                                     context,
                                     currentPlayerPos.add(oppositeMultiply),
-                                    Vec3d.ZERO.subtract(oppositeMultiply))) {
+                                    Vec3.ZERO.subtract(oppositeMultiply))) {
                                 finalMove = oppositeMultiply;
                                 break test_tp_position;
                             }
                         } else {
-                            if (MovTasks.validMoveToAndBack(context, currentPlayerPos, oppositeFacing.multiply(test))) {
-                                finalMove = oppositeFacing.multiply(test);
+                            if (MovTasks.validMoveToAndBack(context, currentPlayerPos, oppositeFacing.scale(test))) {
+                                finalMove = oppositeFacing.scale(test);
                                 break test_tp_position;
                             }
                         }
@@ -444,12 +444,12 @@ public class BowEnhance extends BaseModule {
                     // check again
                     test = 10.0D;
                     for (; test > 0.0D; test -= 0.5D) {
-                        Vec3d oppositeMultiply = oppositeFacing.multiply(test);
+                        Vec3 oppositeMultiply = oppositeFacing.scale(test);
                         if (exactTp) {
                             if (MovTasks.validMoveTo(
                                     context,
                                     currentPlayerPos.add(oppositeMultiply),
-                                    Vec3d.ZERO.subtract(oppositeMultiply))) {
+                                    Vec3.ZERO.subtract(oppositeMultiply))) {
                                 finalMove = oppositeMultiply;
                                 break test_tp_position;
                             }
@@ -459,15 +459,15 @@ public class BowEnhance extends BaseModule {
                                 break test_tp_position;
                             }
                         }
-                        Vec3d oppoHorizontal = new Vec3d(oppositeMultiply.x, 0.0d, oppositeMultiply.z);
-                        Vec3d simulateMove = context.simulateMovement(mc.player, currentPlayerPos, oppoHorizontal);
+                        Vec3 oppoHorizontal = new Vec3(oppositeMultiply.x, 0.0d, oppositeMultiply.z);
+                        Vec3 simulateMove = context.simulateMovement(mc.player, currentPlayerPos, oppoHorizontal);
                         if (MovTasks.validMovementAsServer(oppoHorizontal, simulateMove)) {
-                            Vec3d simulateDownMove = context.simulateMovement(
-                                    mc.player, currentPlayerPos.add(simulateMove), new Vec3d(0, oppositeMultiply.y, 0));
-                            Vec3d wholeMovement = simulateMove.add(simulateDownMove);
+                            Vec3 simulateDownMove = context.simulateMovement(
+                                    mc.player, currentPlayerPos.add(simulateMove), new Vec3(0, oppositeMultiply.y, 0));
+                            Vec3 wholeMovement = simulateMove.add(simulateDownMove);
                             // y does not matter , xz matters
                             if (MovTasks.validMoveTo(
-                                    context, currentPlayerPos.add(wholeMovement), wholeMovement.multiply(-1))) {
+                                    context, currentPlayerPos.add(wholeMovement), wholeMovement.scale(-1))) {
                                 finalMove = wholeMovement;
                                 break test_tp_position;
                             }
@@ -475,16 +475,16 @@ public class BowEnhance extends BaseModule {
                     }
                     // should strengthen move when test < 10,
                 }
-                if (finalMove.lengthSquared() > 1E-4) {
+                if (finalMove.lengthSqr() > 1E-4) {
                     // 随便写的阈值 速度太快不需要转向
                     double velocity = finalMove.length();
                     finalVelocity += velocity;
-                    java.util.List<Vec3d> tpSequence = MovTasks.generateTpSequence(
+                    java.util.List<Vec3> tpSequence = MovTasks.generateTpSequence(
                             currentPlayerPos, currentPlayerPos.add(finalMove), false, 161, true);
                     if (!tpSequence.isEmpty()) {
                         Debug.chat(
-                                Text.literal("[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
-                                        .formatted(Formatting.GREEN));
+                                Component.literal("[Bow TP] Projectile Velocity Simulate %.2f".formatted(finalMove.length()))
+                                        .withStyle(ChatFormatting.GREEN));
                         List<MovTasks.MovInfo> movements = new ArrayList<>();
                         int size = tpSequence.size();
                         for (int i = 0; i < size; ++i) {
@@ -506,22 +506,22 @@ public class BowEnhance extends BaseModule {
 
                     // send packets to simulate movements
                 }
-                Debug.chat(Text.literal("[Bow TP] Projectile Velocity fail to simulate"));
+                Debug.chat(Component.literal("[Bow TP] Projectile Velocity fail to simulate"));
             }
         }
         if (makeAim && entity != null && entity != nowMePointingTheEntity) {
-            Vec2f red = CombatTasks.calculatePitchYawPredict(finalVelocity, mc.player.getVelocity(), facing);
+            Vec2 red = CombatTasks.calculatePitchYawPredict(finalVelocity, mc.player.getDeltaMovement(), facing);
             if (Float.isNaN(red.x) || Float.isInfinite(red.x) || Float.isNaN(red.y) || Float.isInfinite(red.y)) {
                 Debug.chat("[Bow Aim] Arrow failed to reach the target");
             } else {
-                mc.interactionManager.sendSequencedPacket(mc.world, (s) -> {
-                    return new PlayerInteractItemC2SPacket(mc.player.getActiveHand(), s, red.y, red.x);
+                mc.gameMode.startPrediction(mc.level, (s) -> {
+                    return new ServerboundUseItemPacket(mc.player.getUsedItemHand(), s, red.y, red.x);
                 });
             }
         }
 
-        mc.player.setPitch(playerPitchYaw.x);
-        mc.player.setYaw(playerPitchYaw.y);
+        mc.player.setXRot(playerPitchYaw.x);
+        mc.player.setYRot(playerPitchYaw.y);
     }
 
     public void onModulePreset(Event<EventContainer<ModulePreset>> event) {

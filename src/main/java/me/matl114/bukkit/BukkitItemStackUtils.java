@@ -12,9 +12,9 @@ import javax.annotation.Nonnull;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ResolvableProfile;
 
 public class BukkitItemStackUtils {
     public static ConfigurationSerializableDataType<BukkitItemStack> DATATYPE_MOCKITEMSTACK =
@@ -78,7 +78,7 @@ public class BukkitItemStackUtils {
         }
     }
 
-    public static String getHashFromProfile(ProfileComponent profileComponent) {
+    public static String getHashFromProfile(ResolvableProfile profileComponent) {
         var pps = VRecord.getGameProfileProperties(profileComponent).get("textures");
         if (pps == null || pps.isEmpty()) return null;
         Property ppt = Iterables.getFirst(pps, null);
@@ -115,7 +115,7 @@ public class BukkitItemStackUtils {
         }
     }
 
-    public static ProfileComponent buildPlayerHeadProfileCSCoreLib(String hash) {
+    public static ResolvableProfile buildPlayerHeadProfileCSCoreLib(String hash) {
         try {
             BukkitPlayerProfile.PlayerSkin skin = BukkitPlayerProfile.fromHashCode(hash);
             BukkitPlayerProfile profile = skin.getProfile();

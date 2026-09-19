@@ -1,6 +1,6 @@
 package me.matl114.versioned.api;
 
-import net.minecraft.entity.EntityStatuses;
+import net.minecraft.world.entity.EntityEvent;
 
 public interface VDataFlag {
     int ID_FLAGS = 0;
@@ -40,5 +40,5 @@ public interface VDataFlag {
     // Villager
     int ID_VILLAGER_PROFESSION_DATA = 18;
 
-    int ENTITY_STATUS_KINETIC_ATTACK = EntityStatuses.KINETIC_ATTACK;
+    int ENTITY_STATUS_KINETIC_ATTACK = EntityEvent.KINETIC_HIT;
 }

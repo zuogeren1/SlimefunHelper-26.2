@@ -4,14 +4,14 @@ import java.io.File;
 import java.util.List;
 import me.matl114.SlimefunHelper;
 import me.matl114.utils.world.ChunkIterator;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.dimension.DimensionOptions;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.dimension.LevelStem;
 
 @ApiMethod
 public class CommonUtils {
@@ -27,79 +27,79 @@ public class CommonUtils {
         return new Identifier(SlimefunHelper.MOD_ID, id);
     }
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static String getServerName() {
-        if (mc.isInSingleplayer()) {
-            if (mc.world == null) return "";
+        if (mc.isLocalServer()) {
+            if (mc.level == null) return "";
 
-            File folder = (mc.getServer())
-                    .session
-                    .getWorldDirectory(mc.world.getRegistryKey())
+            File folder = (mc.getSingleplayerServer())
+                    .storageSource
+                    .getDimensionPath(mc.level.dimension())
                     .toFile();
-            if (folder.toPath().relativize(mc.runDirectory.toPath()).getNameCount() != 2) {
+            if (folder.toPath().relativize(mc.gameDirectory.toPath()).getNameCount() != 2) {
                 folder = folder.getParentFile();
             }
             return folder.getName();
         }
-        if (mc.getCurrentServerEntry() != null) {
-            return (mc.getCurrentServerEntry().isRealm() ? "realms" : mc.getCurrentServerEntry().address);
+        if (mc.getCurrentServer() != null) {
+            return (mc.getCurrentServer().isRealm() ? "realms" : mc.getCurrentServer().ip);
         }
         return "";
     }
 
     public static String getWorldName() {
         // Singleplayer
-        if (mc.isInSingleplayer()) {
-            if (mc.world == null) return "";
+        if (mc.isLocalServer()) {
+            if (mc.level == null) return "";
 
-            File folder = (mc.getServer())
-                    .session
-                    .getWorldDirectory(mc.world.getRegistryKey())
+            File folder = (mc.getSingleplayerServer())
+                    .storageSource
+                    .getDimensionPath(mc.level.dimension())
                     .toFile();
-            if (folder.toPath().relativize(mc.runDirectory.toPath()).getNameCount() != 2) {
+            if (folder.toPath().relativize(mc.gameDirectory.toPath()).getNameCount() != 2) {
                 folder = folder.getParentFile();
             }
-            return folder.getName() + "|" + mc.world.getRegistryKey().getValue();
+            return folder.getName() + "|" + mc.level.dimension().identifier();
         }
 
         // Multiplayer
-        if (mc.getCurrentServerEntry() != null) {
-            return (mc.getCurrentServerEntry().isRealm() ? "realms" : mc.getCurrentServerEntry().address)
-                    + (mc.world == null ? "" : "|" + mc.world.getRegistryKey().getValue());
+        if (mc.getCurrentServer() != null) {
+            return (mc.getCurrentServer().isRealm() ? "realms" : mc.getCurrentServer().ip)
+                    + (mc.level == null ? "" : "|" + mc.level.dimension().identifier());
         }
 
-        return mc.world == null ? "" : mc.world.getRegistryKey().getValue().toString();
+        return mc.level == null ? "" : mc.level.dimension().identifier().toString();
     }
 
-    public static RegistryKey<DimensionOptions> getCurrentDimensionOption() {
-        if (mc.world == null) return DimensionOptions.OVERWORLD;
-        switch (mc.world.getRegistryKey().getValue().getPath()) {
+    public static ResourceKey<LevelStem> getCurrentDimensionOption() {
+        if (mc.level == null) return LevelStem.OVERWORLD;
+        switch (mc.level.dimension().identifier().getPath()) {
             case "the_nether" -> {
-                return DimensionOptions.NETHER;
+                return LevelStem.NETHER;
             }
             case "the_end" -> {
-                return DimensionOptions.END;
+                return LevelStem.END;
             }
             case "overworld" -> {
-                return DimensionOptions.OVERWORLD;
+                return LevelStem.OVERWORLD;
             }
             default -> {
                 // need fix
-                DimensionType type = mc.world.getDimension();
-                if (type.cardinalLightType() == DimensionType.CardinalLightType.NETHER || type.hasCeiling()) {
-                    return DimensionOptions.NETHER;
+                DimensionType type = mc.level.dimensionType();
+                if (type.cardinalLightType() == net.minecraft.world.level.CardinalLighting.Type.NETHER || type.hasCeiling()) {
+                    return LevelStem.NETHER;
                 }
                 if (type.hasSkyLight()) {
-                    return DimensionOptions.OVERWORLD;
+                    return LevelStem.OVERWORLD;
                 }
-                if (type.skybox() == DimensionType.Skybox.END) return DimensionOptions.END;
-                return DimensionOptions.OVERWORLD;
+                if (type.skybox() == DimensionType.Skybox.END) return LevelStem.END;
+                return LevelStem.OVERWORLD;
             }
         }
     }
 
-    public static Iterable<Chunk> chunks(boolean onlyWithLoadedNeighbours) {
+    public static Iterable<ChunkAccess> chunks(boolean onlyWithLoadedNeighbours) {
         return () -> new ChunkIterator(onlyWithLoadedNeighbours);
     }
 

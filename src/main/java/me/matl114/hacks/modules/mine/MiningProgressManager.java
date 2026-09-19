@@ -8,13 +8,13 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.managers.Tasks;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.BlockBreakingProgressS2CPacket;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundBlockDestructionPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 
 public class MiningProgressManager extends BaseModule {
     public static MiningProgressManager INSTANCE;
@@ -27,10 +27,10 @@ public class MiningProgressManager extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getEntityRemoveListener().getChannel(EntityType.PLAYER), this::onEntityRemove);
+        registerListener(Listener.getEntityRemoveListener().getChannel(EntityTypes.PLAYER), this::onEntityRemove);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldChange);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(BlockBreakingProgressS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockDestructionPacket.class),
                 this::onBlockProgressUpdate);
         registerListener(Listener.getPreGameTick(), this::onUpdate);
     }
@@ -45,14 +45,14 @@ public class MiningProgressManager extends BaseModule {
         trackedMap.remove(event.context.getId());
     }
 
-    public void onWorldChange(Event<World> world) {
+    public void onWorldChange(Event<Level> world) {
         trackedMap.clear();
     }
 
-    public void onBlockProgressUpdate(Event<BlockBreakingProgressS2CPacket> eventProgress) {
-        int eid = eventProgress.context.getEntityId();
+    public void onBlockProgressUpdate(Event<ClientboundBlockDestructionPacket> eventProgress) {
+        int eid = eventProgress.context.getId();
         BlockPos ps = eventProgress.context.getPos();
-        if (mc.world.getEntityById(eid) instanceof PlayerEntity pl) {
+        if (mc.level.getEntity(eid) instanceof Player pl) {
             int progress = eventProgress.context.getProgress();
             if (progress == 255) {
                 // 傻逼吧。
@@ -63,20 +63,20 @@ public class MiningProgressManager extends BaseModule {
         }
     }
 
-    public void onUpdate(Event<ClientPlayerEntity> eventUpdate) {
+    public void onUpdate(Event<LocalPlayer> eventUpdate) {
         if (checkNull()) return;
         for (var re : trackedMap.values()) {
-            re.tickWorld(mc.world);
+            re.tickWorld(mc.level);
         }
     }
 
     @Getter
     public static class BlockBreakTracker {
-        public BlockBreakTracker(PlayerEntity player) {
+        public BlockBreakTracker(Player player) {
             this.player = player;
         }
 
-        public PlayerEntity player;
+        public Player player;
         public BlockPos blockPos;
         public int breakingStartTick = 0;
         public int breakingProgress = -1;
@@ -127,7 +127,7 @@ public class MiningProgressManager extends BaseModule {
             }
         }
 
-        public void tickWorld(World world) {
+        public void tickWorld(Level world) {
             if (potentialDoubleBreak != null
                     && world.getBlockState(potentialDoubleBreak).isAir()) {
                 potentialDoubleBreak = null;

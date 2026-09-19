@@ -2,8 +2,8 @@ package me.matl114.utils;
 
 import java.awt.*;
 import java.util.Objects;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.TextColor;
 
 public class ColorUtils {
     public static Color getColor(int r, int g, int b, int a) {
@@ -31,7 +31,7 @@ public class ColorUtils {
     }
 
     public static Color withAlpha(TextColor color, int alpha) {
-        return new Color((color.getRgb() & 0x00FFFFFF) | (alpha << 24), true);
+        return new Color((color.getValue() & 0x00FFFFFF) | (alpha << 24), true);
     }
 
     public static Color withAlpha(TextColor color, float alpha) {
@@ -58,8 +58,8 @@ public class ColorUtils {
         return (color & 0XFF000000) == 0 ? withAlphaInt(color, alpha) : color;
     }
 
-    public static TextColor color(Formatting formatting) {
-        return Objects.requireNonNull(TextColor.fromFormatting(formatting));
+    public static TextColor color(ChatFormatting formatting) {
+        return Objects.requireNonNull(TextColor.fromLegacyFormat(formatting));
     }
 
     public static TextColor color(Color color) {
@@ -67,6 +67,6 @@ public class ColorUtils {
     }
 
     public static TextColor color(String str) {
-        return TextColor.parse(str).getOrThrow();
+        return TextColor.parseColor(str).getOrThrow();
     }
 }

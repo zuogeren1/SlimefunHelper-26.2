@@ -3,10 +3,10 @@ package me.matl114.mixins.access;
 import me.matl114.accessors.access.PlayerInteractItemC2SPacketAccess;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.util.Hand;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Unique;
@@ -16,29 +16,29 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(PlayerInteractItemC2SPacket.class)
+@Mixin(ServerboundUseItemPacket.class)
 public abstract class PlayerInteractItemC2SPacketMixin implements PlayerInteractItemC2SPacketAccess {
 
     @Override
     @Mutable
     @Accessor("hand")
-    public abstract void setHand(Hand hand);
+    public abstract void setHand(InteractionHand hand);
 
     @Override
     @Mutable
-    @Accessor("yaw")
+    @Accessor("yRot")
     public abstract void setYaw(float yaw);
 
     @Override
     @Mutable
-    @Accessor("pitch")
+    @Accessor("xRot")
     public abstract void setPitch(float pitch);
 
-    @Inject(method = "<init>(Lnet/minecraft/util/Hand;IFF)V", at = @At("RETURN"))
-    private void trackUseContext(Hand hand, int sequence, float yaw, float pitch, CallbackInfo ci) {
-        if (MinecraftClient.getInstance().player != null) {
+    @Inject(method = "<init>(Lnet/minecraft/world/InteractionHand;IFF)V", at = @At("RETURN"))
+    private void trackUseContext(InteractionHand hand, int sequence, float yaw, float pitch, CallbackInfo ci) {
+        if (Minecraft.getInstance().player != null) {
             useContext =
-                    MinecraftClient.getInstance().player.getStackInHand(hand).copy();
+                    Minecraft.getInstance().player.getItemInHand(hand).copy();
         }
     }
 

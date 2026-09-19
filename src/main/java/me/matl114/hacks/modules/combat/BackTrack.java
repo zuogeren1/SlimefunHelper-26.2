@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,22 +17,21 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.RenderUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.TrackedPosition;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.PacketType;
-import net.minecraft.network.packet.PlayPackets;
-import net.minecraft.network.packet.s2c.play.EntityPositionS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityPositionSyncS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;
+import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.network.protocol.game.GamePacketTypes;
+import net.minecraft.network.protocol.game.VecDeltaCodec;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class BackTrack extends BaseModule {
     public BackTrack() {
@@ -60,7 +60,7 @@ public class BackTrack extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(NetworkSide.CLIENTBOUND), this::onQueuePlayerPosition);
+                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onQueuePlayerPosition);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onShutdownQueue);
         registerListener(Listener.getPreTick(), this::onTick);
         registerListener(Listener.getPostGameTick(), this::onPostGameTick);
@@ -80,7 +80,7 @@ public class BackTrack extends BaseModule {
     }
 
     public Entity currentTarget;
-    public Vec3d lastTrackingPosition;
+    public Vec3 lastTrackingPosition;
     public volatile boolean shouldDelay;
 
     public void onShutdown() {
@@ -97,7 +97,7 @@ public class BackTrack extends BaseModule {
 
     public void setTarget(Entity entity) {
         currentTarget = entity;
-        lastTrackingPosition = entity.getPos();
+        lastTrackingPosition = entity.position();
     }
 
     public void setNoTarget() {
@@ -133,7 +133,7 @@ public class BackTrack extends BaseModule {
             Entity entity = TargetSelector.INSTANCE.searchAttackEntity(
                     maxDistance.get(),
                     true,
-                    playerOnly.get() ? (ev) -> ev instanceof PlayerEntity : (ev) -> ev instanceof LivingEntity);
+                    playerOnly.get() ? (ev) -> ev instanceof Player : (ev) -> ev instanceof LivingEntity);
             if (entity != currentTarget) {
                 if (entity != null) {
                     setTarget(entity);
@@ -146,9 +146,9 @@ public class BackTrack extends BaseModule {
                 if (currentTarget == null) {
                     setNoDelay();
                 } else if (lastTrackingPosition == null) {
-                    lastTrackingPosition = currentTarget.getPos();
+                    lastTrackingPosition = currentTarget.position();
                 } else if (!TargetSelector.INSTANCE.isWithinAttackRange(
-                        mc.player.getPos(),
+                        mc.player.position(),
                         currentTarget.getBoundingBox(),
                         CombatExtra.INSTANCE.getAttackAtTargetRange(currentTarget))) {
                     setNoDelay();
@@ -163,8 +163,8 @@ public class BackTrack extends BaseModule {
     Set<PacketType<?>> movePlayerEntityTypes = new HashSet<>();
 
     {
-        movePlayerEntityTypes.add(PlayPackets.MOVE_ENTITY_POS);
-        movePlayerEntityTypes.add(PlayPackets.MOVE_ENTITY_POS_ROT);
+        movePlayerEntityTypes.add(GamePacketTypes.CLIENTBOUND_MOVE_ENTITY_POS);
+        movePlayerEntityTypes.add(GamePacketTypes.CLIENTBOUND_MOVE_ENTITY_POS_ROT);
     }
 
     public void onQueuePlayerPosition(Event<PacketStorage> event) {
@@ -173,30 +173,30 @@ public class BackTrack extends BaseModule {
             if (storage instanceof PacketManager.PacketStorageImpl impl) {
                 var packet = impl.packet();
                 if (PacketManager.isAsyncOrNotTransactionS2CPacket(packet)) return;
-                if (packet instanceof EntityPositionSyncS2CPacket positionSync
+                if (packet instanceof ClientboundEntityPositionSyncPacket positionSync
                         && positionSync.id() == currentTarget.getId()) {
                     onShutdown();
                     return;
                 }
-                if (packet instanceof EntityPositionS2CPacket position
-                        && position.entityId() == currentTarget.getId()) {
+                if (packet instanceof ClientboundTeleportEntityPacket position
+                        && position.id() == currentTarget.getId()) {
                     onShutdown();
                     return;
                 }
-                if (packet instanceof EntityS2CPacket entityMove
-                        && entityMove.getEntity(mc.world) == currentTarget
-                        && entityMove.isPositionChanged()) {
-                    TrackedPosition trackedPosition;
-                    Vec3d vec3d;
+                if (packet instanceof ClientboundMoveEntityPacket entityMove
+                        && entityMove.getEntity(mc.level) == currentTarget
+                        && entityMove.hasPosition()) {
+                    VecDeltaCodec trackedPosition;
+                    Vec3 vec3d;
                     if (lastTrackingPosition == null) {
-                        trackedPosition = currentTarget.getTrackedPosition();
+                        trackedPosition = currentTarget.getPositionCodec();
                     } else {
-                        trackedPosition = new TrackedPosition();
-                        trackedPosition.setPos(lastTrackingPosition);
+                        trackedPosition = new VecDeltaCodec();
+                        trackedPosition.setBase(lastTrackingPosition);
                     }
-                    vec3d = trackedPosition.withDelta(
-                            (long) entityMove.getDeltaX(), (long) entityMove.getDeltaY(), (long)
-                                    entityMove.getDeltaZ());
+                    vec3d = trackedPosition.decode(
+                            (long) entityMove.getXa(), (long) entityMove.getYa(), (long)
+                                    entityMove.getZa());
                     boolean lastDelay = shouldDelay;
                     handleTrackEntityPosition(vec3d);
                     lastTrackingPosition = vec3d;
@@ -208,9 +208,9 @@ public class BackTrack extends BaseModule {
                     }
                     return;
                 }
-                if (packet instanceof EntityStatusS2CPacket entityStatus
-                        && entityStatus.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING
-                        && entityStatus.getEntity(mc.world) == mc.player) {
+                if (packet instanceof ClientboundEntityEventPacket entityStatus
+                        && entityStatus.getEventId() == EntityEvent.PROTECTED_FROM_DEATH
+                        && entityStatus.getEntity(mc.level) == mc.player) {
                     setNoDelay();
                     flushAll();
                     return;
@@ -222,24 +222,24 @@ public class BackTrack extends BaseModule {
         }
     }
 
-    public void handleTrackEntityPosition(Vec3d position) {
+    public void handleTrackEntityPosition(Vec3 position) {
         if (lastTrackingPosition != null) {
             double attackRange = CombatExtra.INSTANCE.getAttackAtTargetRange(currentTarget) - 0.02;
-            Box currentBox = currentTarget.dimensions.getBoxAt(lastTrackingPosition);
-            Box futureBox = currentTarget.dimensions.getBoxAt(position);
+            AABB currentBox = currentTarget.dimensions.makeBoundingBox(lastTrackingPosition);
+            AABB futureBox = currentTarget.dimensions.makeBoundingBox(position);
             boolean currentCanAttack =
-                    TargetSelector.INSTANCE.isWithinAttackRange(mc.player.getPos(), currentBox, attackRange);
+                    TargetSelector.INSTANCE.isWithinAttackRange(mc.player.position(), currentBox, attackRange);
             boolean futureCanAttack =
-                    TargetSelector.INSTANCE.isWithinAttackRange(mc.player.getPos(), futureBox, attackRange);
+                    TargetSelector.INSTANCE.isWithinAttackRange(mc.player.position(), futureBox, attackRange);
             if (currentCanAttack && !futureCanAttack) {
                 setDelay();
             } else if (futureCanAttack) {
                 // attack window
                 setNoDelay();
             } else {
-                Vec3d bestEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(mc.player.getPos(), currentBox);
-                double currentDistance = currentBox.squaredMagnitude(bestEyePos);
-                double futureDistance = futureBox.squaredMagnitude(bestEyePos);
+                Vec3 bestEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(mc.player.position(), currentBox);
+                double currentDistance = currentBox.distanceToSqr(bestEyePos);
+                double futureDistance = futureBox.distanceToSqr(bestEyePos);
                 if (futureDistance > currentDistance) {
                     // leaving
                     setDelay();
@@ -267,19 +267,19 @@ public class BackTrack extends BaseModule {
         }
     }
 
-    public void onPostGameTick(Event<ClientPlayerEntity> event) {
+    public void onPostGameTick(Event<LocalPlayer> event) {
         if (shouldDelay) {
             flushDelay();
         }
     }
 
-    public void onRender(Event<MatrixStack> eventMatrixStack) {
+    public void onRender(Event<PoseStack> eventMatrixStack) {
         if (render.get() && shouldDelay && lastTrackingPosition != null && currentTarget != null) {
-            Box boundingBox = currentTarget.dimensions.getBoxAt(lastTrackingPosition);
+            AABB boundingBox = currentTarget.dimensions.makeBoundingBox(lastTrackingPosition);
             RenderUtils.startDrawVirtual(eventMatrixStack.context);
             try {
                 RenderUtils.drawOutlinedBox(
-                        eventMatrixStack.context, boundingBox.getMinPos(), boundingBox.getMaxPos(), Color.ORANGE);
+                        eventMatrixStack.context, boundingBox.getMinPosition(), boundingBox.getMaxPosition(), Color.ORANGE);
             } finally {
                 RenderUtils.stopDrawVirtual(eventMatrixStack.context);
             }

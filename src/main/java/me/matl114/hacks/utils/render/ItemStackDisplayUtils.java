@@ -1,58 +1,58 @@
 package me.matl114.hacks.utils.render;
 
 import me.matl114.managers.config.ConfigEnum;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemStackDisplayUtils {
 
     public static int getDamageDisplayColor(int damage, int damageMax) {
         damage = damageMax - damage;
         if (damage < damageMax * 0.33) {
-            return Colors.RED;
+            return CommonColors.RED;
         } else if (damage < damageMax * 0.66) {
-            return Colors.YELLOW;
+            return CommonColors.YELLOW;
         } else {
-            return Colors.GREEN;
+            return CommonColors.GREEN;
         }
     }
 
     public static int getDamageDisplayColor(ItemStack stack) {
-        return getDamageDisplayColor(stack.getDamage(), stack.getMaxDamage());
+        return getDamageDisplayColor(stack.getDamageValue(), stack.getMaxDamage());
     }
 
     public static int getColorByPercentage(int percentage) {
         if (percentage <= 33) {
-            return Colors.RED;
+            return CommonColors.RED;
         } else if (percentage <= 66) {
-            return Colors.YELLOW;
+            return CommonColors.YELLOW;
         } else {
-            return Colors.GREEN;
+            return CommonColors.GREEN;
         }
     }
 
     public static int getDurabilityPercentage(ItemStack stackOverride) {
         if (stackOverride.getMaxDamage() > 0) {
-            return ((stackOverride.getMaxDamage() - stackOverride.getDamage()) * 100) / stackOverride.getMaxDamage();
+            return ((stackOverride.getMaxDamage() - stackOverride.getDamageValue()) * 100) / stackOverride.getMaxDamage();
         } else {
             return 100;
         }
     }
 
-    public static Text getDamageShowText(ItemStack stack, DamageDisplay display) {
-        int damage2 = stack.getDamage();
+    public static Component getDamageShowText(ItemStack stack, DamageDisplay display) {
+        int damage2 = stack.getDamageValue();
         int damage = stack.getMaxDamage();
         int damageLeft = damage - damage2;
         return switch (display) {
             case DAMAGE -> {
-                yield Text.literal("-%d".formatted(damage2));
+                yield Component.literal("-%d".formatted(damage2));
             }
             case DAMAGE_LEFT -> {
-                yield Text.literal("%d".formatted(damageLeft));
+                yield Component.literal("%d".formatted(damageLeft));
             }
             case PERCENTAGE -> {
-                yield Text.literal("%d%%".formatted((damageLeft * 100) / damage));
+                yield Component.literal("%d%%".formatted((damageLeft * 100) / damage));
             }
             default -> {
                 yield null;

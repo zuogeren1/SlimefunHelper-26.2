@@ -13,11 +13,11 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.MathUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.AABB;
 
 public class AntiLiquid extends BaseModule implements LegalMovementManager.MovementModifier {
     static LegalMovementManager.DelegateMovementModifier instance;
@@ -93,13 +93,13 @@ public class AntiLiquid extends BaseModule implements LegalMovementManager.Movem
             // check condition
             var box = mc.player
                     .getBoundingBox()
-                    .expand(liquidCheckExpand.get(), liquidCheckExpand.get(), liquidCheckExpand.get());
+                    .inflate(liquidCheckExpand.get(), liquidCheckExpand.get(), liquidCheckExpand.get());
             var blocks = MathUtils.getOccupiedBlockPositions(box);
             for (var block : blocks) {
-                BlockState state = mc.world.getBlockState(block);
+                BlockState state = mc.level.getBlockState(block);
                 // remove liquid check because of kelp
                 // if(state.isLiquid())
-                Fluid fluid = state.getFluidState().getFluid();
+                Fluid fluid = state.getFluidState().getType();
                 boolean isWater = fluid == Fluids.WATER || fluid == Fluids.FLOWING_WATER;
                 boolean isLava = fluid == Fluids.LAVA || fluid == Fluids.FLOWING_LAVA;
                 Mode mode = this.mode.get();
@@ -159,16 +159,16 @@ public class AntiLiquid extends BaseModule implements LegalMovementManager.Movem
 
     private void handleOutOfWater() {
         if (currentArmorGlidingSaveState && Tasks.getTick() > taskSwitch + switchElytraGt.get()) {
-            Box leaveWater = mc.player
+            AABB leaveWater = mc.player
                     .getBoundingBox()
-                    .expand(this.leaveWater.get(), this.leaveWater.get(), this.leaveWater.get());
+                    .inflate(this.leaveWater.get(), this.leaveWater.get(), this.leaveWater.get());
             List<BlockPos> surroundBlocks = MathUtils.getOccupiedBlockPositions(leaveWater);
             boolean findBlock = false;
             for (var block : surroundBlocks) {
-                BlockState state = mc.world.getBlockState(block);
+                BlockState state = mc.level.getBlockState(block);
                 // remove liquid check because of kelp
                 // if(state.isLiquid())
-                Fluid fluid = state.getFluidState().getFluid();
+                Fluid fluid = state.getFluidState().getType();
                 boolean isWater = fluid == Fluids.WATER || fluid == Fluids.FLOWING_WATER;
                 if (isWater) {
                     findBlock = true;

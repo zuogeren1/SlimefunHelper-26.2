@@ -2,44 +2,44 @@ package me.matl114.hacks.utils.chat;
 
 import me.matl114.accessors.access.ChatScreenAccess;
 import me.matl114.hacks.ChatTasks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
-public class ChatScreenTextFieldWidget extends TextFieldWidget {
+public class ChatScreenTextFieldWidget extends EditBox {
     ChatScreen chatScreen;
 
     public ChatScreenTextFieldWidget(ChatScreen chatScreen) {
         super(
-                MinecraftClient.getInstance().advanceValidatingTextRenderer,
+                Minecraft.getInstance().fontFilterFishy,
                 4,
                 chatScreen.height - 12,
                 chatScreen.width - 4,
                 12,
-                Text.translatable("chat.editBox"));
+                Component.translatable("chat.editBox"));
         this.chatScreen = chatScreen;
     }
 
-    protected MutableText getNarrationMessage() {
-        return super.getNarrationMessage()
-                .append(ChatScreenAccess.of(chatScreen).getSuggestor().getNarration());
+    protected MutableComponent createNarrationMessage() {
+        return super.createNarrationMessage()
+                .append(ChatScreenAccess.of(chatScreen).getSuggestor().getNarrationMessage());
     }
 
-    public void renderWidget(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float deltaTicks) {
         if (ChatTasks.getChatTools().obfLogin.get()) {
             if (!ChatTasks.getChatExtra().onChatObfRender(this, context, mouseX, mouseY, deltaTicks)) {
-                super.renderWidget(context, mouseX, mouseY, deltaTicks);
+                super.extractWidgetRenderState(context, mouseX, mouseY, deltaTicks);
             }
         } else {
-            super.renderWidget(context, mouseX, mouseY, deltaTicks);
+            super.extractWidgetRenderState(context, mouseX, mouseY, deltaTicks);
         }
     }
 
-    public String getText() {
+    public String getValue() {
         // Debug.info(isTrulyFocused());
-        return super.getText();
+        return super.getValue();
     }
 }

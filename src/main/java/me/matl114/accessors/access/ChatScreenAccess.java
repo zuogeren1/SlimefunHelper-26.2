@@ -1,16 +1,16 @@
 package me.matl114.accessors.access;
 
 import me.matl114.accessors.gui.ScreenAccess;
-import net.minecraft.client.gui.screen.ChatInputSuggestor;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.components.CommandSuggestions;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
 
 public interface ChatScreenAccess extends ScreenAccess {
-    public TextFieldWidget getInputWidget();
+    public EditBox getInputWidget();
 
     public void resetMessageHistoryIndex();
 
-    public ChatInputSuggestor getSuggestor();
+    public CommandSuggestions getSuggestor();
 
     static ChatScreenAccess of(ChatScreen screen) {
         return (ChatScreenAccess) screen;

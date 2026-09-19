@@ -10,17 +10,17 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import me.matl114.versioned.impl.ItemUtils_v1_21_11;
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.component.ComponentType;
-import net.minecraft.component.type.CustomModelDataComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Unit;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomModelData;
 import org.jetbrains.annotations.Nullable;
 
 public interface VItem {
@@ -49,21 +49,21 @@ public interface VItem {
     public Integer getAttackDurabilityCost(ItemStack stack);
 
     // now we save DataVersion field
-    public ItemStack fromNbt(NbtCompound tag, RegistryWrapper.WrapperLookup lookup);
+    public ItemStack fromNbt(CompoundTag tag, HolderLookup.Provider lookup);
     // now we save DataVersion field
-    public NbtCompound toNbt(ItemStack tag, RegistryWrapper.WrapperLookup lookup);
+    public CompoundTag toNbt(ItemStack tag, HolderLookup.Provider lookup);
 
-    public MutableText getFormattedName(ItemStack stack);
+    public MutableComponent getFormattedName(ItemStack stack);
 
-    public CustomModelDataComponent createModelData(int cmd);
+    public CustomModelData createModelData(int cmd);
 
-    public Map<ComponentType<?>, Codec<?>> getVersionCompatCodecs();
+    public Map<DataComponentType<?>, Codec<?>> getVersionCompatCodecs();
 
     default Codec<ItemStack> getVersionedCodec() {
         return ITEM_STACK_CODEC;
     }
 
-    public static record ComponentChangesType(@Nullable ComponentType<?> type, boolean removed) {
+    public static record ComponentChangesType(@Nullable DataComponentType<?> type, boolean removed) {
         public static final Codec<ComponentChangesType> CODEC;
 
         @Nonnull
@@ -72,7 +72,7 @@ public interface VItem {
             if (removed) return Codec.EMPTY.codec();
             else {
                 var versioned = VItem.getInstance().getVersionCompatCodecs().get(type);
-                return versioned == null ? type.getCodecOrThrow() : versioned;
+                return versioned == null ? type.codecOrThrow() : versioned;
             }
         }
 
@@ -85,12 +85,12 @@ public interface VItem {
                         }
 
                         Identifier identifier = Identifier.tryParse(id);
-                        ComponentType<?> componentType = Registries.DATA_COMPONENT_TYPE.get(identifier);
+                        DataComponentType<?> componentType = BuiltInRegistries.DATA_COMPONENT_TYPE.getValue(identifier);
                         if (componentType == null) {
                             // for version compat
                             return DataResult.success(new ComponentChangesType(null, false));
                         } else {
-                            return componentType.shouldSkipSerialization()
+                            return componentType.isTransient()
                                     ? DataResult.error(() -> {
                                         return "'" + String.valueOf(identifier) + "' is not a persistent component";
                                     })
@@ -98,11 +98,11 @@ public interface VItem {
                         }
                     },
                     (type) -> {
-                        ComponentType<?> componentType = type.type();
+                        DataComponentType<?> componentType = type.type();
                         if (componentType == null) {
                             return DataResult.error(() -> "Null component type");
                         }
-                        Identifier identifier = Registries.DATA_COMPONENT_TYPE.getId(componentType);
+                        Identifier identifier = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(componentType);
                         return identifier == null
                                 ? DataResult.error(() -> {
                                     return "Unregistered component: " + String.valueOf(componentType);
@@ -113,14 +113,14 @@ public interface VItem {
         }
     }
 
-    Codec<ComponentChanges> COMPONENT_CHANGES_CODEC = Codec.dispatchedMap(
+    Codec<DataComponentPatch> COMPONENT_CHANGES_CODEC = Codec.dispatchedMap(
                     ComponentChangesType.CODEC, ComponentChangesType::getValueCodec)
             .xmap(
                     (changes) -> {
                         if (changes.isEmpty()) {
-                            return ComponentChanges.EMPTY;
+                            return DataComponentPatch.EMPTY;
                         } else {
-                            Reference2ObjectMap<ComponentType<?>, Optional<?>> reference2ObjectMap =
+                            Reference2ObjectMap<DataComponentType<?>, Optional<?>> reference2ObjectMap =
                                     new Reference2ObjectArrayMap<>(changes.size());
                             var var2 = changes.entrySet().iterator();
 
@@ -137,7 +137,7 @@ public interface VItem {
                                 }
                             }
 
-                            return new ComponentChanges(reference2ObjectMap);
+                            return new DataComponentPatch(reference2ObjectMap);
                         }
                     },
                     (changes) -> {
@@ -146,9 +146,9 @@ public interface VItem {
                         var var2 = changes.entrySet().iterator();
 
                         while (var2.hasNext()) {
-                            Map.Entry<ComponentType<?>, Optional<?>> entry = var2.next();
-                            ComponentType<?> componentType = entry.getKey();
-                            if (!componentType.shouldSkipSerialization()) {
+                            Map.Entry<DataComponentType<?>, Optional<?>> entry = var2.next();
+                            DataComponentType<?> componentType = entry.getKey();
+                            if (!componentType.isTransient()) {
                                 Optional<?> optional = entry.getValue();
                                 if (optional.isPresent()) {
                                     ((Map) reference2ObjectMap)
@@ -166,12 +166,12 @@ public interface VItem {
     MapCodec<ItemStack> ITEM_STACK_MAP_CODEC = MapCodec.recursive("ItemStack", (codec) -> {
         return RecordCodecBuilder.mapCodec((instance) -> {
             return instance.group(
-                            Item.ENTRY_CODEC.fieldOf("id").forGetter(ItemStack::getRegistryEntry),
+                            Item.CODEC.fieldOf("id").forGetter(ItemStack::typeHolder),
                             Codec.INT.fieldOf("count").orElse(1).forGetter(ItemStack::getCount),
                             VItem.COMPONENT_CHANGES_CODEC
-                                    .optionalFieldOf("components", ComponentChanges.EMPTY)
+                                    .optionalFieldOf("components", DataComponentPatch.EMPTY)
                                     .forGetter((stack) -> {
-                                        return stack.components.getChanges();
+                                        return stack.components.asPatch();
                                     }))
                     .apply(instance, ItemStack::new);
         });

@@ -1,8 +1,8 @@
 package me.matl114.gui.elements;
 
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
 
 public class OutputSlotElement extends SlotElement {
     /**
@@ -10,7 +10,7 @@ public class OutputSlotElement extends SlotElement {
      * @param inventory
      * @param index
      */
-    public OutputSlotElement(Inventory inventory, int index) {
+    public OutputSlotElement(Container inventory, int index) {
         super(inventory, index);
     }
 

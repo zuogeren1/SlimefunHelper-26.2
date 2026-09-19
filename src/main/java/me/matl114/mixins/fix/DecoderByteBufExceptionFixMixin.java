@@ -7,13 +7,13 @@ import io.netty.handler.codec.DecoderException;
 import me.matl114.hacks.ExtraTasks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.handler.DecoderHandler;
+import net.minecraft.network.PacketDecoder;
+import net.minecraft.network.codec.StreamCodec;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(DecoderHandler.class)
+@Mixin(PacketDecoder.class)
 public abstract class DecoderByteBufExceptionFixMixin {
     @WrapOperation(
             method = "decode",
@@ -21,8 +21,8 @@ public abstract class DecoderByteBufExceptionFixMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/network/codec/PacketCodec;decode(Ljava/lang/Object;)Ljava/lang/Object;"))
-    public Object onDecodeException(PacketCodec instance, Object object, Operation<Object> original) {
+                                    "Lnet/minecraft/network/codec/StreamCodec;decode(Ljava/lang/Object;)Ljava/lang/Object;"))
+    public Object onDecodeException(StreamCodec instance, Object object, Operation<Object> original) {
         try {
             return original.call(instance, object);
         } catch (DecoderException exception) {

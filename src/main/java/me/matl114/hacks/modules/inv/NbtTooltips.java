@@ -13,13 +13,13 @@ import me.matl114.managers.input.*;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.nbt.visitor.NbtTextFormatter;
-import net.minecraft.text.Text;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TextComponentTagVisitor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 public class NbtTooltips extends BaseModule {
     // todo: nbt tooltips
@@ -53,44 +53,44 @@ public class NbtTooltips extends BaseModule {
         registerListener(RenderListener.getTooltipShow(), this::onTooltipsAppend);
     }
 
-    public void onTooltipsAppend(Event<List<Text>> renderEvent) {
+    public void onTooltipsAppend(Event<List<Component>> renderEvent) {
         if (enable.get() && keyBind.get().isAllPressed()) {
             ItemStack stack = renderEvent.getArgs(0);
             renderEvent.context.addAll(getTooltipLines(stack));
         }
     }
 
-    public List<Text> getTooltipLines(ItemStack stack) {
-        NbtCompound nbtCompound = getSimplifiedNbt(stack);
-        Text text = new NbtTextFormatter(" ".repeat(formatedWidth.get())).apply(nbtCompound);
+    public List<Component> getTooltipLines(ItemStack stack) {
+        CompoundTag nbtCompound = getSimplifiedNbt(stack);
+        Component text = new TextComponentTagVisitor(" ".repeat(formatedWidth.get())).visit(nbtCompound);
         return ChatUtils.splitToMultiLineText(text, width.get());
     }
 
-    public NbtCompound getSimplifiedNbt(ItemStack stack) {
-        NbtCompound nbtCompound = VItem.getInstance().toNbt(stack, ItemStackUtils.registry());
-        nbtCompound = (NbtCompound) nbtCompound.get("components");
-        nbtCompound = nbtCompound == null ? new NbtCompound() : nbtCompound;
+    public CompoundTag getSimplifiedNbt(ItemStack stack) {
+        CompoundTag nbtCompound = VItem.getInstance().toNbt(stack, ItemStackUtils.registry());
+        nbtCompound = (CompoundTag) nbtCompound.get("components");
+        nbtCompound = nbtCompound == null ? new CompoundTag() : nbtCompound;
         nbtCompound = replaceMcKey(nbtCompound);
         return nbtCompound;
     }
 
-    private <T extends NbtElement> T replaceMcKey(T nbt) {
-        if (nbt instanceof NbtCompound cpd) {
-            NbtCompound nbtCompound = new NbtCompound();
-            for (String key : cpd.getKeys()) {
-                NbtElement element = cpd.get(key);
+    private <T extends Tag> T replaceMcKey(T nbt) {
+        if (nbt instanceof CompoundTag cpd) {
+            CompoundTag nbtCompound = new CompoundTag();
+            for (String key : cpd.keySet()) {
+                Tag element = cpd.get(key);
                 nbtCompound.put(replaceMcStr(key), replaceMcKey(element));
             }
             return (T) nbtCompound;
-        } else if (nbt instanceof NbtList nbtList) {
-            NbtList list = new NbtList();
-            for (NbtElement element : nbtList) {
+        } else if (nbt instanceof ListTag nbtList) {
+            ListTag list = new ListTag();
+            for (Tag element : nbtList) {
                 list.add(replaceMcKey(element));
             }
             return (T) list;
-        } else if (nbt instanceof NbtString nbtString) {
+        } else if (nbt instanceof StringTag nbtString) {
             String str = nbtString.value();
-            return (T) NbtString.of(replaceMcStr(str));
+            return (T) StringTag.valueOf(replaceMcStr(str));
         } else return nbt;
     }
 

@@ -12,15 +12,15 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
-import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public class AutoSteal extends BaseModule {
     // todo:
@@ -52,7 +52,7 @@ public class AutoSteal extends BaseModule {
 
     // 物品过滤器（RegistryRegex 类型，基于物品注册表过滤）
     public final NBTRef<EntrySet<Item>> itemFilter = builder(steal.add("item-filter"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(new Regex(".*"), Registries.ITEM))
+            .defaultValue(new EntrySet<>(new Regex(".*"), BuiltInRegistries.ITEM))
             .build();
 
     public AutoSteal() {
@@ -66,23 +66,23 @@ public class AutoSteal extends BaseModule {
         registerListener(Listener.getPreGameTick(), this::onInventoryTick);
     }
 
-    public void onInventoryTick(Event<ClientPlayerEntity> event) {
-        if (mc.currentScreen instanceof HandledScreen<?> handle && enable.get()) {
-            Text text = handle.getTitle();
+    public void onInventoryTick(Event<LocalPlayer> event) {
+        if (mc.gui.screen() instanceof AbstractContainerScreen<?> handle && enable.get()) {
+            Component text = handle.getTitle();
             String titleName = text == null ? "" : ChatUtils.textToPlainString(text);
             if (titleRegex.get().test(titleName)) {
-                var screenHandler = handle.getScreenHandler();
+                var screenHandler = handle.getMenu();
                 if (screenHandler != null
-                        && !(screenHandler instanceof CreativeInventoryScreen.CreativeScreenHandler)) {
+                        && !(screenHandler instanceof CreativeModeInventoryScreen.ItemPickerMenu)) {
                     for (var slot : screenHandler.slots) {
-                        if (slot.inventory instanceof PlayerInventory playerInventory) {
+                        if (slot.container instanceof Inventory playerInventory) {
                             break;
                         } else {
                             // not a player inventory
-                            ItemStack stack = slot.getStack();
+                            ItemStack stack = slot.getItem();
                             if (!stack.isEmpty() && itemFilter.get().test(stack.getItem())) {
-                                mc.interactionManager.clickSlot(
-                                        screenHandler.syncId, slot.getIndex(), 0, SlotActionType.QUICK_MOVE, mc.player);
+                                mc.gameMode.handleContainerInput(
+                                        screenHandler.containerId, slot.getContainerSlot(), 0, ContainerInput.QUICK_MOVE, mc.player);
                             }
                         }
                     }

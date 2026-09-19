@@ -5,18 +5,18 @@ import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.tree.CommandNode;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 @ApiMethod
 public class ClientUtils {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static boolean isPlayerOnline() {
-        return mc.player != null && !mc.disconnecting;
+        return mc.player != null && !mc.gui.clientLevelTeardownInProgress;
     }
 
     public static boolean isNetworkConnecting() {
-        return mc.getServer() != null;
+        return mc.getSingleplayerServer() != null;
     }
 
     public static CompletableFuture<List<String>> getServerPluginResources() {
@@ -25,7 +25,7 @@ public class ClientUtils {
     }
 
     public static List<String> getServerCommands() {
-        return mc.getNetworkHandler().getCommandDispatcher().getRoot().getChildren().stream()
+        return mc.getConnection().getCommands().getRoot().getChildren().stream()
                 .map(CommandNode::getName)
                 .toList();
     }
@@ -33,10 +33,10 @@ public class ClientUtils {
     public static CompletableFuture<List<String>> getServerCommandTabResult(String command) {
         StringReader ojReader = new StringReader(command);
         ojReader.skip();
-        var dispatcher = mc.getNetworkHandler().getCommandDispatcher();
-        var parseResult = dispatcher.parse(ojReader, mc.getNetworkHandler().getCommandSource());
-        return mc.getNetworkHandler()
-                .getCommandDispatcher()
+        var dispatcher = mc.getConnection().getCommands();
+        var parseResult = dispatcher.parse(ojReader, mc.getConnection().getSuggestionsProvider());
+        return mc.getConnection()
+                .getCommands()
                 .getCompletionSuggestions(parseResult)
                 .thenApply((suggestions -> {
                     return suggestions.getList().stream()

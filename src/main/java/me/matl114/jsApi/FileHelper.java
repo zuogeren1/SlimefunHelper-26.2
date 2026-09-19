@@ -15,11 +15,11 @@ import java.nio.file.*;
 import java.util.Map;
 import me.matl114.utils.ApiMethod;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.ReportedException;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtSizeTracker;
-import net.minecraft.util.crash.CrashException;
+import net.minecraft.nbt.Tag;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -608,36 +608,36 @@ public class FileHelper {
     }
 
     @ApiMethod
-    public NbtElement readNbtFile(String filepath, boolean compressed) throws IOException {
+    public Tag readNbtFile(String filepath, boolean compressed) throws IOException {
         return readNbtFile(new File(filepath), compressed);
     }
 
     @ApiMethod
-    public NbtElement readNbtFile(File file, boolean compressed) throws IOException {
+    public Tag readNbtFile(File file, boolean compressed) throws IOException {
         if (!file.exists()) {
             throw new IOException("NBT file does not exist: " + file);
         }
 
         try (InputStream inputStream = new FileInputStream(file)) {
             if (compressed) {
-                return NbtIo.readCompressed(inputStream, NbtSizeTracker.ofUnlimitedBytes());
+                return NbtIo.readCompressed(inputStream, NbtAccounter.unlimitedHeap());
             } else {
                 try (DataInputStream dataInput = new DataInputStream(inputStream)) {
-                    return NbtIo.readCompound(dataInput, NbtSizeTracker.ofUnlimitedBytes());
+                    return NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
                 }
             }
-        } catch (CrashException e) {
+        } catch (ReportedException e) {
             throw new IOException("Failed to parse NBT file: " + file, e.getCause());
         }
     }
 
     @ApiMethod
-    public void writeNbtFile(String file, NbtCompound nbt, boolean compressed) throws IOException {
+    public void writeNbtFile(String file, CompoundTag nbt, boolean compressed) throws IOException {
         writeNbtFile(new File(file), nbt, compressed);
     }
 
     @ApiMethod
-    public void writeNbtFile(File file, NbtCompound nbt, boolean compressed) throws IOException {
+    public void writeNbtFile(File file, CompoundTag nbt, boolean compressed) throws IOException {
         ensureParentDir(file);
 
         try (OutputStream outputStream = new FileOutputStream(file)) {
@@ -645,7 +645,7 @@ public class FileHelper {
                 NbtIo.writeCompressed(nbt, outputStream);
             } else {
                 try (DataOutputStream dataOutput = new DataOutputStream(outputStream)) {
-                    NbtIo.writeCompound(nbt, dataOutput);
+                    NbtIo.write(nbt, dataOutput);
                 }
             }
         }

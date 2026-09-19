@@ -4,7 +4,7 @@ import java.util.function.BooleanSupplier;
 import me.matl114.gui.basic.ButtonAction;
 import me.matl114.gui.basic.TooltipHandler;
 import me.matl114.utils.ChatUtils;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public class ResetButtonElement extends IconElement.SimpleIconElement {
     public static final Identifier RESET_BUTTON = new Identifier("slimefunhelper", "gui/reset");

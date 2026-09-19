@@ -5,26 +5,26 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import me.matl114.versioned.impl.DrawContext_v1_21_11;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipData;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 public interface VDrawContext {
     // MatrixStack will be deprecated in the future in GUI drawing, to compat old code, we have to use these wrappers
     @Nonnull
-    public static VDrawContext of(DrawContext drawContext) {
+    public static VDrawContext of(GuiGraphicsExtractor drawContext) {
         return new DrawContext_v1_21_11(drawContext);
     }
     // These method push and pop DrawContext's matrixStack to ensure that it is same as getMatrices()
-    public DrawContext pushMatrix();
+    public GuiGraphicsExtractor pushMatrix();
 
-    public DrawContext popMatrix();
+    public GuiGraphicsExtractor popMatrix();
 
     public void pushLayer(int depth);
 
@@ -144,19 +144,19 @@ public interface VDrawContext {
             int width,
             int height);
 
-    default void drawSprite(Sprite sprite, int x, int y, int z, int width, int height) {
+    default void drawSprite(TextureAtlasSprite sprite, int x, int y, int z, int width, int height) {
         if (width != 0 && height != 0) {
             this.drawTexturedQuad(
-                    sprite.getAtlasId(),
+                    sprite.atlasLocation(),
                     x,
                     x + width,
                     y,
                     y + height,
                     z,
-                    sprite.getMinU(),
-                    sprite.getMaxU(),
-                    sprite.getMinV(),
-                    sprite.getMaxV());
+                    sprite.getU0(),
+                    sprite.getU1(),
+                    sprite.getV0(),
+                    sprite.getV1());
         }
     }
 
@@ -179,20 +179,20 @@ public interface VDrawContext {
     //        drawGuiTexture(texture, (int) textureWidth, (int) textureHeight, ui1, vi1, x1, y1, z, width, height);
     //    }
 
-    public Sprite getGuiSprite(Identifier i);
+    public TextureAtlasSprite getGuiSprite(Identifier i);
 
     default void drawCenteredTextWithShadow(
-            TextRenderer textRenderer, OrderedText text, int centerX, int y, int color) {
-        this.drawText(textRenderer, text, centerX - textRenderer.getWidth(text) / 2, y, color, true);
+            Font textRenderer, FormattedCharSequence text, int centerX, int y, int color) {
+        this.drawText(textRenderer, text, centerX - textRenderer.width(text) / 2, y, color, true);
     }
 
-    default void drawTextWithShadow(TextRenderer textRenderer, @Nullable String text, int x, int y, int color) {
+    default void drawTextWithShadow(Font textRenderer, @Nullable String text, int x, int y, int color) {
         this.drawText(textRenderer, text, x, y, color, true);
     }
 
-    public void drawText(TextRenderer textRenderer, OrderedText text, int x, int y, int color, boolean shadow);
+    public void drawText(Font textRenderer, FormattedCharSequence text, int x, int y, int color, boolean shadow);
 
-    public void drawText(TextRenderer textRenderer, @Nullable String text, int x, int y, int color, boolean shadow);
+    public void drawText(Font textRenderer, @Nullable String text, int x, int y, int color, boolean shadow);
     // just pass the relative coord
     public void enableScissor(int x, int y, int width, int height);
 
@@ -220,10 +220,10 @@ public interface VDrawContext {
 
     public void lineGuiGradient(int x1, int y1, int x2, int y2, int color1, int color2, int depth);
 
-    public void drawTooltip(TextRenderer textRenderer, List<Text> text, Optional<TooltipData> data, int x, int y);
+    public void drawTooltip(Font textRenderer, List<Component> text, Optional<TooltipComponent> data, int x, int y);
 
     public void drawItem(ItemStack stack, int x, int y, int seed, int z);
 
     public void drawItemInSlot(
-            TextRenderer textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride);
+            Font textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride);
 }

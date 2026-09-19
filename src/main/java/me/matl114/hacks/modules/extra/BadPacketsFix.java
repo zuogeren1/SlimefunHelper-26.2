@@ -14,17 +14,22 @@ import me.matl114.utils.EntityUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.SupportVersion;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.network.packet.c2s.play.*;
-import net.minecraft.network.packet.s2c.play.ChunkLoadDistanceS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerAbilitiesS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.world.World;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
+import net.minecraft.network.protocol.game.ClientboundSetChunkCacheRadiusPacket;
+import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerAbilitiesPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 
 public class BadPacketsFix extends BaseModule {
     public static BadPacketsFix INSTANCE;
@@ -85,20 +90,20 @@ public class BadPacketsFix extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getPlayerInitConfiguration(), this::onPlayerInitialize);
-        registerListener(Listener.getPacketPoint().getChannel(ClientCommandC2SPacket.class), this::onSendSprint);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerInputC2SPacket.class), this::onSendInput);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerAbilitiesS2CPacket.class), this::onServerAbility);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerCommandPacket.class), this::onSendSprint);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerInputPacket.class), this::onSendInput);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundPlayerAbilitiesPacket.class), this::onServerAbility);
         registerListener(
-                Listener.getPacketPoint().getChannel(UpdatePlayerAbilitiesC2SPacket.class), this::onAbilityUpdate);
-        registerListener(Listener.getPacketPoint().getChannel(TeleportConfirmC2SPacket.class), this::onTeleportConfirm);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onPlayerRotation);
+                Listener.getPacketPoint().getChannel(ServerboundPlayerAbilitiesPacket.class), this::onAbilityUpdate);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundAcceptTeleportationPacket.class), this::onTeleportConfirm);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerRotation);
         //        registerListener(Listener.getPreHandleInputEvents(), this::onPreInputEvent);
         //        registerListener(Listener.getPostHandleInputEvents(), this::onPostInputEvent);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldChange);
         registerListener(
-                Listener.getPacketPoint().getChannel(ChunkLoadDistanceS2CPacket.class), this::onRepackViewDistance);
+                Listener.getPacketPoint().getChannel(ClientboundSetChunkCacheRadiusPacket.class), this::onRepackViewDistance);
         registerListener(
-                Listener.getRegistryTagKeyReload().getChannel(Registries.BLOCK.getKey()), this::fixTagsBadPackets);
+                Listener.getRegistryTagKeyReload().getChannel(BuiltInRegistries.BLOCK.key()), this::fixTagsBadPackets);
     }
 
     boolean serverSprint = false;
@@ -118,20 +123,20 @@ public class BadPacketsFix extends BaseModule {
     //        handlingInputs = false;
     //    }
 
-    public void onPlayerInitialize(Event<ClientPlayerEntity> event) {
-        ClientPlayerEntity entity = event.context();
+    public void onPlayerInitialize(Event<LocalPlayer> event) {
+        LocalPlayer entity = event.context();
         serverSprint = entity.isSprinting();
         // serverSneak = entity.isSneaking();
         serverInput = PlayerInputUtils.EMPTY;
-        serverCanFly = entity.getAbilities().allowFlying;
-        serverPitch = entity.getPitch();
-        serverYaw = entity.getYaw();
+        serverCanFly = entity.getAbilities().mayfly;
+        serverPitch = entity.getXRot();
+        serverYaw = entity.getYRot();
     }
 
-    public void onSendSprint(Event<ClientCommandC2SPacket> event) {
-        if (event.context().getMode() == ClientCommandC2SPacket.Mode.START_SPRINTING
-                || event.context().getMode() == ClientCommandC2SPacket.Mode.STOP_SPRINTING) {
-            boolean isStartingSprint = (event.context().getMode() == ClientCommandC2SPacket.Mode.START_SPRINTING);
+    public void onSendSprint(Event<ServerboundPlayerCommandPacket> event) {
+        if (event.context().getAction() == ServerboundPlayerCommandPacket.Action.START_SPRINTING
+                || event.context().getAction() == ServerboundPlayerCommandPacket.Action.STOP_SPRINTING) {
+            boolean isStartingSprint = (event.context().getAction() == ServerboundPlayerCommandPacket.Action.START_SPRINTING);
             if (serverSprint == isStartingSprint) {
                 if (enableSprint.get()) {
                     event.cancel();
@@ -144,10 +149,10 @@ public class BadPacketsFix extends BaseModule {
 
     public boolean shouldConsiderInputPacket = SupportVersion.CURRENT.isHigherOrEqualTo(21, 2);
 
-    public void onSendInput(Event<PlayerInputC2SPacket> inputC2SPacketEvent) {
+    public void onSendInput(Event<ServerboundPlayerInputPacket> inputC2SPacketEvent) {
         PlayerInputUtils.Input input = PlayerInputUtils.of(inputC2SPacketEvent.context());
         if (Objects.equals(input, serverInput)) {
-            if (!mc.player.hasVehicle() && shouldConsiderInputPacket && enableInput.get()) {
+            if (!mc.player.isPassenger() && shouldConsiderInputPacket && enableInput.get()) {
                 inputC2SPacketEvent.cancel();
             }
         } else {
@@ -155,11 +160,11 @@ public class BadPacketsFix extends BaseModule {
         }
     }
 
-    public void onServerAbility(Event<PlayerAbilitiesS2CPacket> event) {
-        serverCanFly = event.context.allowFlying();
+    public void onServerAbility(Event<ClientboundPlayerAbilitiesPacket> event) {
+        serverCanFly = event.context.canFly();
     }
 
-    public void onAbilityUpdate(Event<UpdatePlayerAbilitiesC2SPacket> event) {
+    public void onAbilityUpdate(Event<ServerboundPlayerAbilitiesPacket> event) {
         if (!event.isCancelled()
                 && enableFly.get()
                 && !serverCanFly
@@ -170,14 +175,14 @@ public class BadPacketsFix extends BaseModule {
 
     boolean exempt = false;
 
-    public void onTeleportConfirm(Event<TeleportConfirmC2SPacket> packetEvent) {
+    public void onTeleportConfirm(Event<ServerboundAcceptTeleportationPacket> packetEvent) {
         exempt = true;
     }
 
-    public void onPlayerRotation(Event<PlayerMoveC2SPacket> packetEvent) {
-        PlayerMoveC2SPacket packet = packetEvent.context();
-        float serverPitch = packet.getPitch(this.serverPitch);
-        float serverYaw = packet.getYaw(this.serverYaw);
+    public void onPlayerRotation(Event<ServerboundMovePlayerPacket> packetEvent) {
+        ServerboundMovePlayerPacket packet = packetEvent.context();
+        float serverPitch = packet.getXRot(this.serverPitch);
+        float serverYaw = packet.getYRot(this.serverYaw);
         if (packet instanceof PlayerMoveC2SPacketAccess access) {
             PlayerMoveC2SPacketAccess.Cause cause = access.getCause();
             if (cause != null) {
@@ -190,13 +195,13 @@ public class BadPacketsFix extends BaseModule {
         }
         // fix lower than 1.20.6 interactItem protocol
         if (exemptDupRot.get() && ViaFabricPlusHooks.isSupportDupRot()) {
-            if (packet instanceof PlayerMoveC2SPacket.Full fullPacket) {
+            if (packet instanceof ServerboundMovePlayerPacket.PosRot fullPacket) {
                 // 懒得核验了，直接过吧
                 exempt = true;
             }
         }
         if (filterDupRot.get() && ViaFabricPlusHooks.isSupportDupRot()) {
-            if (packet instanceof PlayerMoveC2SPacket.Full fullPacket
+            if (packet instanceof ServerboundMovePlayerPacket.PosRot fullPacket
                     && LegacySnapRotManager.INSTANCE.betweenViaPacket
                     && fullPacket instanceof PlayerMoveC2SPacketAccess access
                     && access.getCause() == PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP) {
@@ -217,9 +222,9 @@ public class BadPacketsFix extends BaseModule {
         }
 
         if (serverPitch == this.serverPitch && serverYaw == this.serverYaw) {
-            if (packet.changesLook() && enableRot.get()) {
+            if (packet.hasRotation() && enableRot.get()) {
                 // do not handle full packet
-                if (enableFullRot.get() && packet instanceof PlayerMoveC2SPacket.Full full) {
+                if (enableFullRot.get() && packet instanceof ServerboundMovePlayerPacket.PosRot full) {
                     packetEvent.context(PlayerMoveC2SPacketAccess.setCauseFrom(
                             VPacket.newPositionAndOnGround(
                                     packet.getX(mc.player.getX()),
@@ -228,8 +233,8 @@ public class BadPacketsFix extends BaseModule {
                                     packet.isOnGround(),
                                     VPacket.getCollisionFlag(full)),
                             full));
-                } else if (packet instanceof PlayerMoveC2SPacket.LookAndOnGround lookAndOnGround) {
-                    if (!mc.player.hasVehicle()) {
+                } else if (packet instanceof ServerboundMovePlayerPacket.Rot lookAndOnGround) {
+                    if (!mc.player.isPassenger()) {
                         packetEvent.context(PlayerMoveC2SPacketAccess.setCauseFrom(
                                 VPacket.newOnGroundOnly(
                                         lookAndOnGround.isOnGround(), VPacket.getCollisionFlag(lookAndOnGround)),
@@ -244,41 +249,41 @@ public class BadPacketsFix extends BaseModule {
         }
     }
 
-    public void onWorldChange(Event<World> eventWorldChange) {
+    public void onWorldChange(Event<Level> eventWorldChange) {
         if (enableViewDistance.get() && eventWorldChange.context != null) {
-            if (eventWorldChange.context instanceof ClientWorld client) {
-                if (client.getChunkManager().chunks.radius > 35) {
-                    client.getChunkManager().updateLoadDistance(32);
+            if (eventWorldChange.context instanceof ClientLevel client) {
+                if (client.getChunkSource().storage.chunkRadius > 35) {
+                    client.getChunkSource().updateViewRadius(32);
                 }
             }
         }
     }
 
-    public void onRepackViewDistance(Event<ChunkLoadDistanceS2CPacket> eventChunkLoad) {
+    public void onRepackViewDistance(Event<ClientboundSetChunkCacheRadiusPacket> eventChunkLoad) {
         if (enableViewDistance.get() && eventChunkLoad.context != null) {
-            ChunkLoadDistanceS2CPacket packet = eventChunkLoad.context();
-            if (packet.getDistance() > 32) {
-                eventChunkLoad.context(new ChunkLoadDistanceS2CPacket(32));
+            ClientboundSetChunkCacheRadiusPacket packet = eventChunkLoad.context();
+            if (packet.getRadius() > 32) {
+                eventChunkLoad.context(new ClientboundSetChunkCacheRadiusPacket(32));
             }
         }
     }
 
-    public void fixTagsBadPackets(Event<Map<TagKey<?>, List<RegistryEntry<?>>>> event) {
+    public void fixTagsBadPackets(Event<Map<TagKey<?>, List<Holder<?>>>> event) {
         var registryKey = event.getArgs(0);
-        if (fixIncorrectTools.get() && Objects.equals(registryKey, Registries.BLOCK.getKey())) {
+        if (fixIncorrectTools.get() && Objects.equals(registryKey, BuiltInRegistries.BLOCK.key())) {
             var original = event.context;
 
-            Map<TagKey<?>, List<RegistryEntry<?>>> recreateMap = null;
-            var lst = original.get(BlockTags.PICKAXE_MINEABLE);
+            Map<TagKey<?>, List<Holder<?>>> recreateMap = null;
+            var lst = original.get(BlockTags.MINEABLE_WITH_PICKAXE);
             if (lst != null) {
-                int idx = lst.indexOf(Blocks.CHEST.getRegistryEntry());
+                int idx = lst.indexOf(Blocks.CHEST.builtInRegistryHolder());
                 if (idx != -1) {
                     if (recreateMap == null) {
                         recreateMap = new HashMap<>(original);
                     }
                     var lstCopy = new ArrayList<>(lst);
                     lstCopy.remove(idx);
-                    recreateMap.put(BlockTags.PICKAXE_MINEABLE, lstCopy);
+                    recreateMap.put(BlockTags.MINEABLE_WITH_PICKAXE, lstCopy);
                 }
             }
             if (recreateMap != null) {

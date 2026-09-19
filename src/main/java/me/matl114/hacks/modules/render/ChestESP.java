@@ -2,6 +2,7 @@ package me.matl114.hacks.modules.render;
 
 import static me.matl114.utils.ColorUtils.*;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.Map;
 import me.matl114.accessors.access.ChunkAccess;
@@ -19,21 +20,21 @@ import me.matl114.utils.ColorUtils;
 import me.matl114.utils.CommonUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ChestBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.enums.ChestType;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.BlockEntityTypes;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class ChestESP extends BaseModule {
     public final ModulePath detectBlock = makePath(Configs.RENDER_CONFIG, "detect-block");
@@ -48,7 +49,7 @@ public class ChestESP extends BaseModule {
 
     public final NBTRef<EntrySet<BlockEntityType<?>>> typeFilter = builder(
                     chestEsp.add("enable-types"), EntrySet.<BlockEntityType<?>>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*chest|barrel|.*box)$"), Registries.BLOCK_ENTITY_TYPE))
+            .defaultValue(new EntrySet<>(new Regex("^(.*chest|barrel|.*box)$"), BuiltInRegistries.BLOCK_ENTITY_TYPE))
             .build();
 
     public final NBTRef<TracingOption> enableLines = builder(chestEsp.add("esp-trace-options"), TracingOption.class)
@@ -58,19 +59,19 @@ public class ChestESP extends BaseModule {
     public final NBTRef<EntryPrimitiveMap<BlockEntityType<?>, TextColor>> colorMap = builder(
                     chestEsp.add("color-map"), EntryPrimitiveMap.<BlockEntityType<?>, TextColor>parameter())
             .defaultValue(new EntryPrimitiveMap<>(
-                    Registries.BLOCK_ENTITY_TYPE,
+                    BuiltInRegistries.BLOCK_ENTITY_TYPE,
                     NBTTypes.COLOR_TYPE,
                     Map.of(
-                            BlockEntityType.CHEST, color(Formatting.GREEN),
-                            BlockEntityType.BARREL, color(Formatting.GREEN),
-                            BlockEntityType.SHULKER_BOX, color(Color.MAGENTA),
-                            BlockEntityType.TRAPPED_CHEST, TextColor.fromRgb(0xFF8000),
-                            BlockEntityType.FURNACE, color(Formatting.WHITE),
-                            BlockEntityType.ENDER_CHEST, color(Color.CYAN),
-                            BlockEntityType.DROPPER, color(Formatting.WHITE),
-                            BlockEntityType.DISPENSER, color(Formatting.WHITE),
-                            BlockEntityType.HOPPER, color(Formatting.AQUA)),
-                    color(Formatting.GREEN)))
+                            BlockEntityTypes.CHEST, color(ChatFormatting.GREEN),
+                            BlockEntityTypes.BARREL, color(ChatFormatting.GREEN),
+                            BlockEntityTypes.SHULKER_BOX, color(Color.MAGENTA),
+                            BlockEntityTypes.TRAPPED_CHEST, TextColor.fromRgb(0xFF8000),
+                            BlockEntityTypes.FURNACE, color(ChatFormatting.WHITE),
+                            BlockEntityTypes.ENDER_CHEST, color(Color.CYAN),
+                            BlockEntityTypes.DROPPER, color(ChatFormatting.WHITE),
+                            BlockEntityTypes.DISPENSER, color(ChatFormatting.WHITE),
+                            BlockEntityTypes.HOPPER, color(ChatFormatting.AQUA)),
+                    color(ChatFormatting.GREEN)))
             .build();
 
     //    public final Map<BlockPos, BlockEntity> renderPositions = new HashMap<>();
@@ -85,11 +86,11 @@ public class ChestESP extends BaseModule {
 
     public void onBlockEntityRender(Event<BlockEntity> blockEntityEvent) {}
 
-    public final RenderCollector<Box> boxSolidCollector = RenderCollectors.createBoxCollector(false, true, false);
-    public final RenderCollector<Box> boxOutlineCollector = RenderCollectors.createBoxCollector(true, false, false);
-    public final RenderCollector<Vec3d> boxTraceLineCollector = RenderCollectors.createTracerCollector();
+    public final RenderCollector<AABB> boxSolidCollector = RenderCollectors.createBoxCollector(false, true, false);
+    public final RenderCollector<AABB> boxOutlineCollector = RenderCollectors.createBoxCollector(true, false, false);
+    public final RenderCollector<Vec3> boxTraceLineCollector = RenderCollectors.createTracerCollector();
 
-    public void onSwapRenderContent(Event<ClientPlayerEntity> clientPlayerEntityEvent) {
+    public void onSwapRenderContent(Event<LocalPlayer> clientPlayerEntityEvent) {
         if (checkNull()) return;
         boxOutlineCollector.clear();
         boxTraceLineCollector.clear();
@@ -106,9 +107,9 @@ public class ChestESP extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> render) {
+    public void onRender(Event<PoseStack> render) {
         if (enable.get()) {
-            MatrixStack stack = render.context();
+            PoseStack stack = render.context();
             RenderUtils.startDrawVirtual(stack);
             try {
                 boxSolidCollector.render3D(stack);
@@ -125,35 +126,35 @@ public class ChestESP extends BaseModule {
         if (color == null) return;
         TracingOption option = enableLines.get();
         if (option.box()) {
-            BlockState state = blockEntity.getCachedState();
-            Box outBox = handleDoubleChestBox(state, blockPos);
+            BlockState state = blockEntity.getBlockState();
+            AABB outBox = handleDoubleChestBox(state, blockPos);
             if (outBox != null) {
-                boxSolidCollector.submit(outBox.offset(blockPos), ColorUtils.withAlphaInt(color.getRgb(), 0.25F));
-                boxOutlineCollector.submit(outBox.offset(blockPos), ColorUtils.withAlphaInt(color.getRgb(), 0.5F));
+                boxSolidCollector.submit(outBox.move(blockPos), ColorUtils.withAlphaInt(color.getValue(), 0.25F));
+                boxOutlineCollector.submit(outBox.move(blockPos), ColorUtils.withAlphaInt(color.getValue(), 0.5F));
             }
         }
         if (option.line()) {
-            boxTraceLineCollector.submit(blockPos.toCenterPos(), ColorUtils.withAlphaInt(color.getRgb(), 1.0F));
+            boxTraceLineCollector.submit(Vec3.atCenterOf(blockPos), ColorUtils.withAlphaInt(color.getValue(), 1.0F));
         }
     }
 
-    public Box handleDoubleChestBox(BlockState state, BlockPos pos) {
-        VoxelShape shape1 = state.getOutlineShape(mc.world, pos);
+    public AABB handleDoubleChestBox(BlockState state, BlockPos pos) {
+        VoxelShape shape1 = state.getShape(mc.level, pos);
         if (state.getBlock() instanceof ChestBlock) {
-            ChestType type = state.get(ChestBlock.CHEST_TYPE);
+            ChestType type = state.getValue(ChestBlock.TYPE);
             if (type != ChestType.SINGLE) {
                 if (type == ChestType.RIGHT) {
                     return null;
                 } else {
-                    Direction facing = ChestBlock.getFacing(state);
-                    BlockPos otherChest = pos.offset(facing);
-                    BlockState state2 = mc.world.getBlockState(otherChest);
-                    VoxelShape shape2 = state2.getOutlineShape(mc.world, otherChest);
+                    Direction facing = ChestBlock.getConnectedDirection(state);
+                    BlockPos otherChest = pos.relative(facing);
+                    BlockState state2 = mc.level.getBlockState(otherChest);
+                    VoxelShape shape2 = state2.getShape(mc.level, otherChest);
                     if (!shape2.isEmpty()) {
-                        Box otherBox = shape2.getBoundingBox().offset(Vec3d.of(facing.getVector()));
+                        AABB otherBox = shape2.bounds().move(Vec3.atLowerCornerOf(facing.getUnitVec3i()));
                         if (!shape1.isEmpty()) {
-                            Box box = shape1.getBoundingBox();
-                            return box.union(otherBox);
+                            AABB box = shape1.bounds();
+                            return box.minmax(otherBox);
                         } else {
                             return otherBox;
                         }
@@ -161,6 +162,6 @@ public class ChestESP extends BaseModule {
                 }
             }
         }
-        return shape1.isEmpty() ? null : shape1.getBoundingBox();
+        return shape1.isEmpty() ? null : shape1.bounds();
     }
 }

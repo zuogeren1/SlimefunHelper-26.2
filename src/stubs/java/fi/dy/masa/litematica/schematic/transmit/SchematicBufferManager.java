@@ -1,7 +1,7 @@
 package fi.dy.masa.litematica.schematic.transmit;
 
 import fi.dy.masa.litematica.util.FileType;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.CompoundTag;
 
 public class SchematicBufferManager {
 
@@ -11,12 +11,12 @@ public class SchematicBufferManager {
             long totalExpectedSize,
             FileType type,
             final long sessionKey,
-            NbtCompound optional) {}
+            CompoundTag optional) {}
 
     public void createBuffer(
             int totalExpectedSlices,
             long totalExpectedSize,
             FileType type,
             final long sessionKey,
-            NbtCompound optional) {}
+            CompoundTag optional) {}
 }

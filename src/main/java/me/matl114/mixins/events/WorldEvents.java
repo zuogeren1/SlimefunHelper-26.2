@@ -6,26 +6,26 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.BlockEntityTickInvoker;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(World.class)
+@Mixin(Level.class)
 public abstract class WorldEvents {
     @Shadow
     @Final
-    private boolean isClient;
+    private boolean isClientSide;
 
     @WrapOperation(
             method = "tickBlockEntities",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/chunk/BlockEntityTickInvoker;tick()V"))
-    public void shouldTickBlockEntities(BlockEntityTickInvoker instance, Operation<Void> original) {
-        if (isClient) {
-            Event<BlockEntityTickInvoker> event = new Event<>(instance, true, false);
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/TickingBlockEntity;tick()V"))
+    public void shouldTickBlockEntities(TickingBlockEntity instance, Operation<Void> original) {
+        if (isClientSide) {
+            Event<TickingBlockEntity> event = new Event<>(instance, true, false);
             Listener.getBlockEntityTickListener().handleValue(event);
             if (!event.isCancelled()) {
                 try {

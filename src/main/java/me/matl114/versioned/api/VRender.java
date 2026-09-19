@@ -1,5 +1,7 @@
 package me.matl114.versioned.api;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.awt.*;
 import java.util.List;
 import lombok.With;
@@ -7,19 +9,17 @@ import me.matl114.utils.render.ColorQuad;
 import me.matl114.utils.render.Quad;
 import me.matl114.utils.render.UV;
 import me.matl114.versioned.impl.Render_v1_21_11;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.OrderedText;
-import net.minecraft.util.Atlases;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
 public interface VRender {
     public static final VRender INSTANCE = new Render_v1_21_11();
@@ -48,20 +48,20 @@ public interface VRender {
     public void createGuiTexturedLayer(Identifier path, RenderCallback callback);
 
     @LimitOperation(layer = "TexturedGui", format = "PositionTextureColor")
-    public void createSpriteTexturedLayer(Sprite sprite, RenderCallback callback);
+    public void createSpriteTexturedLayer(TextureAtlasSprite sprite, RenderCallback callback);
 
     @LimitOperation(layer = "Gui", format = "PositionColor")
     public void createGuiLayer(RenderCallback callback);
 
     // ********************************** defaults **************************************
 
-    default void drawStripLineVirtualCameraCoord(MatrixStack matrixStack, List<Vec3d> path, Color color) {
+    default void drawStripLineVirtualCameraCoord(PoseStack matrixStack, List<Vec3> path, Color color) {
         createLinesLayer((op, bf) -> {
             op.drawLines(matrixStack, bf, path, color.getRGB());
         });
     }
 
-    default void drawLineVirtualCameraCoord(MatrixStack matrixStack, List<Vec3d> pairs, Color color) {
+    default void drawLineVirtualCameraCoord(PoseStack matrixStack, List<Vec3> pairs, Color color) {
         createLinesLayer((op, bf) -> {
             int size = pairs.size();
             for (int i = 1; i < size; i += 2) {
@@ -70,13 +70,13 @@ public interface VRender {
         });
     }
 
-    default void drawOutlinedBoxCameraCoord(MatrixStack matrix, Vec3d from, Vec3d to, Color color) {
+    default void drawOutlinedBoxCameraCoord(PoseStack matrix, Vec3 from, Vec3 to, Color color) {
         createLinesLayer((op, bf) -> {
             op.drawOutlinedBox(matrix, bf, from, to, color.getRGB());
         });
     }
 
-    default void drawSolidBoxCameraCoord(MatrixStack matrix, Vec3d from, Vec3d to, Color color) {
+    default void drawSolidBoxCameraCoord(PoseStack matrix, Vec3 from, Vec3 to, Color color) {
         createQuadsLayer(
                 (op, bf) -> {
                     op.drawSolidBoxQuad(matrix, bf, from, to, color.getRGB());
@@ -84,7 +84,7 @@ public interface VRender {
                 true);
     }
 
-    default void drawQuadCameraCoord(MatrixStack matrix4f, Quad quad, ColorQuad color) {
+    default void drawQuadCameraCoord(PoseStack matrix4f, Quad quad, ColorQuad color) {
         createQuadsLayer(
                 (op, bf) -> {
                     op.drawQuad(matrix4f, bf, quad, color);
@@ -112,7 +112,7 @@ public interface VRender {
      * @param uv
      * @param color
      */
-    default void drawTexturedQuadCameraCoord(Identifier path, MatrixStack stack, Quad quad, UV uv, ColorQuad color) {
+    default void drawTexturedQuadCameraCoord(Identifier path, PoseStack stack, Quad quad, UV uv, ColorQuad color) {
         createGuiTexturedLayer(path, (op, bf) -> {
             op.drawTexturedQuad(stack, bf, quad, uv, color);
         });
@@ -127,7 +127,7 @@ public interface VRender {
      * @param uv
      * @param color
      */
-    default void drawSpriteQuadCameraCoord(Sprite sprite, MatrixStack stack, Quad quad, UV uv, ColorQuad color) {
+    default void drawSpriteQuadCameraCoord(TextureAtlasSprite sprite, PoseStack stack, Quad quad, UV uv, ColorQuad color) {
         createSpriteTexturedLayer(sprite, (op, bf) -> {
             op.drawTexturedQuad(stack, bf, quad, uv, color);
         });
@@ -142,10 +142,10 @@ public interface VRender {
      * @param uv
      * @param color
      */
-    default void drawGuiSpriteQuadCameraCoord(Identifier path, MatrixStack stack, Quad quad, UV uv, ColorQuad color) {
-        SpriteAtlasTexture spriteAtlasTexture =
-                MinecraftClient.getInstance().getAtlasManager().getAtlasTexture(Atlases.GUI);
-        Sprite sprite = spriteAtlasTexture.getSprite(path);
+    default void drawGuiSpriteQuadCameraCoord(Identifier path, PoseStack stack, Quad quad, UV uv, ColorQuad color) {
+        TextureAtlas spriteAtlasTexture =
+                Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.GUI);
+        TextureAtlasSprite sprite = spriteAtlasTexture.getSprite(path);
         drawSpriteQuadCameraCoord(sprite, stack, quad, uv, color);
     }
 
@@ -156,7 +156,7 @@ public interface VRender {
      * @param quad
      * @param color
      */
-    default void drawGuiQuadCameraCoord(MatrixStack stack, Quad quad, ColorQuad color) {
+    default void drawGuiQuadCameraCoord(PoseStack stack, Quad quad, ColorQuad color) {
         createGuiLayer((operation, vertexConsumer) -> {
             operation.drawQuad(stack, vertexConsumer, quad, color);
         });
@@ -176,24 +176,24 @@ public interface VRender {
      * @param displayInfo
      */
     public void drawTextCameraCoord(
-            OrderedText orderedText,
-            MatrixStack stack,
-            Vec3d center,
+            FormattedCharSequence orderedText,
+            PoseStack stack,
+            Vec3 center,
             int displayPositionFlag,
             Color color,
             TextDisplay displayInfo);
 
     public void drawItemCameraCoord(
-            ItemStack itemStack, MatrixStack stack, Vec3d vec3d, ItemDisplayContext context, ItemDisplay displayInfo);
+            ItemStack itemStack, PoseStack stack, Vec3 vec3d, ItemDisplayContext context, ItemDisplay displayInfo);
 
     @With
-    public record TextDisplay(boolean shadow, TextRenderer.TextLayerType layerType, int backgroundColor, int light) {}
+    public record TextDisplay(boolean shadow, Font.DisplayMode layerType, int backgroundColor, int light) {}
 
-    public static TextDisplay DEFAULT_TEXT = new TextDisplay(false, TextRenderer.TextLayerType.SEE_THROUGH, 0, 0);
+    public static TextDisplay DEFAULT_TEXT = new TextDisplay(false, Font.DisplayMode.SEE_THROUGH, 0, 0);
 
     public record ItemDisplay(int light, int overlay, int outlineColor) {}
 
-    public static ItemDisplay DEFAULT_ITEM = new ItemDisplay(0XFF00FF, OverlayTexture.DEFAULT_UV, 0);
+    public static ItemDisplay DEFAULT_ITEM = new ItemDisplay(0XFF00FF, OverlayTexture.NO_OVERLAY, 0);
 
     public static interface RenderCallback {
         public void draw(WrapRenderOperation operation, VertexConsumer vertexConsumer);
@@ -202,14 +202,14 @@ public interface VRender {
     public static interface WrapRenderOperation {
         @LimitOperation(format = "PositionColorNormalLineWidth", layer = "Lines")
         public void drawOutlinedBox(
-                MatrixStack matrix4f, VertexConsumer bufferBuilder, Vec3d from, Vec3d to, int cachedRenderColor);
+                PoseStack matrix4f, VertexConsumer bufferBuilder, Vec3 from, Vec3 to, int cachedRenderColor);
 
         //        @LimitOperation(format = "PositionColorNormalLineWidth", layer = "LineStrip")
         //        public void drawOutlinedBoxStrip(
         //            MatrixStack matrix4f, VertexConsumer bufferBuilder, Vec3d from, Vec3d to, int cachedRenderColor);
         @LimitOperation(format = "PositionColor", layer = "Quad")
         public void drawSolidBoxQuad(
-                MatrixStack matrixStack, VertexConsumer bufferBuilder, Vec3d from, Vec3d to, int cachedRenderColor);
+                PoseStack matrixStack, VertexConsumer bufferBuilder, Vec3 from, Vec3 to, int cachedRenderColor);
 
         //        @LimitOperation(format = "PositionColor", layer = "Rect")
         //        public void drawSolidBoxTriangle(
@@ -217,16 +217,16 @@ public interface VRender {
         // cachedRenderColor);
 
         @LimitOperation(format = "PositionColor")
-        public void drawQuad(MatrixStack matrixStack, VertexConsumer bufferBuilder, Quad uv, ColorQuad color);
+        public void drawQuad(PoseStack matrixStack, VertexConsumer bufferBuilder, Quad uv, ColorQuad color);
 
         @LimitOperation(format = "PositionColorNormalLineWidth")
-        public void drawLines(MatrixStack matrixStack, VertexConsumer consumer, List<Vec3d> points, int color);
+        public void drawLines(PoseStack matrixStack, VertexConsumer consumer, List<Vec3> points, int color);
 
         @LimitOperation(format = "PositionColorNormalLineWidth")
-        public void drawLine(MatrixStack matrixStack, VertexConsumer consumer, Vec3d prevV, Vec3d nextV, int color);
+        public void drawLine(PoseStack matrixStack, VertexConsumer consumer, Vec3 prevV, Vec3 nextV, int color);
 
         @LimitOperation(format = "PositionTextureColor", layer = "TexturedGui")
-        public void drawTexturedQuad(MatrixStack stack, VertexConsumer vertex, Quad quad, UV uv, ColorQuad colorQuad);
+        public void drawTexturedQuad(PoseStack stack, VertexConsumer vertex, Quad quad, UV uv, ColorQuad colorQuad);
     }
 
     public @interface LimitOperation {

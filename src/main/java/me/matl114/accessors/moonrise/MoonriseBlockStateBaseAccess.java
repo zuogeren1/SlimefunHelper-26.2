@@ -1,7 +1,7 @@
 package me.matl114.accessors.moonrise;
 
-import net.minecraft.block.AbstractBlock;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public interface MoonriseBlockStateBaseAccess {
     public VoxelShape moonrise$getConstantCollisionShape();
@@ -11,7 +11,7 @@ public interface MoonriseBlockStateBaseAccess {
                 || moonrise$getConstantCollisionShape().isEmpty();
     }
 
-    static MoonriseBlockStateBaseAccess of(AbstractBlock.AbstractBlockState state) {
+    static MoonriseBlockStateBaseAccess of(BlockBehaviour.BlockStateBase state) {
         return (MoonriseBlockStateBaseAccess) state;
     }
 }

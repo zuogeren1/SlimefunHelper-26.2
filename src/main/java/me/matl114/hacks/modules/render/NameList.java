@@ -12,12 +12,12 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 public class NameList extends INameTag {
     public NameList() {
@@ -97,7 +97,7 @@ public class NameList extends INameTag {
             if (right.get()) {
                 vdraw.getMatrices().translate(-length, 0);
             }
-            vdraw.drawText(mc.textRenderer, player.nameDisplay.asOrderedText(), (int) 0, 0, -1, true);
+            vdraw.drawText(mc.font, player.nameDisplay.getVisualOrderText(), (int) 0, 0, -1, true);
             if (!right.get()) {
                 vdraw.getMatrices().translate(length, 0);
             }
@@ -122,15 +122,15 @@ public class NameList extends INameTag {
                     ItemStack stackOverride = stacks[i];
                     if (equipmentPercentage.get().isNotIn(ItemStackDisplayUtils.DamageDisplay.NONE)
                             && stackOverride.getCount() == 1
-                            && stackOverride.isDamageable()) {
+                            && stackOverride.isDamageableItem()) {
 
                         countOverride = ItemStackDisplayUtils.getDamageShowText(
                                         stackOverride, equipmentPercentage.get())
                                 .getString();
                         stackOverride = stackOverride.copy();
-                        stackOverride.setDamage(0);
+                        stackOverride.setDamageValue(0);
                     }
-                    vdraw.drawItemInSlot(mc.textRenderer, stackOverride, i * 16, 0, countOverride);
+                    vdraw.drawItemInSlot(mc.font, stackOverride, i * 16, 0, countOverride);
                 }
             }
             vdraw.getMatrices().popMatrix();
@@ -146,7 +146,7 @@ public class NameList extends INameTag {
             if (right.get()) {
                 vdraw.getMatrices().translate(-length, 0);
             }
-            vdraw.drawText(mc.textRenderer, player.otherInfoDisplay.asOrderedText(), (int) 0, 0, -1, true);
+            vdraw.drawText(mc.font, player.otherInfoDisplay.getVisualOrderText(), (int) 0, 0, -1, true);
             if (!right.get()) {
                 vdraw.getMatrices().translate(length, 0);
             }
@@ -155,12 +155,12 @@ public class NameList extends INameTag {
 
     public void handleEffectDisplayList(VDrawContext vdraw, PlayerNameTagInfo player) {
         if (player.visibleEffects != null) {
-            List<Map.Entry<RegistryEntry<StatusEffect>, Text>> line =
+            List<Map.Entry<Holder<MobEffect>, Component>> line =
                     player.visibleEffects.entrySet().stream().toList();
             int size = line.size();
             for (var i = 0; i < size; i++) {
                 var entry = line.get(i);
-                float len = mc.textRenderer.getTextHandler().getWidth(entry.getValue());
+                float len = mc.font.getSplitter().stringWidth(entry.getValue());
                 if (right.get()) {
                     vdraw.getMatrices().translate(-9 - len, 0);
                 }
@@ -169,8 +169,8 @@ public class NameList extends INameTag {
                 statusEffectRenderer.render(0, 0, vdraw, entry.getKey().value());
                 vdraw.getMatrices().popMatrix();
                 vdraw.drawText(
-                        mc.textRenderer,
-                        entry.getValue().asOrderedText(),
+                        mc.font,
+                        entry.getValue().getVisualOrderText(),
                         9,
                         0,
                         potionColor.get().withAlpha(255),
@@ -185,13 +185,13 @@ public class NameList extends INameTag {
 
     public void handleTooManyPlayerList(VDrawContext vdraw) {
         vdraw.pushMatrix();
-        OrderedText display = Text.literal("......(" + (nameTagInfos.size() - playerListMaxLength.get()) + " more)")
-                .asOrderedText();
-        float length = mc.textRenderer.getTextHandler().getWidth(display);
+        FormattedCharSequence display = Component.literal("......(" + (nameTagInfos.size() - playerListMaxLength.get()) + " more)")
+                .getVisualOrderText();
+        float length = mc.font.getSplitter().stringWidth(display);
         if (right.get()) {
             vdraw.getMatrices().translate(-length, 0);
         }
-        vdraw.drawText(mc.textRenderer, display, (int) 0, 0, -1, true);
+        vdraw.drawText(mc.font, display, (int) 0, 0, -1, true);
         vdraw.popMatrix();
     }
 }

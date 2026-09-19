@@ -1,9 +1,9 @@
 package me.matl114.gui.presets.lists;
 
 import me.matl114.gui.basic.*;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
 
 public class ListUnmodifiableWidget extends ScrollableListWidget {
     ListEntryWidgetController controller;
@@ -23,7 +23,7 @@ public class ListUnmodifiableWidget extends ScrollableListWidget {
         }
     }
 
-    protected <T extends Element & Drawable & Selectable> ContentDelegateWidget<T> wrapWidget(
+    protected <T extends GuiEventListener & Renderable & NarratableEntry> ContentDelegateWidget<T> wrapWidget(
             T widget, int listIndex, int startX, int startY) {
         int height = controller.height();
         int curHeight = startY + height * listIndex;

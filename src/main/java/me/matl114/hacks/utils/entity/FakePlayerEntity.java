@@ -4,35 +4,35 @@ import com.mojang.authlib.GameProfile;
 import java.util.function.Consumer;
 import me.matl114.accessors.events.ClientConnectionAccess;
 import me.matl114.utils.DamageUtils;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.registry.tag.DamageTypeTags;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 
-public class FakePlayerEntity extends OtherClientPlayerEntity {
+public class FakePlayerEntity extends RemotePlayer {
     boolean hasPhysics = true;
     Consumer<FakePlayerEntity> tickTask;
 
-    public FakePlayerEntity(ClientWorld clientWorld, GameProfile gameProfile) {
+    public FakePlayerEntity(ClientLevel clientWorld, GameProfile gameProfile) {
         super(clientWorld, gameProfile);
         setId(-getId());
     }
 
-    public void copyDataFrom(PlayerEntity player) {
-        setPosition(player.getPos());
-        setWorld(player.getEntityWorld());
-        setPitch(player.getPitch());
-        setYaw(player.getYaw());
-        resetPosition();
+    public void copyDataFrom(Player player) {
+        setPos(player.position());
+        setLevel(player.level());
+        setXRot(player.getXRot());
+        setYRot(player.getYRot());
+        setOldPosAndRot();
     }
 
-    public void copyEquipmentFrom(PlayerEntity player) {
-        getInventory().clone(player.getInventory());
+    public void copyEquipmentFrom(Player player) {
+        getInventory().replaceWith(player.getInventory());
     }
 
     public void setFreeze(boolean freeze) {
@@ -44,7 +44,7 @@ public class FakePlayerEntity extends OtherClientPlayerEntity {
     }
 
     public float damage(float rawDamage, DamageSource damageSource) {
-        if (this.isAlwaysInvulnerableTo(damageSource)) {
+        if (this.isInvulnerableToBase(damageSource)) {
             return 0.0F;
         }
         DamageUtils.DamageContext context = DamageUtils.fromPlayer(this).build();
@@ -65,51 +65,51 @@ public class FakePlayerEntity extends OtherClientPlayerEntity {
             return 0.0F;
         }
         DamageUtils.damageOrAbsorption(this, damageSource, rawDamage);
-        if (this.isDead()) {
-            if (!this.tryUseDeathProtector(damageSource)) {
-                this.onDeath(damageSource);
+        if (this.isDeadOrDying()) {
+            if (!this.checkTotemDeathProtection(damageSource)) {
+                this.die(damageSource);
             } else {
-                ClientConnectionAccess.of(MinecraftClient.getInstance()
-                                .getNetworkHandler()
+                ClientConnectionAccess.of(Minecraft.getInstance()
+                                .getConnection()
                                 .getConnection())
-                        .handlePacket(new EntityStatusS2CPacket(this, EntityStatuses.USE_TOTEM_OF_UNDYING));
+                        .handlePacket(new ClientboundEntityEventPacket(this, EntityEvent.PROTECTED_FROM_DEATH));
             }
         }
         return rawDamage;
     }
 
     public float applyHurtTimeDamage(float currentVal, DamageSource source) {
-        if ((float) this.timeUntilRegen > 10.0F && !source.isIn(DamageTypeTags.BYPASSES_COOLDOWN)) {
-            if (currentVal <= this.lastDamageTaken) {
+        if ((float) this.invulnerableTime > 10.0F && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
+            if (currentVal <= this.lastHurt) {
                 return 0.0F;
             }
-            float newAmount = currentVal - this.lastDamageTaken;
-            this.lastDamageTaken = currentVal;
+            float newAmount = currentVal - this.lastHurt;
+            this.lastHurt = currentVal;
             return newAmount;
         } else {
-            this.lastDamageTaken = currentVal;
-            this.timeUntilRegen = 20;
-            this.maxHurtTime = 10;
-            this.hurtTime = this.maxHurtTime;
+            this.lastHurt = currentVal;
+            this.invulnerableTime = 20;
+            this.hurtDuration = 10;
+            this.hurtTime = this.hurtDuration;
             return currentVal;
         }
     }
 
     @Override
-    public boolean isOnGround() {
+    public boolean onGround() {
         if (hasPhysics) {
-            return super.isOnGround();
+            return super.onGround();
         } else {
             return true;
         }
     }
 
     @Override
-    public Vec3d getVelocity() {
+    public Vec3 getDeltaMovement() {
         if (hasPhysics) {
-            return super.getVelocity();
+            return super.getDeltaMovement();
         } else {
-            return Vec3d.ZERO;
+            return Vec3.ZERO;
         }
     }
 

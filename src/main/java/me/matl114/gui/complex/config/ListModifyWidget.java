@@ -7,11 +7,11 @@ import me.matl114.gui.elements.IconElement;
 import me.matl114.gui.presets.lists.ListEntryWidgetController;
 import me.matl114.utils.ChatUtils;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 public class ListModifyWidget extends ScrollableListWidget {
     ListEntryWidgetController controller;
@@ -54,11 +54,11 @@ public class ListModifyWidget extends ScrollableListWidget {
     private static final Identifier DEL_TEXTURE_SPRITE = Constants.REMOVE_SPRITE;
     private static final Identifier NEW_TEXTURE_SPRITE = Constants.ADD_SPRITE;
 
-    private static List<Text> insertTooltips() {
+    private static List<Component> insertTooltips() {
         return ChatUtils.parseTooltipsTranslation("widget.gui.list-modify-widget.insert.tooltips", "");
     }
 
-    protected <T extends Element & Drawable & Selectable> SubScreenWidget wrapWidget(
+    protected <T extends GuiEventListener & Renderable & NarratableEntry> SubScreenWidget wrapWidget(
             T widget, int listIndex, int startX, int startY) {
         int height = controller.height();
         int width = controller.width();

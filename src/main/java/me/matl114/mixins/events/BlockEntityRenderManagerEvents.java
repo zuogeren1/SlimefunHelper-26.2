@@ -1,22 +1,22 @@
 package me.matl114.mixins.events;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import me.matl114.events.Event;
 import me.matl114.events.RenderListener;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.block.entity.BlockEntityRenderManager;
-import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(BlockEntityRenderManager.class)
+@Mixin(BlockEntityRenderDispatcher.class)
 public abstract class BlockEntityRenderManagerEvents {
     // this method clash with sodium
     //    @Inject(method = "getRenderState", at = @At("HEAD"), cancellable = true)
@@ -27,21 +27,21 @@ public abstract class BlockEntityRenderManagerEvents {
     //    }
     //
     @Inject(
-            method = "render",
+            method = "submit",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/render/block/entity/BlockEntityRenderer;render(Lnet/minecraft/client/render/block/entity/state/BlockEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V"),
+                                    "Lnet/minecraft/client/renderer/blockentity/BlockEntityRenderer;submit(Lnet/minecraft/client/renderer/blockentity/state/BlockEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V"),
             cancellable = true)
     public void onRenderBlockEntity(
             BlockEntityRenderState renderState,
-            MatrixStack matrices,
-            OrderedRenderCommandQueue queue,
+            PoseStack matrices,
+            SubmitNodeCollector queue,
             CameraRenderState cameraRenderState,
             CallbackInfo ci) {
-        BlockPos pos = renderState.pos;
-        ClientWorld world = MinecraftClient.getInstance().world;
+        BlockPos pos = renderState.blockPos;
+        ClientLevel world = Minecraft.getInstance().level;
         if (world != null) {
             BlockEntity blockEntity = world.getBlockEntity(pos);
             if (blockEntity != null) {

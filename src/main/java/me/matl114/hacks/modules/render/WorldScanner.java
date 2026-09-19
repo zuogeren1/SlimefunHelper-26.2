@@ -2,8 +2,8 @@ package me.matl114.hacks.modules.render;
 
 import static me.matl114.utils.ColorUtils.*;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.BiPredicate;
 import me.matl114.events.Event;
@@ -22,18 +22,23 @@ import me.matl114.managers.config.NBTRef;
 import me.matl114.utils.ColorUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.*;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.chunk.Chunk;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class WorldScanner extends BaseModule {
     public final ModulePath detectBlock = makePath(Configs.RENDER_CONFIG, "detect-block");
@@ -51,22 +56,22 @@ public class WorldScanner extends BaseModule {
     public FlagRef enable = flagBuilder(worldScanner.add("enable")).build();
 
     public NBTRef<EntrySet<Block>> typeFilter = builder(worldScanner.add("search-type"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*_portal|end_gateway|end_portal_frame)$"), Registries.BLOCK))
+            .defaultValue(new EntrySet<>(new Regex("^(.*_portal|end_gateway|end_portal_frame)$"), BuiltInRegistries.BLOCK))
             .updateListener(this::updateBlockTypeFilter)
             .build();
 
     public NBTRef<EntryPrimitiveMap<Block, TextColor>> color = builder(
                     worldScanner.add("search-color"), EntryPrimitiveMap.<Block, TextColor>parameter())
             .defaultValue(new EntryPrimitiveMap<>(
-                    Registries.BLOCK,
+                    BuiltInRegistries.BLOCK,
                     NBTTypes.COLOR_TYPE,
                     Map.of(
-                            Blocks.NETHER_PORTAL, color(Formatting.RED),
-                            Blocks.END_PORTAL, color(Formatting.YELLOW),
-                            Blocks.END_PORTAL_FRAME, color(Formatting.BLUE),
-                            Blocks.END_GATEWAY, color(Formatting.YELLOW),
-                            Blocks.COMMAND_BLOCK, color(Formatting.WHITE)),
-                    color(Formatting.GREEN)))
+                            Blocks.NETHER_PORTAL, color(ChatFormatting.RED),
+                            Blocks.END_PORTAL, color(ChatFormatting.YELLOW),
+                            Blocks.END_PORTAL_FRAME, color(ChatFormatting.BLUE),
+                            Blocks.END_GATEWAY, color(ChatFormatting.YELLOW),
+                            Blocks.COMMAND_BLOCK, color(ChatFormatting.WHITE)),
+                    color(ChatFormatting.GREEN)))
             .build();
 
     public IntRef distanceChunk = builder(worldScanner.add("search-radius"), IntRef.TYPE)
@@ -168,7 +173,7 @@ public class WorldScanner extends BaseModule {
         while (iter.hasNext()) {
             var entry = iter.next();
             var key = entry.getKey();
-            Chunk chunk = mc.world.getChunkManager().getWorldChunk(key.x, key.z);
+            ChunkAccess chunk = mc.level.getChunkSource().getChunkNow(key.x, key.z);
             if (chunk == null) {
                 iter.remove();
             } else {
@@ -186,16 +191,16 @@ public class WorldScanner extends BaseModule {
 
     int resultUpdate = 0;
     // List<IndexEntry<Box>> boxes = new ArrayList<>();
-    final RenderCollector<Box> boxOutlineCollector = RenderCollectors.createOutlineCollector();
-    final RenderCollector<Box> boxSolidCollector = RenderCollectors.createFaceCollector();
-    final RenderCollector<Vec3d> traceLineCollector = RenderCollectors.createTracerCollector();
+    final RenderCollector<AABB> boxOutlineCollector = RenderCollectors.createOutlineCollector();
+    final RenderCollector<AABB> boxSolidCollector = RenderCollectors.createFaceCollector();
+    final RenderCollector<Vec3> traceLineCollector = RenderCollectors.createTracerCollector();
     int lastLogTick = 0;
     final int MAX_RENDER_BLOCKS = 10_000;
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         if (!checkNull()
                 && pendingRefreshWhenInGame
-                && (mc.currentScreen == null || mc.currentScreen instanceof HandledScreen<?>)) {
+                && (mc.gui.screen() == null || mc.gui.screen() instanceof AbstractContainerScreen<?>)) {
             // do not refresh when config is open or when player open exit menu
             pendingRefreshWhenInGame = false;
             WorldTasks.restartWorldScanner();
@@ -215,7 +220,7 @@ public class WorldScanner extends BaseModule {
             if (!checkNull()) {
                 if (!currentSearchingResult.isEmpty()) {
                     int radius = distanceChunk.get();
-                    ChunkPos chunkPos = mc.player.getChunkPos();
+                    ChunkPos chunkPos = mc.player.chunkPosition();
                     Set<ChunkPos> chunkKeys = new HashSet<>(currentSearchingResult.keySet());
                     int cnt = 0;
                     TracingOption option = this.option.get();
@@ -227,23 +232,23 @@ public class WorldScanner extends BaseModule {
                                 BlockState state = entry.getValue();
                                 TextColor color = this.color.get().getEntryValue(state.getBlock());
                                 if (color != null) {
-                                    VoxelShape shape = entry.getValue().getOutlineShape(mc.world, entry.getKey());
+                                    VoxelShape shape = entry.getValue().getShape(mc.level, entry.getKey());
                                     if (!shape.isEmpty()) {
-                                        Box box = shape.getBoundingBox();
+                                        AABB box = shape.bounds();
                                         if (cnt < MAX_RENDER_BLOCKS) {
                                             if (option.box()) {
                                                 boxOutlineCollector.submit(
-                                                        box.offset(entry.getKey()),
-                                                        ColorUtils.withAlphaInt(color.getRgb(), 128));
+                                                        box.move(entry.getKey()),
+                                                        ColorUtils.withAlphaInt(color.getValue(), 128));
                                                 boxSolidCollector.submit(
-                                                        box.offset(entry.getKey()),
-                                                        ColorUtils.withAlphaInt(color.getRgb(), 64));
+                                                        box.move(entry.getKey()),
+                                                        ColorUtils.withAlphaInt(color.getValue(), 64));
                                             }
                                             if (option.line()) {
                                                 traceLineCollector.submit(
-                                                        box.offset(entry.getKey())
+                                                        box.move(entry.getKey())
                                                                 .getCenter(),
-                                                        ColorUtils.withAlphaInt(color.getRgb(), 255));
+                                                        ColorUtils.withAlphaInt(color.getValue(), 255));
                                             }
                                         }
                                         cnt += 1;
@@ -264,10 +269,10 @@ public class WorldScanner extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (checkNull()) return;
         if (enable.get()) {
-            MatrixStack stack = event.context();
+            PoseStack stack = event.context();
             RenderUtils.startDrawVirtual(stack);
             try {
                 boxSolidCollector.render3D(stack);

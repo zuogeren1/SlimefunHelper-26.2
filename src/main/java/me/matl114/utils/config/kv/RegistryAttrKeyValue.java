@@ -15,9 +15,9 @@ import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.BaseAttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 public class RegistryAttrKeyValue<T> extends BaseAttrKeyValue<T> {
@@ -43,14 +43,14 @@ public class RegistryAttrKeyValue<T> extends BaseAttrKeyValue<T> {
         return WrapperFactory.of(
                 s -> {
                     Identifier id = Identifier.tryParse(s);
-                    var val = registry.getOrEmpty(id);
+                    var val = registry.getOptional(id);
                     if (val.isPresent()) {
                         return val.get();
                     } else {
                         throw WrapperFactory.PARSE_FAILURE;
                     }
                 },
-                v -> registry.getId(v).toString());
+                v -> registry.getKey(v).toString());
     }
 
     public static <T> DrawableWidget generateRegistryValueWidget(
@@ -65,7 +65,7 @@ public class RegistryAttrKeyValue<T> extends BaseAttrKeyValue<T> {
     public static <T, W> DrawableWidget generateTextInputWithRegistrySearch(
             Registry<T> registry, AttrKeyValue<W> attr, int x, int y, int inputDx, int dy) {
 
-        ContentDelegateWidget<TextFieldWidget> interactPlace = McWidgetHelpers.createTextFieldEditBox(
+        ContentDelegateWidget<EditBox> interactPlace = McWidgetHelpers.createTextFieldEditBox(
                 dy,
                 0,
                 inputDx - 2 * dy,
@@ -73,7 +73,7 @@ public class RegistryAttrKeyValue<T> extends BaseAttrKeyValue<T> {
                 attr,
                 attr.getValue(),
                 McWidgetHelpers.getWrongRedTextBoxColorProvider(attr::isValidate));
-        TextFieldWidget widget = interactPlace.getDelegate();
+        EditBox widget = interactPlace.getDelegate();
         var icon = RegistryDisplays.getIcon(registry);
         var show = DisplayWidget.instance(0, 0, dy, dy).setRenderHandler(new RenderHandler() {
             @Override
@@ -94,7 +94,7 @@ public class RegistryAttrKeyValue<T> extends BaseAttrKeyValue<T> {
                             icon.render(startIndexX, startIndexY, context, null);
                         } else {
                             Identifier identifier = Identifier.tryParse(attr.getValue());
-                            T value = registry.get(identifier);
+                            T value = registry.getValue(identifier);
                             int startIndexX = (element.getTextureHeight() - 16) / 2;
                             int startIndexY = startIndexX;
                             icon.render(startIndexX, startIndexY, context, value);
@@ -115,11 +115,11 @@ public class RegistryAttrKeyValue<T> extends BaseAttrKeyValue<T> {
                 .addDrawableChild(select);
     }
 
-    private static <T> void openRegistrySearch(Registry<T> registry, TextFieldWidget widget) {
+    private static <T> void openRegistrySearch(Registry<T> registry, EditBox widget) {
 
         ScreenAccess.of(new RegistryChooseScreen<>(registry, (var) -> {
                     if (var != null) {
-                        widget.setText(registry.getId(var).toString());
+                        widget.setValue(registry.getKey(var).toString());
                     }
                 }))
                 .openFromCurrent();

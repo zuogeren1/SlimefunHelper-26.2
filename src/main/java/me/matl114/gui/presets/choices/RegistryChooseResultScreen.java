@@ -6,19 +6,19 @@ import me.matl114.gui.basic.ContentDelegateWidget;
 import me.matl114.gui.basic.ElementHandler;
 import me.matl114.gui.presets.lists.ListRegistrySelectWidget;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.Registry;
+import net.minecraft.network.chat.Component;
 
 public class RegistryChooseResultScreen<T> extends ConfirmingBigScreen {
     Registry<T> registry;
     protected static final int WIDTH = 240;
 
     public RegistryChooseResultScreen(Registry<T> registry, List<T> selects, String showString) {
-        super(Text.empty());
+        super(Component.empty());
         this.registry = registry;
-        setTitleLabel(Text.translatable("widget.gui.registry-choose-result-screen.title")
-                .formatted(Formatting.AQUA));
+        setTitleLabel(Component.translatable("widget.gui.registry-choose-result-screen.title")
+                .withStyle(ChatFormatting.AQUA));
         this.selectSubScreen = (ListRegistrySelectWidget<T>) ListRegistrySelectWidget.registry(
                         selects,
                         this.registry,
@@ -41,7 +41,7 @@ public class RegistryChooseResultScreen<T> extends ConfirmingBigScreen {
 
     @Override
     protected void onConfirmButton() {
-        this.close();
+        this.onClose();
     }
 
     @Override

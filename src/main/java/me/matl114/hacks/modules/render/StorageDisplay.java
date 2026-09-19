@@ -29,14 +29,15 @@ import me.matl114.utils.EntityUtils;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.ResourceUtils;
 import me.matl114.utils.inventory.ItemStackSample;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.*;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class StorageDisplay extends BaseModule {
     public final ModulePath modelConfig = makePath(Configs.RENDER_CONFIG, "itemstack-display.storage-display");
@@ -63,7 +64,7 @@ public class StorageDisplay extends BaseModule {
     private static final Map<EntityType<?>, ItemStack> spawnEggNewStyleItem = new HashMap<>();
 
     static {
-        for (EntityType<?> types : Registries.ENTITY_TYPE) {
+        for (EntityType<?> types : BuiltInRegistries.ENTITY_TYPE) {
             Item optionalEgg = EntityUtils.entityToSpawnEgg(types);
             if (optionalEgg != null && optionalEgg != Items.AIR) {
                 spawnEggNewStyleItem.put(types, NewStyleModel.ofNewVersion(new ItemStack(optionalEgg)));
@@ -106,26 +107,26 @@ public class StorageDisplay extends BaseModule {
     public void onContainerVanilla(Event<List<GuiModel>> event) {
         if (shulkerDisplay.get()) {
             ItemStack stack = event.getArgs(0);
-            var container = stack.get(DataComponentTypes.CONTAINER);
+            var container = stack.get(DataComponents.CONTAINER);
             if (container != null) {
                 ItemStackWithTimeStamp timeStamp = asyncUpdateItemInfo(stack, ((st0) -> {
                     ItemStack st = (ItemStack) st0;
-                    var con = st.get(DataComponentTypes.CONTAINER);
+                    var con = st.get(DataComponents.CONTAINER);
                     if (con != null) {
                         Map<ItemStackSample, Integer> map = new LinkedHashMap<>();
                         loop_items:
-                        for (var item : con.iterateNonEmpty()) {
-                            if (item.isEmpty()) {
+                        for (var item : con.nonEmptyItems()) {
+                            if (item.count() == 0) {
                                 continue loop_items;
                             }
                             for (var re : map.entrySet()) {
                                 if (ItemStackUtils.matchItemWithout(
-                                        item, re.getKey().sample(), false, false, false)) {
-                                    re.setValue(re.getValue() + item.getCount());
+                                        item.create(), re.getKey().sample(), false, false, false)) {
+                                    re.setValue(re.getValue() + item.count());
                                     continue loop_items;
                                 }
                             }
-                            map.put(ItemStackSample.of(item), item.getCount());
+                            map.put(ItemStackSample.of(item.create()), item.count());
                         }
                         return map.entrySet().stream()
                                 .sorted(Comparator.comparingInt(v -> -v.getValue()))
@@ -152,13 +153,13 @@ public class StorageDisplay extends BaseModule {
             new Object2ReferenceOpenCustomHashMap<>(new Hash.Strategy<ItemStack>() {
                 @Override
                 public int hashCode(ItemStack o) {
-                    return o != null ? ItemStack.hashCode(o) : 0;
+                    return o != null ? ItemStack.hashItemAndComponents(o) : 0;
                 }
 
                 @Override
                 public boolean equals(ItemStack a, ItemStack b) {
                     if (a != null && b != null) {
-                        return ItemStack.areItemsAndComponentsEqual(a, b);
+                        return ItemStack.isSameItemSameComponents(a, b);
                     } else {
                         return a == b;
                     }
@@ -228,7 +229,7 @@ public class StorageDisplay extends BaseModule {
     public void onContainerPluginStorage(Event<List<GuiModel>> event) {
         if (storageDisplay.get()) {
             ItemStack stack = event.getArgs(0);
-            NbtCompound tag = getBukkitValueReadOnly(stack);
+            CompoundTag tag = getBukkitValueReadOnly(stack);
             // add nbt check before this
             if (hasAnyStorage(tag)) {
                 ItemStackWithTimeStamp timeStamp = asyncUpdateItemInfo(stack, (st) -> {
@@ -329,34 +330,34 @@ public class StorageDisplay extends BaseModule {
             FINALTECH_STORAGE_ITEM_NEW,
             FINALTECH_STORAGE_ITEM_OLD);
 
-    private static boolean hasAnyStorage(NbtCompound tag) { // pass pdc
+    private static boolean hasAnyStorage(CompoundTag tag) { // pass pdc
         return tag != null
                 && (
                 // need a slimefun id to keep going
                 ItemStackUtils.getSfIdFromBukkitValues(tag) != null
-                        && tag.getKeys().size() > 1
-                        && tag.getKeys().stream().anyMatch(potentialKeys::contains));
+                        && tag.keySet().size() > 1
+                        && tag.keySet().stream().anyMatch(potentialKeys::contains));
     }
 
-    public static BukkitItemStack getNetworkStoraged(NbtCompound tag) {
+    public static BukkitItemStack getNetworkStoraged(CompoundTag tag) {
         try {
             if (tag != null) {
                 if (tag.contains(NETWORK_STORAGE_PATH)) {
-                    if (tag.get(NETWORK_STORAGE_PATH) instanceof NbtCompound storageNbt
-                            && storageNbt.get(NETWORK_STORAGE_ITEM_PATH) instanceof NbtByteArray byteArray) {
-                        byte[] byteStream = byteArray.getByteArray();
+                    if (tag.get(NETWORK_STORAGE_PATH) instanceof CompoundTag storageNbt
+                            && storageNbt.get(NETWORK_STORAGE_ITEM_PATH) instanceof ByteArrayTag byteArray) {
+                        byte[] byteStream = byteArray.getAsByteArray();
                         return BukkitItemStackUtils.DATATYPE_MOCKITEMSTACK.fromPrimitive(byteStream);
                     }
                 } else if (tag.contains(NETWORK_MOVER_ITEM_PATH)) {
-                    if (tag.get(NETWORK_MOVER_ITEM_PATH) instanceof NbtByteArray byteArray) {
-                        byte[] byteStream = byteArray.getByteArray();
+                    if (tag.get(NETWORK_MOVER_ITEM_PATH) instanceof ByteArrayTag byteArray) {
+                        byte[] byteStream = byteArray.getAsByteArray();
                         return BukkitItemStackUtils.DATATYPE_MOCKITEMSTACK.fromPrimitive(byteStream);
                     }
 
                 } else if (tag.contains(OLD_NETWORK_STORAGE_PATH)) {
-                    if (tag.get(OLD_NETWORK_STORAGE_PATH) instanceof NbtCompound storageNbt
-                            && storageNbt.get(OLD_NETWORK_STORAGE_ITEM_PATH) instanceof NbtByteArray byteArray) {
-                        byte[] byteStream = byteArray.getByteArray();
+                    if (tag.get(OLD_NETWORK_STORAGE_PATH) instanceof CompoundTag storageNbt
+                            && storageNbt.get(OLD_NETWORK_STORAGE_ITEM_PATH) instanceof ByteArrayTag byteArray) {
+                        byte[] byteStream = byteArray.getAsByteArray();
                         return BukkitItemStackUtils.DATATYPE_MOCKITEMSTACK.fromPrimitive(byteStream);
                     }
                 }
@@ -367,19 +368,19 @@ public class StorageDisplay extends BaseModule {
         }
     }
 
-    public static BukkitItemStack getNetworkBlueprint(NbtCompound tag) {
+    public static BukkitItemStack getNetworkBlueprint(CompoundTag tag) {
         try {
             if (tag != null) {
                 if (tag.contains(NETWORK_BLUEPRINT_PATH)) {
-                    if (tag.get(NETWORK_BLUEPRINT_PATH) instanceof NbtCompound storageNbt
-                            && storageNbt.get(NETWORK_BLUEPRINT_ITEM_PATH) instanceof NbtByteArray byteArray) {
-                        byte[] byteStream = byteArray.getByteArray();
+                    if (tag.get(NETWORK_BLUEPRINT_PATH) instanceof CompoundTag storageNbt
+                            && storageNbt.get(NETWORK_BLUEPRINT_ITEM_PATH) instanceof ByteArrayTag byteArray) {
+                        byte[] byteStream = byteArray.getAsByteArray();
                         return BukkitItemStackUtils.DATATYPE_MOCKITEMSTACK.fromPrimitive(byteStream);
                     }
                 } else if (tag.contains(OLD_NETWORK_BLUEPRINT_ITEM_PATH)) {
-                    if (tag.get(OLD_NETWORK_BLUEPRINT_PATH) instanceof NbtCompound storageNbt
-                            && storageNbt.get(OLD_NETWORK_BLUEPRINT_ITEM_PATH) instanceof NbtByteArray byteArray) {
-                        byte[] byteStream = byteArray.getByteArray();
+                    if (tag.get(OLD_NETWORK_BLUEPRINT_PATH) instanceof CompoundTag storageNbt
+                            && storageNbt.get(OLD_NETWORK_BLUEPRINT_ITEM_PATH) instanceof ByteArrayTag byteArray) {
+                        byte[] byteStream = byteArray.getAsByteArray();
                         return BukkitItemStackUtils.DATATYPE_MOCKITEMSTACK.fromPrimitive(byteStream);
                     }
                 }
@@ -390,13 +391,13 @@ public class StorageDisplay extends BaseModule {
         }
     }
 
-    public static BukkitItemStack getLogitechSingularity(NbtCompound tag) {
+    public static BukkitItemStack getLogitechSingularity(CompoundTag tag) {
         try {
             if (tag != null) {
                 if (tag.contains(LOGITECH_SINGULARITY_PATH)) {
-                    if (tag.get(LOGITECH_SINGULARITY_PATH) instanceof NbtCompound storageNbt
-                            && storageNbt.get(LOGITECH_SINGULARITY_ITEM_PATH) instanceof NbtByteArray byteArray) {
-                        byte[] byteStream = byteArray.getByteArray();
+                    if (tag.get(LOGITECH_SINGULARITY_PATH) instanceof CompoundTag storageNbt
+                            && storageNbt.get(LOGITECH_SINGULARITY_ITEM_PATH) instanceof ByteArrayTag byteArray) {
+                        byte[] byteStream = byteArray.getAsByteArray();
                         return BukkitItemStackUtils.DATATYPE_MOCKITEMSTACK.fromPrimitive(byteStream);
                     }
                 }
@@ -407,11 +408,11 @@ public class StorageDisplay extends BaseModule {
         }
     }
 
-    public static BukkitItemStack getInfinityStorage(NbtCompound tag) {
+    public static BukkitItemStack getInfinityStorage(CompoundTag tag) {
         try {
             if (tag != null) {
                 if (tag.contains(INFINTY_STORAGE_ITEM_PATH)) {
-                    if (tag.get(INFINTY_STORAGE_ITEM_PATH) instanceof NbtString nbtString) {
+                    if (tag.get(INFINTY_STORAGE_ITEM_PATH) instanceof StringTag nbtString) {
                         String config = nbtString.value();
                         return BukkitConfigDeserializor.deserializeItemFromString(config);
                     }
@@ -423,16 +424,16 @@ public class StorageDisplay extends BaseModule {
         }
     }
 
-    public static BukkitItemStack getFinalTechStorage(NbtCompound tag) {
+    public static BukkitItemStack getFinalTechStorage(CompoundTag tag) {
         try {
             if (tag != null) {
                 if (tag.contains(FINALTECH_STORAGE_ITEM_OLD)) {
-                    if (tag.get(FINALTECH_STORAGE_ITEM_OLD) instanceof NbtString nbtString) {
+                    if (tag.get(FINALTECH_STORAGE_ITEM_OLD) instanceof StringTag nbtString) {
                         String config = nbtString.value();
                         return BukkitConfigDeserializor.deserializeItemFromString(config);
                     }
                 } else if (tag.contains(FINALTECH_STORAGE_ITEM_NEW)) {
-                    if (tag.get(FINALTECH_STORAGE_ITEM_NEW) instanceof NbtString nbtString) {
+                    if (tag.get(FINALTECH_STORAGE_ITEM_NEW) instanceof StringTag nbtString) {
                         String config = nbtString.value();
                         return BukkitConfigDeserializor.deserializeItemFromString(config);
                     }
@@ -599,7 +600,7 @@ public class StorageDisplay extends BaseModule {
     }
 
     public static String handlePureChickenDNAInfo(ItemStack item) {
-        NbtCompound tag = ItemStackUtils.getCustomDataReadOnly(item);
+        CompoundTag tag = ItemStackUtils.getCustomDataReadOnly(item);
 
         String val = getSfId(tag);
         if (val != null
@@ -607,8 +608,8 @@ public class StorageDisplay extends BaseModule {
                 && (tag = getBukkitValue(tag)) != null
                 && tag.contains(GCE_CHICKEN_PATH)) {
             try {
-                if (tag.get(GCE_CHICKEN_PATH) instanceof NbtIntArray intArray) {
-                    int[] dna = intArray.getIntArray();
+                if (tag.get(GCE_CHICKEN_PATH) instanceof IntArrayTag intArray) {
+                    int[] dna = intArray.getAsIntArray();
                     int len = dna.length;
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < 6; i++) {
@@ -644,22 +645,22 @@ public class StorageDisplay extends BaseModule {
             put(
                     "CLT_PLANT_TERRA",
                     ofNullableList(
-                            Items.BLACK_TERRACOTTA,
-                            Items.BLUE_TERRACOTTA,
-                            Items.BROWN_TERRACOTTA,
-                            Items.CYAN_TERRACOTTA,
-                            Items.GRAY_TERRACOTTA,
-                            Items.GREEN_TERRACOTTA,
-                            Items.LIGHT_BLUE_TERRACOTTA,
-                            Items.LIGHT_GRAY_TERRACOTTA,
-                            Items.LIME_TERRACOTTA,
-                            Items.MAGENTA_TERRACOTTA,
-                            Items.ORANGE_TERRACOTTA,
-                            Items.PINK_TERRACOTTA,
-                            Items.PURPLE_TERRACOTTA,
-                            Items.RED_TERRACOTTA,
-                            Items.WHITE_TERRACOTTA,
-                            Items.YELLOW_TERRACOTTA));
+                            Items.DYED_TERRACOTTA.pick(DyeColor.BLACK),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.BLUE),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.BROWN),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.CYAN),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.GRAY),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.GREEN),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.LIGHT_BLUE),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.LIGHT_GRAY),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.LIME),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.MAGENTA),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.ORANGE),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.PINK),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.PURPLE),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.RED),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.WHITE),
+                            Items.DYED_TERRACOTTA.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_GLASS", ofNullableList(Items.GLASS));
             put("CLT_PLANT_SKELETON", ofNullableList(Items.BONE, Items.ARROW, Items.SKELETON_SKULL));
             put("CLT_PLANT_SPIDER", ofNullableList(Items.SPIDER_EYE, Items.FERMENTED_SPIDER_EYE, Items.STRING));
@@ -668,22 +669,22 @@ public class StorageDisplay extends BaseModule {
             put(
                     "CLT_PLANT_WAXY",
                     ofNullableList(
-                            Items.BLACK_CANDLE,
-                            Items.BLUE_CANDLE,
-                            Items.BROWN_CANDLE,
-                            Items.CYAN_CANDLE,
-                            Items.GRAY_CANDLE,
-                            Items.GREEN_CANDLE,
-                            Items.LIGHT_BLUE_CANDLE,
-                            Items.LIGHT_GRAY_CANDLE,
-                            Items.LIME_CANDLE,
-                            Items.MAGENTA_CANDLE,
-                            Items.ORANGE_CANDLE,
-                            Items.PINK_CANDLE,
-                            Items.PURPLE_CANDLE,
-                            Items.RED_CANDLE,
-                            Items.WHITE_CANDLE,
-                            Items.YELLOW_CANDLE));
+                            Items.DYED_CANDLE.pick(DyeColor.BLACK),
+                            Items.DYED_CANDLE.pick(DyeColor.BLUE),
+                            Items.DYED_CANDLE.pick(DyeColor.BROWN),
+                            Items.DYED_CANDLE.pick(DyeColor.CYAN),
+                            Items.DYED_CANDLE.pick(DyeColor.GRAY),
+                            Items.DYED_CANDLE.pick(DyeColor.GREEN),
+                            Items.DYED_CANDLE.pick(DyeColor.LIGHT_BLUE),
+                            Items.DYED_CANDLE.pick(DyeColor.LIGHT_GRAY),
+                            Items.DYED_CANDLE.pick(DyeColor.LIME),
+                            Items.DYED_CANDLE.pick(DyeColor.MAGENTA),
+                            Items.DYED_CANDLE.pick(DyeColor.ORANGE),
+                            Items.DYED_CANDLE.pick(DyeColor.PINK),
+                            Items.DYED_CANDLE.pick(DyeColor.PURPLE),
+                            Items.DYED_CANDLE.pick(DyeColor.RED),
+                            Items.DYED_CANDLE.pick(DyeColor.WHITE),
+                            Items.DYED_CANDLE.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_CHICKEN", ofNullableList(Items.CHICKEN, Items.FEATHER, Items.EGG));
             put("CLT_PLANT_GHAST", ofNullableList(Items.GHAST_TEAR));
             put("CLT_PLANT_MUD", ofNullableList(Items.MUD));
@@ -726,62 +727,62 @@ public class StorageDisplay extends BaseModule {
             put(
                     "CLT_PLANT_STAINED",
                     ofNullableList(
-                            Items.BLACK_STAINED_GLASS,
-                            Items.BLUE_STAINED_GLASS,
-                            Items.BROWN_STAINED_GLASS,
-                            Items.CYAN_STAINED_GLASS,
-                            Items.GRAY_STAINED_GLASS,
-                            Items.GREEN_STAINED_GLASS,
-                            Items.LIGHT_BLUE_STAINED_GLASS,
-                            Items.LIGHT_GRAY_STAINED_GLASS,
-                            Items.LIME_STAINED_GLASS,
-                            Items.MAGENTA_STAINED_GLASS,
-                            Items.ORANGE_STAINED_GLASS,
-                            Items.PINK_STAINED_GLASS,
-                            Items.PURPLE_STAINED_GLASS,
-                            Items.RED_STAINED_GLASS,
-                            Items.WHITE_STAINED_GLASS,
-                            Items.YELLOW_STAINED_GLASS));
+                            Items.STAINED_GLASS.pick(DyeColor.BLACK),
+                            Items.STAINED_GLASS.pick(DyeColor.BLUE),
+                            Items.STAINED_GLASS.pick(DyeColor.BROWN),
+                            Items.STAINED_GLASS.pick(DyeColor.CYAN),
+                            Items.STAINED_GLASS.pick(DyeColor.GRAY),
+                            Items.STAINED_GLASS.pick(DyeColor.GREEN),
+                            Items.STAINED_GLASS.pick(DyeColor.LIGHT_BLUE),
+                            Items.STAINED_GLASS.pick(DyeColor.LIGHT_GRAY),
+                            Items.STAINED_GLASS.pick(DyeColor.LIME),
+                            Items.STAINED_GLASS.pick(DyeColor.MAGENTA),
+                            Items.STAINED_GLASS.pick(DyeColor.ORANGE),
+                            Items.STAINED_GLASS.pick(DyeColor.PINK),
+                            Items.STAINED_GLASS.pick(DyeColor.PURPLE),
+                            Items.STAINED_GLASS.pick(DyeColor.RED),
+                            Items.STAINED_GLASS.pick(DyeColor.WHITE),
+                            Items.STAINED_GLASS.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_RED_SAND", ofNullableList(Items.RED_SAND));
             put(
                     "CLT_PLANT_DUSTY",
                     ofNullableList(
-                            Items.BLACK_CONCRETE_POWDER,
-                            Items.BLUE_CONCRETE_POWDER,
-                            Items.BROWN_CONCRETE_POWDER,
-                            Items.CYAN_CONCRETE_POWDER,
-                            Items.GRAY_CONCRETE_POWDER,
-                            Items.GREEN_CONCRETE_POWDER,
-                            Items.LIGHT_BLUE_CONCRETE_POWDER,
-                            Items.LIGHT_GRAY_CONCRETE_POWDER,
-                            Items.LIME_CONCRETE_POWDER,
-                            Items.MAGENTA_CONCRETE_POWDER,
-                            Items.ORANGE_CONCRETE_POWDER,
-                            Items.PINK_CONCRETE_POWDER,
-                            Items.PURPLE_CONCRETE_POWDER,
-                            Items.RED_CONCRETE_POWDER,
-                            Items.WHITE_CONCRETE_POWDER,
-                            Items.YELLOW_CONCRETE_POWDER));
+                            Items.CONCRETE_POWDER.pick(DyeColor.BLACK),
+                            Items.CONCRETE_POWDER.pick(DyeColor.BLUE),
+                            Items.CONCRETE_POWDER.pick(DyeColor.BROWN),
+                            Items.CONCRETE_POWDER.pick(DyeColor.CYAN),
+                            Items.CONCRETE_POWDER.pick(DyeColor.GRAY),
+                            Items.CONCRETE_POWDER.pick(DyeColor.GREEN),
+                            Items.CONCRETE_POWDER.pick(DyeColor.LIGHT_BLUE),
+                            Items.CONCRETE_POWDER.pick(DyeColor.LIGHT_GRAY),
+                            Items.CONCRETE_POWDER.pick(DyeColor.LIME),
+                            Items.CONCRETE_POWDER.pick(DyeColor.MAGENTA),
+                            Items.CONCRETE_POWDER.pick(DyeColor.ORANGE),
+                            Items.CONCRETE_POWDER.pick(DyeColor.PINK),
+                            Items.CONCRETE_POWDER.pick(DyeColor.PURPLE),
+                            Items.CONCRETE_POWDER.pick(DyeColor.RED),
+                            Items.CONCRETE_POWDER.pick(DyeColor.WHITE),
+                            Items.CONCRETE_POWDER.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_PURPUR", ofNullableList(Items.PURPUR_BLOCK));
             put(
                     "CLT_PLANT_GLAZED",
                     ofNullableList(
-                            Items.BLACK_GLAZED_TERRACOTTA,
-                            Items.BLUE_GLAZED_TERRACOTTA,
-                            Items.BROWN_GLAZED_TERRACOTTA,
-                            Items.CYAN_GLAZED_TERRACOTTA,
-                            Items.GRAY_GLAZED_TERRACOTTA,
-                            Items.GREEN_GLAZED_TERRACOTTA,
-                            Items.LIGHT_BLUE_GLAZED_TERRACOTTA,
-                            Items.LIGHT_GRAY_GLAZED_TERRACOTTA,
-                            Items.LIME_GLAZED_TERRACOTTA,
-                            Items.MAGENTA_GLAZED_TERRACOTTA,
-                            Items.ORANGE_GLAZED_TERRACOTTA,
-                            Items.PINK_GLAZED_TERRACOTTA,
-                            Items.PURPLE_GLAZED_TERRACOTTA,
-                            Items.RED_GLAZED_TERRACOTTA,
-                            Items.WHITE_GLAZED_TERRACOTTA,
-                            Items.YELLOW_GLAZED_TERRACOTTA));
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.BLACK),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.BLUE),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.BROWN),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.CYAN),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.GRAY),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.GREEN),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.LIGHT_BLUE),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.LIGHT_GRAY),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.LIME),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.MAGENTA),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.ORANGE),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.PINK),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.PURPLE),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.RED),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.WHITE),
+                            Items.GLAZED_TERRACOTTA.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_DROWNED", ofNullableList(Items.ROTTEN_FLESH, Items.NAUTILUS_SHELL, Items.TRIDENT));
             put("CLT_PLANT_SAND", ofNullableList(Items.SAND));
             put("CLT_PLANT_VILLAGER", ofNullableList(Items.PAPER));
@@ -803,26 +804,26 @@ public class StorageDisplay extends BaseModule {
             put(
                     "CLT_PLANT_WOOLLY",
                     ofNullableList(
-                            Items.BLACK_WOOL,
-                            Items.BLUE_WOOL,
-                            Items.BROWN_WOOL,
-                            Items.CYAN_WOOL,
-                            Items.GRAY_WOOL,
-                            Items.GREEN_WOOL,
-                            Items.LIGHT_BLUE_WOOL,
-                            Items.LIGHT_GRAY_WOOL,
-                            Items.LIME_WOOL,
-                            Items.MAGENTA_WOOL,
-                            Items.ORANGE_WOOL,
-                            Items.PINK_WOOL,
-                            Items.PURPLE_WOOL,
-                            Items.RED_WOOL,
-                            Items.WHITE_WOOL,
-                            Items.YELLOW_WOOL));
+                            Items.WOOL.pick(DyeColor.BLACK),
+                            Items.WOOL.pick(DyeColor.BLUE),
+                            Items.WOOL.pick(DyeColor.BROWN),
+                            Items.WOOL.pick(DyeColor.CYAN),
+                            Items.WOOL.pick(DyeColor.GRAY),
+                            Items.WOOL.pick(DyeColor.GREEN),
+                            Items.WOOL.pick(DyeColor.LIGHT_BLUE),
+                            Items.WOOL.pick(DyeColor.LIGHT_GRAY),
+                            Items.WOOL.pick(DyeColor.LIME),
+                            Items.WOOL.pick(DyeColor.MAGENTA),
+                            Items.WOOL.pick(DyeColor.ORANGE),
+                            Items.WOOL.pick(DyeColor.PINK),
+                            Items.WOOL.pick(DyeColor.PURPLE),
+                            Items.WOOL.pick(DyeColor.RED),
+                            Items.WOOL.pick(DyeColor.WHITE),
+                            Items.WOOL.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_BEE", ofNullableList(Items.HONEYCOMB, Items.HONEY_BOTTLE));
             put("CLT_PLANT_DARK_FLORA", ofNullableList(Items.WEEPING_VINES, Items.TWISTING_VINES));
             put("CLT_PLANT_RABBIT", ofNullableList(Items.RABBIT, Items.RABBIT_HIDE, Items.RABBIT_FOOT));
-            put("CLT_PLANT_SHEEP", ofNullableList(Items.MUTTON, Items.WHITE_WOOL));
+            put("CLT_PLANT_SHEEP", ofNullableList(Items.MUTTON, Items.WOOL.pick(DyeColor.WHITE)));
             put("CLT_PLANT_NETHER_QUARTZ", ofNullableList(Items.QUARTZ));
             put("CLT_PLANT_LAPIS", ofNullableList(Items.LAPIS_LAZULI));
             put("CLT_PLANT_COAL", ofNullableList(Items.COAL));
@@ -839,43 +840,43 @@ public class StorageDisplay extends BaseModule {
             put(
                     "CLT_PLANT_CONCRETE",
                     ofNullableList(
-                            Items.BLACK_CONCRETE,
-                            Items.BLUE_CONCRETE,
-                            Items.BROWN_CONCRETE,
-                            Items.CYAN_CONCRETE,
-                            Items.GRAY_CONCRETE,
-                            Items.GREEN_CONCRETE,
-                            Items.LIGHT_BLUE_CONCRETE,
-                            Items.LIGHT_GRAY_CONCRETE,
-                            Items.LIME_CONCRETE,
-                            Items.MAGENTA_CONCRETE,
-                            Items.ORANGE_CONCRETE,
-                            Items.PINK_CONCRETE,
-                            Items.PURPLE_CONCRETE,
-                            Items.RED_CONCRETE,
-                            Items.WHITE_CONCRETE,
-                            Items.YELLOW_CONCRETE));
+                            Items.CONCRETE.pick(DyeColor.BLACK),
+                            Items.CONCRETE.pick(DyeColor.BLUE),
+                            Items.CONCRETE.pick(DyeColor.BROWN),
+                            Items.CONCRETE.pick(DyeColor.CYAN),
+                            Items.CONCRETE.pick(DyeColor.GRAY),
+                            Items.CONCRETE.pick(DyeColor.GREEN),
+                            Items.CONCRETE.pick(DyeColor.LIGHT_BLUE),
+                            Items.CONCRETE.pick(DyeColor.LIGHT_GRAY),
+                            Items.CONCRETE.pick(DyeColor.LIME),
+                            Items.CONCRETE.pick(DyeColor.MAGENTA),
+                            Items.CONCRETE.pick(DyeColor.ORANGE),
+                            Items.CONCRETE.pick(DyeColor.PINK),
+                            Items.CONCRETE.pick(DyeColor.PURPLE),
+                            Items.CONCRETE.pick(DyeColor.RED),
+                            Items.CONCRETE.pick(DyeColor.WHITE),
+                            Items.CONCRETE.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_DEEPSLATE", ofNullableList(Items.DEEPSLATE));
             put("CLT_PLANT_FISH", ofNullableList(Items.COD, Items.SALMON, Items.TROPICAL_FISH, Items.PUFFERFISH));
             put(
                     "CLT_PLANT_RAINBOW",
                     ofNullableList(
-                            Items.BLACK_DYE,
-                            Items.BLUE_DYE,
-                            Items.BROWN_DYE,
-                            Items.CYAN_DYE,
-                            Items.GRAY_DYE,
-                            Items.GREEN_DYE,
-                            Items.LIGHT_BLUE_DYE,
-                            Items.LIGHT_GRAY_DYE,
-                            Items.LIME_DYE,
-                            Items.MAGENTA_DYE,
-                            Items.ORANGE_DYE,
-                            Items.PINK_DYE,
-                            Items.PURPLE_DYE,
-                            Items.RED_DYE,
-                            Items.WHITE_DYE,
-                            Items.YELLOW_DYE));
+                            Items.DYE.pick(DyeColor.BLACK),
+                            Items.DYE.pick(DyeColor.BLUE),
+                            Items.DYE.pick(DyeColor.BROWN),
+                            Items.DYE.pick(DyeColor.CYAN),
+                            Items.DYE.pick(DyeColor.GRAY),
+                            Items.DYE.pick(DyeColor.GREEN),
+                            Items.DYE.pick(DyeColor.LIGHT_BLUE),
+                            Items.DYE.pick(DyeColor.LIGHT_GRAY),
+                            Items.DYE.pick(DyeColor.LIME),
+                            Items.DYE.pick(DyeColor.MAGENTA),
+                            Items.DYE.pick(DyeColor.ORANGE),
+                            Items.DYE.pick(DyeColor.PINK),
+                            Items.DYE.pick(DyeColor.PURPLE),
+                            Items.DYE.pick(DyeColor.RED),
+                            Items.DYE.pick(DyeColor.WHITE),
+                            Items.DYE.pick(DyeColor.YELLOW)));
             put("CLT_PLANT_CLAY", ofNullableList(Items.CLAY));
             put("CLT_PLANT_GUARDIAN", ofNullableList(Items.PRISMARINE_SHARD, Items.PRISMARINE_CRYSTALS));
             put("CLT_PLANT_SHULKER", ofNullableList(Items.SHULKER_SHELL));
@@ -1244,8 +1245,8 @@ public class StorageDisplay extends BaseModule {
     public static ItemStack handleElectricSpawnerInfo(ItemStack item, String sfid) {
         if (sfid != null && sfid.startsWith(ES_PREFIX)) {
             String entity = sfid.substring(ES_PREFIX_LEN);
-            EntityType<?> entity1 = Registries.ENTITY_TYPE
-                    .getOrEmpty(new Identifier("minecraft", entity.toLowerCase(Locale.ROOT)))
+            EntityType<?> entity1 = BuiltInRegistries.ENTITY_TYPE
+                    .getOptional(new Identifier("minecraft", entity.toLowerCase(Locale.ROOT)))
                     .orElse(null);
             if (entity1 != null) {
                 return getRenderingEntityContent(entity1);

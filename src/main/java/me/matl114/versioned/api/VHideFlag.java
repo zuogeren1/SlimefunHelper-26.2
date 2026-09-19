@@ -1,6 +1,6 @@
 package me.matl114.versioned.api;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public interface VHideFlag {
     public boolean isHide(ItemStack stack);

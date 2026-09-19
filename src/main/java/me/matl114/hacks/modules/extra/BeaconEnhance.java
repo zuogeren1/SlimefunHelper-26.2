@@ -11,14 +11,14 @@ import me.matl114.hacks.api.ModulePath;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.Debug;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.BeaconScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.network.packet.c2s.play.UpdateBeaconC2SPacket;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.BeaconScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundSetBeaconPacket;
 
 public class BeaconEnhance extends BaseModule {
     public final ModulePath other = makePath(Configs.EXTRA_CONFIG, "other");
@@ -34,7 +34,7 @@ public class BeaconEnhance extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPostInitializeScreen().getChannel(HandledScreen.class), this::onScreenInitialize);
+        registerListener(Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onScreenInitialize);
     }
 
     public void onScreenInitialize(Event<Screen> e) {
@@ -44,22 +44,22 @@ public class BeaconEnhance extends BaseModule {
             int scx = access.getScreenX();
             int scy = access.getScreenY();
             var buttonLevel1 =
-                    new BeaconEffectSelectButton(scx + 167 - 23, scy + 47 + 26, 22, 22, Text.literal("第一等级: "));
+                    new BeaconEffectSelectButton(scx + 167 - 23, scy + 47 + 26, 22, 22, Component.literal("第一等级: "));
             access.addDrawableChildTo(buttonLevel1);
             var buttonLevel2 =
-                    new BeaconEffectSelectButton(scx + 167 + 1, scy + 47 + 26, 22, 22, Text.literal("第二等级: "));
+                    new BeaconEffectSelectButton(scx + 167 + 1, scy + 47 + 26, 22, 22, Component.literal("第二等级: "));
             access.addDrawableChildTo(buttonLevel2);
-            AtomicReference<ButtonWidget> buttonTrigger =
-                    new AtomicReference<>(ButtonWidget.builder(Text.literal("Send packet"), (b) -> {
-                                MinecraftClient.getInstance()
-                                        .getNetworkHandler()
-                                        .sendPacket(new UpdateBeaconC2SPacket(
+            AtomicReference<Button> buttonTrigger =
+                    new AtomicReference<>(Button.builder(Component.literal("Send packet"), (b) -> {
+                                Minecraft.getInstance()
+                                        .getConnection()
+                                        .send(new ServerboundSetBeaconPacket(
                                                 Optional.ofNullable(buttonLevel1.getCurrentEffect()),
                                                 Optional.ofNullable(buttonLevel2.getCurrentEffect())));
-                                Debug.chat(Text.literal("成功发送了信标设置!"));
+                                Debug.chat(Component.literal("成功发送了信标设置!"));
                             })
-                            .tooltip(Tooltip.of(Text.literal("点击上方选效果,点此强制修改信标")))
-                            .dimensions(scx + 167 - 23, scy + 47 + 48, 46, 10)
+                            .tooltip(Tooltip.create(Component.literal("点击上方选效果,点此强制修改信标")))
+                            .bounds(scx + 167 - 23, scy + 47 + 48, 46, 10)
                             .build());
             access.addDrawableChildTo(buttonTrigger.get());
         }

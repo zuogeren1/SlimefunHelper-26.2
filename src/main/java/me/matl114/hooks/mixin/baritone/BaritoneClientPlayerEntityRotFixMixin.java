@@ -7,11 +7,11 @@ import me.matl114.hacks.utils.entity.LegalMovementManager;
 import me.matl114.hooks.BaritoneHooks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,19 +20,19 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientPlayerEntity.class)
-public abstract class BaritoneClientPlayerEntityRotFixMixin extends AbstractClientPlayerEntity
+@Mixin(LocalPlayer.class)
+public abstract class BaritoneClientPlayerEntityRotFixMixin extends AbstractClientPlayer
         implements ClientPlayerEntityAccess {
     @Shadow
-    public abstract float getPitch(float tickProgress);
+    public abstract float getViewXRot(float tickProgress);
 
     @Shadow
-    public abstract float getYaw(float tickProgress);
+    public abstract float getViewYRot(float tickProgress);
 
     @Unique
-    Vec2f storedPreBaritonePitchYaw;
+    Vec2 storedPreBaritonePitchYaw;
 
-    public BaritoneClientPlayerEntityRotFixMixin(ClientWorld world, GameProfile profile) {
+    public BaritoneClientPlayerEntityRotFixMixin(ClientLevel world, GameProfile profile) {
         super(world, profile);
     }
 
@@ -41,7 +41,7 @@ public abstract class BaritoneClientPlayerEntityRotFixMixin extends AbstractClie
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/AbstractClientPlayerEntity;tick()V",
+                            target = "Lnet/minecraft/client/player/AbstractClientPlayer;tick()V",
                             shift = At.Shift.AFTER),
             order = 999)
     private void onPreBaritonePlayerUpdateEvent(CallbackInfo ci) {
@@ -50,9 +50,9 @@ public abstract class BaritoneClientPlayerEntityRotFixMixin extends AbstractClie
                 && (BaritoneHooks.getInstance().isBaritonePathing()
                         || BaritoneHooks.getInstance().isBaritoneElytraProcessing())) {
             LegalMovementManager manager = getLegalMovementManager();
-            Vec2f rotModify =
-                    BaritoneHooks.getInstance().getBaritoneCurrentMoveRot(MinecraftClient.getInstance().player);
-            Vec2f currentPY = new Vec2f(getPitch(), getYaw());
+            Vec2 rotModify =
+                    BaritoneHooks.getInstance().getBaritoneCurrentMoveRot(Minecraft.getInstance().player);
+            Vec2 currentPY = new Vec2(getXRot(), getYRot());
             if (rotModify != null && !Objects.equals(rotModify, currentPY)) {
                 if (manager.isResetRot()) {
                     storedPreBaritonePitchYaw = currentPY;
@@ -67,19 +67,19 @@ public abstract class BaritoneClientPlayerEntityRotFixMixin extends AbstractClie
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/AbstractClientPlayerEntity;tick()V",
+                            target = "Lnet/minecraft/client/player/AbstractClientPlayer;tick()V",
                             shift = At.Shift.AFTER),
             order = 1111)
     private void onPostBaritonePlayerUpdateEvent(CallbackInfo ci) {
         if (storedPreBaritonePitchYaw != null) {
-            float pitch = getPitch();
-            float yaw = getYaw();
+            float pitch = getXRot();
+            float yaw = getYRot();
             LegalMovementManager manager = getLegalMovementManager();
             if (pitch != manager.playerStatus.pitch || yaw != manager.playerStatus.yaw) {
                 // mark that Baritone change the rotation
             } else {
-                setPitch(storedPreBaritonePitchYaw.x);
-                setYaw(storedPreBaritonePitchYaw.y);
+                setXRot(storedPreBaritonePitchYaw.x);
+                setYRot(storedPreBaritonePitchYaw.y);
             }
             storedPreBaritonePitchYaw = null;
         }

@@ -20,13 +20,19 @@ import me.matl114.managers.config.StringRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.PacketType;
-import net.minecraft.network.packet.c2s.play.*;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 
 public class PacketDebugger extends BaseModule {
     public final ModulePath packetDebugger = makePath(Configs.EXTRA_CONFIG, "packet-debugger");
@@ -96,7 +102,7 @@ public class PacketDebugger extends BaseModule {
         registerListener(Listener.getPacketPreHandlePoint(), this::onPacketHandle, Integer.MIN_VALUE);
         registerListener(Listener.getPacketPostScheduleSendPoint(), this::onPacketSend, Integer.MIN_VALUE);
         registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(NetworkSide.SERVERBOUND),
+                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND),
                 this::onViaSend,
                 Integer.MIN_VALUE);
         registerListener(Listener.getPacketPoint(), this::onPacket);
@@ -113,25 +119,25 @@ public class PacketDebugger extends BaseModule {
         if (packetEvent.isCancelled()) return;
         if (enable.get() && debugIn.get()) {
             Packet<?> type = packetEvent.context();
-            if (typesDebug.contains(type.getPacketId())) {
+            if (typesDebug.contains(type.type())) {
                 String timeStr = debugTime.get() ? (", Tick: " + Tasks.getTick()) : "";
-                if (type instanceof PlayerPositionLookS2CPacket positionLookS2CPacket) {
-                    Vec3d vec3d = positionLookS2CPacket.change().position();
+                if (type instanceof ClientboundPlayerPositionPacket positionLookS2CPacket) {
+                    Vec3 vec3d = positionLookS2CPacket.change().position();
                     debug(
                             "Accept",
-                            simplifyId(type.getPacketId().id()),
+                            simplifyId(type.type().id()),
                             vec3d.x,
                             vec3d.y,
                             vec3d.z,
                             ", Pitch:",
-                            positionLookS2CPacket.change().pitch(),
+                            positionLookS2CPacket.change().xRot(),
                             ", Yaw:",
-                            positionLookS2CPacket.change().yaw(),
+                            positionLookS2CPacket.change().yRot(),
                             ", Id:",
-                            positionLookS2CPacket.teleportId(),
+                            positionLookS2CPacket.id(),
                             timeStr);
                 } else {
-                    debug("Accept", simplifyId(type.getPacketId().id()), timeStr);
+                    debug("Accept", simplifyId(type.type().id()), timeStr);
                 }
             }
         }
@@ -141,50 +147,50 @@ public class PacketDebugger extends BaseModule {
         if (packetEvent.isCancelled()) return;
         if (enable.get() && debugOut.get()) {
             Packet<?> type = packetEvent.context();
-            if (typesDebug.contains(type.getPacketId())) {
+            if (typesDebug.contains(type.type())) {
                 String timeStr = debugTime.get() ? (", Tick: " + Tasks.getTick()) : "";
-                if (type instanceof PlayerMoveC2SPacket moveC2SPacket) {
+                if (type instanceof ServerboundMovePlayerPacket moveC2SPacket) {
                     debug(
                             "Send",
-                            simplifyId(type.getPacketId().id()),
+                            simplifyId(type.type().id()),
                             moveC2SPacket.getX(0.0),
                             moveC2SPacket.getY(0.0),
                             moveC2SPacket.getZ(0.0),
                             ", Pitch:",
-                            moveC2SPacket.getPitch(0.0F),
+                            moveC2SPacket.getXRot(0.0F),
                             ", Yaw:",
-                            moveC2SPacket.getYaw(0.0F),
+                            moveC2SPacket.getYRot(0.0F),
                             ", onGround:",
                             moveC2SPacket.isOnGround(),
                             timeStr);
-                } else if (type instanceof PlayerInputC2SPacket playerInputC2SPacket) {
+                } else if (type instanceof ServerboundPlayerInputPacket playerInputC2SPacket) {
                     PlayerInputUtils.Input input = PlayerInputUtils.of(playerInputC2SPacket);
-                    debug("Send", simplifyId(type.getPacketId().id()), input, timeStr);
-                } else if (type instanceof PlayerActionC2SPacket actionC2SPacket) {
+                    debug("Send", simplifyId(type.type().id()), input, timeStr);
+                } else if (type instanceof ServerboundPlayerActionPacket actionC2SPacket) {
                     debug(
                             "Send",
-                            simplifyId(type.getPacketId().id()),
+                            simplifyId(type.type().id()),
                             actionC2SPacket.getAction().name(),
                             actionC2SPacket.getPos(),
                             actionC2SPacket.getSequence(),
                             timeStr);
-                } else if (type instanceof PlayerInteractEntityC2SPacket interact) {
+                } else if (type instanceof ServerboundInteractPacket interact) {
                     debug(
                             "Send",
-                            simplifyId(type.getPacketId().id()),
-                            ((Enum) interact.type.getType()).name(),
+                            simplifyId(type.type().id()),
+                            interact.usingSecondaryAction() ? "INTERACT_SECONDARY" : "INTERACT",
                             interact.entityId,
                             timeStr);
-                } else if (type instanceof ClientCommandC2SPacket ccmd) {
+                } else if (type instanceof ServerboundPlayerCommandPacket ccmd) {
                     debug(
                             "Send",
-                            simplifyId(type.getPacketId().id()),
-                            ccmd.getMode().name(),
+                            simplifyId(type.type().id()),
+                            ccmd.getAction().name(),
                             timeStr);
-                } else if (type instanceof TeleportConfirmC2SPacket confirm) {
-                    debug("Send", simplifyId(type.getPacketId().id()), ", Id:", confirm.getTeleportId(), timeStr);
+                } else if (type instanceof ServerboundAcceptTeleportationPacket confirm) {
+                    debug("Send", simplifyId(type.type().id()), ", Id:", confirm.getId(), timeStr);
                 } else {
-                    debug("Send", simplifyId(type.getPacketId().id()), timeStr);
+                    debug("Send", simplifyId(type.type().id()), timeStr);
                 }
             }
         }
@@ -208,7 +214,7 @@ public class PacketDebugger extends BaseModule {
         if (packetEvent.isCancelled()) return;
         if (enable.get() && interceptPacket.get()) {
             Packet<?> type = packetEvent.context();
-            if (typesIntercept.contains(type.getPacketId())) {
+            if (typesIntercept.contains(type.type())) {
                 packetEvent.cancel();
             }
         }

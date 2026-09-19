@@ -15,8 +15,8 @@ import me.matl114.gui.presets.choices.ConfirmingBigScreen;
 import me.matl114.managers.config.NBTType;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WidgetFactory;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
     final Predicate<Map<W, T>> validator;
@@ -59,7 +59,7 @@ public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
             int dkey,
             int dx,
             int dy) {
-        super(Text.translatable("widget.gui.nbt-bounded-list-screen.title").formatted(Formatting.GREEN));
+        super(Component.translatable("widget.gui.nbt-bounded-list-screen.title").withStyle(ChatFormatting.GREEN));
         validator = listValidator;
         this.attrFactory = attrElementFactory;
         this.list = list.entrySet().stream()
@@ -120,7 +120,7 @@ public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
         var list = this.listMap();
         if (validator.test(list)) {
             callback.accept(list);
-            close();
+            onClose();
         }
     }
 }

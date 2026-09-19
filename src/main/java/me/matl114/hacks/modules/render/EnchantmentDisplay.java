@@ -14,23 +14,23 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.ResourceUtils;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.item.BowItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.MaceItem;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 public class EnchantmentDisplay extends BaseModule {
     public static final String NAMESPACE = "slimefunhelper";
     public static final String MODEL_PATH = "enchantment_icon/";
     public final ModulePath modelConfig = makePath(Configs.RENDER_CONFIG, "itemstack-display.enchantment-display");
-    public static final Map<RegistryKey<Enchantment>, Identifier> ENCHANTMENT_ICON_MODELS = Map.ofEntries(
+    public static final Map<ResourceKey<Enchantment>, Identifier> ENCHANTMENT_ICON_MODELS = Map.ofEntries(
             Map.entry(Enchantments.BANE_OF_ARTHROPODS, enchantmentIcon("icon_bane_of_arthropods")),
             Map.entry(Enchantments.BLAST_PROTECTION, enchantmentIcon("icon_blast_protection")),
             Map.entry(Enchantments.BREACH, enchantmentIcon("icon_breach")),
@@ -89,11 +89,11 @@ public class EnchantmentDisplay extends BaseModule {
         }
     }
 
-    public final Map<Item, List<RegistryKey<Enchantment>>> checkList = new HashMap<>();
+    public final Map<Item, List<ResourceKey<Enchantment>>> checkList = new HashMap<>();
     public final Map<Item, FlagRef> checkFlags = new HashMap<>();
 
     {
-        for (var item : Registries.ITEM) {
+        for (var item : BuiltInRegistries.ITEM) {
             if (item instanceof MaceItem mace) {
                 checkList.put(item, List.of(Enchantments.DENSITY, Enchantments.BREACH));
                 checkFlags.put(item, enableMace);
@@ -101,12 +101,12 @@ public class EnchantmentDisplay extends BaseModule {
                 checkList.put(
                         item, List.of(Enchantments.SHARPNESS, Enchantments.SMITE, Enchantments.BANE_OF_ARTHROPODS));
                 checkFlags.put(item, enableWeapon);
-            } else if (item.getComponents().contains(DataComponentTypes.EQUIPPABLE)) {
+            } else if (item.components().has(DataComponents.EQUIPPABLE)) {
                 checkList.put(
                         item,
                         List.of(Enchantments.PROTECTION, Enchantments.BLAST_PROTECTION, Enchantments.FIRE_PROTECTION));
                 checkFlags.put(item, enableEquippable);
-            } else if (item.getComponents().contains(DataComponentTypes.TOOL)) {
+            } else if (item.components().has(DataComponents.TOOL)) {
                 checkList.put(item, List.of(Enchantments.FORTUNE, Enchantments.SILK_TOUCH));
                 checkFlags.put(item, enableTool);
             } else if (item instanceof BowItem bow) {
@@ -128,7 +128,7 @@ public class EnchantmentDisplay extends BaseModule {
                     return;
                 }
                 var lst = checkList.get(stack.getItem());
-                ItemEnchantmentsComponent enchantmentsComponent = stack.get(DataComponentTypes.ENCHANTMENTS);
+                ItemEnchantments enchantmentsComponent = stack.get(DataComponents.ENCHANTMENTS);
                 if (enchantmentsComponent != null && !enchantmentsComponent.isEmpty()) {
                     for (var ls : lst) {
                         if (ItemStackUtils.getEnchantmentLevel(enchantmentsComponent, ls) > 0) {

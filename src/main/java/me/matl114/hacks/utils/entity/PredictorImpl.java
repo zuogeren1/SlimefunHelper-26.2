@@ -4,15 +4,15 @@ import java.util.*;
 import me.matl114.events.Event;
 import me.matl114.managers.Tasks;
 import me.matl114.utils.MathUtils;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.packet.s2c.play.EntityPositionS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityPositionSyncS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityS2CPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;
+import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class PredictorImpl implements Predictor {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     private final Entity owner;
     private final Deque<KnownPosition> positions = new ArrayDeque<>();
     private static final int MAX_HISTORY = 30;
@@ -26,26 +26,26 @@ public class PredictorImpl implements Predictor {
             positions.removeFirst();
         }
         if (mc.player == this.owner) {
-            addRecord(new KnownPosition(owner.getPos(), Tasks.getTick()));
+            addRecord(new KnownPosition(owner.position(), Tasks.getTick()));
         }
     }
 
-    public void onEntityPositionPost(Event<EntityPositionS2CPacket> event) {
-        EntityPositionS2CPacket packet = event.context();
-        if (packet.entityId() != owner.getId()) return;
-        addRecord(new KnownPosition(owner.getPos(), Tasks.getTick()));
-    }
-
-    public void onEntityPositionSyncPost(Event<EntityPositionSyncS2CPacket> event) {
-        EntityPositionSyncS2CPacket packet = event.context();
+    public void onEntityPositionPost(Event<ClientboundTeleportEntityPacket> event) {
+        ClientboundTeleportEntityPacket packet = event.context();
         if (packet.id() != owner.getId()) return;
-        addRecord(new KnownPosition(owner.getPos(), Tasks.getTick()));
+        addRecord(new KnownPosition(owner.position(), Tasks.getTick()));
     }
 
-    public void onEntityPositionMove(Event<EntityS2CPacket> event) {
-        EntityS2CPacket packet = event.context();
-        if (packet.getEntity(mc.world) == owner) {
-            addRecord(new KnownPosition(owner.getPos(), Tasks.getTick()));
+    public void onEntityPositionSyncPost(Event<ClientboundEntityPositionSyncPacket> event) {
+        ClientboundEntityPositionSyncPacket packet = event.context();
+        if (packet.id() != owner.getId()) return;
+        addRecord(new KnownPosition(owner.position(), Tasks.getTick()));
+    }
+
+    public void onEntityPositionMove(Event<ClientboundMoveEntityPacket> event) {
+        ClientboundMoveEntityPacket packet = event.context();
+        if (packet.getEntity(mc.level) == owner) {
+            addRecord(new KnownPosition(owner.position(), Tasks.getTick()));
         }
     }
 
@@ -56,8 +56,8 @@ public class PredictorImpl implements Predictor {
      * 基于最近两个已知位置（收到的记录）计算当前移动速度（每 tick 的位移向量）
      * @return 速度向量；若 tick 差为 0，则返回零向量（同一时刻无有效速度）
      */
-    public Vec3d getKnownDeltaMovement() {
-        if (positions.size() < 2) return Vec3d.ZERO;
+    public Vec3 getKnownDeltaMovement() {
+        if (positions.size() < 2) return Vec3.ZERO;
         Iterator<KnownPosition> it = positions.descendingIterator();
         KnownPosition newest = it.next();
         KnownPosition second = it.next();
@@ -66,8 +66,8 @@ public class PredictorImpl implements Predictor {
             // 同一 tick 内无法计算速度，返回零向量（或根据需求返回位移差）
             return newest.vec3d().subtract(second.vec3d());
         }
-        Vec3d displacement = newest.vec3d().subtract(second.vec3d());
-        return displacement.multiply(1.0 / dt);
+        Vec3 displacement = newest.vec3d().subtract(second.vec3d());
+        return displacement.scale(1.0 / dt);
     }
 
     /**
@@ -76,10 +76,10 @@ public class PredictorImpl implements Predictor {
      * @param method 1=线性回归, 2=二次回归, 3=NVPredictor
      * @param useTicksBefore 只使用过去 useTicksBefore 刻内的历史记录
      */
-    public Vec3d predict(int ticksLater, int method, int useTicksBefore) {
-        if (ticksLater == 0) return owner.getPos();
+    public Vec3 predict(int ticksLater, int method, int useTicksBefore) {
+        if (ticksLater == 0) return owner.position();
         int currentTick = Tasks.getTick();
-        Vec3d currentPos = owner.getPos();
+        Vec3 currentPos = owner.position();
 
         List<KnownPosition> histRecords = new ArrayList<>();
         KnownPosition lastKnown = null;
@@ -138,7 +138,7 @@ public class PredictorImpl implements Predictor {
             return currentPos;
         }
 
-        Vec3d[] history = new Vec3d[usableTicks];
+        Vec3[] history = new Vec3[usableTicks];
         int currentIndex = 0;
         KnownPosition pos = histRecords.get(currentIndex);
         KnownPosition lastPos = null;
@@ -153,9 +153,9 @@ public class PredictorImpl implements Predictor {
                 if (lastPos != null && lastPos.tick() < realTick && pos.tick() > realTick) {
                     // pos.tick > realTick > lastPos.tick
                     history[i] = pos.vec3d()
-                            .multiply(pos.tick() - realTick)
-                            .add(lastPos.vec3d().multiply(realTick - lastPos.tick()))
-                            .multiply(1.0D / (pos.tick() - lastPos.tick()));
+                            .scale(pos.tick() - realTick)
+                            .add(lastPos.vec3d().scale(realTick - lastPos.tick()))
+                            .scale(1.0D / (pos.tick() - lastPos.tick()));
                     break;
                 }
                 lastPos = pos;
@@ -179,17 +179,17 @@ public class PredictorImpl implements Predictor {
                 return MathUtils.quadraticPrediction(history, futureSteps);
             }
             case 3 -> {
-                Vec3d[] ring = Arrays.copyOf(history, history.length);
+                Vec3[] ring = Arrays.copyOf(history, history.length);
                 int currentIdx = history.length - 1;
                 return new MathUtils.NVPredictor(ring, () -> currentIdx).compute(futureSteps);
             }
             case 4 -> {
-                Vec3d[] ring = Arrays.copyOf(history, history.length);
+                Vec3[] ring = Arrays.copyOf(history, history.length);
                 int currentIdx = history.length - 1;
                 return new MathUtils.RotationalPredictor(ring, () -> currentIdx).compute(futureSteps);
             }
             case 5 -> {
-                Vec3d[] ring = Arrays.copyOf(history, history.length);
+                Vec3[] ring = Arrays.copyOf(history, history.length);
                 int currentIdx = history.length - 1;
                 return new MathUtils.AcceleratePredictor(ring, () -> currentIdx).compute(futureSteps);
             }
@@ -214,7 +214,7 @@ public class PredictorImpl implements Predictor {
         // 如果不足，用当前实体位置补全（添加在末尾）
         int missing = lastNumber - result.size();
         if (missing > 0) {
-            Vec3d currentPos = owner.getPos();
+            Vec3 currentPos = owner.position();
             int currentTick = Tasks.getTick();
             for (int i = 0; i < missing; i++) {
                 result.add(new KnownPosition(currentPos, currentTick));
@@ -233,5 +233,5 @@ public class PredictorImpl implements Predictor {
         }
     }
 
-    public static record KnownPosition(Vec3d vec3d, int tick) {}
+    public static record KnownPosition(Vec3 vec3d, int tick) {}
 }

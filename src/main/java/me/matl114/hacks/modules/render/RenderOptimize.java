@@ -21,23 +21,30 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.containers.MetaData;
-import net.minecraft.block.AbstractSignBlock;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.particle.ParticleType;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.math.*;
-import net.minecraft.world.chunk.BlockEntityTickInvoker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.util.Mth;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.TickingBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.function.BooleanConsumer;
 
 public class RenderOptimize extends BaseModule {
@@ -87,18 +94,18 @@ public class RenderOptimize extends BaseModule {
 
     public final NBTRef<EntrySet<EntityType<?>>> cullingTypes = builder(
                     renderOptimize.add("optimize-culling-entity-types"), EntrySet.<EntityType<?>>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(item.*)$"), Registries.ENTITY_TYPE))
+            .defaultValue(new EntrySet<>(new Regex("^(item.*)$"), BuiltInRegistries.ENTITY_TYPE))
             .build();
 
     public final NBTRef<EntrySet<BlockEntityType<?>>> cullingTypes2 = builder(
                     renderOptimize.add("optimize-culling-block-entity-types"), EntrySet.<BlockEntityType<?>>parameter())
             .defaultValue(new EntrySet<>(
-                    new Regex("^((.*sign)|barrel|skull|(.*chest)|enchanting_table)$"), Registries.BLOCK_ENTITY_TYPE))
+                    new Regex("^((.*sign)|barrel|skull|(.*chest)|enchanting_table)$"), BuiltInRegistries.BLOCK_ENTITY_TYPE))
             .build();
 
     public final NBTRef<EntrySet<ParticleType<?>>> cullingTypes3 = builder(
                     renderOptimize.add("optimize-culling-block-entity-types"), EntrySet.<ParticleType<?>>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*)$"), Registries.PARTICLE_TYPE))
+            .defaultValue(new EntrySet<>(new Regex("^(.*)$"), BuiltInRegistries.PARTICLE_TYPE))
             .build();
 
     public final DoubleRef cullingRadius = builder(renderOptimize.add("optimize-culling-radius"), DoubleRef.TYPE)
@@ -141,19 +148,19 @@ public class RenderOptimize extends BaseModule {
     public void onEntityTick(Event<Entity> event) {
         Entity entity = event.context();
         if (entity instanceof ItemEntity item && enableItemTickOpt.get()) {
-            boolean itemInFluid = item.isInFluid();
-            boolean itemFalling = !item.isOnGround() && item.getFinalGravity() > 0;
+            boolean itemInFluid = item.isInLiquid();
+            boolean itemFalling = !item.onGround() && item.getGravity() > 0;
             if (!itemInFluid && !itemFalling) {
                 event.cancel();
                 return;
             }
-            ClientPlayerEntity player = MinecraftClient.getInstance().player;
+            LocalPlayer player = Minecraft.getInstance().player;
             if (player != null
-                    && player.getPos().squaredDistanceTo(item.getPos()) > MathUtils.s2(cullingDistanceItem.get())) {
+                    && player.position().distanceToSqr(item.position()) > MathUtils.s2(cullingDistanceItem.get())) {
                 event.cancel();
                 return;
             }
-        } else if (entity instanceof ArmorStandEntity armorStand && enableArmorStandTickOpt.get()) {
+        } else if (entity instanceof ArmorStand armorStand && enableArmorStandTickOpt.get()) {
             event.cancel();
             return;
         }
@@ -164,7 +171,7 @@ public class RenderOptimize extends BaseModule {
         if (entity instanceof MetadataHolder holder) {
             MetaData metaData;
             RenderController controller;
-            Vec3d pos = RenderUtils.getCameraPos();
+            Vec3 pos = RenderUtils.getCameraPos();
             EntityType<?> types = entity.getType();
             if (cullingEnable.get()) {
                 if (this.cullingTypes.get().test(types)) {
@@ -172,15 +179,15 @@ public class RenderOptimize extends BaseModule {
                     controller = metaData.getOrPut(this, KEY_RENDER_CONTROL, RenderController::new);
 
                     // do not hide nearby entity
-                    Box box = entity.getBoundingBox();
-                    if (box.squaredMagnitude(pos) < 16) {
+                    AABB box = entity.getBoundingBox();
+                    if (box.distanceToSqr(pos) < 16) {
                         controller.hideAll = false;
-                    } else if (box.squaredMagnitude(pos) > MathUtils.s2(cullingRadius.get())) {
+                    } else if (box.distanceToSqr(pos) > MathUtils.s2(cullingRadius.get())) {
                         controller.hideAll = true;
                     } else {
-                        Vec3d playerTo = pos.subtract(entity.getPos());
-                        Vec3d playerLook = RenderUtils.getCameraLookVec(0.0F);
-                        if (playerLook.dotProduct(playerTo) > 0) {
+                        Vec3 playerTo = pos.subtract(entity.position());
+                        Vec3 playerLook = RenderUtils.getCameraLookVec(0.0F);
+                        if (playerLook.dot(playerTo) > 0) {
                             controller.hideAll = true;
                         } else {
                             if (cullingUseRaycast.get()) {
@@ -210,18 +217,18 @@ public class RenderOptimize extends BaseModule {
         if (enableLabelRenderOpt.get()) {
             Entity entity = event.context();
             // do not hide player nametags
-            if (entity instanceof PlayerEntity) {
+            if (entity instanceof Player) {
                 return;
             }
             if (entity.hasCustomName() && entity instanceof MetadataHolder holder) {
                 MetaData metaData = holder.getMetadata();
                 RenderController controller = metaData.getOrPut(this, KEY_RENDER_CONTROL, RenderController::new);
-                Vec3d pos = RenderUtils.getCameraPos();
-                if (entity.getPos().squaredDistanceTo(pos) > MathUtils.s2(cullingDistanceEntityLabel.get())) {
+                Vec3 pos = RenderUtils.getCameraPos();
+                if (entity.position().distanceToSqr(pos) > MathUtils.s2(cullingDistanceEntityLabel.get())) {
                     controller.hideLabelFront = true;
                 } else {
-                    Vec3d toPlayer = pos.subtract(entity.getPos());
-                    if (toPlayer.dotProduct(RenderUtils.getCameraLookVec(0.0F)) > 0) {
+                    Vec3 toPlayer = pos.subtract(entity.position());
+                    if (toPlayer.dot(RenderUtils.getCameraLookVec(0.0F)) > 0) {
                         controller.hideLabelFront = true;
                     } else {
                         controller.hideLabelFront = false;
@@ -245,39 +252,39 @@ public class RenderOptimize extends BaseModule {
 
     public static final String KEY_RENDER_CONTROL = "slimefunhelper:render_optimize/render_controller";
 
-    public void onBlockEntityTick(Event<BlockEntityTickInvoker> event) {
-        BlockEntityTickInvoker entity = event.context();
+    public void onBlockEntityTick(Event<TickingBlockEntity> event) {
+        TickingBlockEntity entity = event.context();
         BlockPos blockPos = entity.getPos();
-        BlockEntity blockEntity = mc.world.getBlockEntity(blockPos);
+        BlockEntity blockEntity = mc.level.getBlockEntity(blockPos);
         if (blockEntity instanceof MetadataHolder holder) {
             // more choice
             if (blockEntity instanceof SignBlockEntity) {
                 MetaData metaData = holder.getMetadata();
                 RenderController controller = metaData.getOrPut(this, KEY_RENDER_CONTROL, RenderController::new);
-                BlockState blockState = mc.world.getBlockState(entity.getPos());
+                BlockState blockState = mc.level.getBlockState(entity.getPos());
                 if (enableBlockLabelRenderOpt.get()) {
-                    if (blockState.getBlock() instanceof AbstractSignBlock signBlock) {
+                    if (blockState.getBlock() instanceof SignBlock signBlock) {
                         // sign logic
-                        Vec3d cameraPos = RenderUtils.getCameraPos();
-                        if (blockPos.getSquaredDistance(cameraPos) > MathUtils.s2(cullingDistanceBlockLabel.get())) {
+                        Vec3 cameraPos = RenderUtils.getCameraPos();
+                        if (blockPos.distToCenterSqr(cameraPos) > MathUtils.s2(cullingDistanceBlockLabel.get())) {
                             controller.hideLabelBack = controller.hideLabelFront = true;
                         } else {
-                            float degree = signBlock.getRotationDegrees(blockState);
-                            float yawRad = degree * MathHelper.RADIANS_PER_DEGREE;
-                            double frontX = -MathHelper.sin(yawRad);
-                            double frontZ = MathHelper.cos(yawRad);
-                            Vec3d frontNormal = new Vec3d(frontX, 0, frontZ).normalize();
-                            Vec3d signCenter = Vec3d.of(blockPos).add(signBlock.getCenter(blockState));
-                            Vec3d toPlayer = cameraPos.subtract(signCenter);
-                            Vec3d playerLook = RenderUtils.getCameraLookVec(0.0f);
+                            float degree = signBlock.getYRotationDegrees(blockState);
+                            float yawRad = degree * Mth.DEG_TO_RAD;
+                            double frontX = -Mth.sin(yawRad);
+                            double frontZ = Mth.cos(yawRad);
+                            Vec3 frontNormal = new Vec3(frontX, 0, frontZ).normalize();
+                            Vec3 signCenter = Vec3.atLowerCornerOf(blockPos).add(signBlock.getSignHitboxCenterPosition(blockState));
+                            Vec3 toPlayer = cameraPos.subtract(signCenter);
+                            Vec3 playerLook = RenderUtils.getCameraLookVec(0.0f);
                             boolean showFront = true;
                             boolean showBack = true;
                             // culling back entities
-                            if (playerLook.dotProduct(toPlayer) > 0) {
+                            if (playerLook.dot(toPlayer) > 0) {
                                 showFront = false;
                                 showBack = false;
                             } else {
-                                if (toPlayer.dotProduct(frontNormal) > 0) {
+                                if (toPlayer.dot(frontNormal) > 0) {
                                     showBack = false;
                                 } else {
                                     showFront = false;
@@ -287,7 +294,7 @@ public class RenderOptimize extends BaseModule {
                                 // delay update
                                 final boolean showBack0 = showBack;
                                 final boolean showFront0 = showFront;
-                                Box box = Box.from(Vec3d.of(blockPos));
+                                AABB box = AABB.unitCubeFromLowerCorner(Vec3.atLowerCornerOf(blockPos));
                                 delayScheduleRaycast(box, controller, (val) -> {
                                     if (!val) {
                                         controller.hideLabelBack = !showBack0;
@@ -315,15 +322,15 @@ public class RenderOptimize extends BaseModule {
         }
     }
 
-    public void canChunkBeSeen(int chunkX, int chunkZ, Vec3d cameraPos, Vec3d cameraLook) {}
+    public void canChunkBeSeen(int chunkX, int chunkZ, Vec3 cameraPos, Vec3 cameraLook) {}
 
-    public void onBlockEntityCullingTick(Event<ClientPlayerEntity> event) {
+    public void onBlockEntityCullingTick(Event<LocalPlayer> event) {
 
-        if (mc.world != null && cullingEnable.get()) {
+        if (mc.level != null && cullingEnable.get()) {
             double maxDistance = cullingRadius.get();
             int maxChunkDistance = (int) ((cullingRadius.get() + 1) / 16 + 1);
-            Vec3d pos = RenderUtils.getCameraPos();
-            BlockPos cameraBlock = BlockPos.ofFloored(pos);
+            Vec3 pos = RenderUtils.getCameraPos();
+            BlockPos cameraBlock = BlockPos.containing(pos);
             int chunkX = cameraBlock.getX() >> 4;
             int chunkZ = cameraBlock.getZ() >> 4;
             for (var chunk : CommonUtils.chunks(false)) {
@@ -331,8 +338,8 @@ public class RenderOptimize extends BaseModule {
                 if (Math.abs(cpos.x - chunkX) <= maxChunkDistance && Math.abs(cpos.z - chunkZ) <= maxChunkDistance) {
                     for (var entry : ChunkAccess.of(chunk).blockEntityEntries()) {
                         BlockPos blockPos = entry.getKey();
-                        Box box = Box.from(Vec3d.of(blockPos));
-                        if (box.squaredMagnitude(pos) <= MathUtils.s2(maxDistance)) {
+                        AABB box = AABB.unitCubeFromLowerCorner(Vec3.atLowerCornerOf(blockPos));
+                        if (box.distanceToSqr(pos) <= MathUtils.s2(maxDistance)) {
                             BlockEntity blockEntity = entry.getValue();
                             if (blockEntity instanceof MetadataHolder holder) {
                                 MetaData metaData;
@@ -343,12 +350,12 @@ public class RenderOptimize extends BaseModule {
                                     controller = metaData.getOrPut(this, KEY_RENDER_CONTROL, RenderController::new);
 
                                     // do not hide nearby entity
-                                    if (box.squaredMagnitude(pos) < 16) {
+                                    if (box.distanceToSqr(pos) < 16) {
                                         controller.hideAll = false;
                                     } else {
-                                        Vec3d playerTo = pos.subtract(blockPos.toCenterPos());
-                                        Vec3d playerLook = RenderUtils.getCameraLookVec(0.0F);
-                                        if (playerLook.dotProduct(playerTo) > 0) {
+                                        Vec3 playerTo = pos.subtract(Vec3.atCenterOf(blockPos));
+                                        Vec3 playerLook = RenderUtils.getCameraLookVec(0.0F);
+                                        if (playerLook.dot(playerTo) > 0) {
                                             controller.hideAll = true;
                                         } else {
                                             if (cullingUseRaycast.get()) {
@@ -382,8 +389,8 @@ public class RenderOptimize extends BaseModule {
         BlockEntity entity = event.context();
         BlockEntityType<?> type = entity.getType();
         if (cullingTypes2.get().test(type)) {
-            Box box = Box.from(Vec3d.of(entity.getPos()));
-            double sq = box.squaredMagnitude(RenderUtils.getCameraPos());
+            AABB box = AABB.unitCubeFromLowerCorner(Vec3.atLowerCornerOf(entity.getBlockPos()));
+            double sq = box.distanceToSqr(RenderUtils.getCameraPos());
             // use distance first
             if (sq < 16) {
                 return;
@@ -411,7 +418,7 @@ public class RenderOptimize extends BaseModule {
         return false;
     }
 
-    public void delayScheduleRaycast(Box box, RenderController controller, BooleanConsumer consumer) {
+    public void delayScheduleRaycast(AABB box, RenderController controller, BooleanConsumer consumer) {
         if ((parallelRaycastExecutor == null || parallelRaycastExecutor.isShutdown())) {
             consumer.accept(false);
         } else if (mc.getCameraEntity() != null && mc.getCameraEntity().isSpectator()) {
@@ -422,7 +429,7 @@ public class RenderOptimize extends BaseModule {
             consumer.accept(controller.raycastResult);
             return;
         } else {
-            Vec3d camera = RenderUtils.getCameraPos();
+            Vec3 camera = RenderUtils.getCameraPos();
             controller.lastUpdateRaycastTick = Tasks.getTick();
             CompletableFuture.runAsync(
                     () -> {
@@ -438,7 +445,7 @@ public class RenderOptimize extends BaseModule {
     public volatile ConcurrentHashMap<Long, Boolean> cache = new ConcurrentHashMap<>();
     private int tickCounter = 0;
 
-    public void onCacheClean(Event<ClientPlayerEntity> event) {
+    public void onCacheClean(Event<LocalPlayer> event) {
         if (cullingUseRaycast.get()) {
             tickCounter += 1;
             if (tickCounter > 1) {
@@ -448,29 +455,29 @@ public class RenderOptimize extends BaseModule {
         }
     }
 
-    public boolean raycastFullBlockAsync(Box box, Vec3d cameraPos, RenderController controller) {
-        boolean smallBox = box.getMaxPos().subtract(box.getMinPos()).lengthSquared() < 1e-2;
-        Vec3d[] corners = smallBox
-                ? new Vec3d[] {box.getCenter()}
-                : new Vec3d[] {
-                    new Vec3d(box.minX, box.minY, box.minZ), // 000
-                    new Vec3d(box.maxX, box.minY, box.minZ), // 100
-                    new Vec3d(box.minX, box.maxY, box.minZ), // 010
-                    new Vec3d(box.maxX, box.maxY, box.minZ), // 110
-                    new Vec3d(box.minX, box.minY, box.maxZ), // 001
-                    new Vec3d(box.maxX, box.minY, box.maxZ), // 101
-                    new Vec3d(box.minX, box.maxY, box.maxZ), // 011
-                    new Vec3d(box.maxX, box.maxY, box.maxZ) // 111
+    public boolean raycastFullBlockAsync(AABB box, Vec3 cameraPos, RenderController controller) {
+        boolean smallBox = box.getMaxPosition().subtract(box.getMinPosition()).lengthSqr() < 1e-2;
+        Vec3[] corners = smallBox
+                ? new Vec3[] {box.getCenter()}
+                : new Vec3[] {
+                    new Vec3(box.minX, box.minY, box.minZ), // 000
+                    new Vec3(box.maxX, box.minY, box.minZ), // 100
+                    new Vec3(box.minX, box.maxY, box.minZ), // 010
+                    new Vec3(box.maxX, box.maxY, box.minZ), // 110
+                    new Vec3(box.minX, box.minY, box.maxZ), // 001
+                    new Vec3(box.maxX, box.minY, box.maxZ), // 101
+                    new Vec3(box.minX, box.maxY, box.maxZ), // 011
+                    new Vec3(box.maxX, box.maxY, box.maxZ) // 111
                 };
 
         ConcurrentHashMap<Long, Boolean> cacheResults = cache;
 
-        ClientWorld mcwolrd = mc.world;
+        ClientLevel mcwolrd = mc.level;
         if (mcwolrd == null) return false;
         for (var start : corners) {
             Iterator<BlockPos> blockPosIterator = RaycastUtils.createRaycastBlockPosIterator(start, cameraPos);
             int blockCount = 0;
-            long startPos = BlockPos.ofFloored(start).asLong();
+            long startPos = BlockPos.containing(start).asLong();
             while (blockPosIterator.hasNext()) {
                 BlockPos blockPos = blockPosIterator.next();
                 long posId = blockPos.asLong();
@@ -479,7 +486,7 @@ public class RenderOptimize extends BaseModule {
                 Boolean cacheR = cacheResults.get(posId);
                 if (cacheR == null) {
                     BlockState state = mcwolrd.getBlockState(blockPos);
-                    checkIsBlock = !state.isAir() && state.isOpaque() && state.isFullCube(mcwolrd, blockPos);
+                    checkIsBlock = !state.isAir() && state.canOcclude() && state.isCollisionShapeFullBlock(mcwolrd, blockPos);
                     cacheResults.put(posId, checkIsBlock ? Boolean.TRUE : Boolean.FALSE);
                 } else {
                     checkIsBlock = cacheR;

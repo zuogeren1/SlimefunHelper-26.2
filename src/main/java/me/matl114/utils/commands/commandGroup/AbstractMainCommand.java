@@ -11,8 +11,8 @@ import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.ArgumentReader;
 import me.matl114.utils.commands.params.SimpleCommandArgs;
 import me.matl114.utils.commands.params.api.CommandExecution;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -69,7 +69,7 @@ public class AbstractMainCommand implements SubCommand, InterruptionHandler {
         sender.sendMessage(message);
     }
 
-    protected void sendMessage(CommandExecution sender, Text message) {
+    protected void sendMessage(CommandExecution sender, Component message) {
         sender.sendMessage(message);
     }
 
@@ -317,8 +317,8 @@ public class AbstractMainCommand implements SubCommand, InterruptionHandler {
      * @throws InvalidExecutorError if the sender is not a Player
      */
     @Nonnull
-    public PlayerEntity player(CommandExecution sender) {
-        if (sender.getExecutor() instanceof PlayerEntity player) {
+    public Player player(CommandExecution sender) {
+        if (sender.getExecutor() instanceof Player player) {
             return player;
         } else {
             throw new InvalidExecutorError(false);
@@ -395,7 +395,7 @@ public class AbstractMainCommand implements SubCommand, InterruptionHandler {
         return root;
     }
 
-    public boolean onCommand(PlayerEntity var1, String var3, String[] var4) {
+    public boolean onCommand(Player var1, String var3, String[] var4) {
         CommandExecution execution = CommandExecution.sender(var1);
         try {
             // return getMainCommand().onCustomCommand(var1, var2, new ArgumentReader(getMainName(), var4));
@@ -406,7 +406,7 @@ public class AbstractMainCommand implements SubCommand, InterruptionHandler {
         }
     }
 
-    public List<String> onTabComplete(PlayerEntity var1, String var3, String[] var4) {
+    public List<String> onTabComplete(Player var1, String var3, String[] var4) {
         CommandExecution execution = CommandExecution.sender(var1);
         try {
             return onCustomTabComplete(execution, new ArgumentReader(getName(), var4));

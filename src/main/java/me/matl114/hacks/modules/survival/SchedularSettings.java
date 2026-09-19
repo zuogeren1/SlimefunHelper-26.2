@@ -12,7 +12,7 @@ import me.matl114.hooks.BaritoneHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 public class SchedularSettings extends BaseModule {
     public static SchedularSettings INSTANCE;
@@ -71,23 +71,23 @@ public class SchedularSettings extends BaseModule {
             builder(root.add("enable-render"), Boolean.class).defaultValue(true).build();
 
     public final NBTRef<WrapColor> colorReplenishment = builder(root.add("replenishment-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.BLUE)))
+            .defaultValue(new WrapColor((ChatFormatting.BLUE)))
             .build();
 
     public final NBTRef<WrapColor> colorDischarge = builder(root.add("discharge-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.RED)))
+            .defaultValue(new WrapColor((ChatFormatting.RED)))
             .build();
 
     public final NBTRef<WrapColor> colorShulkerSupport = builder(root.add("shulker-support-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.YELLOW)))
+            .defaultValue(new WrapColor((ChatFormatting.YELLOW)))
             .build();
 
     public final NBTRef<WrapColor> colorGoal = builder(root.add("goal-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.GREEN)))
+            .defaultValue(new WrapColor((ChatFormatting.GREEN)))
             .build();
 
     public final NBTRef<WrapColor> colorLines = builder(root.add("color-lines"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.AQUA))
+            .defaultValue(new WrapColor(ChatFormatting.AQUA))
             .build();
 
     @Override

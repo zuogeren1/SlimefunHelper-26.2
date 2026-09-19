@@ -17,39 +17,39 @@ import me.matl114.hacks.InvTasks;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.inventory.*;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ContainerComponent;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.AbstractNbtNumber;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.Hand;
-import net.minecraft.util.dynamic.Codecs;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NumericTag;
+import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemContainerContents;
 
 @ApiMethod
 public class InventoryUtils {
-    public static Iterable<ItemStack> iterable(Inventory inventory) {
+    public static Iterable<ItemStack> iterable(Container inventory) {
         return inventory;
     }
 
-    public static Inventory createReadOnlyOneItemInventory(Supplier<ItemStack> itemStackSupplier) {
+    public static Container createReadOnlyOneItemInventory(Supplier<ItemStack> itemStackSupplier) {
         return new ImmutableInventory() {
             @Override
-            public int size() {
+            public int getContainerSize() {
                 return 1;
             }
 
             @Override
-            public ItemStack getStack(int slot) {
+            public ItemStack getItem(int slot) {
                 return itemStackSupplier.get();
             }
         };
@@ -57,18 +57,18 @@ public class InventoryUtils {
 
     public static final Codec<IndexEntry<ItemStack>> STACK_WITH_SLOT_CODEC = RecordCodecBuilder.create((instance) -> {
         return instance.group(
-                        Codecs.UNSIGNED_BYTE.fieldOf("Slot").orElse(0).forGetter(IndexEntry::index),
+                        ExtraCodecs.UNSIGNED_BYTE.fieldOf("Slot").orElse(0).forGetter(IndexEntry::index),
                         VItem.ITEM_STACK_MAP_CODEC.forGetter(IndexEntry::val))
                 .apply(instance, IndexEntry::new);
     });
 
-    public static final Codec<IndexEntry<NbtCompound>> NBT_STACK_WITH_SLOT_CODEC = NbtCompound.CODEC.comapFlatMap(
+    public static final Codec<IndexEntry<CompoundTag>> NBT_STACK_WITH_SLOT_CODEC = CompoundTag.CODEC.comapFlatMap(
             s -> {
                 if (!s.contains("id")) {
                     return DataResult.error(() -> "Can not find field \"id\"");
                 }
-                if (s.get("Slot") instanceof AbstractNbtNumber number) {
-                    NbtCompound nbt2 = new NbtCompound(new HashMap<>(s.entries));
+                if (s.get("Slot") instanceof NumericTag number) {
+                    CompoundTag nbt2 = new CompoundTag(new HashMap<>(s.tags));
                     nbt2.remove("Slot");
                     return DataResult.success(new IndexEntry<>(number.intValue(), nbt2));
                 } else {
@@ -76,55 +76,55 @@ public class InventoryUtils {
                 }
             },
             s -> {
-                NbtCompound compound = new NbtCompound(new HashMap<>(s.val().entries));
+                CompoundTag compound = new CompoundTag(new HashMap<>(s.val().tags));
                 compound.putByte("Slot", (byte) s.index());
                 return compound;
             });
 
-    public static Inventory createReadOnlyInventory(List<ItemStack> itemStackSupplier) {
+    public static Container createReadOnlyInventory(List<ItemStack> itemStackSupplier) {
         return new ImmutableListInventory(itemStackSupplier);
     }
 
-    public static Inventory createInventory(List<ItemStack> itemStackSupplier) {
+    public static Container createInventory(List<ItemStack> itemStackSupplier) {
         return createInventory(itemStackSupplier.size(), itemStackSupplier);
     }
 
-    public static Inventory createInventory(int size, List<ItemStack> itemStackSupplier) {
+    public static Container createInventory(int size, List<ItemStack> itemStackSupplier) {
         return new MutableInventory(size, itemStackSupplier);
     }
 
-    public static Inventory createInventory(ItemStack[] array) {
+    public static Container createInventory(ItemStack[] array) {
         return new MutableArrayInventory(array);
     }
 
-    public static Inventory createSubInventoryView(Inventory view, int from, int to) {
+    public static Container createSubInventoryView(Container view, int from, int to) {
 
         return new ImmutableInventory() {
             @Override
-            public int size() {
-                return Math.min(view.size(), to) - Math.min(view.size(), from);
+            public int getContainerSize() {
+                return Math.min(view.getContainerSize(), to) - Math.min(view.getContainerSize(), from);
             }
 
             @Override
-            public ItemStack getStack(int slot) {
-                return view.getStack(slot + from);
+            public ItemStack getItem(int slot) {
+                return view.getItem(slot + from);
             }
         };
     }
 
-    public static Stream<ItemStack> streamInventory(Inventory inv) {
-        return IntStream.range(0, inv instanceof PlayerInventory pinv ? getPlayerInvSize() : inv.size())
-                .mapToObj(inv::getStack);
+    public static Stream<ItemStack> streamInventory(Container inv) {
+        return IntStream.range(0, inv instanceof Inventory pinv ? getPlayerInvSize() : inv.getContainerSize())
+                .mapToObj(inv::getItem);
     }
 
-    public static Inventory getTopInventory(HandledScreen<?> screen) {
-        if (screen instanceof GenericContainerScreen generic) {
-            return generic.getScreenHandler().getInventory();
+    public static Container getTopInventory(AbstractContainerScreen<?> screen) {
+        if (screen instanceof ContainerScreen generic) {
+            return generic.getMenu().getContainer();
         } else {
-            List<Slot> slots = screen.getScreenHandler().slots;
+            List<Slot> slots = screen.getMenu().slots;
             int index = 0;
             for (var i = 0; i < slots.size(); i++) {
-                if (slots.get(i).inventory instanceof PlayerInventory pinv) {
+                if (slots.get(i).container instanceof Inventory pinv) {
                     index = i;
                     break;
                 }
@@ -133,14 +133,14 @@ public class InventoryUtils {
         }
     }
 
-    public static Inventory getTopInventory(ScreenHandler screen) {
-        if (screen instanceof GenericContainerScreenHandler generic) {
-            return generic.getInventory();
+    public static Container getTopInventory(AbstractContainerMenu screen) {
+        if (screen instanceof ChestMenu generic) {
+            return generic.getContainer();
         } else {
             List<Slot> slots = screen.slots;
             int index = 0;
             for (var i = 0; i < slots.size(); i++) {
-                if (slots.get(i).inventory instanceof PlayerInventory pinv) {
+                if (slots.get(i).container instanceof Inventory pinv) {
                     index = i;
                     break;
                 }
@@ -149,11 +149,11 @@ public class InventoryUtils {
         }
     }
 
-    public static Inventory getBottomInventory(HandledScreen<?> screen) {
-        List<Slot> slots = screen.getScreenHandler().slots;
+    public static Container getBottomInventory(AbstractContainerScreen<?> screen) {
+        List<Slot> slots = screen.getMenu().slots;
         int index = 0;
         for (var i = 0; i < slots.size(); i++) {
-            if (slots.get(i).inventory instanceof PlayerInventory pinv) {
+            if (slots.get(i).container instanceof Inventory pinv) {
                 index = i;
                 break;
             }
@@ -161,11 +161,11 @@ public class InventoryUtils {
         return new SlotInventory(slots.subList(index, slots.size()));
     }
 
-    public static Inventory getBottomInventory(ScreenHandler handler) {
+    public static Container getBottomInventory(AbstractContainerMenu handler) {
         List<Slot> slots = handler.slots;
         int index = 0;
         for (var i = 0; i < slots.size(); i++) {
-            if (slots.get(i).inventory instanceof PlayerInventory pinv) {
+            if (slots.get(i).container instanceof Inventory pinv) {
                 index = i;
                 break;
             }
@@ -173,10 +173,10 @@ public class InventoryUtils {
         return new SlotInventory(slots.subList(index, slots.size()));
     }
 
-    public static List<IndexEntry<ItemStack>> getInventoryEntries(Inventory inv) {
+    public static List<IndexEntry<ItemStack>> getInventoryEntries(Container inv) {
         List<IndexEntry<ItemStack>> entries = new ArrayList<>();
-        for (var re = 0; re < inv.size(); ++re) {
-            ItemStack stack = inv.getStack(re);
+        for (var re = 0; re < inv.getContainerSize(); ++re) {
+            ItemStack stack = inv.getItem(re);
             if (!stack.isEmpty()) {
                 entries.add(new IndexEntry<>(re, stack));
             }
@@ -184,13 +184,13 @@ public class InventoryUtils {
         return entries;
     }
 
-    public static List<ItemStack> getContainerInventory(ContainerComponent container) {
-        return container.stream().toList();
+    public static List<ItemStack> getContainerInventory(ItemContainerContents container) {
+        return container.nonEmptyItemCopyStream().toList();
     }
 
     public static List<ItemStack> getContainerFromItem(ItemStack itemStack) {
-        if (ItemStackUtils.hasInPatch(itemStack, DataComponentTypes.CONTAINER)) {
-            ContainerComponent component = ItemStackUtils.getInPatch(itemStack, DataComponentTypes.CONTAINER);
+        if (ItemStackUtils.hasInPatch(itemStack, DataComponents.CONTAINER)) {
+            ItemContainerContents component = ItemStackUtils.getInPatch(itemStack, DataComponents.CONTAINER);
             if (component != null) {
                 return getContainerInventory(component);
             }
@@ -198,7 +198,7 @@ public class InventoryUtils {
         return null;
     }
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static IndexEntry<ItemStack> findPlayerItem(
             Predicate<ItemStack> predicate, boolean doNotFSearchWhenOpenOtherScreen, boolean acceptEmpty) {
@@ -238,22 +238,22 @@ public class InventoryUtils {
             boolean acceptEmpty,
             boolean handPriority,
             boolean offHandPriority) {
-        PlayerInventory pinv = mc.player.getInventory();
-        ItemStack item = mc.player.getStackInHand(Hand.MAIN_HAND);
+        Inventory pinv = mc.player.getInventory();
+        ItemStack item = mc.player.getItemInHand(InteractionHand.MAIN_HAND);
         // we assert player hold block while scaffold, or it will be really annoying
         // the holding block must be a full cube
         int selecedSlot = pinv.getSelectedSlot();
         IndexEntry<ItemStack> result = null;
         IndexEntry<ItemStack> test;
-        if ((acceptEmpty || !item.isEmpty()) && predicate.test((test = new IndexEntry<>(selecedSlot, item)))) {
+        if ((acceptEmpty || item.count() != 0) && predicate.test((test = new IndexEntry<>(selecedSlot, item)))) {
             result = test;
         }
         if (handPriority && result != null) {
             return result;
         }
         if (result == null && offHandPriority) {
-            item = mc.player.getStackInHand(Hand.OFF_HAND);
-            if ((acceptEmpty || !item.isEmpty()) && predicate.test((test = new IndexEntry<>(40, item)))) {
+            item = mc.player.getItemInHand(InteractionHand.OFF_HAND);
+            if ((acceptEmpty || item.count() != 0) && predicate.test((test = new IndexEntry<>(40, item)))) {
                 result = test;
             }
             if (result != null) {
@@ -262,20 +262,20 @@ public class InventoryUtils {
         }
         // while player is open Screen
         if (doNotFSearchWhenOpenOtherScreen
-                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().syncId
-                        != mc.player.playerScreenHandler.syncId) {
+                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().containerId
+                        != mc.player.inventoryMenu.containerId) {
             return result;
         }
         for (var i = 0; i < getPlayerInvSize(); ++i) {
-            ItemStack stack = pinv.getStack(i);
+            ItemStack stack = pinv.getItem(i);
             test = new IndexEntry<>(i, stack);
             if ((acceptEmpty || !stack.isEmpty()) && predicate.test(test)) {
                 //                if(keepInHand.get()){
                 //                    MovTasks.getMovExtra().sendPacketsForInventoryAction();
                 //                    OptionalInt slotIndex = mc.player.currentScreenHandler.getSlotIndex(pinv, i);
                 //                    if(slotIndex.isPresent()){
-                //                        mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId,
-                // slotIndex.getAsInt(), selecedSlot, SlotActionType.SWAP, mc.player);
+                //                        mc.gameMode.handleContainerInput(mc.player.currentScreenHandler.syncId,
+                // slotIndex.getAsInt(), selecedSlot, ContainerInput.SWAP, mc.player);
                 //                        return selecedSlot;
                 //                    }
                 //                }else
@@ -287,31 +287,31 @@ public class InventoryUtils {
 
     public static IndexEntry<ItemStack> findPlayerHotBarItem(
             Predicate<ItemStack> predicate, boolean acceptEmpty, boolean acceptOffhand) {
-        PlayerInventory pinv = mc.player.getInventory();
-        ItemStack item = mc.player.getStackInHand(Hand.MAIN_HAND);
+        Inventory pinv = mc.player.getInventory();
+        ItemStack item = mc.player.getItemInHand(InteractionHand.MAIN_HAND);
         // we assert player hold block while scaffold, or it will be really annoying
         // the holding block must be a full cube
         int selecedSlot = pinv.getSelectedSlot();
-        if ((acceptEmpty || !item.isEmpty()) && predicate.test(item)) {
+        if ((acceptEmpty || item.count() != 0) && predicate.test(item)) {
             return new IndexEntry<>(selecedSlot, item);
         }
         if (acceptOffhand) {
-            item = mc.player.getStackInHand(Hand.OFF_HAND);
-            if ((acceptEmpty || !item.isEmpty()) && predicate.test(item)) {
+            item = mc.player.getItemInHand(InteractionHand.OFF_HAND);
+            if ((acceptEmpty || item.count() != 0) && predicate.test(item)) {
                 return new IndexEntry<>(40, item);
             }
         }
 
         for (var i = 0; i < 9; ++i) {
-            ItemStack stack = pinv.getStack(i);
+            ItemStack stack = pinv.getItem(i);
             if (i == selecedSlot) continue;
             if ((acceptEmpty || !stack.isEmpty()) && predicate.test(stack)) {
                 //                if(keepInHand.get()){
                 //                    MovTasks.getMovExtra().sendPacketsForInventoryAction();
                 //                    OptionalInt slotIndex = mc.player.currentScreenHandler.getSlotIndex(pinv, i);
                 //                    if(slotIndex.isPresent()){
-                //                        mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId,
-                // slotIndex.getAsInt(), selecedSlot, SlotActionType.SWAP, mc.player);
+                //                        mc.gameMode.handleContainerInput(mc.player.currentScreenHandler.syncId,
+                // slotIndex.getAsInt(), selecedSlot, ContainerInput.SWAP, mc.player);
                 //                        return selecedSlot;
                 //                    }
                 //                }else
@@ -336,15 +336,15 @@ public class InventoryUtils {
             boolean doNotFSearchWhenOpenOtherScreen,
             boolean acceptEmpty) {
         // while player is open Screen
-        PlayerInventory pinv = mc.player.getInventory();
-        ItemStack item = mc.player.getStackInHand(Hand.MAIN_HAND);
+        Inventory pinv = mc.player.getInventory();
+        ItemStack item = mc.player.getItemInHand(InteractionHand.MAIN_HAND);
         // we assert player hold block while scaffold, or it will be really annoying
         // the holding block must be a full cube
         int selecedSlot = pinv.getSelectedSlot();
         Double maxValue = null;
         IndexEntry<ItemStack> result = null;
         IndexEntry<ItemStack> test = null;
-        if ((acceptEmpty || !item.isEmpty())) {
+        if ((acceptEmpty || item.count() != 0)) {
             test = new IndexEntry<>(selecedSlot, item);
             maxValue = maxFunction.apply(test);
             if (maxValue != null) {
@@ -352,14 +352,14 @@ public class InventoryUtils {
             }
         }
         if (doNotFSearchWhenOpenOtherScreen
-                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().syncId
-                        != mc.player.playerScreenHandler.syncId) {
+                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().containerId
+                        != mc.player.inventoryMenu.containerId) {
             return result;
         }
 
         Double currentValue;
         for (var i = 0; i < getPlayerInvSize(); ++i) {
-            ItemStack stack = pinv.getStack(i);
+            ItemStack stack = pinv.getItem(i);
             test = new IndexEntry<>(i, stack);
             if ((acceptEmpty || !stack.isEmpty()) && (currentValue = maxFunction.apply(test)) != null) {
                 if (maxValue == null || currentValue > maxValue) {
@@ -374,7 +374,7 @@ public class InventoryUtils {
     public static IndexEntry<Slot> findScreenSlot(List<Slot> slots, Predicate<Slot> predicate, boolean acceptEmpty) {
         for (var i = 0; i < slots.size(); ++i) {
             var slot = slots.get(i);
-            ItemStack stack = slot.getStack();
+            ItemStack stack = slot.getItem();
             if (!acceptEmpty && stack.isEmpty()) continue;
             if (predicate.test(slot)) {
                 return new IndexEntry<>(i, slot);
@@ -385,18 +385,18 @@ public class InventoryUtils {
 
     public static IndexEntry<Slot> findPlayerBackpackItem(
             Predicate<ItemStack> predicate, boolean acceptEmpty, boolean includeCraft) {
-        return findPlayerBackpackSlot((slot) -> predicate.test(slot.getStack()), acceptEmpty, includeCraft);
+        return findPlayerBackpackSlot((slot) -> predicate.test(slot.getItem()), acceptEmpty, includeCraft);
     }
 
     public static IndexEntry<Slot> findPlayerBackpackSlot(
             Predicate<Slot> predicate, boolean acceptEmpty, boolean includeCraft) {
-        var handler = mc.player.playerScreenHandler;
+        var handler = mc.player.inventoryMenu;
         var serverHandler = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
-        if (serverHandler.syncId == handler.syncId) {
+        if (serverHandler.containerId == handler.containerId) {
             if (includeCraft) {
                 for (var i = 1; i < 5; ++i) {
                     var slot = handler.slots.get(i);
-                    if (!acceptEmpty && slot.getStack().isEmpty()) continue;
+                    if (!acceptEmpty && slot.getItem().isEmpty()) continue;
                     if (predicate.test(slot)) {
                         return new IndexEntry<>(i, slot);
                     }
@@ -406,7 +406,7 @@ public class InventoryUtils {
             for (var i = 0; i < getPlayerInvSize(); ++i) {
                 int slotIndex = InvTasks.getScreenSlotByInventoryIndex(i);
                 var slot = handler.slots.get(slotIndex);
-                if (!acceptEmpty && slot.getStack().isEmpty()) continue;
+                if (!acceptEmpty && slot.getItem().isEmpty()) continue;
                 if (predicate.test(slot)) {
                     return new IndexEntry<>(slotIndex, slot);
                 }
@@ -423,7 +423,7 @@ public class InventoryUtils {
         Double maxVal = null;
         for (var i = 0; i < slots.size(); ++i) {
             var slot = slots.get(i);
-            ItemStack stack = slot.getStack();
+            ItemStack stack = slot.getItem();
             if (!acceptEmpty && stack.isEmpty()) continue;
             Double val = maxFunction.apply(slot);
             if (val != null) {
@@ -440,7 +440,7 @@ public class InventoryUtils {
             List<Slot> slots, Predicate<ItemStack> predicate, boolean acceptEmpty) {
         for (var i = 0; i < slots.size(); ++i) {
             var slot = slots.get(i);
-            ItemStack stack = slot.getStack();
+            ItemStack stack = slot.getItem();
             if (!acceptEmpty && stack.isEmpty()) continue;
             if (predicate.test(stack)) {
                 return new IndexEntry<>(i, slot);
@@ -452,7 +452,7 @@ public class InventoryUtils {
     public static int computePlayerInventory(Item maxFunction) {
         return (int) computePlayerInventory(
                 (stack) -> {
-                    if (stack.isOf(maxFunction)) {
+                    if (stack.is(maxFunction)) {
                         return (double) stack.getCount();
                     } else {
                         return null;
@@ -464,9 +464,9 @@ public class InventoryUtils {
     public static double computePlayerInventory(Function<ItemStack, Double> maxFunction, boolean acceptEmpty) {
         double sum = 0.0D;
         Double currentValue;
-        PlayerInventory pinv = mc.player.getInventory();
+        Inventory pinv = mc.player.getInventory();
         for (var i = 0; i < getPlayerInvSize(); ++i) {
-            ItemStack stack = pinv.getStack(i);
+            ItemStack stack = pinv.getItem(i);
             if ((acceptEmpty || !stack.isEmpty()) && (currentValue = maxFunction.apply(stack)) != null) {
                 sum += currentValue;
             }
@@ -483,27 +483,27 @@ public class InventoryUtils {
         return 41;
     }
 
-    public static IndexEntry<ItemStack> findItem(Inventory inventory, Item predicate) {
-        return findItem(inventory, (v) -> v.isOf(predicate), predicate == Items.AIR);
+    public static IndexEntry<ItemStack> findItem(Container inventory, Item predicate) {
+        return findItem(inventory, (v) -> v.is(predicate), predicate == Items.AIR);
     }
 
     public static IndexEntry<ItemStack> findItem(
-            Inventory inventory, Predicate<ItemStack> predicate, boolean acceptEmpty) {
-        for (var i = 0; i < inventory.size(); ++i) {
-            if (!acceptEmpty && inventory.getStack(i).isEmpty()) continue;
-            if (predicate.test(inventory.getStack(i))) {
-                return new IndexEntry<>(i, inventory.getStack(i));
+            Container inventory, Predicate<ItemStack> predicate, boolean acceptEmpty) {
+        for (var i = 0; i < inventory.getContainerSize(); ++i) {
+            if (!acceptEmpty && inventory.getItem(i).isEmpty()) continue;
+            if (predicate.test(inventory.getItem(i))) {
+                return new IndexEntry<>(i, inventory.getItem(i));
             }
         }
         return null;
     }
 
     public static IndexEntry<ItemStack> findInventory(
-            Inventory inventory, Predicate<IndexEntry<ItemStack>> predicate, boolean acceptEmpty) {
+            Container inventory, Predicate<IndexEntry<ItemStack>> predicate, boolean acceptEmpty) {
         IndexEntry<ItemStack> result;
-        for (var i = 0; i < inventory.size(); ++i) {
-            if (!acceptEmpty && inventory.getStack(i).isEmpty()) continue;
-            if (predicate.test(result = new IndexEntry<>(i, inventory.getStack(i)))) {
+        for (var i = 0; i < inventory.getContainerSize(); ++i) {
+            if (!acceptEmpty && inventory.getItem(i).isEmpty()) continue;
+            if (predicate.test(result = new IndexEntry<>(i, inventory.getItem(i)))) {
                 return result;
             }
         }
@@ -511,18 +511,18 @@ public class InventoryUtils {
     }
 
     public static IndexEntry<ItemStack> findBestItem(
-            Inventory inventory, Function<ItemStack, Double> predicate, boolean acceptEmpty) {
+            Container inventory, Function<ItemStack, Double> predicate, boolean acceptEmpty) {
         return findBestInventory(inventory, (v) -> predicate.apply(v.val()), acceptEmpty);
     }
 
     public static IndexEntry<ItemStack> findBestInventory(
-            Inventory inventory, Function<IndexEntry<ItemStack>, Double> predicate, boolean acceptEmpty) {
+            Container inventory, Function<IndexEntry<ItemStack>, Double> predicate, boolean acceptEmpty) {
         IndexEntry<ItemStack> maxResult = null;
 
         Double maxValue = null;
-        for (var i = 0; i < inventory.size(); ++i) {
-            if (!acceptEmpty && inventory.getStack(i).isEmpty()) continue;
-            IndexEntry<ItemStack> result = new IndexEntry<>(i, inventory.getStack(i));
+        for (var i = 0; i < inventory.getContainerSize(); ++i) {
+            if (!acceptEmpty && inventory.getItem(i).isEmpty()) continue;
+            IndexEntry<ItemStack> result = new IndexEntry<>(i, inventory.getItem(i));
             Double value = predicate.apply(result);
             if (value == null) {
                 continue;
@@ -541,7 +541,7 @@ public class InventoryUtils {
     @Nonnull
     public static IndexEntry<ItemStack> getSelectedItem() {
         return new IndexEntry<>(
-                InventoryUtils.getSelectedSlot(), mc.player.getInventory().getSelectedStack());
+                InventoryUtils.getSelectedSlot(), mc.player.getInventory().getSelectedItem());
     }
 
     public static Map<ItemStackSample, IntList> collectItemIndexes(Iterable<ItemStack> stacks) {

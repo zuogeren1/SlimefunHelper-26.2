@@ -9,13 +9,13 @@ import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.config.PropertyTracker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.EditBox;
-import net.minecraft.client.gui.widget.EditBoxWidget;
-import net.minecraft.client.gui.widget.ScrollableTextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractTextAreaWidget;
+import net.minecraft.client.gui.components.MultiLineEditBox;
+import net.minecraft.client.gui.components.MultilineTextField;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -26,8 +26,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(EditBoxWidget.class)
-public abstract class EditBoxWidgetMixin extends ScrollableTextFieldWidget implements TextFieldAccess {
+@Mixin(MultiLineEditBox.class)
+public abstract class EditBoxWidgetMixin extends AbstractTextAreaWidget implements TextFieldAccess {
     @Unique
     private static final ColorProvider ORIGIN_PROVIDER = McWidgetHelpers.getDefaultTextBoxColorProvider();
 
@@ -37,33 +37,34 @@ public abstract class EditBoxWidgetMixin extends ScrollableTextFieldWidget imple
     }
 
     @Shadow
-    public abstract void setChangeListener(Consumer<String> changeListener);
+    public abstract void setValueListener(Consumer<String> changeListener);
 
     @Shadow
     @Final
-    private EditBox editBox;
+    private MultilineTextField textField;
 
     @Shadow
-    protected abstract void moveCursor(double mouseX, double mouseY);
+    protected abstract void seekCursorScreen(double mouseX, double mouseY);
 
     @Shadow
-    protected abstract double getDeltaYPerScroll();
+    protected abstract double scrollRate();
 
     @Unique
     public void setListener(PropertyTracker<TextFieldAccess, String> tracker) {
-        setChangeListener((str) -> tracker.valueChange(this, str));
+        setValueListener((str) -> tracker.valueChange(this, str));
     }
 
     @Unique
     @Nonnull
     private ColorProvider boxColorProvider = ORIGIN_PROVIDER;
 
-    public EditBoxWidgetMixin(int i, int j, int k, int l, Text text) {
-        super(i, j, k, l, text);
+    public EditBoxWidgetMixin(int i, int j, int k, int l, Component text) {
+        // 26.2: AbstractTextAreaWidget 构造新增 ScrollbarSettings 参数
+        super(i, j, k, l, text, net.minecraft.client.gui.components.AbstractScrollArea.ScrollbarSettings.NO_SCROLL);
     }
     // override ALL EditBox behaviour
     @Override
-    protected void draw(DrawContext context, int x, int y, int width, int height) {
+    protected void extractBorder(GuiGraphicsExtractor context, int x, int y, int width, int height) {
         McWidgetHelpers.drawTextWidgetBox(this, context, x, y, width, height, this.isFocused(), this.boxColorProvider);
     }
 
@@ -75,16 +76,16 @@ public abstract class EditBoxWidgetMixin extends ScrollableTextFieldWidget imple
     }
 
     @Inject(method = "keyPressed", at = @At(value = "RETURN"), cancellable = true)
-    public void fixInventoryKeyPressedWhenFocused(KeyInput input, CallbackInfoReturnable<Boolean> cir) {
+    public void fixInventoryKeyPressedWhenFocused(KeyEvent input, CallbackInfoReturnable<Boolean> cir) {
         if (this.isFocused()
-                && MinecraftClient.getInstance().options.inventoryKey.matchesKey(input)) {
+                && Minecraft.getInstance().options.keyInventory.matches(input)) {
             cir.setReturnValue(true);
         }
     }
 
     @Unique
     public boolean canStartDrag(double mouseX, double mouseY) {
-        return this.isWithinBounds(mouseX, mouseY) || super.scrollbarDragged;
+        return this.isWithinBounds(mouseX, mouseY) || super.scrolling;
     }
 
     @Unique
@@ -101,10 +102,10 @@ public abstract class EditBoxWidgetMixin extends ScrollableTextFieldWidget imple
 
         //        }else {
         // if(deltaY < 0 || deltaY > this.getHeight() || deltaX < 0 || deltaX > this.getWidth()){
-        if (!super.scrollbarDragged) {
-            this.editBox.setSelecting(true);
-            this.moveCursor(this.getX() + deltaX, this.getY() + deltaY);
-            this.editBox.setSelecting(ScreenUtils.hasShiftDown());
+        if (!super.scrolling) {
+            this.textField.setSelecting(true);
+            this.seekCursorScreen(this.getX() + deltaX, this.getY() + deltaY);
+            this.textField.setSelecting(ScreenUtils.hasShiftDown());
         }
 
         //            if(deltaY < 0){
@@ -120,9 +121,9 @@ public abstract class EditBoxWidgetMixin extends ScrollableTextFieldWidget imple
 
     @Unique
     public void resetSelect() {
-        if (this.editBox.hasSelection()) {
-            this.editBox.setSelecting(false);
-            this.editBox.selectionEnd = this.editBox.getCursor();
+        if (this.textField.hasSelection()) {
+            this.textField.setSelecting(false);
+            this.textField.selectCursor = this.textField.cursor();
         }
     }
 }

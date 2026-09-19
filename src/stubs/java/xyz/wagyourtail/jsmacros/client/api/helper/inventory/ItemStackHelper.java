@@ -1,6 +1,6 @@
 package xyz.wagyourtail.jsmacros.client.api.helper.inventory;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 import xyz.wagyourtail.jsmacros.core.helpers.BaseHelper;
 
 public class ItemStackHelper extends BaseHelper<ItemStack> {

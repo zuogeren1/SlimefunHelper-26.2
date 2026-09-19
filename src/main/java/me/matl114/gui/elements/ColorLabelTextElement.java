@@ -3,7 +3,7 @@ package me.matl114.gui.elements;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.complex.RawTextElement;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.OrderedText;
+import net.minecraft.util.FormattedCharSequence;
 
 public class ColorLabelTextElement extends RawTextElement {
     ColorSampler backgroundColor;
@@ -28,12 +28,12 @@ public class ColorLabelTextElement extends RawTextElement {
             float alpha,
             boolean shouldHighlight) {
         context.fill(0, 0, element.getTextureWidth(), element.getTextureHeight(), 0, backgroundColor.getColorInt());
-        OrderedText text1 = text.getLabel(element);
+        FormattedCharSequence text1 = text.getLabel(element);
         if (text1 != null) {
 
             RenderHandler.drawScaledText0(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     text1,
                     0,
                     0,

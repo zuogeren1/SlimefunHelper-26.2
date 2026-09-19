@@ -1,20 +1,20 @@
 package me.matl114.accessors.events;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.state.NetworkState;
+import net.minecraft.network.Connection;
+import net.minecraft.network.ProtocolInfo;
+import net.minecraft.network.protocol.Packet;
 
 public interface ClientConnectionAccess {
     public void handlePacket(Packet<?> packet);
 
-    public NetworkState<?> getOutboundState();
+    public ProtocolInfo<?> getOutboundState();
 
-    public NetworkState<?> getInboundState();
+    public ProtocolInfo<?> getInboundState();
 
     public void sendByteBuf(ByteBuf buf);
 
-    public static ClientConnectionAccess of(ClientConnection connection) {
+    public static ClientConnectionAccess of(Connection connection) {
         return (ClientConnectionAccess) connection;
     }
 }

@@ -22,9 +22,9 @@ import me.matl114.managers.config.NBTParsable;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.config.NBTType;
 import me.matl114.managers.config.Ref;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 
 @Getter
 @Accessors(fluent = true)
@@ -40,9 +40,9 @@ public class EntrySet<T> implements NBTParsable<EntrySet<T>>, Predicate<T> {
     public EntrySet(Regex regex, Registry<T> registry) {
         this.registry = registry;
         this.set = new LinkedHashSet<>();
-        for (var re : registry.getIds()) {
+        for (var re : registry.keySet()) {
             if (regex.test(re.getPath())) {
-                this.set.add(registry.get(re));
+                this.set.add(registry.getValue(re));
             }
         }
     }
@@ -60,7 +60,7 @@ public class EntrySet<T> implements NBTParsable<EntrySet<T>>, Predicate<T> {
             if (id == null) {
                 continue;
             }
-            registry.getOrEmpty(id).ifPresent(this.set::add);
+            registry.getOptional(id).ifPresent(this.set::add);
         }
     }
 
@@ -68,7 +68,7 @@ public class EntrySet<T> implements NBTParsable<EntrySet<T>>, Predicate<T> {
         if (data == null) {
             List<Identifier> cached = new ArrayList<>(set.size());
             for (T entry : set) {
-                Identifier id = registry.getId(entry);
+                Identifier id = registry.getKey(entry);
                 if (id != null) {
                     cached.add(id);
                 }
@@ -87,12 +87,12 @@ public class EntrySet<T> implements NBTParsable<EntrySet<T>>, Predicate<T> {
                 "entryset",
                 RecordCodecBuilder.<EntrySet<T>>create(instance -> instance.group(
                                 Codec.list(Identifier.CODEC).fieldOf("data").forGetter(EntrySet::idList),
-                                ((Codec<Registry<T>>) Registries.REGISTRIES.getCodec())
+                                ((Codec<Registry<T>>) BuiltInRegistries.REGISTRY.byNameCodec())
                                         .fieldOf("key_type")
                                         .forGetter(EntrySet::registry))
                         .apply(instance, EntrySet::new)),
                 EntrySet::generateValueWidget,
-                (EntrySet<T>) new EntrySet<>(Registries.BLOCK, Set.of()));
+                (EntrySet<T>) new EntrySet<>(BuiltInRegistries.BLOCK, Set.of()));
     }
 
     private static <T> DrawableWidget generateValueWidget(

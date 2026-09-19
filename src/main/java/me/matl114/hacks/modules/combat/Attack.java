@@ -2,8 +2,8 @@ package me.matl114.hacks.modules.combat;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Streams;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
-import java.util.List;
 import lombok.NonNull;
 import lombok.With;
 import me.matl114.accessors.access.ClientPlayerAccess;
@@ -33,23 +33,33 @@ import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.MovementType;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.*;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.item.*;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.item.ShieldItem;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
@@ -127,7 +137,7 @@ public class Attack extends BaseModule {
             flagBuilder(attack.add("render-target")).build();
 
     public final NBTRef<WrapColor> renderAttackColor = builder(attack.add("render-target-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.GREEN))
+            .defaultValue(new WrapColor(ChatFormatting.GREEN))
             .build();
 
     private final Random attackOffsetRand = new Random();
@@ -154,14 +164,14 @@ public class Attack extends BaseModule {
     public void onAttack(Event<HitResult> hitResult) {
         if (hitResult.isCancelled()) return;
         if (enable.get()) {
-            PlayerEntity player = mc.player;
-            if (player != null && mc.world != null) {
+            Player player = mc.player;
+            if (player != null && mc.level != null) {
                 if (tryAttack(false)) {
-                    mc.attackCooldown = 1;
+                    mc.missTime = 1;
                     hitResult.cancel();
                 } else if (hitResult.context().getType() == HitResult.Type.ENTITY) {
                     // if target at an Entity but we didn't attack it, then it should be cancelled
-                    mc.attackCooldown = 0;
+                    mc.missTime = 0;
                     hitResult.cancel();
                 }
             }
@@ -192,21 +202,21 @@ public class Attack extends BaseModule {
     private Entity lastTickTarget;
     private int lastTick;
 
-    public void onRenderTarget(Event<MatrixStack> stackE) {
+    public void onRenderTarget(Event<PoseStack> stackE) {
         var stack = stackE.context;
         if (enable.get() && mc.player != null && renderAttackTarget.get()) {
             float tickDelta = (Float) stackE.extraArgs[0];
             if (mc.player.isUsingItem()) {
                 // filter bow, but keep shield
-                if (mc.player.getActiveHand() == Hand.MAIN_HAND) {
+                if (mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
                     return;
                 }
-                if (mc.player.getActiveItem().getItem() instanceof RangedWeaponItem bow) {
+                if (mc.player.getUseItem().getItem() instanceof ProjectileWeaponItem bow) {
                     return;
                 }
             }
             // only render when holding weapon,
-            if (CombatTasks.notSuitableForAttack(mc.player.getMainHandStack())) {
+            if (CombatTasks.notSuitableForAttack(mc.player.getMainHandItem())) {
                 return;
             }
             if (lastTick != Tasks.getTick()) {
@@ -223,11 +233,11 @@ public class Attack extends BaseModule {
                 if (entity != null) {
                     float dist = entity.distanceTo(mc.player);
                     float opacity = Math.min(0.6F, 0.10F + dist * 0.02F);
-                    Box box = RenderUtils.getLerpedBox(entity, tickDelta);
+                    AABB box = RenderUtils.getLerpedBox(entity, tickDelta);
                     RenderUtils.drawSolidBox(
                             stack,
-                            box.getMinPos(),
-                            box.getMaxPos(),
+                            box.getMinPosition(),
+                            box.getMaxPosition(),
                             ColorUtils.withAlpha(renderAttackColor.get().color(), opacity));
                 }
             } finally {
@@ -259,7 +269,7 @@ public class Attack extends BaseModule {
                 + (canUseTp() ? Math.max(0.0d, tpRange.get().getValue()) : 0.0D);
     }
 
-    private static boolean canEntityUseShieldBlockMe(LivingEntity target, PlayerEntity player) {
+    private static boolean canEntityUseShieldBlockMe(LivingEntity target, Player player) {
         return true; // player.getEyePos().subtract(target.getEyePos()).dotProduct(target.getRotationVector()) > 0;
     }
 
@@ -303,7 +313,7 @@ public class Attack extends BaseModule {
     public static boolean shouldUseAntiShield(Entity target) {
         return target instanceof LivingEntity lv
                 && lv.isUsingItem()
-                && lv.getActiveItem().getItem() instanceof ShieldItem sh
+                && lv.getUseItem().getItem() instanceof ShieldItem sh
                 && canEntityUseShieldBlockMe(lv, mc.player)
                 && findAntiShieldWeapon() != null;
     }
@@ -316,7 +326,7 @@ public class Attack extends BaseModule {
                 && (invResult = findAntiShieldWeapon()) != null) {
             return invResult;
         } else if (attackSettings.invSwap()
-                && !VItem.getInstance().isWeapon(mc.player.getStackInHand(Hand.MAIN_HAND))
+                && !VItem.getInstance().isWeapon(mc.player.getItemInHand(InteractionHand.MAIN_HAND))
                 && target instanceof LivingEntity lv
                 && (invResult = InventoryUtils.findBestPlayerItem(
                                 (ex) -> {
@@ -348,12 +358,12 @@ public class Attack extends BaseModule {
                         != null) {
             return invResult;
         } else if (attackSettings.selectWeapon()
-                && !mc.player.getStackInHand(Hand.MAIN_HAND).isEmpty()
+                && !mc.player.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()
                 && target instanceof LivingEntity
                 && (invResult = InventoryUtils.findBestPlayerItem(
                                 (ex) -> {
-                                    if (ex.isOf(mc.player
-                                            .getStackInHand(Hand.MAIN_HAND)
+                                    if (ex.is(mc.player
+                                            .getItemInHand(InteractionHand.MAIN_HAND)
                                             .getItem())) {
                                         return DamageUtils.getAttackDamage(mc.player, target, ex)
                                                 * DamageUtils.getAttackSpeed(mc.player, ex);
@@ -368,9 +378,9 @@ public class Attack extends BaseModule {
         return InventoryUtils.getSelectedItem();
     }
 
-    public static void attackWithSettings(PlayerEntity player, Entity target, AttackSettings attackSettings) {
+    public static void attackWithSettings(Player player, Entity target, AttackSettings attackSettings) {
         PlayerInputUtils.Input input = null;
-        if (player.hasVehicle()) {
+        if (player.isPassenger()) {
             input = PlayerInputUtils.of(mc.player);
             if (input.hasWASDMovement()) {
                 var re =
@@ -392,20 +402,20 @@ public class Attack extends BaseModule {
     }
 
     @ApiMethod
-    public static void attackWithCritic(PlayerEntity player, Entity target, boolean criticSprint) {
+    public static void attackWithCritic(Player player, Entity target, boolean criticSprint) {
         attackWithCritic(player, target, criticSprint, true);
     }
 
     @ApiMethod
-    public static void attackWithCritic(PlayerEntity player, Entity target, boolean criticSprint, boolean swing) {
+    public static void attackWithCritic(Player player, Entity target, boolean criticSprint, boolean swing) {
         //        if (criticSprint) {
-        //            mc.getNetworkHandler()
+        //            mc.getConnection()
         //                    .sendPacket(new ClientCommandC2SPacket(player,
         // ClientCommandC2SPacket.Mode.STOP_SPRINTING));
         //        }
-        mc.interactionManager.attackEntity(mc.player, target);
+        mc.gameMode.attack(mc.player, target);
         if (swing) {
-            mc.player.swingHand(Hand.MAIN_HAND);
+            mc.player.swing(InteractionHand.MAIN_HAND);
         }
         // we use event to handle shield predict
 
@@ -429,7 +439,7 @@ public class Attack extends BaseModule {
     }
 
     public boolean willUseMaceAttack(boolean autoMace) {
-        return mc.player.getMainHandStack().getItem() instanceof MaceItem mace
+        return mc.player.getMainHandItem().getItem() instanceof MaceItem mace
                 || (autoMace
                         && InventoryUtils.findPlayerItem((ex) -> ex.getItem() == Items.MACE, false, false) != null);
     }
@@ -505,10 +515,10 @@ public class Attack extends BaseModule {
             ClientPlayerAccess.of(mc.player)
                     .getLegalMovementManager()
                     .addMovementModifier(new LegalMovementManager.MovementModifier() {
-                        Vec3d posDelta = Vec3d.ZERO;
-                        Vec3d posDelta2 = Vec3d.ZERO;
-                        Vec3d velocity;
-                        Vec3d lookVec;
+                        Vec3 posDelta = Vec3.ZERO;
+                        Vec3 posDelta2 = Vec3.ZERO;
+                        Vec3 velocity;
+                        Vec3 lookVec;
                         boolean distancePassAttack = true;
                         boolean runThisTick = true;
                         int max = 10;
@@ -521,7 +531,7 @@ public class Attack extends BaseModule {
                         @Override
                         public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
                             runThisTick = true;
-                            ClientPlayerEntity args = movementManagerEvent.context.playerStatus.entity;
+                            LocalPlayer args = movementManagerEvent.context.playerStatus.entity;
                             if (useMaceAttack) {
                                 if (args.isFallFlying()) {
                                     max--;
@@ -531,58 +541,58 @@ public class Attack extends BaseModule {
                             }
 
                             // step back our position
-                            velocity = args.getVelocity();
-                            Vec3d predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(
-                                    mc.player.getPos(), target.getBoundingBox()); // mc.player.getEyePos();
+                            velocity = args.getDeltaMovement();
+                            Vec3 predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(
+                                    mc.player.position(), target.getBoundingBox()); // mc.player.getEyePos();
                             // revert shit
                             if (useMaceAttack || args.isFallFlying()) {
                                 // fix targeting in big velocity
                                 predictedEyePos = predictedEyePos.add(
-                                        mc.player.getVelocity()); // predictedEyePos.add(mc.player.getVelocity());
+                                        mc.player.getDeltaMovement()); // predictedEyePos.add(mc.player.getVelocity());
                             }
-                            Vec3d vec3d = args.getPos();
+                            Vec3 vec3d = args.position();
                             if (tpRange.get().positive()
-                                    && target.getBoundingBox().squaredMagnitude(predictedEyePos)
+                                    && target.getBoundingBox().distanceToSqr(predictedEyePos)
                                             > MathUtils.s2(attackRange)) {
                                 // need tp attack
                                 // how?
                                 // 平面突袭？
 
-                                Vec3d vec3d1 =
+                                Vec3 vec3d1 =
                                         MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), attackRange, 9.9, 1)
                                                 .stream()
                                                 .findFirst()
                                                 .orElse(null);
                                 // calculateBestReachPos(vec3d, target.getBoundingBox());
-                                if (vec3d1 != null && vec3d1.squaredDistanceTo(vec3d) > 1E-7) {
+                                if (vec3d1 != null && vec3d1.distanceToSqr(vec3d) > 1E-7) {
                                     posDelta = vec3d; // vec3d1.subtract(vec3d);
                                     posDelta2 = vec3d1;
-                                    args.setPosition(vec3d1.add(0, 9E-8, 0));
+                                    args.setPos(vec3d1.add(0, 9E-8, 0));
                                     predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(
-                                            args.getPos(), target.getBoundingBox());
+                                            args.position(), target.getBoundingBox());
                                 }
                                 // backoff
                                 if (!TargetSelector.INSTANCE.isWithinAttackRange(
-                                        args.getPos(), target.getBoundingBox(), attackRange)) {
+                                        args.position(), target.getBoundingBox(), attackRange)) {
                                     // Debug.chat("Distance to large , disable atack");
                                     distancePassAttack = false;
                                     movementManagerEvent.context.playerStatus.restoreRotation();
-                                    args.setPosition(vec3d);
+                                    args.setPos(vec3d);
                                     // skip attack
                                 }
                             }
                             // after move player, do target
                             if (distancePassAttack) {
-                                Vec3d eyePos = target.getEyePos();
-                                Vec3d targetPos = target.getPos();
+                                Vec3 eyePos = target.getEyePosition();
+                                Vec3 targetPos = target.position();
                                 double percentage = attackOffsetRand.nextDouble(0.8d, 1.00d);
-                                Vec3d attackOffsetted =
-                                        targetPos.add(eyePos.subtract(targetPos).multiply(percentage));
+                                Vec3 attackOffsetted =
+                                        targetPos.add(eyePos.subtract(targetPos).scale(percentage));
                                 attackOffsetted.add(
                                         attackOffsetRand.nextDouble(-0.05d, 0.05d),
                                         attackOffsetRand.nextDouble(-0.05d, 0.05d),
                                         attackOffsetRand.nextDouble(-0.05d, 0.05d));
-                                Vec3d cacheDirection = attackOffsetted
+                                Vec3 cacheDirection = attackOffsetted
                                         .subtract(predictedEyePos)
                                         .normalize();
                                 // only fix silent entities, because they will not move
@@ -603,13 +613,13 @@ public class Attack extends BaseModule {
                             }
 
                             // restore velocity after collide
-                            args.setVelocity(velocity);
+                            args.setDeltaMovement(velocity);
                         }
 
                         @Override
                         public void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {
                             if (!runThisTick) return;
-                            ClientPlayerEntity args = movementManagerEvent.context.playerStatus.entity;
+                            LocalPlayer args = movementManagerEvent.context.playerStatus.entity;
                             // there is no need for fall flying player to correct this
                             if (!args.isFallFlying()) {
                                 PlayerInputUtils.of(mc.player).sprint(false).applyInput(mc.player);
@@ -623,26 +633,26 @@ public class Attack extends BaseModule {
                             if (!runThisTick) {
                                 return max >= 0;
                             }
-                            ClientPlayerEntity args = movementManagerEvent.context.playerStatus.entity;
+                            LocalPlayer args = movementManagerEvent.context.playerStatus.entity;
                             if (distancePassAttack) {
                                 if (!preAttack) {
                                     applyPostAttack(target, settings);
                                 }
-                                if (posDelta != Vec3d.ZERO) {
-                                    Vec3d trueDelta = args.getPos().subtract(posDelta2); // .subtract(0, 0.2, 0);// =
-                                    args.setPosition(posDelta);
+                                if (posDelta != Vec3.ZERO) {
+                                    Vec3 trueDelta = args.position().subtract(posDelta2); // .subtract(0, 0.2, 0);// =
+                                    args.setPos(posDelta);
                                     // args.move(MovementType.PLAYER, posDelta.subtract(args.getPos()));
-                                    args.move(MovementType.PLAYER, trueDelta);
-                                    posDelta = posDelta2 = Vec3d.ZERO;
+                                    args.move(MoverType.PLAYER, trueDelta);
+                                    posDelta = posDelta2 = Vec3.ZERO;
                                 }
                             }
                             if (useMaceAttack && !preAttack) {
                                 if (armorFly) {
                                     ACTasks.addPostTransactionAction((ch) -> {
                                         if (elytraExtra.onSwitchItemArmorFallFlying()) {
-                                            mc.getNetworkHandler()
-                                                    .sendPacket(new ClientCommandC2SPacket(
-                                                            mc.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                                            mc.getConnection()
+                                                    .send(new ServerboundPlayerCommandPacket(
+                                                            mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                                             elytraExtra.switchSlotToArmor(elytraExtra.thisFallFlyingIsArmorFly);
                                             elytraExtra.thisTickSwitchingIndex = -1;
                                             EntityInternalAccess.of(mc.player)
@@ -654,8 +664,8 @@ public class Attack extends BaseModule {
                                         ACTasks.addPostTransactionAction((ch) -> {
                                             elytraExtra.switchSlotToArmor(elytraSlot);
                                             if (!mc.player.isFallFlying())
-                                                ch.sendPacket(new ClientCommandC2SPacket(
-                                                        mc.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                                                ch.send(new ServerboundPlayerCommandPacket(
+                                                        mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                                             //
                                             // EntityInternalAccess.of(mc.player).setDataFlag(VDataFlag.FALL_FLYING_FLAG_INDEX, true);
                                         });
@@ -673,7 +683,7 @@ public class Attack extends BaseModule {
                     });
 
             // can not try, they control the packets movement
-            //  mc.world.tickEntity(mc.player);
+            //  mc.level.tickEntity(mc.player);
             return true;
         }
     }
@@ -707,24 +717,24 @@ public class Attack extends BaseModule {
             attackWithSettings(mc.player, target, settings);
             return false;
         }
-        Vec3d vec3d = mc.player.getPos();
-        Vec3d predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(vec3d, target.getBoundingBox());
+        Vec3 vec3d = mc.player.position();
+        Vec3 predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(vec3d, target.getBoundingBox());
         boolean distancePassAttack =
                 TargetSelector.INSTANCE.isWithinAttackRange(vec3d, mc.player.getBoundingBox(), attackRange);
         if (tpRange.get().positive() && !distancePassAttack) {
 
-            Vec3d vec3d1 = MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), attackRange, 9.9, 1).stream()
+            Vec3 vec3d1 = MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), attackRange, 9.9, 1).stream()
                     .findFirst()
                     .orElse(null);
             // calculateBestReachPos(vec3d, target.getBoundingBox());
-            if (vec3d1 != null && vec3d1.squaredDistanceTo(vec3d) > 1E-7) {
-                mc.player.setPosition(vec3d1.add(0, 9E-8, 0));
+            if (vec3d1 != null && vec3d1.distanceToSqr(vec3d) > 1E-7) {
+                mc.player.setPos(vec3d1.add(0, 9E-8, 0));
                 predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(vec3d, target.getBoundingBox());
             }
             // backoff
             if (!TargetSelector.INSTANCE.isWithinAttackRange(vec3d, mc.player.getBoundingBox(), attackRange)) {
                 distancePassAttack = false;
-                mc.player.setPosition(vec3d);
+                mc.player.setPos(vec3d);
                 // skip attack
             }
         }
@@ -733,20 +743,20 @@ public class Attack extends BaseModule {
             boolean useItem = false;
             if (settings.useAttack()) {
                 useItem = true;
-                mc.player.stopUsingItem();
-                mc.getNetworkHandler()
-                        .sendPacket(new PlayerActionC2SPacket(
-                                PlayerActionC2SPacket.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, Direction.DOWN));
+                mc.player.releaseUsingItem();
+                mc.getConnection()
+                        .send(new ServerboundPlayerActionPacket(
+                                ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM, BlockPos.ZERO, Direction.DOWN));
             }
-            Vec3d eyePos = target.getEyePos();
-            Vec3d targetPos = target.getPos();
+            Vec3 eyePos = target.getEyePosition();
+            Vec3 targetPos = target.position();
             double percentage = attackOffsetRand.nextDouble(0.8d, 1.00d);
-            Vec3d attackOffsetted = targetPos.add(eyePos.subtract(targetPos).multiply(percentage));
+            Vec3 attackOffsetted = targetPos.add(eyePos.subtract(targetPos).scale(percentage));
             attackOffsetted.add(
                     attackOffsetRand.nextDouble(-0.05d, 0.05d),
                     attackOffsetRand.nextDouble(-0.05d, 0.05d),
                     attackOffsetRand.nextDouble(-0.05d, 0.05d));
-            Vec3d cacheDirection = attackOffsetted.subtract(predictedEyePos).normalize();
+            Vec3 cacheDirection = attackOffsetted.subtract(predictedEyePos).normalize();
             cacheDirection = fixRayCastBigBox(predictedEyePos, target.getBoundingBox(), cacheDirection, attackRange);
             // mace
             LegacySnapRotManager.INSTANCE.snapAt(cacheDirection, false);
@@ -757,16 +767,16 @@ public class Attack extends BaseModule {
         return false;
     }
 
-    private Vec3d fixRayCastBigBox(Vec3d usingEyePos, Box targetBox, Vec3d currentRayCast, double currentAttackRange) {
-        Vec3d rayCastTest = currentRayCast.normalize().multiply(currentAttackRange - 0.009178);
-        var ray = targetBox.raycast(usingEyePos, usingEyePos.add(rayCastTest));
+    private Vec3 fixRayCastBigBox(Vec3 usingEyePos, AABB targetBox, Vec3 currentRayCast, double currentAttackRange) {
+        Vec3 rayCastTest = currentRayCast.normalize().scale(currentAttackRange - 0.009178);
+        var ray = targetBox.clip(usingEyePos, usingEyePos.add(rayCastTest));
         if (ray.isPresent()) {
             return currentRayCast;
         } else {
             // ?
-            Box shrinkedBox = targetBox.expand(-1E-7, -1E-7, -1E-7);
+            AABB shrinkedBox = targetBox.inflate(-1E-7, -1E-7, -1E-7);
 
-            Vec3d targetingPos = MathUtils.magnitudePoint(shrinkedBox, usingEyePos);
+            Vec3 targetingPos = MathUtils.magnitudePoint(shrinkedBox, usingEyePos);
             return targetingPos.subtract(usingEyePos).normalize();
         }
     }
@@ -780,12 +790,12 @@ public class Attack extends BaseModule {
         // rewrite tp system
         Deque<MovTasks.MovInfo> movementStack = new ArrayDeque<>();
         Deque<MovTasks.MovInfo> shouldMoveBackStack = new ArrayDeque<>();
-        Vec3d currentStartPos = mc.player.getPos();
-        movementStack.addLast(MovTasks.MovInfo.createNoUpdate(mc.player.getPos()));
-        shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNoUpdate(mc.player.getPos()));
+        Vec3 currentStartPos = mc.player.position();
+        movementStack.addLast(MovTasks.MovInfo.createNoUpdate(mc.player.position()));
+        shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNoUpdate(mc.player.position()));
         boolean alreadyInRange = alreadyAtTarget
                 || TargetSelector.INSTANCE.isWithinAttackRange(
-                        player.getPos(),
+                        player.position(),
                         target.getBoundingBox(),
                         attackRange); // target.getBoundingBox().squaredMagnitude(player.getEyePos()) <
         // MathUtils.s2(attackRange);
@@ -825,7 +835,7 @@ public class Attack extends BaseModule {
                 maceAttack = true;
                 int maceThreshold = (useExactAttack ? 100 : 140);
                 if (maceHeight.get().getValue() > maceThreshold) {
-                    Debug.chat(Text.literal("[Attack Bot] 当前参数中,不建议将MaceHack范围设置在%d以上!".formatted(maceThreshold)));
+                    Debug.chat(Component.literal("[Attack Bot] 当前参数中,不建议将MaceHack范围设置在%d以上!".formatted(maceThreshold)));
                 }
             }
         }
@@ -839,7 +849,7 @@ public class Attack extends BaseModule {
             // start execute
             var iter = movementStack.iterator();
             Preconditions.checkArgument(iter.hasNext());
-            Vec3d vec3d1 = iter.next().vec3d();
+            Vec3 vec3d1 = iter.next().vec3d();
             MovTasks.MovingContext movingContext = MovTasks.MovingContext.create(vec3d1);
             List<MovTasks.MovInfo> moveInfos = new ArrayList<>();
             iter.forEachRemaining(moveInfos::add);
@@ -881,7 +891,7 @@ public class Attack extends BaseModule {
             // force resync position to origin
             if ((settings.useTp() || settings.maceVClip())
                     && (!shouldMoveBackStack.isEmpty() || !movementStack.isEmpty())) {
-                mc.player.setPosition(currentStartPos);
+                mc.player.setPos(currentStartPos);
                 // feature
                 MovTasks.setupAutoResync();
             }
@@ -900,8 +910,8 @@ public class Attack extends BaseModule {
                     minY = Math.min(minY, movementList.get(i).vec3d().y);
                 }
                 // calculate max deltaY
-                if (Math.abs(maxY - minY) > player.getAttributeValue(EntityAttributes.SAFE_FALL_DISTANCE) - 1) {
-                    ClientPlayerAccess.of((ClientPlayerEntity) player).setForceNoFall(true);
+                if (Math.abs(maxY - minY) > player.getAttributeValue(Attributes.SAFE_FALL_DISTANCE) - 1) {
+                    ClientPlayerAccess.of((LocalPlayer) player).setForceNoFall(true);
                     // in case that resync packet cause OnGround falldamage
                     player.setOnGround(false);
                 }
@@ -928,7 +938,7 @@ public class Attack extends BaseModule {
     private static int shieldExceptionspam = 0;
 
     private boolean processMaceAttack(
-            PlayerEntity player,
+            Player player,
             Entity target,
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack,
@@ -961,10 +971,10 @@ public class Attack extends BaseModule {
         if (attackSettings.maceVClip() && willUseMaceAttack(attackSettings.maceSwap())) {
             double maxMace = maceHeight.get().getValue();
             player.setOnGround(false);
-            Vec3d playerPos = movementStack.peekLast().vec3d();
+            Vec3 playerPos = movementStack.peekLast().vec3d();
             // do not mace attack into water, water will reset fall distance
-            if (mc.world.getBlockState(BlockPos.ofFloored(playerPos)).getBlock() == Blocks.WATER) {
-                Debug.chat(Text.literal("[Attack Bot] 目标攻击位置位于水中,无法执行MaceAttack!"));
+            if (mc.level.getBlockState(BlockPos.containing(playerPos)).getBlock() == Blocks.WATER) {
+                Debug.chat(Component.literal("[Attack Bot] 目标攻击位置位于水中,无法执行MaceAttack!"));
                 return false;
             }
             double deltaY = target.getY() - playerPos.y;
@@ -984,9 +994,9 @@ public class Attack extends BaseModule {
             // maybe we should delete height redirect
             //
             if (maceHeightMultiplier - minAvailableHeight > 2.0) {
-                Debug.chat(Text.literal("[Attack Bot] Mace Attack Simulation: simulate height %.2f"
+                Debug.chat(Component.literal("[Attack Bot] Mace Attack Simulation: simulate height %.2f"
                                 .formatted(maceHeightMultiplier))
-                        .formatted(Formatting.GREEN));
+                        .withStyle(ChatFormatting.GREEN));
                 movementStack.addLast(MovTasks.MovInfo.createNoUpdate(playerPos.add(0, maceHeightMultiplier, 0)));
                 // Debug.info("add", playerPos.add(0, maceHeightMultiplier,0));
                 movementStack.addLast(MovTasks.MovInfo.createNoUpdate(playerPos.add(0, minAvailableHeight, 0)));
@@ -1002,22 +1012,22 @@ public class Attack extends BaseModule {
     }
 
     private static boolean processVanillaAttack(
-            PlayerEntity player,
+            Player player,
             Entity target,
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack,
             boolean alreadAtTarget) {
-        Vec3d top = movementStack.peekLast().vec3d();
+        Vec3 top = movementStack.peekLast().vec3d();
         if (alreadAtTarget) {
             return true;
-        } else if (target.getBoundingBox().squaredMagnitude(top.add(0, mc.player.getStandingEyeHeight(), 0))
+        } else if (target.getBoundingBox().distanceToSqr(top.add(0, mc.player.getEyeHeight(), 0))
                 <= MathUtils.s2(CombatTasks.getCombatExtra().getAttackRange())) {
             return true;
         } else return false;
     }
 
     private boolean processExactAttack(
-            PlayerEntity player,
+            Player player,
             Entity target,
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack,
@@ -1036,19 +1046,19 @@ public class Attack extends BaseModule {
             return false;
         }
         double range = getTpSelectRange();
-        Vec3d current = player.getPos();
+        Vec3 current = player.position();
         // feat : teleporting position should met the need of antishield
-        Vec3d targetPos = positionPredict.getExactAttackPosition(target);
+        Vec3 targetPos = positionPredict.getExactAttackPosition(target);
         // todo: add Environment check and fallback plans like positions around
         if (targetPos != null) {
             // common atttack?
-            List<Vec3d> tpSequence = MovTasks.generateTpSequence(current, targetPos, false, 1.5 * range, true);
-            List<Vec3d> tpSequenceBack = MovTasks.generateTpSequence(targetPos, current, false, 1.5 * range, true);
+            List<Vec3> tpSequence = MovTasks.generateTpSequence(current, targetPos, false, 1.5 * range, true);
+            List<Vec3> tpSequenceBack = MovTasks.generateTpSequence(targetPos, current, false, 1.5 * range, true);
             if ((tpSequence.size() == 2 || tpSequence.size() == 4)
                     && (tpSequenceBack.size() == 2 || tpSequenceBack.size() == 4)) {
                 // correct tp sequence
                 // try compact mace hack
-                Vec3d lastly;
+                Vec3 lastly;
                 if (tpSequence.size() == 2) {
                     // can directly tp
                     movementStack.addLast(MovTasks.MovInfo.createNotOnGround(tpSequence.get(1)));
@@ -1080,13 +1090,13 @@ public class Attack extends BaseModule {
     }
 
     private boolean processCommonTpAttack(
-            PlayerEntity player,
+            Player player,
             Entity target,
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack,
             boolean alreadyAtTarget,
             AttackSettings settings) {
-        final Vec3d vec3d = movementStack.peekLast().vec3d();
+        final Vec3 vec3d = movementStack.peekLast().vec3d();
         double commonAttackRange = CombatTasks.getCombatExtra().getAttackRange();
         if (alreadyAtTarget) {
             // pass
@@ -1095,10 +1105,10 @@ public class Attack extends BaseModule {
         // todo: get this better
 
         else if (settings.useTp()
-                && target.getBoundingBox().squaredMagnitude(vec3d.add(0, mc.player.getStandingEyeHeight(), 0))
+                && target.getBoundingBox().distanceToSqr(vec3d.add(0, mc.player.getEyeHeight(), 0))
                         > MathUtils.s2(commonAttackRange)) {
 
-            List<Vec3d> sequence =
+            List<Vec3> sequence =
                     MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), commonAttackRange - 0.25, 135, 1);
             //            if(!sequence.isEmpty() && RenderTasks.DEBUG_RENDER_COLLISION){
             //                Vec3d vec3d1 = sequence.get(sequence.size() -1);
@@ -1107,7 +1117,7 @@ public class Attack extends BaseModule {
             //            }
 
             if (!sequence.isEmpty()
-                    && target.getBoundingBox().squaredMagnitude(sequence.get(sequence.size() - 1))
+                    && target.getBoundingBox().distanceToSqr(sequence.get(sequence.size() - 1))
                             < MathUtils.s2(commonAttackRange)) {
                 for (var vec : sequence) {
                     movementStack.addLast(MovTasks.MovInfo.createNotOnGround(vec));
@@ -1125,19 +1135,19 @@ public class Attack extends BaseModule {
         }
     }
 
-    public static boolean passCriticalPredicate(PlayerEntity player) {
-        boolean bl3 = player.getAttackCooldownProgress(0.5f) > 0.9f
-                && !player.isOnGround()
-                && !player.isClimbing()
-                && !player.isTouchingWater()
-                && !player.hasStatusEffect(StatusEffects.BLINDNESS)
-                && !player.hasVehicle();
+    public static boolean passCriticalPredicate(Player player) {
+        boolean bl3 = player.getAttackStrengthScale(0.5f) > 0.9f
+                && !player.onGround()
+                && !player.onClimbable()
+                && !player.isInWater()
+                && !player.hasEffect(MobEffects.BLINDNESS)
+                && !player.isPassenger();
         bl3 = bl3 && !player.isSprinting();
         return bl3;
     }
 
     @Deprecated
-    private static Vec3d calculateBestReachPos(Vec3d from, Box target) {
+    private static Vec3 calculateBestReachPos(Vec3 from, AABB target) {
         return from;
     }
 

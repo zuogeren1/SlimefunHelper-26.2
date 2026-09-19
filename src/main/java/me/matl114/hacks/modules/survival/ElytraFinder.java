@@ -1,6 +1,7 @@
 package me.matl114.hacks.modules.survival;
 
 import com.google.gson.*;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -20,9 +21,21 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
 import me.matl114.versioned.api.VRender;
-import net.minecraft.block.*;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.*;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.WallSkullBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class ElytraFinder extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath travellingControl = makePath(Configs.SURVIVAL_CONFIG, "travelling-control");
@@ -57,7 +70,7 @@ public class ElytraFinder extends BaseModule implements LegalMovementManager.Mov
             Set<BlockPos> places = new LinkedHashSet<>();
             for (var ent : obj) {
                 long pos = ent.getAsLong();
-                BlockPos bp = BlockPos.fromLong(pos);
+                BlockPos bp = BlockPos.of(pos);
                 places.add(bp);
             }
             locatedPlaces.put(key, places);
@@ -140,15 +153,15 @@ public class ElytraFinder extends BaseModule implements LegalMovementManager.Mov
     }
 
     public void onLocateShipStructure(BlockState state, BlockPos pos) {
-        if (mc.world.getBlockState(pos) == state) {
-            Direction dir = state.get(WallSkullBlock.FACING);
+        if (mc.level.getBlockState(pos) == state) {
+            Direction dir = state.getValue(WallSkullBlock.FACING);
             Debug.chat("Locate Head");
             Direction searchDirection = dir.getOpposite();
             for (var entry : offsets.entrySet()) {
                 Vec3i off = rotateOffset(searchDirection, entry.getKey());
-                BlockPos ps = pos.add(off);
-                RenderTasks.drawBox(Box.from(new BlockBox(ps)), 200, Color.MAGENTA);
-                BlockState st = mc.world.getBlockState(ps);
+                BlockPos ps = pos.offset(off);
+                RenderTasks.drawBox(AABB.of(new BoundingBox(ps)), 200, Color.MAGENTA);
+                BlockState st = mc.level.getBlockState(ps);
                 if (st.getBlock() != entry.getValue()) {
                     return;
                 }
@@ -187,28 +200,28 @@ public class ElytraFinder extends BaseModule implements LegalMovementManager.Mov
         offsets.put(new Vec3i(0, 3, 0), Blocks.AIR);
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (enable.get() && render.get()) {
             // render DragonHead
-            MatrixStack stack = event.context();
+            PoseStack stack = event.context();
             RenderUtils.startDrawVirtual(stack);
             try {
                 if (currentShipStructure != null) {
-                    Vec3d camerPos = RenderUtils.getCameraPos();
+                    Vec3 camerPos = RenderUtils.getCameraPos();
                     VRender.getInstance().createLinesLayer(((operation, vertexConsumer) -> {
                         operation.drawOutlinedBox(
                                 stack,
                                 vertexConsumer,
-                                currentShipStructure
-                                        .toCenterPos()
+                                Vec3.atCenterOf(currentShipStructure)
+
                                         .add(RenderTasks.FROM)
                                         .subtract(camerPos),
-                                currentShipStructure
-                                        .toCenterPos()
+                                Vec3.atCenterOf(currentShipStructure)
+
                                         .add(RenderTasks.TO)
                                         .subtract(camerPos),
                                 ColorUtils.withAlphaInt(Color.MAGENTA.getRGB(), 255));
-                        Vec3d vec3d = currentShipStructure.toCenterPos().add(0, 3, 0);
+                        Vec3 vec3d = Vec3.atCenterOf(currentShipStructure).add(0, 3, 0);
                         operation.drawOutlinedBox(
                                 stack,
                                 vertexConsumer,
@@ -249,13 +262,13 @@ public class ElytraFinder extends BaseModule implements LegalMovementManager.Mov
                     // locate ship head
                     if (currentStep == Step.LOCATE_SHIP_HEAD) {
                         if (mc.player.isFallFlying()) {
-                            Vec3d vec3d = currentShipStructure.toCenterPos().add(0, 2, 0);
-                            Vec3d ppos = mc.player.getPos();
-                            Vec3d playerLook = vec3d.subtract(ppos);
+                            Vec3 vec3d = Vec3.atCenterOf(currentShipStructure).add(0, 2, 0);
+                            Vec3 ppos = mc.player.position();
+                            Vec3 playerLook = vec3d.subtract(ppos);
                             if (MathUtils.isInBox(playerLook, 0.6)) {
                                 currentStep = Step.LOCATE_SHIP_LAND;
                             } else {
-                                double closeEnough = playerLook.horizontalLengthSquared();
+                                double closeEnough = playerLook.horizontalDistanceSqr();
                                 EntityUtils.setEntityPitchSafe(
                                         mc.player, 0
                                         // (closeEnough > 100|| mc.player.getY() <vec3d.y +10)? 0 : 20
@@ -265,7 +278,7 @@ public class ElytraFinder extends BaseModule implements LegalMovementManager.Mov
                                     PlayerStateManager.setPlayerYawSafe(mc.player, yaw);
 
                                 } else {
-                                    PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYaw() + 180);
+                                    PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYRot() + 180);
                                 }
                             }
                         } else {
@@ -275,21 +288,21 @@ public class ElytraFinder extends BaseModule implements LegalMovementManager.Mov
                     // close enough
                     if (currentStep == Step.LOCATE_SHIP_LAND) {
                         // if(cur)
-                        BlockPos locatePos = currentShipStructure.offset(currentDirection, 3);
-                        Vec3d target = locatePos.toCenterPos();
-                        Vec3d ppos = mc.player.getPos();
-                        Vec3d playerLook = target.subtract(ppos);
+                        BlockPos locatePos = currentShipStructure.relative(currentDirection, 3);
+                        Vec3 target = Vec3.atCenterOf(locatePos);
+                        Vec3 ppos = mc.player.position();
+                        Vec3 playerLook = target.subtract(ppos);
                         if (MathUtils.isInBox(playerLook, 0.6)) {
                             currentStep = Step.GRAB_ELYTRA;
                             currentShipStructure = null;
                         } else {
                             EntityUtils.setEntityPitchSafe(mc.player, 0);
-                            if (playerLook.horizontalLengthSquared() > 0.36) {
+                            if (playerLook.horizontalDistanceSqr() > 0.36) {
                                 float yaw = EntityUtils.rotationToYaw(playerLook);
                                 PlayerStateManager.setPlayerYawSafe(mc.player, yaw);
 
                             } else {
-                                PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYaw() + 180);
+                                PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYRot() + 180);
                             }
                         }
                     }

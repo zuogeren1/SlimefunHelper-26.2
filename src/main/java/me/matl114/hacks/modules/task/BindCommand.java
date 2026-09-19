@@ -27,8 +27,8 @@ import me.matl114.utils.commands.commandGroup.SubCommand;
 import me.matl114.utils.commands.commandGroup.TreeSubCommand;
 import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.api.CommandExecution;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 public class BindCommand extends BaseModule implements IHotKey {
     private static final String HOTKEY_PREFIX = "bind-command";
@@ -120,20 +120,20 @@ public class BindCommand extends BaseModule implements IHotKey {
 
     private void listBindings(CommandExecution execution, ArgumentInputStream args) {
         List<Pair<MultiKeyBind, StringFormat>> list = commands.get().list();
-        execution.sendMessage(Text.literal("bindc 当前绑定: " + list.size() + " 条").formatted(Formatting.GREEN));
+        execution.sendMessage(Component.literal("bindc 当前绑定: " + list.size() + " 条").withStyle(ChatFormatting.GREEN));
         for (int i = 0; i < list.size(); ++i) {
             Pair<MultiKeyBind, StringFormat> binding = list.get(i);
             MultiKeyBind hotkey = binding.getFirst();
             String hotkeyText = hotkey == null || hotkey.isEmpty() ? "<empty>" : hotkey.asString();
-            execution.sendMessage(Text.literal(
+            execution.sendMessage(Component.literal(
                     (i + 1) + ". " + hotkeyText + " -> " + binding.getSecond().formatString()));
         }
     }
 
     private void showBindCommandHelp(CommandExecution execution, ArgumentInputStream args) {
-        execution.sendMessage(Text.literal("BindCommand 模块说明").formatted(Formatting.GREEN));
-        execution.sendMessage(Text.literal("该模块用于把自定义快捷键绑定到聊天文本、服务端指令或客户端指令。"));
-        execution.sendMessage(Text.literal("触发已配置的快捷键时，会自动发送对应内容。"));
+        execution.sendMessage(Component.literal("BindCommand 模块说明").withStyle(ChatFormatting.GREEN));
+        execution.sendMessage(Component.literal("该模块用于把自定义快捷键绑定到聊天文本、服务端指令或客户端指令。"));
+        execution.sendMessage(Component.literal("触发已配置的快捷键时，会自动发送对应内容。"));
     }
 
     @Override
@@ -178,14 +178,14 @@ public class BindCommand extends BaseModule implements IHotKey {
     private void handleCommand(StringFormat string) {
         ChatTasks.sayMessage(
                 string.format(Map.of(
-                        "player", mc.player.getNameForScoreboard(),
+                        "player", mc.player.getScoreboardName(),
                         "pos", "%.2f %.2f %.2f".formatted(mc.player.getX(), mc.player.getY(), mc.player.getZ()),
                         "x", "%.2f".formatted(mc.player.getX()),
                         "y", "%.2f".formatted(mc.player.getY()),
                         "z", "%.2f".formatted(mc.player.getZ()),
-                        "pitch", "%.2f".formatted(mc.player.getPitch()),
-                        "yaw", "%.2f".formatted(mc.player.getYaw()),
-                        "world", mc.world.getRegistryKey().getValue().getPath())),
+                        "pitch", "%.2f".formatted(mc.player.getXRot()),
+                        "yaw", "%.2f".formatted(mc.player.getYRot()),
+                        "world", mc.level.dimension().identifier().getPath())),
                 false);
     }
 

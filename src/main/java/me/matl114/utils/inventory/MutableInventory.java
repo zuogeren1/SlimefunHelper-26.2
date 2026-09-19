@@ -1,12 +1,12 @@
 package me.matl114.utils.inventory;
 
 import java.util.List;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
-public class MutableInventory implements Inventory {
+public class MutableInventory implements Container {
     private final List<ItemStack> stacks;
 
     public MutableInventory(int maxSize, List<ItemStack> stacks) {
@@ -17,7 +17,7 @@ public class MutableInventory implements Inventory {
     }
 
     @Override
-    public int size() {
+    public int getContainerSize() {
         return stacks.size();
     }
 
@@ -27,51 +27,51 @@ public class MutableInventory implements Inventory {
     }
 
     @Override
-    public ItemStack getStack(int slot) {
+    public ItemStack getItem(int slot) {
         return stacks.get(slot);
     }
 
     @Override
-    public ItemStack removeStack(int slot, int amount) {
-        ItemStack itemStack = Inventories.splitStack(this.stacks, slot, amount);
+    public ItemStack removeItem(int slot, int amount) {
+        ItemStack itemStack = ContainerHelper.removeItem(this.stacks, slot, amount);
         if (!itemStack.isEmpty()) {
-            this.markDirty();
+            this.setChanged();
         }
 
         return itemStack;
     }
 
     @Override
-    public ItemStack removeStack(int slot) {
+    public ItemStack removeItemNoUpdate(int slot) {
         ItemStack itemStack = (ItemStack) this.stacks.get(slot);
         if (itemStack.isEmpty()) {
             return ItemStack.EMPTY;
         } else {
             this.stacks.set(slot, ItemStack.EMPTY);
-            markDirty();
+            setChanged();
             return itemStack;
         }
     }
 
     @Override
-    public void setStack(int slot, ItemStack stack) {
+    public void setItem(int slot, ItemStack stack) {
         this.stacks.set(slot, stack);
-        markDirty();
+        setChanged();
     }
 
     @Override
-    public void markDirty() {}
+    public void setChanged() {}
 
     @Override
-    public boolean canPlayerUse(PlayerEntity player) {
+    public boolean stillValid(Player player) {
         return true;
     }
 
     @Override
-    public void clear() {
+    public void clearContent() {
         for (var i = 0; i < this.stacks.size(); i++) {
             stacks.set(i, ItemStack.EMPTY);
         }
-        markDirty();
+        setChanged();
     }
 }

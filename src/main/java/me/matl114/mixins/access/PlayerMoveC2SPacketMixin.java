@@ -5,14 +5,14 @@ import lombok.Setter;
 import me.matl114.accessors.access.PlayerMoveC2SPacketAccess;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(PlayerMoveC2SPacket.class)
+@Mixin(ServerboundMovePlayerPacket.class)
 public abstract class PlayerMoveC2SPacketMixin implements PlayerMoveC2SPacketAccess {
     @Override
     @Mutable
@@ -21,12 +21,12 @@ public abstract class PlayerMoveC2SPacketMixin implements PlayerMoveC2SPacketAcc
 
     @Override
     @Mutable
-    @Accessor("pitch")
+    @Accessor("xRot")
     public abstract void setPitch(float pitch);
 
     @Override
     @Mutable
-    @Accessor("yaw")
+    @Accessor("yRot")
     public abstract void setYaw(float yaw);
 
     @Unique

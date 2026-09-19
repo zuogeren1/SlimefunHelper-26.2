@@ -5,39 +5,39 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.world.World;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public class IStorage {
     @Getter
-    public final RegistryKey<World> dimension;
+    public final ResourceKey<Level> dimension;
 
-    public final Map<String, NbtElement> storage;
+    public final Map<String, Tag> storage;
 
     @Getter
     @Setter
     public boolean dirty = false;
 
-    protected static final MinecraftClient mc = MinecraftClient.getInstance();
+    protected static final Minecraft mc = Minecraft.getInstance();
 
     public IStorage() {
-        this(mc.world.getRegistryKey(), null);
+        this(mc.level.dimension(), null);
     }
 
-    public IStorage(RegistryKey<World> dimension) {
+    public IStorage(ResourceKey<Level> dimension) {
         this(dimension, null);
     }
 
-    public IStorage(RegistryKey<World> dimension, Map<String, NbtElement> storage) {
+    public IStorage(ResourceKey<Level> dimension, Map<String, Tag> storage) {
         this.dimension = dimension;
         this.storage = storage == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(storage);
     }
 
-    public NbtElement get(String key) {
+    public Tag get(String key) {
         return storage.get(key);
     }
 
@@ -46,22 +46,22 @@ public class IStorage {
         return re == null ? null : resultOrNull(re, codec);
     }
 
-    public <T> T get(String key, Codec<T> codec, RegistryWrapper.WrapperLookup lookup) {
+    public <T> T get(String key, Codec<T> codec, HolderLookup.Provider lookup) {
         var re = get(key);
         return re == null ? null : resultOrNull(re, codec, lookup);
     }
 
-    public static <T> T resultOrNull(NbtElement re, Codec<T> codec) {
+    public static <T> T resultOrNull(Tag re, Codec<T> codec) {
         var tmp = codec.decode(NbtOps.INSTANCE, re);
         return tmp.isSuccess() ? tmp.getOrThrow().getFirst() : null;
     }
 
-    public static <T> T resultOrNull(NbtElement re, Codec<T> codec, RegistryWrapper.WrapperLookup lookup) {
-        var tmp = codec.decode(lookup.getOps(NbtOps.INSTANCE), re);
+    public static <T> T resultOrNull(Tag re, Codec<T> codec, HolderLookup.Provider lookup) {
+        var tmp = codec.decode(lookup.createSerializationContext(NbtOps.INSTANCE), re);
         return tmp.isSuccess() ? tmp.getOrThrow().getFirst() : null;
     }
 
-    public void put(String key, NbtElement value) {
+    public void put(String key, Tag value) {
         if (value == null) {
             if (this.storage.remove(key) != null) {
                 dirty = true;
@@ -80,11 +80,11 @@ public class IStorage {
         }
     }
 
-    public <T> void put(String key, T val, Codec<T> codec, RegistryWrapper.WrapperLookup lookup) {
+    public <T> void put(String key, T val, Codec<T> codec, HolderLookup.Provider lookup) {
         if (val == null) {
             put(key, null);
         } else {
-            put(key, codec.encodeStart(lookup.getOps(NbtOps.INSTANCE), val).getOrThrow());
+            put(key, codec.encodeStart(lookup.createSerializationContext(NbtOps.INSTANCE), val).getOrThrow());
         }
     }
 

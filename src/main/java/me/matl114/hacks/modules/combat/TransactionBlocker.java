@@ -11,15 +11,15 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.CommonPackets;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.PacketType;
-import net.minecraft.network.packet.c2s.common.CommonPongC2SPacket;
-import net.minecraft.network.packet.s2c.common.CommonPingS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityPassengersSetS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.common.ClientboundPingPacket;
+import net.minecraft.network.protocol.common.CommonPacketTypes;
+import net.minecraft.network.protocol.common.ServerboundPongPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.network.protocol.game.ClientboundSetPassengersPacket;
 
 public class TransactionBlocker extends BaseModule {
     public final ModulePath lagUtils = makePath(Configs.COMBAT_CONFIG, "lag-utils");
@@ -42,10 +42,10 @@ public class TransactionBlocker extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(PacketManager.getPacketQueueEvent().getChannel(NetworkSide.SERVERBOUND), this::onPacketQueue);
+        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND), this::onPacketQueue);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerPositionLookS2CPacket.class), this::onPlayerRespawnLook);
-        registerListener(Listener.getPacketPoint().getChannel(EntityPassengersSetS2CPacket.class), this::onDismount);
+                Listener.getPacketPoint().getChannel(ClientboundPlayerPositionPacket.class), this::onPlayerRespawnLook);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundSetPassengersPacket.class), this::onDismount);
     }
 
     @Override
@@ -69,42 +69,42 @@ public class TransactionBlocker extends BaseModule {
     }
 
     public boolean isTransactionRelated(Packet<?> packet) {
-        return packet instanceof CommonPongC2SPacket || packet instanceof CommonPingS2CPacket;
+        return packet instanceof ServerboundPongPacket || packet instanceof ClientboundPingPacket;
     }
 
     public boolean isTransactionRelated(PacketType<?> packet) {
-        return packet == CommonPackets.PING || packet == CommonPackets.PONG;
+        return packet == CommonPacketTypes.CLIENTBOUND_PING || packet == CommonPacketTypes.SERVERBOUND_PONG;
     }
 
     public void onPacketQueue(Event<PacketStorage> packetEvent) {
         if (enable.get() && isTransactionRelated(packetEvent.context.packetType())) {
             packetEvent.cancel();
-            Listener.sendPacketNoEvents(new CommonPongC2SPacket(0));
+            Listener.sendPacketNoEvents(new ServerboundPongPacket(0));
         }
     }
 
     int rideId;
 
-    public void onDismount(Event<EntityPassengersSetS2CPacket> event) {
+    public void onDismount(Event<ClientboundSetPassengersPacket> event) {
         var pkt = event.context;
-        for (var re : pkt.getPassengerIds()) {
+        for (var re : pkt.getPassengers()) {
             if (re == mc.player.getId()) {
-                rideId = event.context.getEntityId();
+                rideId = event.context.getVehicle();
                 return;
             }
         }
-        if (rideId == event.context.getEntityId()) {
+        if (rideId == event.context.getVehicle()) {
             enable.set(true);
         }
     }
 
-    public void onPlayerRespawn(Event<PlayerRespawnS2CPacket> event) {
+    public void onPlayerRespawn(Event<ClientboundRespawnPacket> event) {
         if (enableC.get()) {
             enable.set(true);
         }
     }
 
-    public void onPlayerRespawnLook(Event<PlayerPositionLookS2CPacket> event) {
+    public void onPlayerRespawnLook(Event<ClientboundPlayerPositionPacket> event) {
         if (enableC.get() && mc.player != null && mc.player.getAbilities().flying) {
             Debug.chat("Start");
             enable.set(true);

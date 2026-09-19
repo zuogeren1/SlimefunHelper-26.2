@@ -2,16 +2,16 @@ package me.matl114.accessors.hacks;
 
 import javax.annotation.Nullable;
 import me.matl114.utils.WorldUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 public interface PlayerInteractionAccess {
     /**
@@ -39,10 +39,10 @@ public interface PlayerInteractionAccess {
     }
 
     default void sendBreakPacket(BlockPos currentPos, boolean silent) {
-        Vec3d shouldFacing = currentPos
-                .toCenterPos()
-                .subtract(MinecraftClient.getInstance().player.getEyePos());
-        Direction dir = Direction.getFacing(shouldFacing).getOpposite();
+        Vec3 shouldFacing = Vec3.atCenterOf(currentPos)
+
+                .subtract(Minecraft.getInstance().player.getEyePosition());
+        Direction dir = Direction.getApproximateNearest(shouldFacing).getOpposite();
         sendBreakPacket(currentPos, dir, silent);
     }
 
@@ -103,14 +103,14 @@ public interface PlayerInteractionAccess {
      */
     default float predictCurrentMiningProgressWithTool(ItemStack tool) {
         BlockPos currentBreakingPos = getCurrentMiningPos();
-        BlockState block = MinecraftClient.getInstance().world.getBlockState(currentBreakingPos);
+        BlockState block = Minecraft.getInstance().level.getBlockState(currentBreakingPos);
         if (block.isAir()) {
             return -1.0F;
         }
         float miningSpeed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
-                MinecraftClient.getInstance().player, block, tool);
+                Minecraft.getInstance().player, block, tool);
         float speed = WorldUtils.calcBlockBreakingDelta(
-                block, MinecraftClient.getInstance().world, currentBreakingPos, miningSpeed);
+                block, Minecraft.getInstance().level, currentBreakingPos, miningSpeed);
         int ticksSinceLastStart = getCurrentMiningTicks();
         return speed * ticksSinceLastStart;
     }
@@ -128,7 +128,7 @@ public interface PlayerInteractionAccess {
             return -1.0F;
         }
         return predictFailMiningProgressWithTool(
-                MinecraftClient.getInstance().player.getMainHandStack(), 0);
+                Minecraft.getInstance().player.getMainHandItem(), 0);
     }
 
     /**
@@ -138,14 +138,14 @@ public interface PlayerInteractionAccess {
      */
     default float predictFailMiningProgressWithTool(ItemStack tool, int extraTick) {
         BlockPos currentBreakingPos = getCurrentFailBreakPos();
-        BlockState block = MinecraftClient.getInstance().world.getBlockState(currentBreakingPos);
+        BlockState block = Minecraft.getInstance().level.getBlockState(currentBreakingPos);
         if (block.isAir()) {
             return -1.0F;
         }
         float miningSpeed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
-                MinecraftClient.getInstance().player, block, tool);
+                Minecraft.getInstance().player, block, tool);
         float speed = WorldUtils.calcBlockBreakingDelta(
-                block, MinecraftClient.getInstance().world, currentBreakingPos, miningSpeed);
+                block, Minecraft.getInstance().level, currentBreakingPos, miningSpeed);
         int ticksSinceLastStart = getFailBreakMiningTicks() + extraTick;
         return speed * ticksSinceLastStart;
     }
@@ -165,9 +165,9 @@ public interface PlayerInteractionAccess {
     }
 
     default void sendStartBreakPacket(BlockPos pos) {
-        Vec3d shouldFacing =
-                pos.toCenterPos().subtract(MinecraftClient.getInstance().player.getEyePos());
-        Direction direction = Direction.getFacing(shouldFacing).getOpposite();
+        Vec3 shouldFacing =
+                Vec3.atCenterOf(pos).subtract(Minecraft.getInstance().player.getEyePosition());
+        Direction direction = Direction.getApproximateNearest(shouldFacing).getOpposite();
         sendStartBreakPacket(pos, direction);
     }
 
@@ -181,14 +181,14 @@ public interface PlayerInteractionAccess {
 
     public void setMiningCooldown(int vla);
 
-    public ActionResult simulateInteractBlock(Hand hand, BlockHitResult hitResult);
+    public InteractionResult simulateInteractBlock(InteractionHand hand, BlockHitResult hitResult);
 
-    public ActionResult simulateInteractItem(Hand hand);
+    public InteractionResult simulateInteractItem(InteractionHand hand);
 
     /**
-     * 把原版 {@link ClientPlayerInteractionManager} 视为本接口语义边界。
+     * 把原版 {@link MultiPlayerGameMode} 视为本接口语义边界。
      */
-    static PlayerInteractionAccess of(ClientPlayerInteractionManager manager) {
+    static PlayerInteractionAccess of(MultiPlayerGameMode manager) {
         return (PlayerInteractionAccess) manager;
     }
 }

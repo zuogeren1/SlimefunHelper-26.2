@@ -25,27 +25,27 @@ import me.matl114.utils.InteractUtils;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ConsumableComponent;
-import net.minecraft.component.type.FoodComponent;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.consume.ApplyEffectsConsumeEffect;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.Consumable;
+import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect;
+import net.minecraft.world.level.Level;
 import org.apache.commons.lang3.stream.Streams;
 
 public class AutoEat extends BaseModule {
@@ -107,7 +107,7 @@ public class AutoEat extends BaseModule {
 
     public final NBTRef<EntrySet<Item>> whiteListItem = builder(
                     autoEat.add("white-list-item"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(golden_apple|potion|golden_carrot)$"), Registries.ITEM))
+            .defaultValue(new EntrySet<>(new Regex("^(golden_apple|potion|golden_carrot)$"), BuiltInRegistries.ITEM))
             .build();
 
     public final FlagRef fireworkFix = builder(autoEat.add("firework-fix"), Boolean.class)
@@ -135,7 +135,7 @@ public class AutoEat extends BaseModule {
         registerListener(Listener.getPostHandleInputEvents(), this::onTickPost);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntityStatusS2CPacket.class), this::onStatusConsumed);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onStatusConsumed);
         registerListener(Listener.getPrePlayerUseItem(), this::onRightClick);
     }
 
@@ -145,10 +145,10 @@ public class AutoEat extends BaseModule {
         stopEating();
     }
 
-    private void onStatusConsumed(Event<EntityStatusS2CPacket> event) {
+    private void onStatusConsumed(Event<ClientboundEntityEventPacket> event) {
         if (eating
-                && event.context.getEntity(mc.world) == mc.player
-                && event.context.getStatus() == EntityStatuses.CONSUME_ITEM) {
+                && event.context.getEntity(mc.level) == mc.player
+                && event.context.getEventId() == EntityEvent.USE_ITEM_COMPLETE) {
             stopEating();
             eatingCooldownTick = Tasks.getTick() + cooldown.get();
         }
@@ -157,14 +157,14 @@ public class AutoEat extends BaseModule {
     private boolean canContinueEat() {
         return eatingSlot >= 0
                 && mc.player.isUsingItem()
-                && (mc.player.getActiveHand() == (eatingSlot == 40 ? Hand.OFF_HAND : Hand.MAIN_HAND))
+                && (mc.player.getUsedItemHand() == (eatingSlot == 40 ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND))
                 && (InventoryUtils.getSelectedSlot() == eatingSlot || eatingSlot == 40)
                 && eating;
     }
 
     private IndexEntry<ItemStack> findHandStack(boolean health) {
-        ItemStack stack = mc.player.getMainHandStack();
-        ItemStack stackOffhand = mc.player.getOffHandStack();
+        ItemStack stack = mc.player.getMainHandItem();
+        ItemStack stackOffhand = mc.player.getOffhandItem();
         Double main = scoreFood(stack, health);
         Double off = scoreFood(stackOffhand, health);
         if (main != null) {
@@ -187,7 +187,7 @@ public class AutoEat extends BaseModule {
     private void tryStartEating(@Nonnull IndexEntry<ItemStack> re, boolean offHand) {
 
         if (log.get()) {
-            Text text = VItem.getInstance().getFormattedName(re.val());
+            Component text = VItem.getInstance().getFormattedName(re.val());
             logI18N("message.module.auto-eat.start", text);
         }
         offHand = offHand || re.index() == 40;
@@ -195,28 +195,28 @@ public class AutoEat extends BaseModule {
                 ? InvExtra.INSTANCE.swapInventoryIndexToOffhand(re.index())
                 : InvExtra.INSTANCE.swapInventoryIndexToHand(re.index());
         if (cbb != null) {
-            ClientAccess.of(mc).simulateUseItem(offHand ? Hand.OFF_HAND : Hand.MAIN_HAND);
+            ClientAccess.of(mc).simulateUseItem(offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND);
             if (mc.player.isUsingItem()
-                    && ((mc.player.getActiveHand() == Hand.OFF_HAND) == offHand)
-                    && ItemStack.areItemsAndComponentsEqual(re.val(), mc.player.getActiveItem())) {
-                mc.options.useKey.setPressed(true);
+                    && ((mc.player.getUsedItemHand() == InteractionHand.OFF_HAND) == offHand)
+                    && ItemStack.isSameItemSameComponents(re.val(), mc.player.getUseItem())) {
+                mc.options.keyUse.setDown(true);
                 eating = true;
                 restoreCallback = cbb;
                 eatingSlot = offHand ? 40 : InventoryUtils.getSelectedSlot();
             } else {
-                KeyBindAccess.of(mc.options.useKey).resetKeyState();
+                KeyBindAccess.of(mc.options.keyUse).resetKeyState();
                 cbb.run();
             }
         }
     }
 
-    private void onWorldSwitch(Event<World> event) {
+    private void onWorldSwitch(Event<Level> event) {
         stopEating();
     }
 
     private void stopEating() {
         if (eating) {
-            KeyBindAccess.of(mc.options.useKey).resetKeyState(); // mc.options.useKey.setPressed(false);
+            KeyBindAccess.of(mc.options.keyUse).resetKeyState(); // mc.options.useKey.setPressed(false);
             if (!checkNull() && restoreCallback != null) {
                 restoreCallback.run();
             }
@@ -230,7 +230,7 @@ public class AutoEat extends BaseModule {
     boolean lastAutoFireworkIsDone = false;
 
     public void onTickPre(Event<Void> event) {
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         if (checkNull()) {
             if (eating) {
                 stopEating();
@@ -238,7 +238,7 @@ public class AutoEat extends BaseModule {
         }
         if (eating) {
             if (canContinueEat()) {
-                mc.options.useKey.setPressed(true);
+                mc.options.keyUse.setDown(true);
             } else {
                 if (log.get()) {
                     logI18N("message.module.auto-eat.stop");
@@ -251,9 +251,9 @@ public class AutoEat extends BaseModule {
     public boolean mayUseItem() {
         if (mc.player.isUsingItem()) {
             return true;
-        } else if ((VItem.getInstance().isSpear(mc.player.getStackInHand(Hand.MAIN_HAND))
-                || VItem.getInstance().isSpear(mc.player.getStackInHand(Hand.OFF_HAND)))) {
-            if (mc.options.useKey.isPressed()) {
+        } else if ((VItem.getInstance().isSpear(mc.player.getItemInHand(InteractionHand.MAIN_HAND))
+                || VItem.getInstance().isSpear(mc.player.getItemInHand(InteractionHand.OFF_HAND)))) {
+            if (mc.options.keyUse.isDown()) {
                 return true;
             }
             if (InteractionTasks.getAutoUse().lastAutoUsingSpear) {
@@ -267,7 +267,7 @@ public class AutoEat extends BaseModule {
         if (checkNull()) {
             return;
         }
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         if (enable.get()) {
             if (!eating) {
                 boolean canStartEat = false;
@@ -294,7 +294,7 @@ public class AutoEat extends BaseModule {
                             double dist = mc.player.isFallFlying() ? noEnemyAir.get() : noEnemyGround.get();
                             if (dist > 1E-6
                                     && TargetSelector.INSTANCE.searchAttackEntity(
-                                                    dist, true, (pl) -> pl instanceof PlayerEntity)
+                                                    dist, true, (pl) -> pl instanceof Player)
                                             != null) {
                                 break find_eat_condition;
                             }
@@ -303,7 +303,7 @@ public class AutoEat extends BaseModule {
                             canStartEat = true;
                             break find_eat_condition;
                         }
-                        if (enableHunger.get() && player.getHungerManager().getFoodLevel() <= hungerLevel.get()) {
+                        if (enableHunger.get() && player.getFoodData().getFoodLevel() <= hungerLevel.get()) {
                             canStartEat = true;
                             break find_eat_condition;
                         }
@@ -338,11 +338,11 @@ public class AutoEat extends BaseModule {
     }
 
     public void onRightClick(Event<UseItem> event) {
-        Hand hand = event.context.hand();
-        if (enable.get() && forceEatLeftClick.get() && mc.options.useKey.isPressed() && !eating) {
-            ItemStack stack = mc.player.getStackInHand(hand);
-            Hand offhand = hand == Hand.MAIN_HAND ? Hand.OFF_HAND : Hand.MAIN_HAND;
-            ItemStack offhandStack = mc.player.getStackInHand(offhand);
+        InteractionHand hand = event.context.hand();
+        if (enable.get() && forceEatLeftClick.get() && mc.options.keyUse.isDown() && !eating) {
+            ItemStack stack = mc.player.getItemInHand(hand);
+            InteractionHand offhand = hand == InteractionHand.MAIN_HAND ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+            ItemStack offhandStack = mc.player.getItemInHand(offhand);
             if ((VItem.getInstance().isTool(stack) || VItem.getInstance().isWeapon(stack))
                     && !VItem.getInstance().isSpear(stack)
                     && !InteractUtils.canHoldUse(offhandStack)) {
@@ -366,10 +366,10 @@ public class AutoEat extends BaseModule {
                 }
                 if (canStartEat) {
                     lastAutoFireworkIsDone = false;
-                    tryStartEating(re, hand == Hand.OFF_HAND);
+                    tryStartEating(re, hand == InteractionHand.OFF_HAND);
                     if (eating) {
                         event.cancel();
-                        event.context.actionResult(ActionResult.SUCCESS);
+                        event.context.actionResult(InteractionResult.SUCCESS);
                     }
                 }
             }
@@ -383,11 +383,11 @@ public class AutoEat extends BaseModule {
         if (!whiteListItem.get().test(stack.getItem())) {
             return null;
         }
-        FoodComponent food = getFoodComponent(stack);
+        FoodProperties food = getFoodComponent(stack);
 
         double score;
         if (food != null) {
-            if (mc.player.canConsume(food.canAlwaysEat())) {
+            if (mc.player.canEat(food.canAlwaysEat())) {
                 int hunger = food.nutrition();
                 score = food.saturation() * hunger;
             } else {
@@ -397,7 +397,7 @@ public class AutoEat extends BaseModule {
             score = 0;
         }
         // only combat eat gapple
-        if (hurtPriority && mc.world.getPlayers().size() > 1) {
+        if (hurtPriority && mc.level.players().size() > 1) {
             if (isGoldenAppleFood(stack)) {
                 score += 100.0D;
             }
@@ -411,38 +411,38 @@ public class AutoEat extends BaseModule {
         return score;
     }
 
-    private FoodComponent getFoodComponent(ItemStack stack) {
+    private FoodProperties getFoodComponent(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return null;
         }
-        return stack.get(DataComponentTypes.FOOD);
+        return stack.get(DataComponents.FOOD);
     }
 
     private boolean isGoldenAppleFood(ItemStack stack) {
-        return stack.isOf(Items.GOLDEN_APPLE) || stack.isOf(Items.ENCHANTED_GOLDEN_APPLE);
+        return stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE);
     }
 
-    private final Set<RegistryEntry<StatusEffect>> healingEffects = new HashSet<>();
+    private final Set<Holder<MobEffect>> healingEffects = new HashSet<>();
 
     {
-        healingEffects.add(StatusEffects.INSTANT_HEALTH);
-        healingEffects.add(StatusEffects.REGENERATION);
+        healingEffects.add(MobEffects.INSTANT_HEALTH);
+        healingEffects.add(MobEffects.REGENERATION);
     }
 
     private boolean isHealingPotion(ItemStack stack) {
-        ConsumableComponent consumable = stack.get(DataComponentTypes.CONSUMABLE);
+        Consumable consumable = stack.get(DataComponents.CONSUMABLE);
         if (consumable == null) {
             return false;
         }
-        if (stack.streamAll(PotionContentsComponent.class).anyMatch(component -> Streams.of(component.getEffects())
-                .map(StatusEffectInstance::getEffectType)
+        if (stack.getAllOfType(PotionContents.class).anyMatch(component -> Streams.of(component.getAllEffects())
+                .map(MobEffectInstance::getEffect)
                 .anyMatch(healingEffects::contains))) {
             return true;
         }
         for (var effect : consumable.onConsumeEffects()) {
-            if (effect instanceof ApplyEffectsConsumeEffect apply
+            if (effect instanceof ApplyStatusEffectsConsumeEffect apply
                     && apply.effects().stream()
-                            .map(StatusEffectInstance::getEffectType)
+                            .map(MobEffectInstance::getEffect)
                             .anyMatch(healingEffects::contains)) {
                 return true;
             }

@@ -7,8 +7,8 @@ import me.matl114.gui.elements.ButtonElement;
 import me.matl114.gui.presets.index.IndexedScreen;
 import me.matl114.managers.config.Config;
 import me.matl114.managers.config.StringRef;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 public class ConfigurateNewStyleScreen extends IndexedScreen<Config, ConfigureListWidget> {
     public ConfigurateNewStyleScreen(List<Config> list) {
@@ -37,7 +37,7 @@ public class ConfigurateNewStyleScreen extends IndexedScreen<Config, ConfigureLi
 
     @Override
     protected ElementHandler createIndexHandler(Config val) {
-        return new ButtonElement(TextProvider.of(Text.literal(val.getConfigName())), ButtonAction.run(() -> {
+        return new ButtonElement(TextProvider.of(Component.literal(val.getConfigName())), ButtonAction.run(() -> {
                     this.setGlobal(val);
                 }))
                 .setInactiveId(ButtonElement.BUTTON)
@@ -84,7 +84,7 @@ public class ConfigurateNewStyleScreen extends IndexedScreen<Config, ConfigureLi
     static {
         Listener.getHotKeyTriggeredListener().registerHandler(iHotKeyEvent -> {
             // do not use any hotkeys in configure screen because we may use keyBindConfigurate
-            if (MinecraftClient.getInstance().currentScreen instanceof ConfigurateNewStyleScreen) {
+            if (Minecraft.getInstance().gui.screen() instanceof ConfigurateNewStyleScreen) {
                 iHotKeyEvent.cancel();
             }
         });

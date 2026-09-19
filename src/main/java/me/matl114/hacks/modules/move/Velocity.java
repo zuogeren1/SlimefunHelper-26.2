@@ -18,17 +18,21 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.network.OffThreadException;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.s2c.common.CommonPingS2CPacket;
-import net.minecraft.network.packet.s2c.play.*;
-import net.minecraft.registry.tag.DamageTypeTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundPingPacket;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.server.RunningOnDifferentThreadException;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.phys.Vec3;
 
 public class Velocity extends BaseModule implements LegalMovementManager.MovementModifier {
     // 还没想好 先新建文件夹
@@ -115,21 +119,21 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     public void registerAll() {
         super.registerAll();
         // 在此处注册事件监听器（当前为空）
-        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityType.PLAYER), this::onVelocity);
+        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onVelocity);
         registerListener(Listener.getPlayerExplosionVelocity(), this::onExplosion);
-        registerListener(Listener.getPacketPoint().getChannel(EntityDamageS2CPacket.class), this::onEntityDamage);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onSendMove);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onSendMove);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerPositionLookS2CPacket.class), this::onSetPosition);
-        registerListener(Listener.getPacketPoint().getChannel(CommonPingS2CPacket.class), this::onPing);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundPlayerPositionPacket.class), this::onSetPosition);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundPingPacket.class), this::onPing);
         registerListener(Listener.getPreGameTick(), this::onPreTick);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(BlockUpdateS2CPacket.class), this::onBlockUpdate);
-        registerListener(Listener.getPacketPreHandlePoint().getChannel(ExplosionS2CPacket.class), this::onExplosionPre);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockUpdatePacket.class), this::onBlockUpdate);
+        registerListener(Listener.getPacketPreHandlePoint().getChannel(ClientboundExplodePacket.class), this::onExplosionPre);
         registerListener(Listener.getPlayerFluidVelocityPoint(), this::onElytraLiquidPush);
     }
 
-    public void onElytraLiquidPush(Event<Vec3d> velocity) {
+    public void onElytraLiquidPush(Event<Vec3> velocity) {
         if (noWaterPush.get()) {
             velocity.cancel();
         }
@@ -139,11 +143,11 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     public int canCancel = 0;
     int lastGroundTick = 0;
 
-    public void onEntityDamage(Event<EntityDamageS2CPacket> damage) {
+    public void onEntityDamage(Event<ClientboundDamageEventPacket> damage) {
         if (enable.get() && mc.player != null && damage.context.entityId() == mc.player.getId()) {
             var type = damage.context.sourceType();
             // ignore no knockback types
-            if (!type.isIn(DamageTypeTags.NO_KNOCKBACK)) {
+            if (!type.is(DamageTypeTags.NO_KNOCKBACK)) {
                 canCancel += 1;
                 lastHurtTick = Tasks.getTick();
             }
@@ -155,8 +159,8 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     long lastVelocityNS = 0;
     long lastCancelVelocityNS = 0;
     int lastCancelVelocityTick = 0;
-    Vec3d lastVelocity = Vec3d.ZERO;
-    Vec3d lastCancelledVelocity = Vec3d.ZERO;
+    Vec3 lastVelocity = Vec3.ZERO;
+    Vec3 lastCancelledVelocity = Vec3.ZERO;
 
     public void markForCancelVelocity() {
         lastCancelVelocityNS = System.nanoTime();
@@ -165,7 +169,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
         // Debug.chat("Cancel vc", lastCancelledVelocity.length());
     }
 
-    public void onExplosionPre(Event<ExplosionS2CPacket> eventExplosion) {
+    public void onExplosionPre(Event<ClientboundExplodePacket> eventExplosion) {
         if (enable.get()
                 && explosions.get()
                 && mc.player != null
@@ -174,7 +178,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
         }
     }
 
-    public void onVelocity(Event<Vec3d> event) {
+    public void onVelocity(Event<Vec3> event) {
         if (checkNull()) return;
         if (event.getArgs(0) == mc.player) {
             lastVelocityNS = System.nanoTime();
@@ -183,14 +187,14 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
         }
     }
 
-    public void onExplosion(Event<Vec3d> event) {
+    public void onExplosion(Event<Vec3> event) {
         if (checkNull()) return;
         lastVelocityNS = System.nanoTime();
-        lastVelocity = mc.player.getVelocity().add(event.context());
+        lastVelocity = mc.player.getDeltaMovement().add(event.context());
         onPlayerVelocity(event);
     }
 
-    public void onPlayerVelocity(Event<Vec3d> event) {
+    public void onPlayerVelocity(Event<Vec3> event) {
         if (enable.get() && mc.player != null) {
             if (inFirework.get()
                     && mc.player.isFallFlying()
@@ -200,7 +204,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
                 return;
             }
             // todo: make this inside wall
-            if (inWall.get() && mc.player.isInsideWall()) {
+            if (inWall.get() && mc.player.isInWall()) {
                 // handle In
                 markForCancelVelocity();
                 event.cancel();
@@ -216,21 +220,21 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
                     markForCancelVelocity();
                     event.cancel();
                     return;
-                } else if (lastVelocity.horizontalLength() >= minHorizontalVelocity.get()
+                } else if (lastVelocity.horizontalDistance() >= minHorizontalVelocity.get()
                         || Math.abs(lastVelocity.y) >= minVerticalVelocity.get()) {
-                    if ((mc.player.isTouchingWater() || mc.player.isSubmergedInWater() || mc.player.isInLava())
+                    if ((mc.player.isInWater() || mc.player.isUnderWater() || mc.player.isInLava())
                             && notInWater.get()) {
                         return;
                     }
 
                     if (!mc.player.isFallFlying()
-                            && (!onGroundOnly.get() || mc.player.isOnGround())
+                            && (!onGroundOnly.get() || mc.player.onGround())
                             && mode.get() == Mode.GRIM_LEGACY_GROUND) {
                         handleVelocityGrimLegacy(event);
                         return;
                     }
                     if (!mc.player.isFallFlying()
-                            && (!onGroundOnly.get() || mc.player.isOnGround())
+                            && (!onGroundOnly.get() || mc.player.onGround())
                             && mode.get() == Mode.GRIM_NEW_GROUND) {
                         handleVelocityGrimNew(event);
                         return;
@@ -239,7 +243,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
                         handleVelocityFreeze(event);
                         return;
                     }
-                    if (!mc.player.isOnGround() && onGroundOnly.get()) {
+                    if (!mc.player.onGround() && onGroundOnly.get()) {
                         // todo ?
                     }
                     // todo: copy from what
@@ -253,7 +257,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
 
     boolean flagLegacy = false;
 
-    public void handleVelocityGrimLegacy(Event<Vec3d> eventVc) {
+    public void handleVelocityGrimLegacy(Event<Vec3> eventVc) {
         //        if (lastSetBackNS > System.nanoTime() - 100 * 1_000_000) {
         //            return;
         //        }
@@ -261,7 +265,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
         markForCancelVelocity();
         flagLegacy = true;
         // who 'd fuck write this shit?
-        //        mc.getNetworkHandler()
+        //        mc.getConnection()
         //                .sendPacket(VPacket.newLookAndOnGround(
         //                        mc.player.getYaw(),
         //                        mc.player.getPitch(),
@@ -271,30 +275,30 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
 
     int lastFreezeTick = 0;
 
-    public void handleVelocityFreeze(Event<Vec3d> eventVc) {
+    public void handleVelocityFreeze(Event<Vec3> eventVc) {
         lastFreezeTick = Tasks.getTick();
         eventVc.cancel();
         markForCancelVelocity();
     }
 
-    public void handleVelocityExtraFreeze(Event<Vec3d> eventVc) {
+    public void handleVelocityExtraFreeze(Event<Vec3> eventVc) {
         if (lastFreezeTick + freezeTime.get() > Tasks.getTick()) {
             eventVc.cancel();
         }
     }
 
-    public void handleVelocityGrimNew(Event<Vec3d> eventVc) {}
+    public void handleVelocityGrimNew(Event<Vec3> eventVc) {}
 
     private BlockPos lastBlockPos;
 
-    public void onPreTick(Event<ClientPlayerEntity> eventPreTick) {
+    public void onPreTick(Event<LocalPlayer> eventPreTick) {
         if (!enable.get()) {
             return;
         }
         if (flagLegacy) {
-            BlockPos pos = mc.player.isCrawling()
-                    ? mc.player.getBlockPos()
-                    : mc.player.getBlockPos().up();
+            BlockPos pos = mc.player.isVisuallyCrawling()
+                    ? mc.player.blockPosition()
+                    : mc.player.blockPosition().above();
             if (Objects.equals(lastBlockPos, pos)) {
                 if (!FakeBlockManager.INSTANCE.isCurrentlyFakeState(pos)) {
                     flagLegacy = false;
@@ -331,7 +335,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
         }
     }
 
-    public void onBlockUpdate(Event<BlockUpdateS2CPacket> eventBlockUpdate) {
+    public void onBlockUpdate(Event<ClientboundBlockUpdatePacket> eventBlockUpdate) {
         //        if(enable.get()){
         //            BlockPos pos = eventBlockUpdate.context.getPos();
         //            if(pos.getSquaredDistance(mc.player.getPos()) < 10){
@@ -343,20 +347,20 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
 
     Deque<Packet> packets = new ArrayDeque<>();
 
-    public void onPing(Event<CommonPingS2CPacket> pingEvent) {
+    public void onPing(Event<ClientboundPingPacket> pingEvent) {
         if (shouldDelay) {
             packets.add(pingEvent.context);
             pingEvent.cancel();
         }
     }
 
-    public void onSetPosition(Event<PlayerPositionLookS2CPacket> event) {
+    public void onSetPosition(Event<ClientboundPlayerPositionPacket> event) {
         lastSetBackNS = System.nanoTime();
         if (shouldDelay) {
             for (Packet packet : packets) {
                 try {
-                    packet.apply(mc.getNetworkHandler());
-                } catch (OffThreadException ex) {
+                    packet.handle(mc.getConnection());
+                } catch (RunningOnDifferentThreadException ex) {
                     // ignore
                 }
             }
@@ -369,7 +373,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     //        }
     //    }
 
-    public void onSendMove(Event<PlayerMoveC2SPacket> event) {}
+    public void onSendMove(Event<ServerboundMovePlayerPacket> event) {}
 
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {}
@@ -380,10 +384,10 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     public void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {}
 
     @Override
-    public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {}
+    public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {}
 
     @Override
-    public void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {
+    public void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {
         if (skipTick) {
             sendFallFlying();
         }
@@ -394,9 +398,9 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     }
 
     private void sendFallFlying() {
-        var packet = new ClientCommandC2SPacket(mc.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING);
+        var packet = new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING);
 
-        mc.getNetworkHandler().sendPacket(packet);
+        mc.getConnection().send(packet);
     }
 
     @Override

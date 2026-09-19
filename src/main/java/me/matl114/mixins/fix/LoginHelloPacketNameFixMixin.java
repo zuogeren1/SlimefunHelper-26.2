@@ -2,13 +2,13 @@ package me.matl114.mixins.fix;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.packet.c2s.login.LoginHelloC2SPacket;
+import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Environment(EnvType.CLIENT)
-@Mixin(LoginHelloC2SPacket.class)
+@Mixin(ServerboundHelloPacket.class)
 public abstract class LoginHelloPacketNameFixMixin {
     // 运行逻辑
     // client->server helloPacket
@@ -21,7 +21,7 @@ public abstract class LoginHelloPacketNameFixMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/network/PacketByteBuf;writeString(Ljava/lang/String;I)Lnet/minecraft/network/PacketByteBuf;"),
+                                    "Lnet/minecraft/network/FriendlyByteBuf;writeUtf(Ljava/lang/String;I)Lnet/minecraft/network/FriendlyByteBuf;"),
             index = 0)
     private String onChangeNameSend(String name) {
         //        byte[] nameBytes = new byte[]{33,34,35,36};

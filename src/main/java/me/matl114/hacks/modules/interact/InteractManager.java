@@ -36,28 +36,28 @@ import me.matl114.utils.commands.params.types.EntitySelector;
 import me.matl114.utils.commands.params.types.ExecutePos;
 import me.matl114.utils.commands.params.types.ExecuteRotation;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.potion.Potion;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.stream.Streams;
 import org.joml.Vector2f;
 import org.joml.Vector3d;
@@ -123,7 +123,7 @@ public class InteractManager extends BaseModule {
         registerListener(Listener.getServerLeavePoint(), this::onServerLeave);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(Listener.getPostHandleInputEvents(), this::onPostInputEvent, Integer.MIN_VALUE);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onPlayerMoveC2SPacket);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMoveC2SPacket);
     }
 
     public boolean duringVanillaInput = false;
@@ -146,7 +146,7 @@ public class InteractManager extends BaseModule {
         clearRunningRequests(null);
     }
 
-    public void onWorldSwitch(Event<World> event) {
+    public void onWorldSwitch(Event<Level> event) {
         clearRunningRequests(null);
     }
 
@@ -174,14 +174,14 @@ public class InteractManager extends BaseModule {
             // hold use actions
             if (holdUseTick == 0 || (holdUseTick > 0 && !mc.player.isUsingItem())) {
                 holdUseTick = -1;
-                KeyBindAccess.of(mc.options.useKey).resetKeyState();
+                KeyBindAccess.of(mc.options.keyUse).resetKeyState();
                 if (holdUseCallback != null) {
                     holdUseCallback.run();
                     holdUseCallback = null;
                 }
             } else if (holdUseTick > 0) {
                 holdUseTick--;
-                mc.options.useKey.setPressed(true);
+                mc.options.keyUse.setDown(true);
             }
         } finally {
             duringCommand = false;
@@ -193,11 +193,11 @@ public class InteractManager extends BaseModule {
         duringVanillaInput = false;
     }
 
-    public void onPlayerMoveC2SPacket(Event<PlayerMoveC2SPacket> eventPacket) {
+    public void onPlayerMoveC2SPacket(Event<ServerboundMovePlayerPacket> eventPacket) {
         if (((disableLowVersionSpeedReset.get() && duringVanillaInput)
                         || (disableLowVersionWhenUse.get() && duringCommand))
                 && ViaFabricPlusHooks.isSupportDupRot()
-                && eventPacket.context instanceof PlayerMoveC2SPacket.Full fullPacket) {
+                && eventPacket.context instanceof ServerboundMovePlayerPacket.PosRot fullPacket) {
             if (fullPacket instanceof PlayerMoveC2SPacketAccess access
                     && access.getCause() == PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP) {
                 eventPacket.cancel();
@@ -625,7 +625,7 @@ public class InteractManager extends BaseModule {
     }
 
     private boolean canSubmit(CommandExecution context) {
-        if (mc.player == null || mc.world == null) {
+        if (mc.player == null || mc.level == null) {
             context.sendMessage("&c[Interact] 当前没有可用玩家或世界");
             return false;
         }
@@ -683,7 +683,7 @@ public class InteractManager extends BaseModule {
             return potionMetaTabs(raw, metaStart);
         }
         Stream<String> itemIds = itemIdTabs();
-        Item itemId = Registries.ITEM.get(Identifier.tryParse(token));
+        Item itemId = BuiltInRegistries.ITEM.getValue(Identifier.tryParse(token));
         if (itemId != Items.AIR && hasPotionComponent(itemId)) {
             return Stream.concat(itemIds, Stream.of(raw + "[")).distinct();
         }
@@ -691,7 +691,7 @@ public class InteractManager extends BaseModule {
     }
 
     private static Stream<String> itemIdTabs() {
-        return Registries.ITEM.stream().map(Registries.ITEM::getId).map(Identifier::getPath);
+        return BuiltInRegistries.ITEM.stream().map(BuiltInRegistries.ITEM::getKey).map(Identifier::getPath);
     }
 
     private static Stream<String> potionMetaTabs(String raw, int metaStart) {
@@ -699,21 +699,21 @@ public class InteractManager extends BaseModule {
             return Stream.empty();
         }
         String itemRaw = raw.substring(0, metaStart);
-        Item itemId = Registries.ITEM.get(Identifier.tryParse(itemRaw));
+        Item itemId = BuiltInRegistries.ITEM.getValue(Identifier.tryParse(itemRaw));
         if (itemId == Items.AIR || !hasPotionComponent(itemId)) return Stream.empty();
         String prefix = raw.substring(0, metaStart + 1);
         return potionIdTabs().map(id -> prefix + id + "]");
     }
 
     private static Stream<String> potionIdTabs() {
-        return Registries.POTION.stream()
-                .map(Registries.POTION::getId)
+        return BuiltInRegistries.POTION.stream()
+                .map(BuiltInRegistries.POTION::getKey)
                 .filter(Objects::nonNull)
                 .map(Identifier::getPath);
     }
 
     private static boolean hasPotionComponent(Item itemId) {
-        return itemId != null && itemId.getComponents().contains(DataComponentTypes.POTION_CONTENTS);
+        return itemId != null && itemId.components().has(DataComponents.POTION_CONTENTS);
     }
 
     // Validations and parsers
@@ -725,8 +725,8 @@ public class InteractManager extends BaseModule {
     private static UseContextSelector parseUseContextSelector(String raw) {
         if (raw == null || raw.isBlank()) return null;
         return switch (raw) {
-            case "mainhand" -> UseContextSelector.fixed(Hand.MAIN_HAND);
-            case "offhand" -> UseContextSelector.fixed(Hand.OFF_HAND);
+            case "mainhand" -> UseContextSelector.fixed(InteractionHand.MAIN_HAND);
+            case "offhand" -> UseContextSelector.fixed(InteractionHand.OFF_HAND);
             default -> UseContextSelector.item(parseItemStackSelector(raw));
         };
     }
@@ -760,12 +760,12 @@ public class InteractManager extends BaseModule {
             metaRaw = raw.substring(metaStart + 1, raw.length() - 1);
             if (metaRaw.isBlank() || metaRaw.indexOf('[') >= 0 || metaRaw.indexOf(']') >= 0) return null;
         }
-        Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(itemRaw)).orElse(null);
+        Item item = BuiltInRegistries.ITEM.getOptional(Identifier.tryParse(itemRaw)).orElse(null);
         if (item == null) return null;
         if (metaRaw != null) {
             Identifier id = Identifier.tryParse(metaRaw);
-            if (Registries.POTION.containsId(id)) {
-                RegistryEntry<Potion> potion = Registries.POTION.getEntry(Registries.POTION.get(id));
+            if (BuiltInRegistries.POTION.containsKey(id)) {
+                Holder<Potion> potion = BuiltInRegistries.POTION.wrapAsHolder(BuiltInRegistries.POTION.getValue(id));
                 return new ItemStackSelector(item, potion);
             }
         }
@@ -882,7 +882,7 @@ public class InteractManager extends BaseModule {
 
         UseContextSelector hand();
 
-        public void execute(InteractManager manager, PlayerEntity player);
+        public void execute(InteractManager manager, Player player);
     }
 
     public record AttackContext(UseContextSelector hand, EntitySelector entity) implements InteractContext {
@@ -892,7 +892,7 @@ public class InteractManager extends BaseModule {
         }
 
         @Override
-        public void execute(InteractManager manager, PlayerEntity player) {
+        public void execute(InteractManager manager, Player player) {
             Entity entitySelect = entity.first(PlayerStateManager.createServer());
             if (entitySelect == null) return;
             var entry = hand.getUseContext();
@@ -901,7 +901,7 @@ public class InteractManager extends BaseModule {
                 if (runnable != null) {
                     CombatTasks.getAttack().attackEntity(entitySelect);
                     if (InteractManager.INSTANCE.logA.get()) {
-                        Text text = EntityUtils.getEntityDisplayable(entitySelect);
+                        Component text = EntityUtils.getEntityDisplayable(entitySelect);
                         manager.logI18NSub("Interact", "message.module.interact-manager.interact.attack", text);
                     }
                     runnable.run();
@@ -921,20 +921,20 @@ public class InteractManager extends BaseModule {
         }
 
         @Override
-        public void execute(InteractManager manager, PlayerEntity player) {
+        public void execute(InteractManager manager, Player player) {
             Vector3d vector3d = target.getPosition(PlayerStateManager.createServer());
             BlockPos blockPos = new BlockPos((int) vector3d.x, (int) vector3d.y, (int) vector3d.z);
             var entry = hand.getUseContext();
             if (entry != null) {
                 Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
                 if (runnable != null) {
-                    mc.interactionManager.attackBlock(
-                            blockPos, Direction.getFacing(mc.player.getEyePos().subtract(blockPos.toCenterPos())));
+                    mc.gameMode.startDestroyBlock(
+                            blockPos, Direction.getApproximateNearest(mc.player.getEyePosition().subtract(Vec3.atCenterOf(blockPos))));
                     if (InteractManager.INSTANCE.logA.get()) {
                         manager.logI18NSub(
                                 "Interact",
                                 "message.module.interact-manager.interact.mine",
-                                ChatUtils.getDisplayedLocation(Vec3d.of(blockPos)));
+                                ChatUtils.getDisplayedLocation(Vec3.atLowerCornerOf(blockPos)));
                     }
                     runnable.run();
                 }
@@ -953,8 +953,8 @@ public class InteractManager extends BaseModule {
         }
 
         @Override
-        public void execute(InteractManager manager, PlayerEntity player) {
-            Vec2f supply = target.getLook(player);
+        public void execute(InteractManager manager, Player player) {
+            Vec2 supply = target.getLook(player);
             if (supply != null) {
                 var entry = hand.getUseContext();
                 if (entry != null) {
@@ -963,20 +963,20 @@ public class InteractManager extends BaseModule {
                             ? (InvExtra.INSTANCE.swapInventoryIndexToOffhand(entry.index()))
                             : InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
                     if (runnable != null) {
-                        Vec2f vec2f = new Vec2f(player.getPitch(), player.getYaw());
-                        player.setPitch(supply.x);
-                        player.setYaw(supply.y);
-                        Hand hand = shouldUseOffHand ? Hand.OFF_HAND : Hand.MAIN_HAND;
-                        var result = mc.interactionManager.interactItem(player, hand);
+                        Vec2 vec2f = new Vec2(player.getXRot(), player.getYRot());
+                        player.setXRot(supply.x);
+                        player.setYRot(supply.y);
+                        InteractionHand hand = shouldUseOffHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+                        var result = mc.gameMode.useItem(player, hand);
                         if (InteractManager.INSTANCE.logA.get()) {
-                            Text text = VItem.getInstance().getFormattedName(entry.val());
+                            Component text = VItem.getInstance().getFormattedName(entry.val());
                             manager.logI18NSub("Interact", "message.module.interact-manager.interact.use", text);
                         }
                         if (shouldSwingHandAfterUse()) {
                             InteractUtils.swingHandIfSuccess(result, hand);
                         }
-                        player.setPitch(vec2f.x);
-                        player.setYaw(vec2f.y);
+                        player.setXRot(vec2f.x);
+                        player.setYRot(vec2f.y);
                         runnable.run();
                     }
                 } else {
@@ -1005,7 +1005,7 @@ public class InteractManager extends BaseModule {
         }
 
         @Override
-        public void execute(InteractManager manager, PlayerEntity player) {
+        public void execute(InteractManager manager, Player player) {
             var entry = hand.getUseContext();
             if (entry != null) {
                 boolean offhand = InteractManager.INSTANCE.offHandHoldUsage.get() || entry.index() == 40;
@@ -1013,10 +1013,10 @@ public class InteractManager extends BaseModule {
                         ? (InvExtra.INSTANCE.swapInventoryIndexToOffhand(entry.index()))
                         : InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
                 if (runnable != null) {
-                    Hand hand = offhand ? Hand.OFF_HAND : Hand.MAIN_HAND;
-                    var result = mc.interactionManager.interactItem(player, hand);
+                    InteractionHand hand = offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+                    var result = mc.gameMode.useItem(player, hand);
                     if (InteractManager.INSTANCE.logA.get()) {
-                        Text text = VItem.getInstance().getFormattedName(entry.val());
+                        Component text = VItem.getInstance().getFormattedName(entry.val());
                         manager.logI18NSub("Interact", "message.module.interact-manager.interact.use", text);
                     }
                     manager.holdUseTick = releaseTicks;
@@ -1040,7 +1040,7 @@ public class InteractManager extends BaseModule {
             return new AnyUseContextSelector();
         }
 
-        static UseContextSelector fixed(Hand hand) {
+        static UseContextSelector fixed(InteractionHand hand) {
             return new FixedUseContextSelector(hand);
         }
 
@@ -1060,7 +1060,7 @@ public class InteractManager extends BaseModule {
         }
     }
 
-    public record FixedUseContextSelector(Hand hand) implements UseContextSelector {
+    public record FixedUseContextSelector(InteractionHand hand) implements UseContextSelector {
         @Override
         public IndexEntry<ItemStack> getUseContext() {
             return currentHandContext(normalizedHand(hand));
@@ -1082,41 +1082,41 @@ public class InteractManager extends BaseModule {
         }
     }
 
-    public record ItemStackSelector(Item item, RegistryEntry<Potion> potionType) {
+    public record ItemStackSelector(Item item, Holder<Potion> potionType) {
         public Double matches(ItemStack stack) {
             if (stack == null || stack.isEmpty() || item == null) return null;
             if (!item.equals(stack.getItem())) return null;
             if (potionType == null) return 10.0D;
-            PotionContentsComponent contents = stack.get(DataComponentTypes.POTION_CONTENTS);
+            PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
             if (InteractManager.INSTANCE.ignorePotionLevel.get()) {
                 if (contents == null) return null;
-                if (contents.matches(potionType)) {
+                if (contents.is(potionType)) {
                     return 10.0D;
                 }
-                Set<RegistryEntry<StatusEffect>> effectSet = Streams.of(contents.getEffects())
-                        .map(StatusEffectInstance::getEffectType)
+                Set<Holder<MobEffect>> effectSet = Streams.of(contents.getAllEffects())
+                        .map(MobEffectInstance::getEffect)
                         .collect(Collectors.toSet());
-                Set<RegistryEntry<StatusEffect>> required = Streams.of(
+                Set<Holder<MobEffect>> required = Streams.of(
                                 potionType.value().getEffects())
-                        .map(StatusEffectInstance::getEffectType)
+                        .map(MobEffectInstance::getEffect)
                         .collect(Collectors.toSet());
                 if (effectSet.containsAll(required)) {
                     return 5.0D;
                 }
                 return null;
             } else {
-                return (contents != null && contents.matches(potionType)) ? 10.0D : null;
+                return (contents != null && contents.is(potionType)) ? 10.0D : null;
             }
         }
 
         public String asString() {
-            Identifier itemId = item == null ? null : Registries.ITEM.getId(item);
+            Identifier itemId = item == null ? null : BuiltInRegistries.ITEM.getKey(item);
             return (itemId == null ? "air" : itemId.toString()) + (potionType == null ? "" : "[" + potionType + "]");
         }
     }
 
     public interface LookSupplier {
-        Vec2f getLook(PlayerEntity pl);
+        Vec2 getLook(Player pl);
 
         static LookSupplier of(InputArgument<?> inputArgument) {
             if (inputArgument instanceof PosArgumentResult pos) {
@@ -1125,14 +1125,14 @@ public class InteractManager extends BaseModule {
                     CommandExecution execution = PlayerStateManager.createServer();
                     Vector3d vector3d = pos2.getPosition(execution);
                     vector3d = vector3d.sub(execution.getExecuteEyePos());
-                    return EntityUtils.rotationToPitchYaw(new Vec3d(vector3d.x(), vector3d.y(), vector3d.z()));
+                    return EntityUtils.rotationToPitchYaw(new Vec3(vector3d.x(), vector3d.y(), vector3d.z()));
                 };
             } else if (inputArgument instanceof RotationArgumentResult rot) {
                 ExecuteRotation executeRotation = rot.nonnullResult();
                 return (pl) -> {
                     CommandExecution execution = PlayerStateManager.createServer();
                     Vector2f vector2f = executeRotation.getRotation(execution);
-                    return new Vec2f(vector2f.x(), vector2f.y());
+                    return new Vec2(vector2f.x(), vector2f.y());
                 };
             } else if (inputArgument instanceof EntityArgumentResult result) {
                 EntitySelector selector = result.nonnullResult();
@@ -1145,26 +1145,26 @@ public class InteractManager extends BaseModule {
                                 entity.getBoundingBox().getCenter().subtract(vec3d.x, vec3d.y, vec3d.z));
                     } else {
                         Vector2f rot = execution.getExecuteRot();
-                        return new Vec2f(rot.x, rot.y);
+                        return new Vec2(rot.x, rot.y);
                     }
                 };
             } else return null;
         }
     }
 
-    private static Hand preferredHand() {
-        return shouldUseOffhandByDefault() ? Hand.OFF_HAND : Hand.MAIN_HAND;
+    private static InteractionHand preferredHand() {
+        return shouldUseOffhandByDefault() ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
     }
 
-    private static Hand normalizedHand(Hand hand) {
-        return hand == null ? Hand.MAIN_HAND : hand;
+    private static InteractionHand normalizedHand(InteractionHand hand) {
+        return hand == null ? InteractionHand.MAIN_HAND : hand;
     }
 
-    private static IndexEntry<ItemStack> currentHandContext(Hand hand) {
+    private static IndexEntry<ItemStack> currentHandContext(InteractionHand hand) {
         if (mc.player == null) return null;
-        Hand normalized = normalizedHand(hand);
-        int index = normalized == Hand.OFF_HAND ? 40 : InventoryUtils.getSelectedSlot();
-        return new IndexEntry<>(index, mc.player.getStackInHand(normalized));
+        InteractionHand normalized = normalizedHand(hand);
+        int index = normalized == InteractionHand.OFF_HAND ? 40 : InventoryUtils.getSelectedSlot();
+        return new IndexEntry<>(index, mc.player.getItemInHand(normalized));
     }
 
     private static boolean shouldUseOffhandByDefault() {

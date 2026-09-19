@@ -1,5 +1,6 @@
 package me.matl114.hacks.utils.move;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.util.*;
 import java.util.function.*;
@@ -33,30 +34,34 @@ import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.config.ValueAccessor;
 import me.matl114.utils.render.RenderCollector;
 import me.matl114.utils.world.ContainerPosition;
-import net.minecraft.block.ChestBlock;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.block.entity.BarrelBlockEntity;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.block.entity.ShulkerBoxBlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.*;
-import net.minecraft.world.chunk.Chunk;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.entity.BarrelBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
 @Accessors(fluent = true)
 public class PathingSchedular {
-    static final MinecraftClient mc = MinecraftClient.getInstance();
+    static final Minecraft mc = Minecraft.getInstance();
     public static IndexEntry<PathingSchedular> currentWorkingInstance = null;
     private static final int PATH_STOP_SEARCH_RADIUS = 4;
     private static final int PATH_STOP_SEARCH_VERTICAL = 6;
@@ -114,7 +119,7 @@ public class PathingSchedular {
 
     @Nullable
     @Setter
-    Predicate<HandledScreen<?>> replenishAction;
+    Predicate<AbstractContainerScreen<?>> replenishAction;
     //    @Nullable
     //    @Setter
     //    Predicate<HandledScreen<?>> dischargeAction;
@@ -128,11 +133,11 @@ public class PathingSchedular {
 
     @Nullable
     @Setter
-    BiPredicate<ContainerPosition, Inventory> replenishmentSourcePredicate;
+    BiPredicate<ContainerPosition, Container> replenishmentSourcePredicate;
 
     @Nullable
     @Setter
-    BiPredicate<ContainerPosition, Inventory> dischargeSourcePredicate;
+    BiPredicate<ContainerPosition, Container> dischargeSourcePredicate;
 
     final StateMachine machine;
 
@@ -143,10 +148,10 @@ public class PathingSchedular {
     @Setter
     boolean enable;
 
-    ClientPlayerEntity player;
+    LocalPlayer player;
 
     @Nonnull
-    BlockPos startPos = BlockPos.ORIGIN;
+    BlockPos startPos = BlockPos.ZERO;
 
     @Setter
     @Getter
@@ -160,7 +165,7 @@ public class PathingSchedular {
     @Getter
     HashSet<ContainerPosition> optionalHasShulkerBoxOrChestSource = new HashSet<>();
 
-    RenderCollector<Box> renderCollector = RenderCollectors.createBoxCollector(true, false, false);
+    RenderCollector<AABB> renderCollector = RenderCollectors.createBoxCollector(true, false, false);
 
     @Setter
     @Getter
@@ -186,7 +191,7 @@ public class PathingSchedular {
             optionalHasShulkerBoxOrChestSource.clear();
             exploreChestBlock = null;
             renderCollector.clear();
-            startPos = BlockPos.ORIGIN;
+            startPos = BlockPos.ZERO;
             pendingExploreBlocks = null;
             exploreChestBlock = null;
             currentDischargeActionTarget = null;
@@ -198,7 +203,7 @@ public class PathingSchedular {
     }
 
     public int onStateNone(StateMachine machine) {
-        startPos = player.getSteppingPos().add(0, 1, 0);
+        startPos = player.getOnPos().offset(0, 1, 0);
         if (enable) {
             return State.INITIALIZE_EXPLORE.ordinal();
         }
@@ -212,14 +217,14 @@ public class PathingSchedular {
     private boolean isEmptyShulkerBox(ItemStack stack) {
         return stack.getItem() instanceof BlockItem bi
                 && bi.getBlock() instanceof ShulkerBoxBlock
-                && ItemStackUtils.hasInPatch(stack, DataComponentTypes.CONTAINER)
-                && stack.get(DataComponentTypes.CONTAINER)
-                        .streamNonEmpty()
+                && ItemStackUtils.hasInPatch(stack, DataComponents.CONTAINER)
+                && stack.get(DataComponents.CONTAINER)
+                        .nonEmptyItemCopyStream()
                         .findFirst()
                         .isEmpty();
     }
 
-    private void analysisContainer(ContainerPosition pos, Inventory handledScreen) {
+    private void analysisContainer(ContainerPosition pos, Container handledScreen) {
         if (replenishmentSourcePredicate != null && replenishmentSourcePredicate.test(pos, handledScreen)) {
             replenishSource.add(pos);
         }
@@ -261,17 +266,17 @@ public class PathingSchedular {
             exploreChestBlock = null;
             return;
         }
-        if (mc.currentScreen instanceof HandledScreen<?> screen
+        if (mc.gui.screen() instanceof AbstractContainerScreen<?> screen
                 && screen instanceof TileInventory tileInventoryScreen
                 && Objects.equals(tileInventoryScreen.getContainerPosition(), exploreChestBlock)) {
             analysisContainer(exploreChestBlock, InventoryUtils.getTopInventory(screen));
-            screen.close();
+            screen.onClose();
             exploreChestBlock = null;
             return;
         }
         pathToOrNearStop(exploreChestBlock.getFirst().getPos(), 1.5);
         if (InteractExtra.INSTANCE.isWithinInteractRange(
-                mc.player.getPos(), exploreChestBlock.getFirst().getPos())) {
+                mc.player.position(), exploreChestBlock.getFirst().getPos())) {
             slowInteract.run(
                     5,
                     () -> Interact.INSTANCE.interactBlock(
@@ -285,7 +290,7 @@ public class PathingSchedular {
 
     private boolean isContainerStillValid(ContainerPosition pos) {
         BlockPos left = pos.getFirst().getPos();
-        BlockEntity be = mc.world.getBlockEntity(left);
+        BlockEntity be = mc.level.getBlockEntity(left);
         return be instanceof BarrelBlockEntity || be instanceof ChestBlockEntity || be instanceof ShulkerBoxBlockEntity;
     }
 
@@ -309,20 +314,20 @@ public class PathingSchedular {
                 if (containerSourceOverride != null) {
                     containerSourceOverride.get().forEach(pendingExploreBlocks::add);
                 } else {
-                    Vec3d currentPos = player.getPos();
+                    net.minecraft.world.phys.Vec3 currentPos = player.position();
                     Vec3 expansion = SchedularSettings.INSTANCE.scannChestRange.get();
-                    Box box = new Box(currentPos, currentPos).expand(expansion.x(), expansion.y(), expansion.z());
-                    Vec3d pos0 = box.getMinPos();
-                    Vec3d pos1 = box.getMaxPos();
+                    AABB box = new AABB(currentPos, currentPos).inflate(expansion.x(), expansion.y(), expansion.z());
+                    net.minecraft.world.phys.Vec3 pos0 = box.getMinPosition();
+                    net.minecraft.world.phys.Vec3 pos1 = box.getMaxPosition();
                     ChunkPos chunk0 = MathUtils.toChunkPos(pos0);
                     ChunkPos chunk1 = MathUtils.toChunkPos(pos1);
                     for (var x = chunk0.x; x <= chunk1.x; x++) {
                         for (var z = chunk0.z; z <= chunk1.z; z++) {
-                            Chunk chunk = mc.world.getChunkManager().getWorldChunk(x, z);
+                            net.minecraft.world.level.chunk.ChunkAccess chunk = mc.level.getChunkSource().getChunkNow(x, z);
                             if (chunk != null) {
                                 for (var re : ChunkAccess.of(chunk).blockEntityEntries()) {
                                     BlockPos pos = re.getKey();
-                                    ContainerPosition containerPosition = ContainerPosition.resolve(mc.world, pos);
+                                    ContainerPosition containerPosition = ContainerPosition.resolve(mc.level, pos);
                                     if (isContainerStillValid(containerPosition)
                                             && box.intersects(containerPosition.getBoundingBox())) {
                                         pendingExploreBlocks.add(containerPosition);
@@ -347,7 +352,7 @@ public class PathingSchedular {
             return State.PROCESS.ordinal();
         } else {
             exploreChestBlock = pendingExploreBlocks.stream()
-                    .min(Comparator.comparingDouble(s -> s.getCenterPosition().squaredDistanceTo(mc.player.getPos())))
+                    .min(Comparator.comparingDouble(s -> s.getCenterPosition().distanceToSqr(mc.player.position())))
                     .orElse(null);
             pendingExploreBlocks.remove(exploreChestBlock);
             return State.INITIALIZE_EXPLORE.ordinal();
@@ -360,7 +365,7 @@ public class PathingSchedular {
         if (currentReplenishActionTarget != null && !isContainerStillValid(currentReplenishActionTarget)) {
             if (!currentReplenishActionTarget.isDouble()) {
                 ContainerPosition tryResolve = ContainerPosition.resolve(
-                        mc.world, currentReplenishActionTarget.getFirst().getPos());
+                        mc.level, currentReplenishActionTarget.getFirst().getPos());
                 if (tryResolve.isDouble()) {
                     replenishSource.add(tryResolve);
                 }
@@ -372,31 +377,31 @@ public class PathingSchedular {
             if (currentReplenishActionTarget == null) {
                 currentReplenishActionTarget = replenishSource.stream()
                         .min(Comparator.comparingDouble(
-                                s -> mc.player.getPos().squaredDistanceTo(s.getCenterPosition())))
+                                s -> mc.player.position().distanceToSqr(s.getCenterPosition())))
                         .orElseThrow();
             }
             BlockPos leftPos = currentReplenishActionTarget.getFirst().getPos();
-            if (mc.currentScreen instanceof TileInventory tile
+            if (mc.gui.screen() instanceof TileInventory tile
                     && Objects.equals(tile.getContainerPosition(), currentReplenishActionTarget)) {
-                HandledScreen<?> screen = tile.castHandled();
+                AbstractContainerScreen<?> screen = tile.castHandled();
                 if (replenishAction != null) {
                     if (!replenishAction.test(screen)) {
                         replenishSource.remove(currentReplenishActionTarget);
                         currentReplenishActionTarget = null;
-                        screen.close();
+                        screen.onClose();
                     }
                 } else {
-                    Inventory topInventory = InventoryUtils.getTopInventory(screen);
+                    Container topInventory = InventoryUtils.getTopInventory(screen);
                     if (topInventory.isEmpty()) {
                         replenishSource.remove(currentReplenishActionTarget);
                         currentReplenishActionTarget = null;
-                        screen.close();
+                        screen.onClose();
                     } else {
                         int actionLimit = SchedularSettings.INSTANCE.defaultInventoryActionPerTick.get();
-                        for (var re = 0; re < topInventory.size(); ++re) {
-                            if (!topInventory.getStack(re).isEmpty()) {
-                                mc.interactionManager.clickSlot(
-                                        screen.getScreenHandler().syncId, re, 0, SlotActionType.QUICK_MOVE, mc.player);
+                        for (var re = 0; re < topInventory.getContainerSize(); ++re) {
+                            if (!topInventory.getItem(re).isEmpty()) {
+                                mc.gameMode.handleContainerInput(
+                                        screen.getMenu().containerId, re, 0, ContainerInput.QUICK_MOVE, mc.player);
                                 if (--actionLimit == 0) {
                                     break;
                                 }
@@ -406,7 +411,7 @@ public class PathingSchedular {
                 }
             } else {
                 pathToOrNearStop(leftPos, 1.5);
-                if (InteractExtra.INSTANCE.isWithinInteractRange(player.getPos(), leftPos)) {
+                if (InteractExtra.INSTANCE.isWithinInteractRange(player.position(), leftPos)) {
                     slowInteract.run(5, () -> Interact.INSTANCE.interactBlock(leftPos));
                 }
             }
@@ -451,7 +456,7 @@ public class PathingSchedular {
         if (currentDischargeActionTarget != null && !isContainerStillValid(currentDischargeActionTarget)) {
             if (!currentDischargeActionTarget.isDouble()) {
                 ContainerPosition tryResolve = ContainerPosition.resolve(
-                        mc.world, currentDischargeActionTarget.getFirst().getPos());
+                        mc.level, currentDischargeActionTarget.getFirst().getPos());
                 if (tryResolve.isDouble()) {
                     dischargeSource.add(tryResolve);
                 }
@@ -479,7 +484,7 @@ public class PathingSchedular {
                         .filter(s -> {
                             ChestHistory.Entry entry = ChestHistory.INSTANCE.getEntry(s);
                             if (entry == null) return true;
-                            Inventory inventory = entry.getInventory();
+                            Container inventory = entry.getInventory();
                             if (InventoryUtils.findItem(inventory, Items.AIR) != null) {
                                 return true;
                             }
@@ -489,43 +494,43 @@ public class PathingSchedular {
                                                     inventory,
                                                     stack -> {
                                                         if (stack.isEmpty()) return true;
-                                                        return stack.getCount() < stack.getMaxCount()
-                                                                && ItemStack.areItemsAndComponentsEqual(stack, sample);
+                                                        return stack.getCount() < stack.getMaxStackSize()
+                                                                && ItemStack.isSameItemSameComponents(stack, sample);
                                                     },
                                                     true)
                                             != null);
                         })
                         .min(Comparator.comparingDouble(
-                                s -> mc.player.getPos().squaredDistanceTo(s.getCenterPosition())))
+                                s -> mc.player.position().distanceToSqr(s.getCenterPosition())))
                         .orElse(null);
             }
             if (currentDischargeActionTarget == null) {
                 SchedularSettings.INSTANCE.logNoSuitableContainer();
             } else {
                 BlockPos leftPos = currentDischargeActionTarget.getFirst().getPos();
-                if (mc.currentScreen instanceof TileInventory tile
+                if (mc.gui.screen() instanceof TileInventory tile
                         && Objects.equals(tile.getContainerPosition(), currentDischargeActionTarget)) {
-                    HandledScreen<?> screen = tile.castHandled();
-                    Inventory topInventory = InventoryUtils.getTopInventory(screen);
-                    Inventory downInventory = InventoryUtils.getBottomInventory(screen);
-                    int size = topInventory.size();
+                    AbstractContainerScreen<?> screen = tile.castHandled();
+                    Container topInventory = InventoryUtils.getTopInventory(screen);
+                    Container downInventory = InventoryUtils.getBottomInventory(screen);
+                    int size = topInventory.getContainerSize();
                     int op = SchedularSettings.INSTANCE.defaultInventoryActionPerTick.get();
                     boolean hasOp = false;
-                    for (int i = 0; i < downInventory.size(); ++i) {
-                        ItemStack stack = downInventory.getStack(i);
+                    for (int i = 0; i < downInventory.getContainerSize(); ++i) {
+                        ItemStack stack = downInventory.getItem(i);
                         if (!stack.isEmpty() && stackPredicate.test(stack)) {
                             if (InventoryUtils.findItem(
                                             topInventory,
-                                            item -> item.isEmpty()
-                                                    || (item.getCount() < item.getMaxCount()
-                                                            && ItemStack.areItemsAndComponentsEqual(item, stack)),
+                                            item -> item.count() == 0
+                                                    || (item.count() < item.getMaxStackSize()
+                                                            && ItemStack.isSameItemSameComponents(item, stack)),
                                             true)
                                     != null) {
-                                mc.interactionManager.clickSlot(
-                                        screen.getScreenHandler().syncId,
+                                mc.gameMode.handleContainerInput(
+                                        screen.getMenu().containerId,
                                         i + size,
                                         0,
-                                        SlotActionType.QUICK_MOVE,
+                                        ContainerInput.QUICK_MOVE,
                                         mc.player);
                                 hasOp = true;
                                 if (--op == 0) {
@@ -535,21 +540,21 @@ public class PathingSchedular {
                         }
                     }
                     boolean canHasOp = InventoryUtils.findItem(
-                                    topInventory, item -> item.isEmpty() || item.getCount() < item.getMaxCount(), true)
+                                    topInventory, item -> item.count() == 0 || item.count() < item.getMaxStackSize(), true)
                             != null;
                     if (canHasOp) {
                         if (!hasOp) {
                             currentDischargeActionTarget = null;
-                            screen.close();
+                            screen.onClose();
                         }
                     } else {
                         dischargeSource.remove(currentDischargeActionTarget);
                         currentDischargeActionTarget = null;
-                        screen.close();
+                        screen.onClose();
                     }
                 } else {
                     pathToOrNearStop(leftPos, 1.5);
-                    if (InteractExtra.INSTANCE.isWithinInteractRange(player.getPos(), leftPos)) {
+                    if (InteractExtra.INSTANCE.isWithinInteractRange(player.position(), leftPos)) {
                         slowInteract.run(5, () -> Interact.INSTANCE.interactBlock(leftPos));
                     }
                 }
@@ -593,8 +598,8 @@ public class PathingSchedular {
             currentExpansionActionTarget = null;
         }
         if (currentWaitingOpenContainer != null) {
-            if (mc.world.getBlockEntity(currentWaitingOpenContainer) != null) {
-                if (mc.currentScreen instanceof TileInventory tileInventory
+            if (mc.level.getBlockEntity(currentWaitingOpenContainer) != null) {
+                if (mc.gui.screen() instanceof TileInventory tileInventory
                         && tileInventory.getContainerPosition() != null
                         && tileInventory.getContainerPosition().contains(currentWaitingOpenContainer)) {
                     currentWaitingOpenContainer = null;
@@ -635,21 +640,21 @@ public class PathingSchedular {
                 if (currentExpansionActionTarget == null) {
                     currentExpansionActionTarget = optionalHasShulkerBoxOrChestSource.stream()
                             .min(Comparator.comparingDouble(
-                                    s -> s.getCenterPosition().squaredDistanceTo(mc.player.getPos())))
+                                    s -> s.getCenterPosition().distanceToSqr(mc.player.position())))
                             .orElseThrow();
                 }
-                if (mc.currentScreen instanceof TileInventory tileInventory
+                if (mc.gui.screen() instanceof TileInventory tileInventory
                         && Objects.equals(tileInventory.getContainerPosition(), currentExpansionActionTarget)) {
-                    HandledScreen<?> screen = tileInventory.castHandled();
-                    Inventory topInventory = InventoryUtils.getTopInventory(screen);
-                    int size = topInventory.size();
+                    AbstractContainerScreen<?> screen = tileInventory.castHandled();
+                    Container topInventory = InventoryUtils.getTopInventory(screen);
+                    int size = topInventory.getContainerSize();
                     boolean hasExpansion = false;
                     for (int i = 0; i < size; i++) {
-                        ItemStack stack = topInventory.getStack(i);
+                        ItemStack stack = topInventory.getItem(i);
                         if (canUseToExpandStorage(stack)) {
                             hasExpansion = true;
-                            mc.interactionManager.clickSlot(
-                                    screen.getScreenHandler().syncId, i, 0, SlotActionType.QUICK_MOVE, mc.player);
+                            mc.gameMode.handleContainerInput(
+                                    screen.getMenu().containerId, i, 0, ContainerInput.QUICK_MOVE, mc.player);
                             break;
                         }
                     }
@@ -660,7 +665,7 @@ public class PathingSchedular {
                 } else {
                     BlockPos leftPos = currentExpansionActionTarget.getFirst().getPos();
                     pathToOrNearStop(leftPos, 1.5);
-                    if (InteractExtra.INSTANCE.isWithinInteractRange(player.getPos(), leftPos)) {
+                    if (InteractExtra.INSTANCE.isWithinInteractRange(player.position(), leftPos)) {
                         slowInteract.run(5, () -> Interact.INSTANCE.interactBlock(leftPos));
                     }
                 }
@@ -680,13 +685,13 @@ public class PathingSchedular {
         }
         BlockPos stopPos = findNearbyStandableStop(pos);
         if (stopPos != null) {
-            if (stopPos.toCenterPos().squaredDistanceTo(mc.player.getPos()) < MathUtils.s2(distance)) {
+            if (net.minecraft.world.phys.Vec3.atCenterOf(stopPos).distanceToSqr(mc.player.position()) < MathUtils.s2(distance)) {
                 return null;
             }
             return new GoalNear(stopPos, distance);
         }
-        Box blockBox = new Box(pos);
-        if (blockBox.squaredMagnitude(mc.player.getEyePos()) < MathUtils.s2(distance)) {
+        AABB blockBox = new AABB(pos);
+        if (blockBox.distanceToSqr(mc.player.getEyePosition()) < MathUtils.s2(distance)) {
             return null;
         }
         return new GoalNear(pos, distance);
@@ -698,16 +703,16 @@ public class PathingSchedular {
 
     @Nullable
     private static BlockPos findNearbyStandableStop(BlockPos targetPos) {
-        if (mc.world == null || mc.player == null) {
+        if (mc.level == null || mc.player == null) {
             return null;
         }
-        int maxY = Math.min(mc.world.getTopYInclusive() - 2, targetPos.getY() + PATH_STOP_SEARCH_VERTICAL);
-        int minY = mc.world.getBottomY();
+        int maxY = Math.min(mc.level.getMaxY() - 2, targetPos.getY() + PATH_STOP_SEARCH_VERTICAL);
+        int minY = mc.level.getMinY();
         if (maxY < minY) {
             return null;
         }
-        BlockPos.Mutable supportPos = new BlockPos.Mutable();
-        BlockPos.Mutable standPos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos supportPos = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos standPos = new BlockPos.MutableBlockPos();
         double bestScore = Double.POSITIVE_INFINITY;
         BlockPos bestPos = null;
         for (int radius = 0; radius <= PATH_STOP_SEARCH_RADIUS; radius++) {
@@ -725,10 +730,10 @@ public class PathingSchedular {
                             continue;
                         }
                         double score =
-                                standPos.toCenterPos().squaredDistanceTo(targetPos.toCenterPos()) + radius * 0.01;
+                                net.minecraft.world.phys.Vec3.atCenterOf(standPos).distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(targetPos)) + radius * 0.01;
                         if (score < bestScore) {
                             bestScore = score;
-                            bestPos = standPos.toImmutable();
+                            bestPos = standPos.immutable();
                         }
                         break;
                     }
@@ -742,17 +747,17 @@ public class PathingSchedular {
     }
 
     private static boolean isValidLandingSpot(BlockPos supportPos, BlockPos standPos) {
-        if (mc.world == null || mc.player == null) {
+        if (mc.level == null || mc.player == null) {
             return false;
         }
-        if (supportPos.getY() < mc.world.getBottomY() || standPos.getY() >= mc.world.getTopYInclusive()) {
+        if (supportPos.getY() < mc.level.getMinY() || standPos.getY() >= mc.level.getMaxY()) {
             return false;
         }
-        var supportState = mc.world.getBlockState(supportPos);
-        if (supportState.isAir() || supportState.isLiquid()) {
+        var supportState = mc.level.getBlockState(supportPos);
+        if (supportState.isAir() || supportState.liquid()) {
             return false;
         }
-        var supportShape = supportState.getCollisionShape(mc.world, supportPos, ShapeContext.of(mc.player));
+        var supportShape = supportState.getCollisionShape(mc.level, supportPos, CollisionContext.of(mc.player));
         if (supportShape.isEmpty()) {
             return false;
         }
@@ -764,14 +769,14 @@ public class PathingSchedular {
     }
 
     private static boolean isPassableForPath(BlockPos pos) {
-        if (mc.world == null || mc.player == null) {
+        if (mc.level == null || mc.player == null) {
             return false;
         }
-        var state = mc.world.getBlockState(pos);
-        if (state.isLiquid()) {
+        var state = mc.level.getBlockState(pos);
+        if (state.liquid()) {
             return false;
         }
-        return state.getCollisionShape(mc.world, pos, ShapeContext.of(mc.player))
+        return state.getCollisionShape(mc.level, pos, CollisionContext.of(mc.player))
                 .isEmpty();
     }
 
@@ -795,7 +800,7 @@ public class PathingSchedular {
         reset();
     }
 
-    public void tickPathing(ClientPlayerEntity player) {
+    public void tickPathing(LocalPlayer player) {
         renderCollector.clear();
         if (active != null) {
             enable = active.getAsBoolean();
@@ -841,15 +846,15 @@ public class PathingSchedular {
             }
             IPathGoal goal = engine.getCurrentGoal();
             if (goal != null) {
-                Vec3d sample = goal.sample();
+                net.minecraft.world.phys.Vec3 sample = goal.sample();
                 if (sample != null) {
-                    renderCollector.submit(new Box(sample.add(-0.4, 0, -0.4), sample.add(0.4, 0.8, 0.4)), goalColor);
+                    renderCollector.submit(new AABB(sample.add(-0.4, 0, -0.4), sample.add(0.4, 0.8, 0.4)), goalColor);
                 }
             }
         }
     }
 
-    public void renderPathing(Event<MatrixStack> event) {
+    public void renderPathing(Event<PoseStack> event) {
         if (!SchedularSettings.INSTANCE.enableRender.get()) {
             return;
         }
@@ -929,7 +934,7 @@ public class PathingSchedular {
 
         @Override
         public void sumitGoal(IPathGoal pos) {
-            if (pos != null && pos.isInGoal(mc.player.getPos())) {
+            if (pos != null && pos.isInGoal(mc.player.position())) {
                 pos = null;
             }
             if (Objects.equals(pos, lastSumitGoal)) {

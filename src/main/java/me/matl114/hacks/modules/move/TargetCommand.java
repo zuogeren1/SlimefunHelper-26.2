@@ -15,12 +15,12 @@ import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.SimpleCommandArgs;
 import me.matl114.utils.commands.params.api.CommandExecution;
 import me.matl114.utils.commands.params.types.ExecutePos;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3d;
 
 public class TargetCommand extends BaseModule {
@@ -34,7 +34,7 @@ public class TargetCommand extends BaseModule {
         registerCommandBootstrap(this::bootStrapTargetCommand);
     }
 
-    Map<String, Pair<Vec3d, Float>> lastCachedPosition = new HashMap<>();
+    Map<String, Pair<Vec3, Float>> lastCachedPosition = new HashMap<>();
 
     public void bootStrapTargetCommand(MainCommand mainCommand) {
         TreeSubCommand main = mainCommand.mainBuilder().name("target").build();
@@ -114,35 +114,35 @@ public class TargetCommand extends BaseModule {
         String waypoint = re.nextNonnullString();
         WorldUtils.Waypoint waypointIns = WorldUtils.getWaypoint(waypoint);
         if (waypointIns == null) {
-            p.sendMessage(Text.literal("找不到这个坐标点").formatted(Formatting.RED));
+            p.sendMessage(Component.literal("找不到这个坐标点").withStyle(ChatFormatting.RED));
         } else {
             WorldUtils.WaypointData waypointData = waypointIns.getData();
             if (waypointData instanceof WorldUtils.WaypointData.Direction dir) {
                 if (lastCachedPosition.containsKey(waypointIns.getDisplayName())) {
-                    Pair<Vec3d, Float> position = lastCachedPosition.remove(waypointIns.getDisplayName());
-                    Vec3d pos = position.getFirst();
+                    Pair<Vec3, Float> position = lastCachedPosition.remove(waypointIns.getDisplayName());
+                    Vec3 pos = position.getFirst();
                     float direction = position.getSecond();
-                    Vec3d currentPos = mc.player.getPos();
+                    Vec3 currentPos = mc.player.position();
                     float currentDirection = dir.azimuth();
-                    Vec2f vec2f = intersectRays(pos, direction, currentPos, currentDirection);
+                    Vec2 vec2f = intersectRays(pos, direction, currentPos, currentDirection);
                     if (vec2f != null) {
-                        p.sendMessage(Text.literal("计算当前坐标点位置大致位于: ")
-                                .append(ChatUtils.getDisplayedLocation(new Vec3d(vec2f.x, 64, vec2f.y))));
+                        p.sendMessage(Component.literal("计算当前坐标点位置大致位于: ")
+                                .append(ChatUtils.getDisplayedLocation(new Vec3(vec2f.x, 64, vec2f.y))));
                     } else {
-                        p.sendMessage(Text.literal("当前位置无法正确推断,请重新选去两点"));
+                        p.sendMessage(Component.literal("当前位置无法正确推断,请重新选去两点"));
                     }
                 } else {
-                    lastCachedPosition.put(waypointIns.getDisplayName(), Pair.of(mc.player.getPos(), dir.azimuth()));
-                    p.sendMessage(Text.literal("记录当前测算位置中,请移动若干位置后重新输入指令").formatted(Formatting.GREEN));
+                    lastCachedPosition.put(waypointIns.getDisplayName(), Pair.of(mc.player.position(), dir.azimuth()));
+                    p.sendMessage(Component.literal("记录当前测算位置中,请移动若干位置后重新输入指令").withStyle(ChatFormatting.GREEN));
                 }
             } else {
-                p.sendMessage(Text.literal("当前坐标点已有确定坐标").formatted(Formatting.GREEN));
+                p.sendMessage(Component.literal("当前坐标点已有确定坐标").withStyle(ChatFormatting.GREEN));
                 if (waypointData instanceof WorldUtils.WaypointData.Pos pos) {
-                    p.sendMessage(Text.literal("Pos: ").append(ChatUtils.getDisplayedLocation(pos.pos())));
+                    p.sendMessage(Component.literal("Pos: ").append(ChatUtils.getDisplayedLocation(pos.pos())));
                 } else if (waypointData instanceof WorldUtils.WaypointData.Chunk chunk) {
                     ChunkPos chunkPos = chunk.pos();
-                    Vec3d pos = new Vec3d(chunkPos.x << 4, 64, chunkPos.z << 4);
-                    p.sendMessage(Text.literal("Pos: ").append(ChatUtils.getDisplayedLocation(pos)));
+                    Vec3 pos = new Vec3(chunkPos.x << 4, 64, chunkPos.z << 4);
+                    p.sendMessage(Component.literal("Pos: ").append(ChatUtils.getDisplayedLocation(pos)));
                 }
             }
         }
@@ -152,13 +152,13 @@ public class TargetCommand extends BaseModule {
         ExecutePos pos = re.nextArg();
         if (pos != null) {
             Vector3d vector3d = pos.getPosition(p);
-            Vec3d vec3d = (new Vec3d(vector3d.x, vector3d.y, vector3d.z));
-            p.sendMessage(Text.literal("Pos: ").append(ChatUtils.getDisplayedLocation(vec3d)));
+            Vec3 vec3d = (new Vec3(vector3d.x, vector3d.y, vector3d.z));
+            p.sendMessage(Component.literal("Pos: ").append(ChatUtils.getDisplayedLocation(vec3d)));
             p.sendMessage(
-                    Text.literal("NetherPos: ").append(ChatUtils.getDisplayedLocation(vec3d.multiply((double) 1 / 8))));
-            p.sendMessage(Text.literal("WorldPos: ").append(ChatUtils.getDisplayedLocation(vec3d.multiply(8))));
-            BlockPos blockPos = BlockPos.ofFloored(vec3d);
-            p.sendMessage(Text.literal("ChunkPos: ")
+                    Component.literal("NetherPos: ").append(ChatUtils.getDisplayedLocation(vec3d.scale((double) 1 / 8))));
+            p.sendMessage(Component.literal("WorldPos: ").append(ChatUtils.getDisplayedLocation(vec3d.scale(8))));
+            BlockPos blockPos = BlockPos.containing(vec3d);
+            p.sendMessage(Component.literal("ChunkPos: ")
                     .append(ChatUtils.getDisplayedLocation(blockPos.getX() >> 4, blockPos.getZ() >> 4)));
         } else {
             p.sendMessage("输入了无效坐标!");
@@ -168,23 +168,23 @@ public class TargetCommand extends BaseModule {
     public void onCalculateChunk(CommandExecution p, ArgumentInputStream re) {
         int x = re.nextInt();
         int z = re.nextInt();
-        p.sendMessage(Text.literal("ChunkPos: %d %d".formatted(x, z)));
-        p.sendMessage(Text.literal("Pos: ").append(ChatUtils.getDisplayedLocation(x << 4, z << 4)));
+        p.sendMessage(Component.literal("ChunkPos: %d %d".formatted(x, z)));
+        p.sendMessage(Component.literal("Pos: ").append(ChatUtils.getDisplayedLocation(x << 4, z << 4)));
     }
 
     public void onTargetWaypoint(CommandExecution p, ArgumentInputStream re) {
         String waypoint = re.nextNonnullString();
         WorldUtils.Waypoint waypointIns = WorldUtils.getWaypoint(waypoint);
         if (waypointIns == null) {
-            p.sendMessage(Text.literal("找不到这个坐标点").formatted(Formatting.RED));
+            p.sendMessage(Component.literal("找不到这个坐标点").withStyle(ChatFormatting.RED));
         } else {
             var waypointData = waypointIns.getData();
             if (waypointData instanceof WorldUtils.WaypointData.Pos pos) {
-                Vec3d rotate = pos.pos().subtract(mc.player.getEyePos()).normalize();
+                Vec3 rotate = pos.pos().subtract(mc.player.getEyePosition()).normalize();
                 PlayerStateManager.setPlayerRotationSafe(mc.player, rotate);
             } else if (waypointData instanceof WorldUtils.WaypointData.Chunk chunk) {
                 ChunkPos chunkPos = chunk.pos();
-                Vec2f rotate = new Vec2f(
+                Vec2 rotate = new Vec2(
                         (float) ((chunkPos.x << 4) - mc.player.getX()), (float) ((chunkPos.z << 4) - mc.player.getZ()));
                 PlayerStateManager.setPlayerYawSafe(mc.player, rotate);
             } else if (waypointData instanceof WorldUtils.WaypointData.Direction direction) {
@@ -197,7 +197,7 @@ public class TargetCommand extends BaseModule {
         ExecutePos pos = re.nextArg();
         if (pos != null) {
             Vector3d vector3d = pos.getPosition(p);
-            Vec3d target = new Vec3d(
+            Vec3 target = new Vec3(
                             vector3d.x - mc.player.getX(), vector3d.y - mc.player.getY(), vector3d.z - mc.player.getZ())
                     .normalize();
             PlayerStateManager.setPlayerRotationSafe(mc.player, target);
@@ -209,11 +209,11 @@ public class TargetCommand extends BaseModule {
     public void onTargetChunk(CommandExecution p, ArgumentInputStream re) {
         int x = re.nextInt();
         int z = re.nextInt();
-        Vec2f rotate = new Vec2f((float) ((x << 4) - mc.player.getX()), (float) ((z << 4) - mc.player.getZ()));
+        Vec2 rotate = new Vec2((float) ((x << 4) - mc.player.getX()), (float) ((z << 4) - mc.player.getZ()));
         PlayerStateManager.setPlayerYawSafe(mc.player, rotate);
     }
 
-    public static Vec2f intersectRays(Vec3d posA, float azimuthA, Vec3d posB, float azimuthB) {
+    public static Vec2 intersectRays(Vec3 posA, float azimuthA, Vec3 posB, float azimuthB) {
         double x1 = posA.x, z1 = posA.z;
         double x2 = posB.x, z2 = posB.z;
         double sinA = Math.sin(azimuthA);
@@ -238,6 +238,6 @@ public class TargetCommand extends BaseModule {
 
         double ix = x1 + t * d1x;
         double iz = z1 + t * d1z;
-        return new Vec2f((float) ix, (float) iz);
+        return new Vec2((float) ix, (float) iz);
     }
 }

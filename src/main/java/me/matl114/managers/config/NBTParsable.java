@@ -7,8 +7,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import me.matl114.utils.Debug;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 
 public interface NBTParsable<T extends NBTParsable<T>> extends AutoRegisterType {
     public static Map<String, NBTType<?>> registeredParsableTypes = new HashMap<>();
@@ -49,7 +49,7 @@ public interface NBTParsable<T extends NBTParsable<T>> extends AutoRegisterType 
         return (T) this;
     }
 
-    default NbtElement toNbt() {
+    default Tag toNbt() {
         return codec().encodeStart(NbtOps.INSTANCE, cast()).getOrThrow();
     }
 

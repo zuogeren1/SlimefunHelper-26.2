@@ -10,12 +10,12 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
-import net.minecraft.client.gui.screen.DisconnectedScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
-import net.minecraft.client.network.ServerAddress;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.network.chat.Component;
 
 public class AutoReconnect extends BaseModule {
     public final ModulePath autoReconnect = makePath(Configs.EXTRA_CONFIG, "other.auto-reconnect");
@@ -53,7 +53,7 @@ public class AutoReconnect extends BaseModule {
         counter = -999;
     }
 
-    ServerInfo lastServer;
+    ServerData lastServer;
 
     public void onScreenInitialize(Event<DisconnectedScreen> event) {
         if (enableB.get()) {
@@ -62,22 +62,22 @@ public class AutoReconnect extends BaseModule {
             widget.addDrawableChild(ExecutableWidget.instance(0, 25, 200, 20)
                     .setElementHandler(new ButtonElement(
                             (el -> enable.get()
-                                    ? Text.literal(
+                                    ? Component.literal(
                                             "Toggle Auto reconnect off (%d sec)".formatted(Math.max(counter, 0) / 20))
-                                    : Text.literal("Toggle Auto reconnect on")),
+                                    : Component.literal("Toggle Auto reconnect on")),
                             ButtonAction.run(enable::toggle))));
             widget.addDrawableChild(ExecutableWidget.instance(0, 0, 200, 20)
                     .setElementHandler(
-                            new ButtonElement(TextProvider.of(Text.literal("Reconnect")), ButtonAction.run(() -> {
+                            new ButtonElement(TextProvider.of(Component.literal("Reconnect")), ButtonAction.run(() -> {
                                 if (enable.get() && counter > 0) {
                                     counter = 0;
                                 } else {
                                     Tasks.scheduleDelayed(() -> this.reconect((disconnected.parent)), 0);
                                 }
                             }))));
-            disconnected.grid.add(widget);
+            disconnected.layout.addChild(widget);
             widget.addTo(disconnected);
-            disconnected.grid.refreshPositions();
+            disconnected.layout.arrangeElements();
         }
     }
 
@@ -91,11 +91,11 @@ public class AutoReconnect extends BaseModule {
                             counter--;
                             return false;
                         }
-                        if (enable.get() && mc.currentScreen instanceof DisconnectedScreen) {
+                        if (enable.get() && mc.gui.screen() instanceof DisconnectedScreen) {
                             reconect(disconnected.parent);
                             return true;
                         }
-                        return mc.currentScreen != null;
+                        return mc.gui.screen() != null;
                     },
                     1,
                     1);
@@ -104,7 +104,7 @@ public class AutoReconnect extends BaseModule {
 
     public void reconect(Screen screen) {
         if (lastServer != null) {
-            ConnectScreen.connect(screen, mc, ServerAddress.parse(lastServer.address), lastServer, false, null);
+            ConnectScreen.startConnecting(screen, mc, ServerAddress.parseString(lastServer.ip), lastServer, false, null);
         }
     }
 }

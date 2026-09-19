@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.Accessors;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 
 @Getter
 @Setter
@@ -23,18 +23,18 @@ public class FlightVelocity {
         this.mode = mode;
     }
 
-    public void velocity(Vec3d vec3d) {
+    public void velocity(Vec3 vec3d) {
         this.x = vec3d.x;
         this.y = vec3d.y;
         this.z = vec3d.z;
     }
 
-    public FlightVelocity(Vec3d vec, double maxVelocity, Mode mode) {
+    public FlightVelocity(Vec3 vec, double maxVelocity, Mode mode) {
         this(vec.x, vec.y, vec.z, maxVelocity, mode);
     }
 
-    public Vec3d toVelocity() {
-        return new Vec3d(x, y, z);
+    public Vec3 toVelocity() {
+        return new Vec3(x, y, z);
     }
 
     public enum Mode {

@@ -6,7 +6,7 @@ public class DataVersion {
     public static final String DATA_VERSION_FLAG = "DataVersion";
 
     public static int getDataVersion() {
-        return SharedConstants.getGameVersion().dataVersion().id();
+        return SharedConstants.getCurrentVersion().dataVersion().version();
     }
 
     public static int getSchemaVersion() {

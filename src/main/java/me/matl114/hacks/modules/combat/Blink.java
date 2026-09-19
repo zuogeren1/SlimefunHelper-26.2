@@ -1,6 +1,7 @@
 package me.matl114.hacks.modules.combat;
 
 import com.google.common.collect.ImmutableList;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.List;
 import java.util.OptionalInt;
@@ -22,21 +23,20 @@ import me.matl114.utils.Debug;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.versioned.api.VDataFlag;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.projectile.FireworkRocketEntity;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.PacketType;
-import net.minecraft.network.packet.PlayPackets;
-import net.minecraft.network.packet.s2c.play.EntityDamageS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.game.GamePacketTypes;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 
 public class Blink extends BaseModule {
@@ -108,17 +108,17 @@ public class Blink extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(PacketManager.getPacketQueueEvent().getChannel(NetworkSide.SERVERBOUND), this::onPacketQueue);
+        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND), this::onPacketQueue);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onShutdown);
         registerListener(Listener.getPostTick(), this::onTick);
         registerListener(Listener.getServerLeavePoint(), this::onDisconnect);
-        registerListener(Listener.getPacketPoint().getChannel(EntityDamageS2CPacket.class), this::onPacketHurt);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onPacketHurt);
         registerListener(
-                Listener.getPacketPoint().getChannel(EntityVelocityUpdateS2CPacket.class), this::onPacketVelocity);
+                Listener.getPacketPoint().getChannel(ClientboundSetEntityMotionPacket.class), this::onPacketVelocity);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityType.FIREWORK_ROCKET), this::onFireworkOwner);
-        registerListener(Listener.getPacketPoint().getChannel(EntityStatusS2CPacket.class), this::onEntityStatus);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.FIREWORK_ROCKET), this::onFireworkOwner);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityStatus);
     }
 
     @Override
@@ -128,7 +128,7 @@ public class Blink extends BaseModule {
         startPlayerPos = null;
     }
 
-    public EntityMovementStatus<ClientPlayerEntity> startPlayerPos;
+    public EntityMovementStatus<LocalPlayer> startPlayerPos;
 
     @Override
     public void onDisableModule() {
@@ -153,14 +153,14 @@ public class Blink extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> eve) {
+    public void onRender(Event<PoseStack> eve) {
         if (enable.get() && render.get()) {
-            MatrixStack stack = eve.context();
+            PoseStack stack = eve.context();
             if (startPlayerPos != null) {
                 RenderUtils.startDrawVirtual(stack);
                 try {
-                    Box box = startPlayerPos.entity.dimensions.getBoxAt(startPlayerPos.pos);
-                    RenderUtils.drawOutlinedBox(stack, box.getMinPos(), box.getMaxPos(), Color.MAGENTA);
+                    AABB box = startPlayerPos.entity.dimensions.makeBoundingBox(startPlayerPos.pos);
+                    RenderUtils.drawOutlinedBox(stack, box.getMinPosition(), box.getMaxPosition(), Color.MAGENTA);
                 } finally {
                     RenderUtils.stopDrawVirtual(stack);
                 }
@@ -180,17 +180,17 @@ public class Blink extends BaseModule {
                 lastAutoDumpTick = Tasks.getTick();
                 PacketManager.flushOutBound(packets -> {
                     var packet = packets.packetType();
-                    if (packet == PlayPackets.MOVE_PLAYER_POS
-                            || packet == PlayPackets.MOVE_PLAYER_ROT
-                            || packet == PlayPackets.MOVE_PLAYER_POS_ROT
-                            || packet == PlayPackets.MOVE_PLAYER_STATUS_ONLY) {
+                    if (packet == GamePacketTypes.SERVERBOUND_MOVE_PLAYER_POS
+                            || packet == GamePacketTypes.SERVERBOUND_MOVE_PLAYER_ROT
+                            || packet == GamePacketTypes.SERVERBOUND_MOVE_PLAYER_POS_ROT
+                            || packet == GamePacketTypes.SERVERBOUND_MOVE_PLAYER_STATUS_ONLY) {
                         if (afterTeleportExcept.booleanValue()) {
                             return PacketManager.FlushAction.FLUSH;
                         }
                         return PacketManager.FlushAction.DROP;
-                    } else if (packet == PlayPackets.PLAYER_INPUT) {
+                    } else if (packet == GamePacketTypes.SERVERBOUND_PLAYER_INPUT) {
                         return PacketManager.FlushAction.DROP;
-                    } else if (packet == PlayPackets.ACCEPT_TELEPORTATION) {
+                    } else if (packet == GamePacketTypes.SERVERBOUND_ACCEPT_TELEPORTATION) {
                         afterTeleportExcept.setTrue();
                         return PacketManager.FlushAction.FLUSH;
                     } else return PacketManager.FlushAction.FLUSH;
@@ -218,11 +218,11 @@ public class Blink extends BaseModule {
             if (onEnermyNearBehaviour.get() != Action.NONE && startPlayerPos != null) {
                 // check if any enermy
                 boolean find = false;
-                List<Entity> et = ImmutableList.copyOf(mc.world.getEntities());
-                Vec3d oldPos = startPlayerPos.pos;
-                Vec3d predictionPos = oldPos.add(0, mc.player.getEyeHeight(mc.player.getPose()), 0);
+                List<Entity> et = ImmutableList.copyOf(mc.level.entitiesForRendering());
+                Vec3 oldPos = startPlayerPos.pos;
+                Vec3 predictionPos = oldPos.add(0, mc.player.getEyeHeight(mc.player.getPose()), 0);
                 for (var e : et) {
-                    if (e.getBoundingBox().squaredMagnitude(predictionPos) < MathUtils.s2(nearRange.get())
+                    if (e.getBoundingBox().distanceToSqr(predictionPos) < MathUtils.s2(nearRange.get())
                             && TargetSelector.INSTANCE.canAttack(e)) {
                         find = true;
                         break;
@@ -258,25 +258,25 @@ public class Blink extends BaseModule {
                     && PacketManager.isInventoryPacket(pktType)) return;
             // support elytra armorFly mace attack
             //            if(elytraSupport.get() && mc.player.isFallFlying() && pkt instanceof ClientCommandC2SPacket
-            // cmd && cmd.getMode() == ClientCommandC2SPacket.Mode.START_FALL_FLYING) {
+            // cmd && cmd.getAction() == ClientCommandC2SPacket.Mode.START_FALL_FLYING) {
             //                if(elytraSupportFuckStartFly){
             //                    flush();
             //                    elytraSupportFuckStartFly = false;
             //                    return;
             //                }
             //            }
-            if (pktType == PlayPackets.USE_ITEM && mc.player.isFallFlying()) {
+            if (pktType == GamePacketTypes.SERVERBOUND_USE_ITEM && mc.player.isFallFlying()) {
                 if (onFireworkUse()) {
                     return;
                 }
             }
-            if (pktType == PlayPackets.INTERACT) {
+            if (pktType == GamePacketTypes.SERVERBOUND_INTERACT) {
                 handleQueueAction(packet, attackBehaviour.get());
                 escapeSwing = true;
-            } else if (pktType == PlayPackets.SWING && escapeSwing) {
+            } else if (pktType == GamePacketTypes.SERVERBOUND_SWING && escapeSwing) {
                 escapeSwing = false;
                 handleQueueAction(packet, attackBehaviour.get());
-            } else if (pktType == PlayPackets.ACCEPT_TELEPORTATION) {
+            } else if (pktType == GamePacketTypes.SERVERBOUND_ACCEPT_TELEPORTATION) {
                 flush();
             } else {
                 packet.cancel();
@@ -299,7 +299,7 @@ public class Blink extends BaseModule {
         }
     }
 
-    public void onFireworkOwner(Event<DataTracker.SerializedEntry<?>> firework) {
+    public void onFireworkOwner(Event<SynchedEntityData.DataValue<?>> firework) {
         if (enable.get()
                 && elytraSupport.get()
                 && firework.context().id() == VDataFlag.ID_FIREWORK_SHOOTER_ID
@@ -313,26 +313,26 @@ public class Blink extends BaseModule {
         }
     }
 
-    public void onPacketHurt(Event<EntityDamageS2CPacket> damage) {
+    public void onPacketHurt(Event<ClientboundDamageEventPacket> damage) {
         if (enable.get() && mc.player != null && damage.context.entityId() == mc.player.getId()) {
             handleAction(onHurtBehaviour.get());
         }
     }
 
-    public void onPacketVelocity(Event<EntityVelocityUpdateS2CPacket> event) {
+    public void onPacketVelocity(Event<ClientboundSetEntityMotionPacket> event) {
         if (enable.get()
                 && mc.player != null
-                && event.context.getEntityId() == mc.player.getId()
+                && event.context.id() == mc.player.getId()
                 && !event.isCancelled()) {
             handleAction(onVelocityBehaviour.get());
         }
     }
 
-    public void onEntityStatus(Event<EntityStatusS2CPacket> eventTotem) {
+    public void onEntityStatus(Event<ClientboundEntityEventPacket> eventTotem) {
         if (checkNull()) return;
         if (enable.get()
-                && eventTotem.context.getEntity(mc.world) == mc.player
-                && eventTotem.context.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING) {
+                && eventTotem.context.getEntity(mc.level) == mc.player
+                && eventTotem.context.getEventId() == EntityEvent.PROTECTED_FROM_DEATH) {
             handleAction(onTotemBehaviour.get());
         }
     }

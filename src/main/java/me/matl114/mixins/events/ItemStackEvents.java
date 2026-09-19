@@ -5,11 +5,11 @@ import me.matl114.events.Event;
 import me.matl114.events.RenderListener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,14 +20,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // to avoid clash with other
 @Mixin(value = ItemStack.class, priority = 10000)
 public abstract class ItemStackEvents {
-    @Inject(method = "getTooltip", at = @At(value = "RETURN"))
+    @Inject(method = "getTooltipLines", at = @At(value = "RETURN"))
     public void onTooltip(
             Item.TooltipContext context,
-            @Nullable PlayerEntity player,
-            TooltipType type,
-            CallbackInfoReturnable<List<Text>> cir) {
-        List<Text> tooltip = cir.getReturnValue();
-        Event<List<Text>> event =
+            @Nullable Player player,
+            TooltipFlag type,
+            CallbackInfoReturnable<List<Component>> cir) {
+        List<Component> tooltip = cir.getReturnValue();
+        Event<List<Component>> event =
                 new Event<>(tooltip, false, false, (ItemStack) (Object) this, type.isAdvanced(), type.isCreative());
         RenderListener.getTooltipShow().handleValue(event);
     }

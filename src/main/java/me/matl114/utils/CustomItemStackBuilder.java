@@ -5,18 +5,18 @@ import java.util.*;
 import me.matl114.bukkit.BukkitItemStackUtils;
 import me.matl114.versioned.api.VHideFlag;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.LoreComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemLore;
 
 public class CustomItemStackBuilder {
     ItemStack stack = new ItemStack(Items.STONE);
-    List<Text> tooltip = new ArrayList<>();
+    List<Component> tooltip = new ArrayList<>();
 
     public static CustomItemStackBuilder builder() {
         return new CustomItemStackBuilder();
@@ -25,13 +25,13 @@ public class CustomItemStackBuilder {
     public CustomItemStackBuilder() {}
 
     public CustomItemStackBuilder type(String type) {
-        return type(Registries.ITEM.get(Identifier.tryParse(type)));
+        return type(BuiltInRegistries.ITEM.getValue(Identifier.tryParse(type)));
     }
 
     public CustomItemStackBuilder type(Item type) {
         if (type != Items.AIR) {
             int cnt = Math.min(1, stack.getCount());
-            stack = stack.copyComponentsToNewStackIgnoreEmpty(type, cnt);
+            stack = stack.transmuteCopyIgnoreEmpty(type, cnt);
         }
         return this;
     }
@@ -45,8 +45,8 @@ public class CustomItemStackBuilder {
         return name(ChatUtils.stringToText(name));
     }
 
-    public CustomItemStackBuilder name(Text name) {
-        ItemStackUtils.setOrRemoveChange(this.stack, DataComponentTypes.CUSTOM_NAME, name);
+    public CustomItemStackBuilder name(Component name) {
+        ItemStackUtils.setOrRemoveChange(this.stack, DataComponents.CUSTOM_NAME, name);
         return this;
     }
 
@@ -55,7 +55,7 @@ public class CustomItemStackBuilder {
         return this;
     }
 
-    public CustomItemStackBuilder append(Text tooltip) {
+    public CustomItemStackBuilder append(Component tooltip) {
         this.tooltip.add(tooltip);
         return this;
     }
@@ -66,7 +66,7 @@ public class CustomItemStackBuilder {
 
     public CustomItemStackBuilder endLore() {
         ItemStackUtils.setOrRemoveChange(
-                this.stack, DataComponentTypes.LORE, new LoreComponent(List.copyOf(this.tooltip)));
+                this.stack, DataComponents.LORE, new ItemLore(List.copyOf(this.tooltip)));
         return this;
     }
 
@@ -78,7 +78,7 @@ public class CustomItemStackBuilder {
     public CustomItemStackBuilder skullHash(String hash) {
         ItemStackUtils.setOrRemoveChange(
                 stack,
-                DataComponentTypes.PROFILE,
+                DataComponents.PROFILE,
                 VRecord.staticProfile(
                         UUID.nameUUIDFromBytes(hash.getBytes(StandardCharsets.UTF_8)),
                         "CS-CoreLib",
@@ -87,12 +87,12 @@ public class CustomItemStackBuilder {
     }
 
     public CustomItemStackBuilder skullOwner(String owner) {
-        ItemStackUtils.setOrRemoveChange(stack, DataComponentTypes.PROFILE, VRecord.dynamicProfile(owner));
+        ItemStackUtils.setOrRemoveChange(stack, DataComponents.PROFILE, VRecord.dynamicProfile(owner));
         return this;
     }
 
     public CustomItemStackBuilder glint() {
-        ItemStackUtils.setOrRemoveChange(stack, DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, Boolean.TRUE);
+        ItemStackUtils.setOrRemoveChange(stack, DataComponents.ENCHANTMENT_GLINT_OVERRIDE, Boolean.TRUE);
         return this;
     }
 

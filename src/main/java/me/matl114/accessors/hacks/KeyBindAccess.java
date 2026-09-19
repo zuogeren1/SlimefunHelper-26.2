@@ -1,11 +1,11 @@
 package me.matl114.accessors.hacks;
 
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
 
 public interface KeyBindAccess {
     public void resetKeyState();
 
-    static KeyBindAccess of(KeyBinding keyBinding) {
+    static KeyBindAccess of(KeyMapping keyBinding) {
         return (KeyBindAccess) keyBinding;
     }
 }

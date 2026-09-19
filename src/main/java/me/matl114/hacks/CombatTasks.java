@@ -8,32 +8,38 @@ import me.matl114.hacks.modules.HackModules;
 import me.matl114.hacks.modules.combat.*;
 import me.matl114.utils.*;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.*;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.*;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.item.*;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
 
 public class CombatTasks {
     public static void init() {}
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
-    public static boolean isHoldingWeapon(ClientPlayerEntity player) {
-        ItemStack itemInHand = player.getStackInHand(Hand.MAIN_HAND);
+    public static boolean isHoldingWeapon(LocalPlayer player) {
+        ItemStack itemInHand = player.getItemInHand(InteractionHand.MAIN_HAND);
         return itemInHand != null && isWeaponForMCPlayer(itemInHand);
     }
 
     public static boolean isWeaponForMCPlayer(ItemStack itemStack) {
 
-        var attr = itemStack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
+        var attr = itemStack.get(DataComponents.ATTRIBUTE_MODIFIERS);
         if (attr != null && !attr.modifiers().isEmpty()) return true;
-        var ench = itemStack.get(DataComponentTypes.ENCHANTMENTS);
+        var ench = itemStack.get(DataComponents.ENCHANTMENTS);
 
         if (ench != null
                 && ((ItemStackUtils.getEnchantmentLevel(ench, Enchantments.SHARPNESS) > 0)
@@ -44,8 +50,8 @@ public class CombatTasks {
     }
 
     public static boolean notSuitableForAttack(ItemStack item) {
-        return item.isEmpty()
-                || (!ItemStackUtils.hasInPatch(item, DataComponentTypes.ATTRIBUTE_MODIFIERS)
+        return item.count() == 0
+                || (!ItemStackUtils.hasInPatch(item, DataComponents.ATTRIBUTE_MODIFIERS)
                         && (!VItem.getInstance().isWeapon(item)))
                 || (VItem.getInstance().isNotAttackingTool(item));
     }
@@ -56,7 +62,7 @@ public class CombatTasks {
     }
 
     @ApiMethod
-    public static boolean attackEntity(PlayerEntity player, Entity target) {
+    public static boolean attackEntity(Player player, Entity target) {
         return attack.attackEntity(target);
     }
 
@@ -65,7 +71,7 @@ public class CombatTasks {
     // todo: add attack target render, render the attackTarget if attack is on, refresh every two ticks
 
     // todo fixfixfixfixfix
-    public static Vec2f calculatePitchYawPredict(float velocity, Vec3d extraVector, Vec3d targetVec) {
+    public static Vec2 calculatePitchYawPredict(float velocity, Vec3 extraVector, Vec3 targetVec) {
         double extraVectorLen = extraVector.length();
         final float g = 0.05f;
         if (extraVectorLen > 10 || velocity > 10) {
@@ -73,16 +79,16 @@ public class CombatTasks {
             return EntityUtils.rotationToPitchYaw(targetVec.normalize());
         }
         // ordinary case
-        double hDistance0 = targetVec.horizontalLength();
+        double hDistance0 = targetVec.horizontalDistance();
         double hDistanceSq = hDistance0 * hDistance0;
         float velocitySq = velocity * velocity;
         float velocityPow4 = velocitySq * velocitySq;
         // fix: hDistance
         // 调整目标高度：y_adjusted = y - (h * deltaY / velocity)
         double adjustedY = targetVec.y - (hDistance0 * extraVector.y / velocity);
-        Vec3d vecNorm = targetVec.normalize();
+        Vec3 vecNorm = targetVec.normalize();
         // 代入修正后的y计算仰角
-        Vec2f safeSolution = new Vec2f(
+        Vec2 safeSolution = new Vec2(
                 (float) -Math.toDegrees(Math.atan(
                         (velocitySq - Math.sqrt(velocityPow4 - g * (g * hDistanceSq + 2 * adjustedY * velocitySq)))
                                 / (g * hDistance0))),
@@ -95,9 +101,9 @@ public class CombatTasks {
 
         // 计算目标水平距离和方向
         double hDistance = Math.sqrt(targetVec.x * targetVec.x + targetVec.z * targetVec.z);
-        Vec3d hDir = (hDistance > 1e-4)
-                ? new Vec3d(targetVec.x / hDistance, 0, targetVec.z / hDistance)
-                : new Vec3d(1, 0, 0); // 避免除零
+        Vec3 hDir = (hDistance > 1e-4)
+                ? new Vec3(targetVec.x / hDistance, 0, targetVec.z / hDistance)
+                : new Vec3(1, 0, 0); // 避免除零
 
         if (hDistance < 1e-4) {
             // 垂直射击情况
@@ -174,7 +180,7 @@ public class CombatTasks {
 
         // 返回有效解或安全解
         if (converged) {
-            return new Vec2f(
+            return new Vec2(
                     (float) -Math.toDegrees(pitchRad), // 转 Minecraft 俯仰角
                     (float) (Math.toDegrees(yawRad) - 90f) // 转 Minecraft 偏航角
                     );

@@ -2,14 +2,14 @@ package me.matl114.mixins.hack;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.resource.ResourcePackPosition;
+import net.minecraft.server.packs.PackSelectionConfig;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ResourcePackPosition.class)
+@Mixin(PackSelectionConfig.class)
 public abstract class ResourcePackPositionMixin {
 
     @Inject(method = "fixedPosition", at = @At("HEAD"), cancellable = true)

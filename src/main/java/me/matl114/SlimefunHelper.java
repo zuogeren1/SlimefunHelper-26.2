@@ -24,9 +24,9 @@ import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.impl.client.model.loading.ModelLoadingPluginManager;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 public class SlimefunHelper implements ModInitializer {
     // This logger is used to write text to the console and the log file.
@@ -47,7 +47,7 @@ public class SlimefunHelper implements ModInitializer {
 
     public static void authentication() {
         try {
-            Class.forName("net.minecraft.client.MinecraftClient");
+            Class.forName("net.minecraft.client.Minecraft");
             DEV_ENV = true;
             Debug.info("Dev Environment Detected !");
         } catch (Throwable e) {
@@ -75,7 +75,7 @@ public class SlimefunHelper implements ModInitializer {
         Debug.info("SlimefunHelper, start!");
         Debug.info("SlimefunHelper start loading!");
         reloadModConfig();
-        ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES)
+        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES)
                 .registerReloadListener(new SimpleSynchronousResourceReloadListener() {
                     @Override
                     public Identifier getFabricId() {
@@ -83,7 +83,7 @@ public class SlimefunHelper implements ModInitializer {
                     }
 
                     @Override
-                    public void reload(ResourceManager manager) {
+                    public void onResourceManagerReload(ResourceManager manager) {
                         Debug.info("Resource reload called for SlimefunHelper");
                         reloadModConfig();
                         RenderListener.onResourceReload(manager);

@@ -6,23 +6,23 @@ import me.matl114.hacks.api.ModuleManager;
 import me.matl114.hacks.modules.ac.DisablerManager;
 import me.matl114.hacks.modules.ac.PacketOrderManager;
 import me.matl114.hacks.modules.ac.PostManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 
 public class ACTasks {
     public static void init() {}
 
     // represent that is there any anti-cheats transactions
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     // anti grim's post check
     // sent after pong packet
 
-    public static void addPostTickAction(Consumer<ClientPlayNetworkHandler> handler) {
+    public static void addPostTickAction(Consumer<ClientPacketListener> handler) {
         postManager.addPostTickAction(handler);
     }
 
-    public static void addPostTransactionAction(Consumer<ClientPlayNetworkHandler> packet) {
+    public static void addPostTransactionAction(Consumer<ClientPacketListener> packet) {
         postManager.addNextPreTickAction(packet);
     }
 

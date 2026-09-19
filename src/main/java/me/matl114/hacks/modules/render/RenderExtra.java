@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.net.URI;
 import java.util.*;
 import me.matl114.events.Event;
@@ -10,12 +11,14 @@ import me.matl114.hacks.api.ModulePath;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.Debug;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.packet.c2s.common.ResourcePackStatusC2SPacket;
-import net.minecraft.network.packet.s2c.common.ResourcePackSendS2CPacket;
-import net.minecraft.text.*;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.Connection;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
+import net.minecraft.network.protocol.common.ServerboundResourcePackPacket;
+import net.minecraft.network.chat.*;
 
 public class RenderExtra extends BaseModule {
     public static RenderExtra INSTANCE;
@@ -48,24 +51,24 @@ public class RenderExtra extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(ResourcePackSendS2CPacket.class), this::onResourceRequest);
+                Listener.getPacketPoint().getChannel(ClientboundResourcePackPushPacket.class), this::onResourceRequest);
 
         registerListener(RenderListener.getApplyWorldBobView(), this::onApplyBobView);
     }
 
-    public void onResourceRequest(Event<ResourcePackSendS2CPacket> resourceEvent) {
+    public void onResourceRequest(Event<ClientboundResourcePackPushPacket> resourceEvent) {
         // note that resourcePack may be sent during configuration time
         if (enableRejectResourcePack.get()) {
-            ClientConnection connection = resourceEvent.getArgs(0);
+            Connection connection = resourceEvent.getArgs(0);
             var sendPacket = resourceEvent.context();
             connection.send(
-                    new ResourcePackStatusC2SPacket(sendPacket.id(), ResourcePackStatusC2SPacket.Status.ACCEPTED));
+                    new ServerboundResourcePackPacket(sendPacket.id(), ServerboundResourcePackPacket.Action.ACCEPTED));
             connection.send(
-                    new ResourcePackStatusC2SPacket(sendPacket.id(), ResourcePackStatusC2SPacket.Status.DOWNLOADED));
-            connection.send(new ResourcePackStatusC2SPacket(
-                    sendPacket.id(), ResourcePackStatusC2SPacket.Status.SUCCESSFULLY_LOADED));
+                    new ServerboundResourcePackPacket(sendPacket.id(), ServerboundResourcePackPacket.Action.DOWNLOADED));
+            connection.send(new ServerboundResourcePackPacket(
+                    sendPacket.id(), ServerboundResourcePackPacket.Action.SUCCESSFULLY_LOADED));
             Debug.chat(
-                    Text.literal("Successfully reject server resourcepack").formatted(Formatting.GREEN),
+                    Component.literal("Successfully reject server resourcepack").withStyle(ChatFormatting.GREEN),
                     sendPacket.id());
             Style st = Style.EMPTY;
             try {
@@ -73,13 +76,13 @@ public class RenderExtra extends BaseModule {
             } catch (Exception e) {
             }
             Debug.chat(
-                    Text.literal("Download url:").formatted(Formatting.GREEN),
-                    Text.literal(sendPacket.url()).setStyle(st).formatted(Formatting.YELLOW));
+                    Component.literal("Download url:").withStyle(ChatFormatting.GREEN),
+                    Component.literal(sendPacket.url()).setStyle(st).withStyle(ChatFormatting.YELLOW));
             resourceEvent.cancel();
         }
     }
 
-    public void onApplyBobView(Event<MatrixStack> event) {
+    public void onApplyBobView(Event<PoseStack> event) {
         if (noBobWorld.get()) {
             event.cancel();
         }

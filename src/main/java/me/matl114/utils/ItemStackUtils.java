@@ -1,6 +1,6 @@
 package me.matl114.utils;
 
-import static net.minecraft.component.DataComponentTypes.*;
+import static net.minecraft.core.component.DataComponents.*;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.*;
@@ -17,26 +17,41 @@ import me.matl114.bukkit.BukkitItemStackUtils;
 import me.matl114.versioned.api.VHideFlag;
 import me.matl114.versioned.api.VItem;
 import me.matl114.versioned.impl.TooltipHideFlag_v1_21_11;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientDynamicRegistryType;
-import net.minecraft.component.ComponentType;
-import net.minecraft.component.type.*;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.*;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtInt;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.registry.*;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextCodecs;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientRegistryLayer;
+import net.minecraft.core.component.*;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.item.*;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.chat.Style;
+import net.minecraft.core.*;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Unit;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.ItemLike;
 import org.jetbrains.annotations.Nullable;
 
 @ApiMethod
@@ -49,12 +64,12 @@ public class ItemStackUtils {
         return TooltipHideFlag_v1_21_11.values();
     }
 
-    public static Predicate<ItemStack> componentPredicate(ComponentType<?> type) {
+    public static Predicate<ItemStack> componentPredicate(DataComponentType<?> type) {
         return (stack) -> hasInPatch(stack, type);
     }
 
     public static <T> Predicate<ItemStack> componentPredicate(
-            ComponentType<T> type, Predicate<T> test, boolean nullDefault) {
+            DataComponentType<T> type, Predicate<T> test, boolean nullDefault) {
         return (stack) -> {
             var val = stack.get(type);
             if (val != null) {
@@ -68,7 +83,7 @@ public class ItemStackUtils {
     public interface TooltipsToggle {
         public void apply(ItemStack stack, boolean showInTooltip);
 
-        public static TooltipsToggle byComponent(ComponentType<Unit> type) {
+        public static TooltipsToggle byComponent(DataComponentType<Unit> type) {
             return ((stack, showInTooltip) -> {
                 if (showInTooltip) {
                     stack.remove(type);
@@ -78,7 +93,7 @@ public class ItemStackUtils {
             });
         }
 
-        public static <T> TooltipsToggle onComponent(ComponentType<T> type, ComponentTooltipsToggle<T> toggle) {
+        public static <T> TooltipsToggle onComponent(DataComponentType<T> type, ComponentTooltipsToggle<T> toggle) {
             return ((stack, showInTooltips) -> {
                 T val = stack.get(type);
                 if (val != null) {
@@ -93,9 +108,9 @@ public class ItemStackUtils {
     }
 
     @SuppressWarnings("all")
-    public static <T> T getInPatch(ItemStack stack, ComponentType<T> type) {
+    public static <T> T getInPatch(ItemStack stack, DataComponentType<T> type) {
         if (stack != null && !stack.isEmpty()) {
-            var map = stack.components.changedComponents;
+            var map = stack.components.patch;
             if (map == null) return null;
             var optional = map.get(type);
             return (T) (optional == null ? null : optional.orElse(null));
@@ -105,20 +120,20 @@ public class ItemStackUtils {
 
     public static boolean hasInPatch(ItemStack stack) {
         if (stack != null && !stack.isEmpty()) {
-            var map = stack.components.changedComponents;
+            var map = stack.components.patch;
             // add compat to via item 1.20.4
             if (map == null) return false;
             if (map.isEmpty()) return false;
             if (map.size() >= 2) return true;
             if (map.containsKey(CUSTOM_DATA)) {
                 // check protocol item
-                NbtComponent customData = (NbtComponent) map.get(CUSTOM_DATA).orElse(null);
+                CustomData customData = (CustomData) map.get(CUSTOM_DATA).orElse(null);
                 if (customData == null || customData.isEmpty()) return false;
-                var nbt = customData.nbt;
-                Set<String> keys = nbt.getKeys();
+                var nbt = customData.tag;
+                Set<String> keys = nbt.keySet();
                 if (keys.size() > 2) return true;
                 // we only support Damage , because most of these are from damage
-                int val = nbt.get("Damage") instanceof NbtInt nbtInt ? nbtInt.intValue() : 0;
+                int val = nbt.get("Damage") instanceof IntTag nbtInt ? nbtInt.intValue() : 0;
                 if (val > 0) return true;
                 for (var key : keys) {
                     // viaversion items
@@ -133,19 +148,19 @@ public class ItemStackUtils {
         return false;
     }
 
-    public static boolean hasInPatch(ItemStack stack, ComponentType<?> type) {
+    public static boolean hasInPatch(ItemStack stack, DataComponentType<?> type) {
         if (stack != null && !stack.isEmpty()) {
-            var map = stack.components.changedComponents;
+            var map = stack.components.patch;
             if (map == null) return false;
             return map.containsKey(type) && !Objects.equals(Optional.empty(), map.get(type));
         }
         return false;
     }
 
-    public static <T> void setOrRemoveChange(ItemStack stack, ComponentType<T> type, @Nullable T val) {
+    public static <T> void setOrRemoveChange(ItemStack stack, DataComponentType<T> type, @Nullable T val) {
         if (stack != null && !stack.isEmpty()) {
             var cpmap = stack.components;
-            var map = cpmap.changedComponents;
+            var map = cpmap.patch;
             if (map == null) return;
             boolean shouldChange;
             if (val == null) {
@@ -158,73 +173,73 @@ public class ItemStackUtils {
             }
             if (shouldChange) {
                 // copy before write
-                cpmap.onWrite();
+                cpmap.ensureMapOwnership();
                 // update the map after copy
-                map = cpmap.changedComponents;
+                map = cpmap.patch;
                 if (val == null) map.remove(type);
                 else map.put(type, Optional.of(val));
             }
         }
     }
 
-    public static <T> void markRemoveAsChange(ItemStack stack, ComponentType<T> type) {
+    public static <T> void markRemoveAsChange(ItemStack stack, DataComponentType<T> type) {
         if (stack != null && !stack.isEmpty()) {
             var cpmap = stack.components;
-            var map = cpmap.changedComponents;
+            var map = cpmap.patch;
             if (map != null) {
                 // no need to modify
                 if (map.containsKey(type) && map.get(type) == Optional.empty()) return;
-                cpmap.onWrite();
+                cpmap.ensureMapOwnership();
                 ;
-                cpmap.changedComponents.put(type, Optional.empty());
+                cpmap.patch.put(type, Optional.empty());
             }
         }
     }
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
-    private static DynamicRegistryManager staticRegistry;
+    private static final Minecraft mc = Minecraft.getInstance();
+    private static RegistryAccess staticRegistry;
 
-    public static <T> Identifier solveDynamic(RegistryEntry<T> entry) {
-        return entry.getKey().get().getValue();
+    public static <T> Identifier solveDynamic(Holder<T> entry) {
+        return entry.unwrapKey().get().identifier();
     }
 
-    public static class DelegateRegistryWrapperLookup implements RegistryWrapper.WrapperLookup {
+    public static class DelegateRegistryWrapperLookup implements HolderLookup.Provider {
         protected static final DelegateRegistryWrapperLookup INSTANCE = new DelegateRegistryWrapperLookup();
 
         @Override
-        public Stream<RegistryKey<? extends Registry<?>>> streamAllRegistryKeys() {
-            return registry().streamAllRegistryKeys();
+        public Stream<ResourceKey<? extends Registry<?>>> listRegistryKeys() {
+            return registry().listRegistryKeys();
         }
 
         @Override
-        public <T> Optional<? extends RegistryWrapper.Impl<T>> getOptional(
-                RegistryKey<? extends Registry<? extends T>> registryRef) {
-            return registry().getOptional(registryRef);
+        public <T> Optional<? extends HolderLookup.RegistryLookup<T>> lookup(
+                ResourceKey<? extends Registry<? extends T>> registryRef) {
+            return registry().lookup(registryRef);
         }
 
-        public <V> RegistryOps<V> getOps(DynamicOps<V> delegate) {
-            return registry().getOps(delegate);
+        public <V> RegistryOps<V> createSerializationContext(DynamicOps<V> delegate) {
+            return registry().createSerializationContext(delegate);
         }
     }
 
-    public static RegistryWrapper.WrapperLookup delegate() {
+    public static HolderLookup.Provider delegate() {
         return DelegateRegistryWrapperLookup.INSTANCE;
     }
 
-    private static DynamicRegistryManager cachedRegistry;
+    private static RegistryAccess cachedRegistry;
 
     @Nonnull
-    public static DynamicRegistryManager registry() {
-        if (mc.getNetworkHandler() != null) {
-            return cachedRegistry = mc.getNetworkHandler().getRegistryManager();
+    public static RegistryAccess registry() {
+        if (mc.getConnection() != null) {
+            return cachedRegistry = mc.getConnection().registryAccess();
         } else {
             // when asking registry() offline, just return the cache value
             if (cachedRegistry != null) {
                 return cachedRegistry;
             }
             if (staticRegistry == null) {
-                staticRegistry = ClientDynamicRegistryType.createCombinedDynamicRegistries()
-                        .getCombinedRegistryManager();
+                staticRegistry = ClientRegistryLayer.createRegistryAccess()
+                        .compositeAccess();
             }
             return staticRegistry;
         }
@@ -232,25 +247,25 @@ public class ItemStackUtils {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
-    public static Text jsonRawToText(String jsonRaw) {
+    public static Component jsonRawToText(String jsonRaw) {
         try {
             if (jsonRaw == null) return null;
             JsonElement jsonElement = JsonParser.parseString(jsonRaw);
             return jsonElement == null
                     ? null
-                    : TextCodecs.CODEC
-                            .parse(registry().getOps(JsonOps.INSTANCE), jsonElement)
+                    : ComponentSerialization.CODEC
+                            .parse(registry().createSerializationContext(JsonOps.INSTANCE), jsonElement)
                             .getOrThrow(JsonParseException::new);
         } catch (Throwable e) {
             return null;
         }
     }
 
-    public static String textToJsonRaw(Text text) {
+    public static String textToJsonRaw(Component text) {
         if (text == null) return null;
         try {
-            var re = TextCodecs.CODEC
-                    .encodeStart(registry().getOps(JsonOps.INSTANCE), text)
+            var re = ComponentSerialization.CODEC
+                    .encodeStart(registry().createSerializationContext(JsonOps.INSTANCE), text)
                     .getOrThrow(JsonParseException::new);
             return GSON.toJson(re);
         } catch (Throwable e) {
@@ -259,22 +274,22 @@ public class ItemStackUtils {
     }
 
     @Nullable
-    public static Text getCustomName(ItemStack stack) {
+    public static Component getCustomName(ItemStack stack) {
         var text = getInPatch(stack, CUSTOM_NAME);
-        return text == null ? Text.empty() : text;
+        return text == null ? Component.empty() : text;
     }
 
-    public static void setCustomName(ItemStack stack, Text text) {
-        setOrRemoveChange(stack, CUSTOM_NAME, Objects.equals(text, Text.empty()) ? null : text);
+    public static void setCustomName(ItemStack stack, Component text) {
+        setOrRemoveChange(stack, CUSTOM_NAME, Objects.equals(text, Component.empty()) ? null : text);
     }
 
-    public static void applyItemEnchant(ItemStack stack, ItemEnchantmentsComponent ench) {
-        setOrRemoveChange(stack, ENCHANTMENTS, Objects.equals(ench, ItemEnchantmentsComponent.DEFAULT) ? null : ench);
+    public static void applyItemEnchant(ItemStack stack, ItemEnchantments ench) {
+        setOrRemoveChange(stack, ENCHANTMENTS, Objects.equals(ench, ItemEnchantments.EMPTY) ? null : ench);
     }
 
-    public static ItemEnchantmentsComponent getItemEnchant(ItemStack stack) {
+    public static ItemEnchantments getItemEnchant(ItemStack stack) {
         var itemEnchant = getInPatch(stack, ENCHANTMENTS);
-        return itemEnchant == null ? ItemEnchantmentsComponent.DEFAULT : itemEnchant;
+        return itemEnchant == null ? ItemEnchantments.EMPTY : itemEnchant;
     }
 
     private static final Map<String, EquipmentSlot> NAME_TO_SLOT = new HashMap<>();
@@ -285,14 +300,14 @@ public class ItemStackUtils {
         }
     }
 
-    public static AttributeModifiersComponent getEntityModifier(ItemStack stack) {
+    public static ItemAttributeModifiers getEntityModifier(ItemStack stack) {
         var attr = getInPatch(stack, ATTRIBUTE_MODIFIERS);
-        return attr == null ? AttributeModifiersComponent.DEFAULT : attr;
+        return attr == null ? ItemAttributeModifiers.EMPTY : attr;
     }
 
-    public static void applyEntityModifier(ItemStack stack, AttributeModifiersComponent data) {
+    public static void applyEntityModifier(ItemStack stack, ItemAttributeModifiers data) {
         setOrRemoveChange(
-                stack, ATTRIBUTE_MODIFIERS, Objects.equals(data, AttributeModifiersComponent.DEFAULT) ? null : data);
+                stack, ATTRIBUTE_MODIFIERS, Objects.equals(data, ItemAttributeModifiers.EMPTY) ? null : data);
     }
 
     public static boolean getIsUnbreakable(ItemStack stack) {
@@ -313,28 +328,28 @@ public class ItemStackUtils {
     public static void setDamage(ItemStack stack, int damage) {
         if (stack == ItemStack.EMPTY) return;
         if (damage > 0) {
-            stack.setDamage(damage);
+            stack.setDamageValue(damage);
         } else {
             setOrRemoveChange(stack, DAMAGE, null);
         }
     }
 
     private static final Style LORE_STYLE =
-            Style.EMPTY.withColor(Formatting.DARK_PURPLE).withItalic(true);
+            Style.EMPTY.withColor(ChatFormatting.DARK_PURPLE).withItalic(true);
 
-    public static List<Text> getLore(ItemStack stack) {
+    public static List<Component> getLore(ItemStack stack) {
         var itemLore = getInPatch(stack, LORE);
         return itemLore == null ? new ArrayList<>() : new ArrayList<>(itemLore.lines());
     }
 
-    public static List<Text> getLoreReadOnly(ItemStack stack) {
+    public static List<Component> getLoreReadOnly(ItemStack stack) {
         var itemLore = getInPatch(stack, LORE);
         return itemLore == null ? List.of() : itemLore.lines();
     }
 
-    public static void setLore(ItemStack itemStack, List<Text> lore) {
+    public static void setLore(ItemStack itemStack, List<Component> lore) {
         if (lore != null && !lore.isEmpty()) {
-            setOrRemoveChange(itemStack, LORE, new LoreComponent(lore));
+            setOrRemoveChange(itemStack, LORE, new ItemLore(lore));
         } else {
             setOrRemoveChange(itemStack, LORE, null);
         }
@@ -346,27 +361,27 @@ public class ItemStackUtils {
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
-    public static ItemEnchantmentsComponent getStoredEnchantment(ItemStack stack) {
+    public static ItemEnchantments getStoredEnchantment(ItemStack stack) {
         var ench = getInPatch(stack, STORED_ENCHANTMENTS);
-        return ench == null ? ItemEnchantmentsComponent.DEFAULT : ench;
+        return ench == null ? ItemEnchantments.EMPTY : ench;
     }
 
     public static void setEnchantmentGlow(ItemStack stack) {
         setOrRemoveChange(stack, ENCHANTMENT_GLINT_OVERRIDE, Boolean.TRUE);
     }
 
-    public static void setEnchantment(ItemStack stack, ItemEnchantmentsComponent enchantments) {
+    public static void setEnchantment(ItemStack stack, ItemEnchantments enchantments) {
         setOrRemoveChange(
                 stack,
                 ENCHANTMENTS,
-                Objects.equals(enchantments, ItemEnchantmentsComponent.DEFAULT) ? null : enchantments);
+                Objects.equals(enchantments, ItemEnchantments.EMPTY) ? null : enchantments);
     }
 
-    public static void setStoredEnchantment(ItemStack stack, ItemEnchantmentsComponent enchantments) {
+    public static void setStoredEnchantment(ItemStack stack, ItemEnchantments enchantments) {
         setOrRemoveChange(
                 stack,
                 STORED_ENCHANTMENTS,
-                Objects.equals(enchantments, ItemEnchantmentsComponent.DEFAULT) ? null : enchantments);
+                Objects.equals(enchantments, ItemEnchantments.EMPTY) ? null : enchantments);
     }
 
     public static ItemStack getCleanedItem(ItemStack stack) {
@@ -387,7 +402,7 @@ public class ItemStackUtils {
 
     public static ItemStack getCleanedItem(
             ItemStack stack, int setAmount, boolean keepNBT, boolean keepDur, boolean keepEnchant) {
-        ItemStack cleaned = stack.getItem().getDefaultStack();
+        ItemStack cleaned = stack.getItem().getDefaultInstance();
 
         if (!keepNBT) {
             if (setAmount != -999) {
@@ -417,7 +432,7 @@ public class ItemStackUtils {
             return stack2.isEmpty();
         } else if (stack2.isEmpty()) {
             return false;
-        } else if (!stack1.isOf(stack2.getItem())) {
+        } else if (!stack1.is(stack2.getItem())) {
             return false;
         }
         {
@@ -433,16 +448,16 @@ public class ItemStackUtils {
             // matchItemWithoutLore(clean1, clean2);
             //            }
             if (matchDur && matchEnch && matchLore) {
-                return ItemStack.areItemsAndComponentsEqual(stack1, stack2);
+                return ItemStack.isSameItemSameComponents(stack1, stack2);
             }
-            var compound1 = stack1.components.changedComponents;
-            var compound2 = stack2.components.changedComponents;
+            var compound1 = stack1.components.patch;
+            var compound2 = stack2.components.patch;
             if (compound1 == null || compound2 == null) {
                 return compound1 == compound2;
             }
 
-            Map<ComponentType, Optional> map1 = new HashMap<>(compound1);
-            Map<ComponentType, Optional> map2 = new HashMap<>(compound2);
+            Map<DataComponentType, Optional> map1 = new HashMap<>(compound1);
+            Map<DataComponentType, Optional> map2 = new HashMap<>(compound2);
             Optional n1;
             Optional n2;
             if (!matchLore) {
@@ -471,7 +486,7 @@ public class ItemStackUtils {
     }
 
     public static boolean matchItemWithoutLore(ItemStack stack1, ItemStack stack2) {
-        if (!stack1.isOf(stack2.getItem())) {
+        if (!stack1.is(stack2.getItem())) {
             return false;
         }
         if (stack1.isEmpty()) {
@@ -479,13 +494,13 @@ public class ItemStackUtils {
         } else if (stack2.isEmpty()) {
             return false;
         } else {
-            var compound1 = stack1.components.changedComponents;
-            var compound2 = stack2.components.changedComponents;
+            var compound1 = stack1.components.patch;
+            var compound2 = stack2.components.patch;
             if (compound1 == null || compound2 == null) {
                 return compound1 == compound2;
             }
-            Map<ComponentType, Optional> map1 = new HashMap<>(compound1);
-            Map<ComponentType, Optional> map2 = new HashMap<>(compound2);
+            Map<DataComponentType, Optional> map1 = new HashMap<>(compound1);
+            Map<DataComponentType, Optional> map2 = new HashMap<>(compound2);
             var n1 = map1.remove(LORE);
             var n2 = map2.remove(LORE);
             // both having or not having lore
@@ -499,7 +514,7 @@ public class ItemStackUtils {
     }
 
     public static boolean matchVersionedItem(ItemStack stack1, ItemStack stack2) {
-        if (!stack1.isOf(stack2.getItem())) {
+        if (!stack1.is(stack2.getItem())) {
             return false;
         }
         if (stack1.isEmpty()) {
@@ -507,18 +522,18 @@ public class ItemStackUtils {
         } else if (stack2.isEmpty()) {
             return false;
         } else {
-            var compound1 = stack1.components.changedComponents;
-            var compound2 = stack2.components.changedComponents;
-            Map<ComponentType, Optional> map1 = compound1 == null ? new HashMap<>() : new HashMap<>(compound1);
-            Map<ComponentType, Optional> map2 = compound2 == null ? new HashMap<>() : new HashMap<>(compound2);
+            var compound1 = stack1.components.patch;
+            var compound2 = stack2.components.patch;
+            Map<DataComponentType, Optional> map1 = compound1 == null ? new HashMap<>() : new HashMap<>(compound1);
+            Map<DataComponentType, Optional> map2 = compound2 == null ? new HashMap<>() : new HashMap<>(compound2);
             var n1 = map1.remove(CUSTOM_DATA);
             var n2 = map2.remove(CUSTOM_DATA);
             // both having or not having lore
             if (map1.equals(map2)) {
-                NbtElement nbt1 =
-                        (n1 == null || n1.isEmpty()) ? null : ((NbtComponent) n1.get()).nbt.get(BUKKIT_NAMESPACE);
-                NbtElement nbt2 =
-                        (n2 == null || n2.isEmpty()) ? null : ((NbtComponent) n2.get()).nbt.get(BUKKIT_NAMESPACE);
+                Tag nbt1 =
+                        (n1 == null || n1.isEmpty()) ? null : ((CustomData) n1.get()).tag.get(BUKKIT_NAMESPACE);
+                Tag nbt2 =
+                        (n2 == null || n2.isEmpty()) ? null : ((CustomData) n2.get()).tag.get(BUKKIT_NAMESPACE);
                 return Objects.equals(nbt1, nbt2);
             } else {
                 return false;
@@ -527,12 +542,12 @@ public class ItemStackUtils {
     }
 
     private static boolean matchEfficiency(ItemStack stack1, ItemStack stack2) {
-        ItemEnchantmentsComponent ench1 = stack1.get(ENCHANTMENTS);
-        ItemEnchantmentsComponent ench2 = stack2.get(ENCHANTMENTS);
+        ItemEnchantments ench1 = stack1.get(ENCHANTMENTS);
+        ItemEnchantments ench2 = stack2.get(ENCHANTMENTS);
         if (ench1 == null || ench2 == null) {
             return ench1 == ench2;
         } else {
-            RegistryEntry<Enchantment> efficient = ItemStackUtils.registry().getEntryOrThrow(Enchantments.EFFICIENCY);
+            Holder<Enchantment> efficient = ItemStackUtils.registry().getOrThrow(Enchantments.EFFICIENCY);
             return ench1.getLevel(efficient) == ench2.getLevel(efficient);
         }
     }
@@ -540,7 +555,7 @@ public class ItemStackUtils {
     protected static String BUKKIT_NAMESPACE = "PublicBukkitValues";
     protected static String SLIMEFUN_ID_PATH = "slimefun:slimefun_item";
     protected static boolean isGrassOrShortGrass =
-            Registries.ITEM.get(new Identifier("minecraft", "grass")) != Items.AIR;
+            BuiltInRegistries.ITEM.getValue(new Identifier("minecraft", "grass")) != Items.AIR;
 
     public static ItemStack newItem(String type, String id) {
         String[] typedString = type.split("[$]");
@@ -548,7 +563,7 @@ public class ItemStackUtils {
         if ("grass".equals(typedStr) || "short_grass".equals(typedStr)) {
             typedStr = isGrassOrShortGrass ? "grass" : "short_grass";
         }
-        Item typed = Registries.ITEM.get(new Identifier("minecraft", typedStr));
+        Item typed = BuiltInRegistries.ITEM.getValue(new Identifier("minecraft", typedStr));
 
         ItemStack stacked = new ItemStack(typed);
         if (typedString.length == 2) {
@@ -564,77 +579,77 @@ public class ItemStackUtils {
     }
 
     public static boolean hasCustomData(ItemStack itemStack) {
-        NbtComponent customData = getInPatch(itemStack, CUSTOM_DATA);
+        CustomData customData = getInPatch(itemStack, CUSTOM_DATA);
         return customData != null && !customData.isEmpty();
     }
 
-    private static final NbtCompound EMPTY = new NbtCompound(ImmutableMap.of());
+    private static final CompoundTag EMPTY = new CompoundTag(ImmutableMap.of());
 
-    public static NbtCompound getCustomDataReadOnly(ItemStack itemStack) {
-        NbtComponent customData = getInPatch(itemStack, CUSTOM_DATA);
-        return customData == null ? EMPTY : customData.nbt;
+    public static CompoundTag getCustomDataReadOnly(ItemStack itemStack) {
+        CustomData customData = getInPatch(itemStack, CUSTOM_DATA);
+        return customData == null ? EMPTY : customData.tag;
     }
 
-    public static void mapCustomData(ItemStack itemStack, UnaryOperator<NbtCompound> updater) {
-        NbtComponent customData = getInPatch(itemStack, CUSTOM_DATA);
-        NbtCompound nbtCompound;
+    public static void mapCustomData(ItemStack itemStack, UnaryOperator<CompoundTag> updater) {
+        CustomData customData = getInPatch(itemStack, CUSTOM_DATA);
+        CompoundTag nbtCompound;
         if (customData == null) {
-            nbtCompound = new NbtCompound();
+            nbtCompound = new CompoundTag();
         } else {
-            nbtCompound = customData.copyNbt();
+            nbtCompound = customData.copyTag();
         }
         nbtCompound = updater.apply(nbtCompound);
         if (nbtCompound == null || nbtCompound.isEmpty()) {
             setOrRemoveChange(itemStack, CUSTOM_DATA, null);
         } else {
-            setOrRemoveChange(itemStack, CUSTOM_DATA, new NbtComponent(nbtCompound));
+            setOrRemoveChange(itemStack, CUSTOM_DATA, new CustomData(nbtCompound));
         }
     }
 
-    public static void updateCustomData(ItemStack itemStack, Consumer<NbtCompound> updater) {
-        NbtComponent customData = getInPatch(itemStack, CUSTOM_DATA);
-        NbtCompound nbtCompound;
+    public static void updateCustomData(ItemStack itemStack, Consumer<CompoundTag> updater) {
+        CustomData customData = getInPatch(itemStack, CUSTOM_DATA);
+        CompoundTag nbtCompound;
         if (customData == null) {
-            nbtCompound = new NbtCompound();
+            nbtCompound = new CompoundTag();
         } else {
-            nbtCompound = customData.copyNbt();
+            nbtCompound = customData.copyTag();
         }
         updater.accept(nbtCompound);
         if (nbtCompound == null || nbtCompound.isEmpty()) {
             setOrRemoveChange(itemStack, CUSTOM_DATA, null);
         } else {
-            setOrRemoveChange(itemStack, CUSTOM_DATA, new NbtComponent(nbtCompound));
+            setOrRemoveChange(itemStack, CUSTOM_DATA, new CustomData(nbtCompound));
         }
     }
 
-    public static NbtCompound getBukkitValueReadOnly(ItemStack stack) {
-        NbtCompound compound = getCustomDataReadOnly(stack);
+    public static CompoundTag getBukkitValueReadOnly(ItemStack stack) {
+        CompoundTag compound = getCustomDataReadOnly(stack);
         return getBukkitValue(compound);
     }
 
-    public static NbtCompound getBukkitValue(@Nonnull NbtCompound nbt) {
-        return nbt.get(BUKKIT_NAMESPACE) instanceof NbtCompound cpd ? cpd : null;
+    public static CompoundTag getBukkitValue(@Nonnull CompoundTag nbt) {
+        return nbt.get(BUKKIT_NAMESPACE) instanceof CompoundTag cpd ? cpd : null;
     }
 
-    private static NbtCompound createBukkitValue(NbtCompound nbt) {
-        NbtCompound nbt0;
-        if (nbt.get(BUKKIT_NAMESPACE) instanceof NbtCompound nbt2) {
+    private static CompoundTag createBukkitValue(CompoundTag nbt) {
+        CompoundTag nbt0;
+        if (nbt.get(BUKKIT_NAMESPACE) instanceof CompoundTag nbt2) {
             return nbt2;
         }
-        nbt0 = new NbtCompound();
+        nbt0 = new CompoundTag();
 
         nbt.put(BUKKIT_NAMESPACE, nbt0);
         return nbt0;
     }
 
-    public static String getSfIdFromBukkitValues(NbtCompound ntb) {
+    public static String getSfIdFromBukkitValues(CompoundTag ntb) {
         return ntb == null
                 ? null
-                : (ntb.get(SLIMEFUN_ID_PATH) instanceof NbtString nbtString ? nbtString.value() : null);
+                : (ntb.get(SLIMEFUN_ID_PATH) instanceof StringTag nbtString ? nbtString.value() : null);
     }
 
-    public static String getSfId(NbtCompound nbt) {
-        NbtCompound bukkitValues = getBukkitValue(nbt);
+    public static String getSfId(CompoundTag nbt) {
+        CompoundTag bukkitValues = getBukkitValue(nbt);
         if (bukkitValues == null) return null;
         return getSfIdFromBukkitValues(bukkitValues);
     }
@@ -653,7 +668,7 @@ public class ItemStackUtils {
             });
         } else {
             mapCustomData(stack, (nbt) -> {
-                NbtCompound compound = createBukkitValue(nbt);
+                CompoundTag compound = createBukkitValue(nbt);
                 compound.putString(SLIMEFUN_ID_PATH, id);
                 return nbt;
             });
@@ -661,21 +676,21 @@ public class ItemStackUtils {
     }
 
     public static String getSfId(ItemStack stack) {
-        NbtCompound bukkitValues = getBukkitValueReadOnly(stack);
+        CompoundTag bukkitValues = getBukkitValueReadOnly(stack);
         if (bukkitValues == null) return null;
         return getSfIdFromBukkitValues(bukkitValues);
     }
 
     public static ItemStack withTypeChange(ItemStack itemStack, Item typeChange) {
-        return itemStack.copyComponentsToNewStackIgnoreEmpty((ItemConvertible) typeChange, itemStack.getCount());
+        return itemStack.transmuteCopyIgnoreEmpty((ItemLike) typeChange, itemStack.getCount());
     }
 
     public static void setCustomModelData(ItemStack stack, int customModelData) {
         setOrRemoveChange(stack, CUSTOM_MODEL_DATA, VItem.getInstance().createModelData(customModelData));
     }
 
-    public static int getEnchantmentLevel(ItemEnchantmentsComponent component, RegistryKey<Enchantment> key) {
-        var enchantmentRegistry = ItemStackUtils.registry().getWrapperOrThrow(RegistryKeys.ENCHANTMENT);
+    public static int getEnchantmentLevel(ItemEnchantments component, ResourceKey<Enchantment> key) {
+        var enchantmentRegistry = ItemStackUtils.registry().lookupOrThrow(Registries.ENCHANTMENT);
         return component.getLevel(enchantmentRegistry.getOrThrow(key));
     }
 

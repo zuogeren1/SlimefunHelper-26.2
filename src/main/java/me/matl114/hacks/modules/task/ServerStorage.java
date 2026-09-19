@@ -37,14 +37,14 @@ import me.matl114.managers.file.FileStorage;
 import me.matl114.utils.CollectionUtils;
 import me.matl114.utils.CommonUtils;
 import me.matl114.utils.Debug;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 
 public class ServerStorage extends BaseModule {
     public static ServerStorage INSTANCE;
@@ -130,7 +130,7 @@ public class ServerStorage extends BaseModule {
     }
 
     public static BlockStorage getOrCreateBlockStorage(BlockPos pos) {
-        return getBlockStorage(pos, () -> new BlockStorage(mc.world.getRegistryKey(), pos));
+        return getBlockStorage(pos, () -> new BlockStorage(mc.level.dimension(), pos));
     }
 
     public static BlockStorage getBlockStorage(BlockPos pos, Supplier<BlockStorage> supplier) {
@@ -142,14 +142,14 @@ public class ServerStorage extends BaseModule {
             return null;
         }
         var cacheMap = snapshotMap1;
-        if (cacheMap == null && mc.world != null) {
-            processAsyncUpdateMapSnapshot(mc.world.getRegistryKey());
+        if (cacheMap == null && mc.level != null) {
+            processAsyncUpdateMapSnapshot(mc.level.dimension());
         }
         if (cacheMap != null) {
             return _getFromSSSSMap(pos, supplier, cacheMap);
         } else {
             var blockMap = serverStorage.blockStorageMap.computeIfAbsent(
-                    mc.world.getRegistryKey(), k -> new ConcurrentHashMap<>());
+                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
             return _getFromSSSSMap(pos, supplier, blockMap);
         }
     }
@@ -157,20 +157,20 @@ public class ServerStorage extends BaseModule {
     public static void setBlockStorage(BlockPos pos, BlockStorage blockStorage) {
         if (serverStorage == null) return;
         var cacheMap = snapshotMap1;
-        if (cacheMap == null && mc.world != null) {
-            processAsyncUpdateMapSnapshot(mc.world.getRegistryKey());
+        if (cacheMap == null && mc.level != null) {
+            processAsyncUpdateMapSnapshot(mc.level.dimension());
         }
         if (cacheMap != null) {
             _putToSSSSMap(pos, blockStorage, cacheMap);
         } else {
             var blockMap = serverStorage.blockStorageMap.computeIfAbsent(
-                    mc.world.getRegistryKey(), k -> new ConcurrentHashMap<>());
+                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
             _putToSSSSMap(pos, blockStorage, blockMap);
         }
     }
 
     public static ChunkStorage getOrCreateChunkStorage(ChunkPos pos) {
-        return getChunkStorage(pos, () -> new ChunkStorage(mc.world.getRegistryKey(), pos));
+        return getChunkStorage(pos, () -> new ChunkStorage(mc.level.dimension(), pos));
     }
 
     public static ChunkStorage getChunkStorage(ChunkPos pos) {
@@ -186,14 +186,14 @@ public class ServerStorage extends BaseModule {
             return null;
         }
         var cacheMap = snapshotMap2;
-        if (cacheMap == null && mc.world != null) {
-            processAsyncUpdateMapSnapshot(mc.world.getRegistryKey());
+        if (cacheMap == null && mc.level != null) {
+            processAsyncUpdateMapSnapshot(mc.level.dimension());
         }
         if (cacheMap != null) {
             return _getFromSSSSMap(pos, supplier, cacheMap);
         } else {
             var blockMap = serverStorage.chunkStorageMap.computeIfAbsent(
-                    mc.world.getRegistryKey(), k -> new ConcurrentHashMap<>());
+                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
             return _getFromSSSSMap(pos, supplier, blockMap);
         }
     }
@@ -201,14 +201,14 @@ public class ServerStorage extends BaseModule {
     public static void setChunkStorage(ChunkPos pos, ChunkStorage blockStorage) {
         if (serverStorage == null) return;
         var cacheMap = snapshotMap2;
-        if (cacheMap == null && mc.world != null) {
-            processAsyncUpdateMapSnapshot(mc.world.getRegistryKey());
+        if (cacheMap == null && mc.level != null) {
+            processAsyncUpdateMapSnapshot(mc.level.dimension());
         }
         if (cacheMap != null) {
             _putToSSSSMap(pos, blockStorage, cacheMap);
         } else {
             var blockMap = serverStorage.chunkStorageMap.computeIfAbsent(
-                    mc.world.getRegistryKey(), k -> new ConcurrentHashMap<>());
+                    mc.level.dimension(), k -> new ConcurrentHashMap<>());
             _putToSSSSMap(pos, blockStorage, blockMap);
         }
     }
@@ -227,18 +227,18 @@ public class ServerStorage extends BaseModule {
         }
     }
 
-    public static WorldStorage getWorldStorage(RegistryKey<World> key, Supplier<WorldStorage> supplier) {
+    public static WorldStorage getWorldStorage(ResourceKey<Level> key, Supplier<WorldStorage> supplier) {
         return serverStorage.worldStorageMap.computeIfAbsent(key, s -> supplier.get());
     }
 
     @Getter
     @Broadcast
-    @ExtraArgs({String.class, DynamicRegistryManager.class})
+    @ExtraArgs({String.class, RegistryAccess.class})
     private static final EventChannel<Meta> serverStorageLoad = new EventChannel<>();
 
     @Getter
     @Broadcast
-    @ExtraArgs({String.class, DynamicRegistryManager.class})
+    @ExtraArgs({String.class, RegistryAccess.class})
     private static final EventChannel<Meta> serverStorageSave = new EventChannel<>();
 
     private static <W, T> void _putToSSSSMap(W key, T val, Map<W, T> mmm) {
@@ -287,7 +287,7 @@ public class ServerStorage extends BaseModule {
         String serverName = ServerStorage.currentServerName;
         serverStorage = new Meta(serverName);
         Meta loadingStorage = serverStorage;
-        DynamicRegistryManager registry = mc.getNetworkHandler().getRegistryManager();
+        RegistryAccess registry = mc.getConnection().registryAccess();
 
         if (enable.get()) {
             CompletableFuture.runAsync(() -> {
@@ -328,7 +328,7 @@ public class ServerStorage extends BaseModule {
         processAsyncUpdateMapSnapshot(null);
     }
 
-    public static void processAsyncUpdateMapSnapshot(RegistryKey<World> world) {
+    public static void processAsyncUpdateMapSnapshot(ResourceKey<Level> world) {
         if (serverStorage != null && world != null) {
             Meta storage = serverStorage;
             CompletableFuture.runAsync(() -> {
@@ -354,8 +354,8 @@ public class ServerStorage extends BaseModule {
         registerListener(Listener.getServerLeavePoint(), this::onGameLeave, Integer.MIN_VALUE);
         saveTask = ScheduleService.launchAsyncRepeatTask(
                 () -> {
-                    if (mc.getNetworkHandler() != null && mc.getNetworkHandler().getRegistryManager() != null) {
-                        onSave(mc.getNetworkHandler().getRegistryManager());
+                    if (mc.getConnection() != null && mc.getConnection().registryAccess() != null) {
+                        onSave(mc.getConnection().registryAccess());
                     }
                 },
                 15 * 1000,
@@ -376,27 +376,27 @@ public class ServerStorage extends BaseModule {
         }
         // hot unload
         if (!checkNull()) {
-            onSave(mc.getNetworkHandler().getRegistryManager());
+            onSave(mc.getConnection().registryAccess());
         }
     }
 
-    public void onGameJoin(Event<ClientPlayerEntity> eventPlayerEntity) {
+    public void onGameJoin(Event<LocalPlayer> eventPlayerEntity) {
         if (updateServerName()) {
             onLoadStorage();
         }
     }
 
-    public void onGameSwitchWorld(Event<World> event) {
+    public void onGameSwitchWorld(Event<Level> event) {
         processAsyncUpdateMapSnapshot(null);
     }
 
     public void onGameLeave(Event<Void> eventVoid) {
         processAsyncUpdateMapSnapshot(null);
-        DynamicRegistryManager registry = mc.getNetworkHandler().getRegistryManager();
+        RegistryAccess registry = mc.getConnection().registryAccess();
         CompletableFuture.runAsync(() -> onSave(registry));
     }
 
-    private void onSave(DynamicRegistryManager registryReference) {
+    private void onSave(RegistryAccess registryReference) {
         if (currentServerName != null && serverStorage != null) {
             Meta currentSaveStorage = serverStorage;
             String serverName = currentServerName;
@@ -427,8 +427,8 @@ public class ServerStorage extends BaseModule {
         return new File(getStorageFolder(serverName), folderName);
     }
 
-    private static String sanitizeWorldKey(RegistryKey<World> worldKey) {
-        return worldKey.getValue().toString().replace(":", "_");
+    private static String sanitizeWorldKey(ResourceKey<Level> worldKey) {
+        return worldKey.identifier().toString().replace(":", "_");
     }
 
     private static String blockFileName(BlockStorage storage) {
@@ -444,26 +444,26 @@ public class ServerStorage extends BaseModule {
     }
 
     private static String entityFileName(EntityStorage storage) {
-        return storage.getUuid().toString();
+        return storage.uuid.toString();
     }
 
     private static File dataFile(File folder, String fileName) {
         return new File(folder, fileName + ".nbt");
     }
 
-    private static IStorage storageFromNbt(NbtCompound compound) {
-        Map<String, NbtElement> storage = new HashMap<>();
-        for (String key : compound.getKeys()) {
-            NbtElement element = compound.get(key);
+    private static IStorage storageFromNbt(CompoundTag compound) {
+        Map<String, Tag> storage = new HashMap<>();
+        for (String key : compound.keySet()) {
+            Tag element = compound.get(key);
             if (element != null) {
                 storage.put(key, element.copy());
             }
         }
-        return new IStorage(World.OVERWORLD, storage);
+        return new IStorage(Level.OVERWORLD, storage);
     }
 
-    private static NbtCompound storageToNbt(IStorage storage) {
-        NbtCompound compound = new NbtCompound();
+    private static CompoundTag storageToNbt(IStorage storage) {
+        CompoundTag compound = new CompoundTag();
         for (var entry : storage.storage.entrySet()) {
             compound.put(entry.getKey(), entry.getValue().copy());
         }
@@ -659,9 +659,9 @@ public class ServerStorage extends BaseModule {
                                 .forGetter(Meta::toWorldList))
                 .apply(instance, Meta::new));
 
-        public final Map<RegistryKey<World>, Map<BlockPos, BlockStorage>> blockStorageMap;
-        public final Map<RegistryKey<World>, Map<ChunkPos, ChunkStorage>> chunkStorageMap;
-        public final Map<RegistryKey<World>, WorldStorage> worldStorageMap;
+        public final Map<ResourceKey<Level>, Map<BlockPos, BlockStorage>> blockStorageMap;
+        public final Map<ResourceKey<Level>, Map<ChunkPos, ChunkStorage>> chunkStorageMap;
+        public final Map<ResourceKey<Level>, WorldStorage> worldStorageMap;
         public final Map<UUID, EntityStorage> entityStorageMap;
 
         public final int version;
@@ -732,7 +732,7 @@ public class ServerStorage extends BaseModule {
         }
 
         public void putEntityStorage(EntityStorage storage) {
-            this.entityStorageMap.put(storage.getUuid(), storage);
+            this.entityStorageMap.put(storage.uuid, storage);
         }
 
         public List<BlockStorage> toBlockList() {
@@ -767,7 +767,7 @@ public class ServerStorage extends BaseModule {
             return entityStorageMap.values().stream().toList();
         }
 
-        public BlockStorage getBlockStorage(RegistryKey<World> world, BlockPos pos, boolean createIfAbsent) {
+        public BlockStorage getBlockStorage(ResourceKey<Level> world, BlockPos pos, boolean createIfAbsent) {
             if (createIfAbsent) {
                 return blockStorageMap
                         .computeIfAbsent(world, Meta::newMap)
@@ -782,7 +782,7 @@ public class ServerStorage extends BaseModule {
             }
         }
 
-        public ChunkStorage getChunkStorage(RegistryKey<World> world, ChunkPos pos, boolean createIfAbsent) {
+        public ChunkStorage getChunkStorage(ResourceKey<Level> world, ChunkPos pos, boolean createIfAbsent) {
             if (createIfAbsent) {
                 return chunkStorageMap
                         .computeIfAbsent(world, Meta::newMap)
@@ -797,7 +797,7 @@ public class ServerStorage extends BaseModule {
             }
         }
 
-        public WorldStorage getWorldStorage(RegistryKey<World> world, boolean createIfAbsent) {
+        public WorldStorage getWorldStorage(ResourceKey<Level> world, boolean createIfAbsent) {
             if (createIfAbsent) {
                 return worldStorageMap.computeIfAbsent(world, WorldStorage::new);
             } else {

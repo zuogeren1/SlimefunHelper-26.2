@@ -7,7 +7,7 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class IQBoost extends BaseModule {
     public IQBoost() {
@@ -23,7 +23,7 @@ public class IQBoost extends BaseModule {
                     path.addHotkey(),
                     new MultiKeyBind(),
                     path.addEnable(),
-                    () -> Text.literal(String.valueOf(this.value.get())))
+                    () -> Component.literal(String.valueOf(this.value.get())))
             .build();
 
     public final IntRef value =

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.combat;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.awt.*;
 import java.util.ArrayList;
@@ -10,7 +11,6 @@ import javax.annotation.Nullable;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import me.matl114.SlimefunHelper;
-import me.matl114.accessors.access.PlayerInteractEntityC2SPacketAccess;
 import me.matl114.accessors.hacks.PlayerInternalAccess;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
@@ -41,19 +41,18 @@ import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.s2c.play.EntityDamageS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ServerboundAttackPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import org.jetbrains.annotations.ApiStatus;
 
 public class ElytraBot extends BaseModule {
@@ -183,10 +182,10 @@ public class ElytraBot extends BaseModule {
             .build();
 
     @ApiStatus.Experimental
-    public final NBTRef<OptionalPrimitive<Vec3>> combatSmoothArg14 = builder(
-                    elytraBot.add("combat-smooth-flight-argument-1-4"), OptionalPrimitive.type(Vec3.class))
+    public final NBTRef<OptionalPrimitive<me.matl114.hacks.utils.config.Vec3>> combatSmoothArg14 = builder(
+                    elytraBot.add("combat-smooth-flight-argument-1-4"), OptionalPrimitive.type(me.matl114.hacks.utils.config.Vec3.class))
             .show(() -> mode.get().isIn(Mode.MACE_ARUA))
-            .defaultValue(new OptionalPrimitive<>(false, NBTTypes.VEC3_TYPE, new Vec3(10, 0.3, 20)))
+            .defaultValue(new OptionalPrimitive<>(false, NBTTypes.VEC3_TYPE, new me.matl114.hacks.utils.config.Vec3(10, 0.3, 20)))
             .experimental()
             .build();
 
@@ -229,7 +228,7 @@ public class ElytraBot extends BaseModule {
                     "widget.elytra-bot.angle.normal-flight",
                     "widget.elytra-bot.angle.spear-flight",
                     "widget.elytra-bot.angle.anti-spear-flight",
-                    new Vec3(4.0, 4.0, 4.0)))
+                    new me.matl114.hacks.utils.config.Vec3(4.0, 4.0, 4.0)))
             .show(() -> mode.get().isIn(Mode.MACE_ARUA)
                     && ElytraExtra.INSTANCE.autoRescale.get()
                     && ElytraFlight.INSTANCE.useAutoRescale.get())
@@ -367,14 +366,14 @@ public class ElytraBot extends BaseModule {
         super.registerAll();
         registerListener(Listener.getPreTick(), this::onPreTick);
         registerListener(Listener.getCustomListener().getChannel(FlightVelocity.class), this::onElytraChase);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerInteractEntityC2SPacket.class), this::onAttack);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onAttack);
         registerListener(Listener.getPreHandleInputEvents(), this::onInputEvent);
-        registerListener(Listener.getPacketPoint().getChannel(EntityStatusS2CPacket.class), this::onEntityStatus);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityStatus);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         if (SlimefunHelper.DEV_ENV) {
             registerListener(RenderListener.getRender2DEvent(), this::onDebugRender);
         }
-        registerListener(Listener.getPacketPoint().getChannel(EntityDamageS2CPacket.class), this::onEntityDamage);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);
     }
 
     @Override
@@ -404,7 +403,7 @@ public class ElytraBot extends BaseModule {
                 && autoControl.get()
                 && currentBehaviour != null
                 && currentBehaviour.movementDirection != null
-                && currentBehaviour.movementDirection.lengthSquared() > 1E-9;
+                && currentBehaviour.movementDirection.lengthSqr() > 1E-9;
     }
 
     Entity lastTarget;
@@ -419,7 +418,7 @@ public class ElytraBot extends BaseModule {
     }
 
     public boolean isTargetUsingSpear() {
-        return target instanceof PlayerEntity otherShit && SpearEnhance.isUsingSpear(otherShit);
+        return target instanceof Player otherShit && SpearEnhance.isUsingSpear(otherShit);
     }
 
     @Override
@@ -452,10 +451,10 @@ public class ElytraBot extends BaseModule {
         }
         if (checkNull()) return;
         if (currentBehaviour != null) {
-            heightLimitEnvironment = mc.world.getDimension().hasCeiling()
+            heightLimitEnvironment = mc.level.dimensionType().hasCeiling()
                     && mc.player.getY()
-                            < mc.world.getDimension().minY()
-                                    + mc.world.getDimension().logicalHeight();
+                            < mc.level.dimensionType().minY()
+                                    + mc.level.dimensionType().logicalHeight();
             refreshTarget();
             updateTargetAction();
             currentBehaviour.onUpdate();
@@ -463,7 +462,7 @@ public class ElytraBot extends BaseModule {
     }
 
     public double combatRange() {
-        return (target instanceof PlayerEntity pl && SpearEnhance.isUsingSpear(pl))
+        return (target instanceof Player pl && SpearEnhance.isUsingSpear(pl))
                 ? combatSpearRange.get()
                 : combatMaceRange.get();
     }
@@ -478,9 +477,9 @@ public class ElytraBot extends BaseModule {
             // initialize pos
             double combatRange = combatRange();
             currentInCombatRange = TargetSelector.INSTANCE.isWithinAttackRange(
-                    mc.player.getPos(), target.getBoundingBox(), combatRange);
-            currentOnGround = target.isOnGround() || CollisionUtil.isEntitySupported(target);
-            if (target instanceof PlayerEntity pl) {
+                    mc.player.position(), target.getBoundingBox(), combatRange);
+            currentOnGround = target.onGround() || CollisionUtil.isEntitySupported(target);
+            if (target instanceof Player pl) {
                 // speed < 1, we can easily handle this speed
                 if (currentOnGround) {
                     currentAction = TargetAction.SLOW_SPEED;
@@ -498,9 +497,9 @@ public class ElytraBot extends BaseModule {
                             currentAction = TargetAction.AFK;
                         } else {
                             // 相邻点距离检查
-                            Vec3d pos0 = oldest.vec3d();
-                            Vec3d pos1 = knownPositions.get(1).vec3d();
-                            Vec3d pos2 = knownPositions.get(2).vec3d();
+                            net.minecraft.world.phys.Vec3 pos0 = oldest.vec3d();
+                            net.minecraft.world.phys.Vec3 pos1 = knownPositions.get(1).vec3d();
+                            net.minecraft.world.phys.Vec3 pos2 = knownPositions.get(2).vec3d();
 
                             double dist01 = pos0.distanceTo(pos1);
                             double dist12 = pos1.distanceTo(pos2);
@@ -512,9 +511,9 @@ public class ElytraBot extends BaseModule {
                                 currentAction = TargetAction.SLOW_SPEED;
                             } else if (knownPositions.size() >= 3) {
                                 // 3. 计算向量 ab 和 bc 的夹角
-                                Vec3d ab = pos1.subtract(pos0);
-                                Vec3d bc = pos2.subtract(pos1);
-                                double dot = ab.dotProduct(bc);
+                                net.minecraft.world.phys.Vec3 ab = pos1.subtract(pos0);
+                                net.minecraft.world.phys.Vec3 bc = pos2.subtract(pos1);
+                                double dot = ab.dot(bc);
                                 double magAB = ab.length();
                                 double magBC = bc.length();
                                 double angleRad = Math.acos(Math.min(1.0, Math.max(-1.0, dot / (magAB * magBC))));
@@ -522,11 +521,11 @@ public class ElytraBot extends BaseModule {
 
                                 if (angleDeg < 60.0) {
                                     // 方向变化小，判断朝向玩家还是远离玩家
-                                    Vec3d playerPos = mc.player.getPos();
+                                    net.minecraft.world.phys.Vec3 playerPos = mc.player.position();
                                     // 使用从最新点(pos2)指向玩家的向量
-                                    Vec3d toPlayer = playerPos.subtract(pos2);
+                                    net.minecraft.world.phys.Vec3 toPlayer = playerPos.subtract(pos2);
                                     // 如果 bc 方向（移动方向）与指向玩家的方向夹角小于90度，视为向玩家靠近
-                                    double moveDot = bc.normalize().dotProduct(toPlayer.normalize());
+                                    double moveDot = bc.normalize().dot(toPlayer.normalize());
                                     if (moveDot > 0) {
                                         currentAction = TargetAction.TOWARDS; // 向我们来
                                     } else {
@@ -548,13 +547,13 @@ public class ElytraBot extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (enable.get() && render.get()) {
             RenderUtils.startDrawVirtual(event.context);
             try {
-                MatrixStack stack = event.context;
+                PoseStack stack = event.context;
                 if (currentBehaviour != null) {
-                    Vec3d targetRender = currentBehaviour.movementDirection.add(mc.player.getPos());
+                    net.minecraft.world.phys.Vec3 targetRender = currentBehaviour.movementDirection.add(mc.player.position());
                     if (targetRender != null) {
                         RenderUtils.drawOutlinedBox(
                                 stack,
@@ -576,7 +575,7 @@ public class ElytraBot extends BaseModule {
             vdraw.getMatrices().pushMatrix();
             vdraw.getMatrices().translate(200, 200);
             vdraw.drawText(
-                    mc.textRenderer,
+                    mc.font,
                     "Action: %s, Combating: %s".formatted(currentAction, String.valueOf(currentInCombatRange)),
                     0,
                     0,
@@ -588,7 +587,7 @@ public class ElytraBot extends BaseModule {
 
     public void refreshTarget() {
         if (!EntityUtils.isEntityValid(target)
-                || target.getPos().squaredDistanceTo(mc.player.getPos()) > targetRange.get()) {
+                || target.position().distanceToSqr(mc.player.position()) > targetRange.get()) {
             target = null;
         }
         if (target == null || dynamicTarget.get()) {
@@ -597,7 +596,7 @@ public class ElytraBot extends BaseModule {
     }
 
     //    private boolean isConsideredAsAttackableEntity(Entity entity) {
-    //        if (!(entity instanceof PlayerEntity) && playerOnly.get()) {
+    //        if (!(entity instanceof Player) && playerOnly.get()) {
     //            return false;
     //        }
     //        var raycastResult = RaycastUtils.raycastSolidBlockResult(mc.player, mc.player.getPos(), entity.getPos());
@@ -625,12 +624,10 @@ public class ElytraBot extends BaseModule {
         }
     }
 
-    public void onAttack(Event<PlayerInteractEntityC2SPacket> attack) {
-        if (enable.get()
-                && currentBehaviour != null
-                && PlayerInteractEntityC2SPacketAccess.of(attack.context).isAttack()) {
-            Entity entity = mc.world.getEntityById(
-                    PlayerInteractEntityC2SPacketAccess.of(attack.context).getEntityId());
+    public void onAttack(Event<ServerboundAttackPacket> attack) {
+        // 26.2: 攻击语义由 ServerboundAttackPacket 承载
+        if (enable.get() && currentBehaviour != null) {
+            Entity entity = mc.level.getEntity(attack.context.entityId());
             if (entity != null) {
                 currentBehaviour.onAttack(entity);
             }
@@ -646,14 +643,14 @@ public class ElytraBot extends BaseModule {
         }
     }
 
-    public void onEntityStatus(Event<EntityStatusS2CPacket> statusS2CPacketEvent) {
+    public void onEntityStatus(Event<ClientboundEntityEventPacket> statusS2CPacketEvent) {
         var statusS2CPacket = statusS2CPacketEvent.context;
         if (currentBehaviour instanceof HitListener sp
                 && mc.player != null
-                && mc.world != null
+                && mc.level != null
                 && enable.get()
-                && statusS2CPacket.getEntity(mc.world) == mc.player
-                && statusS2CPacket.getStatus() == VDataFlag.ENTITY_STATUS_KINETIC_ATTACK) {
+                && statusS2CPacket.getEntity(mc.level) == mc.player
+                && statusS2CPacket.getEventId() == VDataFlag.ENTITY_STATUS_KINETIC_ATTACK) {
             if (logSpearHit.get() && mode.get().isIn(Mode.SPEAR_ARUA)) {
                 logI18N("message.module.elytra-bot.spear-hit");
             }
@@ -661,13 +658,13 @@ public class ElytraBot extends BaseModule {
         }
     }
 
-    public void onEntityDamage(Event<EntityDamageS2CPacket> e) {
+    public void onEntityDamage(Event<ClientboundDamageEventPacket> e) {
         if (checkNull()) return;
         if (currentBehaviour instanceof HitListener sp
                 && enable.get()
                 && e.context.sourceCauseId() == mc.player.getId()
-                && mc.world.getEntityById(e.context.entityId()) == target) {
-            var source = e.context.sourceType().getKey().orElse(null);
+                && mc.level.getEntity(e.context.entityId()) == target) {
+            var source = e.context.sourceType().unwrapKey().orElse(null);
             if (DamageUtils.isType(source, "mace_smash")) {
                 // we trigger a mace smash
                 sp.onHit(HitListener.HIT_MACE);
@@ -691,18 +688,18 @@ public class ElytraBot extends BaseModule {
         // todo： add target anaylsis
 
         ElytraBot base;
-        Vec3d movementDirection = Vec3d.ZERO;
+        net.minecraft.world.phys.Vec3 movementDirection = net.minecraft.world.phys.Vec3.ZERO;
         // todo: update target considering blocks , can we async calculate to let
         // use pitch search
 
         // todo: calculate reachable, if entity can reach reach distance
         public void onElytra(Event<EventContainer<FlightVelocity>> event) {
-            if (movementDirection != null && movementDirection.lengthSquared() > 1E-9) {
-                Vec3d targetVec = movementDirection;
+            if (movementDirection != null && movementDirection.lengthSqr() > 1E-9) {
+                net.minecraft.world.phys.Vec3 targetVec = movementDirection;
                 double targetVecVelocity = targetVec.length();
                 double min =
                         Math.min(targetVecVelocity, event.context.getValue().maxVelocity() * base.speedMultiplier);
-                targetVec = targetVec.normalize().multiply(min);
+                targetVec = targetVec.normalize().scale(min);
                 event.context.getValue().velocity(targetVec);
             }
         }
@@ -712,7 +709,7 @@ public class ElytraBot extends BaseModule {
                     .searchAttackEntity(
                             base.targetRange.get(),
                             true,
-                            base.playerOnly.get() ? (e) -> e instanceof PlayerEntity : null);
+                            base.playerOnly.get() ? (e) -> e instanceof Player : null);
         }
 
         public synchronized void onUpdate() {
@@ -729,34 +726,34 @@ public class ElytraBot extends BaseModule {
 
         public void onPauseControl() {}
 
-        protected boolean willUseAntiSpear(OptionalPrimitive<Double> op, Vec3d predictorPos) {
+        protected boolean willUseAntiSpear(OptionalPrimitive<Double> op, net.minecraft.world.phys.Vec3 predictorPos) {
             return (op.isPresent()
                     && (!(base.flyAntiSpearDisableWhenSpear.get() && SpearEnhance.isUsingSpear(mc.player)))
                     && Math.abs(op.getValue()) > 1E-6
                     && base.isTargetUsingSpear()
-                    && mc.player.getPos().squaredDistanceTo(predictorPos) < MathUtils.s2(base.combatSpearRange.get()));
+                    && mc.player.position().distanceToSqr(predictorPos) < MathUtils.s2(base.combatSpearRange.get()));
         }
 
         protected void antiSpear(OptionalPrimitive<Double> op) {
             ;
-            Vec3d originalLookHorizontal = movementDirection.withAxis(Direction.Axis.Y, 0);
-            if (originalLookHorizontal.lengthSquared() < 1E-2) {
+            net.minecraft.world.phys.Vec3 originalLookHorizontal = movementDirection.with(Direction.Axis.Y, 0);
+            if (originalLookHorizontal.lengthSqr() < 1E-2) {
                 //
                 double range = 3;
-                if (mc.player.getPos().subtract(base.target.getPos()).horizontalLength() < range) {
-                    movementDirection = movementDirection.withAxis(Direction.Axis.X, 5);
-                    originalLookHorizontal = movementDirection.withAxis(Direction.Axis.Y, 0);
+                if (mc.player.position().subtract(base.target.position()).horizontalDistance() < range) {
+                    movementDirection = movementDirection.with(Direction.Axis.X, 5);
+                    originalLookHorizontal = movementDirection.with(Direction.Axis.Y, 0);
                 } else {
                     // pulling up, do not antispear
                     return;
                 }
             }
-            Vec3d vertical = new Vec3d(0, 1, 0);
-            Vec3d side = vertical.crossProduct(originalLookHorizontal).normalize();
-            Vec3d origin = movementDirection.normalize();
+            net.minecraft.world.phys.Vec3 vertical = new net.minecraft.world.phys.Vec3(0, 1, 0);
+            net.minecraft.world.phys.Vec3 side = vertical.cross(originalLookHorizontal).normalize();
+            net.minecraft.world.phys.Vec3 origin = movementDirection.normalize();
 
-            Vec3d multiply = side.multiply(op.getValue());
-            movementDirection = origin.add(multiply).normalize().multiply(10);
+            net.minecraft.world.phys.Vec3 multiply = side.scale(op.getValue());
+            movementDirection = origin.add(multiply).normalize().scale(10);
         }
     }
 
@@ -769,14 +766,14 @@ public class ElytraBot extends BaseModule {
         }
 
         public boolean canBeAttack(Entity entity) {
-            if (entity instanceof PlayerEntity player
+            if (entity instanceof Player player
                     && player != mc.player
                     && base.followFriend.get()
                     && !TargetSelector.INSTANCE.isNotFriend(player)) {
                 return true;
             } else {
                 return TargetSelector.INSTANCE.canAttack(entity)
-                        && (!base.playerOnly.get() || entity instanceof PlayerEntity);
+                        && (!base.playerOnly.get() || entity instanceof Player);
             }
         }
 
@@ -784,7 +781,7 @@ public class ElytraBot extends BaseModule {
         public synchronized void onUpdate() {
             super.onUpdate();
             if (base.target != null) {
-                movementDirection = base.target.getPos().subtract(mc.player.getPos());
+                movementDirection = base.target.position().subtract(mc.player.position());
                 if (base.currentOnGround) {
                     var op = base.followOnGroundHeight.get();
                     if (op.isPresent()) {
@@ -792,7 +789,7 @@ public class ElytraBot extends BaseModule {
                     }
                 }
             } else {
-                movementDirection = Vec3d.ZERO;
+                movementDirection = net.minecraft.world.phys.Vec3.ZERO;
             }
         }
 
@@ -829,7 +826,7 @@ public class ElytraBot extends BaseModule {
         public int onCondition(StateMachine machine, int state) {
             if (base.target == null) {
                 machine.markForEndState();
-                movementDirection = Vec3d.ZERO;
+                movementDirection = net.minecraft.world.phys.Vec3.ZERO;
                 return STATE_NONE;
             }
             return state;
@@ -838,12 +835,12 @@ public class ElytraBot extends BaseModule {
         public int onStateNone(StateMachine machine) {
             if (base.target != null) {
                 if (PlayerStateManager.INSTANCE.fallDistance > 4
-                        && mc.player.getPos().getY() > base.target.getPos().getY() + 4.0) {
+                        && mc.player.position().y() > base.target.position().y() + 4.0) {
                     return STATE_FOLLOW;
                 }
                 return STATE_PULL_UP;
             }
-            movementDirection = Vec3d.ZERO;
+            movementDirection = net.minecraft.world.phys.Vec3.ZERO;
             machine.markForEndState();
             return STATE_NONE;
         }
@@ -867,47 +864,47 @@ public class ElytraBot extends BaseModule {
             }
             machine.markForEndState();
             // stay!
-            Vec3d targetPos = base.maceUsePredictor.get()
+            net.minecraft.world.phys.Vec3 targetPos = base.maceUsePredictor.get()
                     ? PositionPredict.INSTANCE
                             .attackPredictArgument
                             .get()
                             .predict(base.target)
-                            .withAxis(Direction.Axis.Y, base.target.getY())
-                    : base.target.getPos();
+                            .with(Direction.Axis.Y, base.target.getY())
+                    : base.target.position();
             double lerpY = base.maceYLevelWeight.get();
             double yLerp = targetPos.y * lerpY + base.target.getY() * (1.0D - lerpY);
-            targetPos = targetPos.withAxis(Direction.Axis.Y, yLerp);
+            targetPos = targetPos.with(Direction.Axis.Y, yLerp);
             setTargetToPlayer(targetPos);
             return STATE_WAIT_ATTACK;
         }
 
-        protected abstract void setTargetToPlayerUpper(Vec3d predictor);
+        protected abstract void setTargetToPlayerUpper(net.minecraft.world.phys.Vec3 predictor);
 
-        protected abstract void setTargetToPlayer(Vec3d targetPos);
+        protected abstract void setTargetToPlayer(net.minecraft.world.phys.Vec3 targetPos);
 
-        protected Vec3d calculateTargetDirection(Vec3d predictorPos) {
+        protected net.minecraft.world.phys.Vec3 calculateTargetDirection(net.minecraft.world.phys.Vec3 predictorPos) {
             if (!ElytraExtra.INSTANCE.autoRescale.get()
                     || ElytraExtra.INSTANCE.autoRescaleAl.get().isIn(ElytraExtra.Al.V1, ElytraExtra.Al.V2)) {
                 //
                 if (SpearEnhance.isUsingSpear(mc.player)) {
                     return (predictorPos
                                     .add(0, base.target.getEyeHeight(base.target.getPose()), 0)
-                                    .subtract(mc.player.getEyePos()))
+                                    .subtract(mc.player.getEyePosition()))
                             .normalize();
                 } else {
-                    return predictorPos.subtract(mc.player.getPos()).normalize();
+                    return predictorPos.subtract(mc.player.position()).normalize();
                 }
             } else {
-                Vec3d legacy;
+                net.minecraft.world.phys.Vec3 legacy;
                 if (SpearEnhance.isUsingSpear(mc.player)) {
-                    Vec3d targetPos = predictorPos.add(0, base.target.getEyeHeight(base.target.getPose()), 0);
-                    legacy = targetPos.subtract(mc.player.getEyePos());
+                    net.minecraft.world.phys.Vec3 targetPos = predictorPos.add(0, base.target.getEyeHeight(base.target.getPose()), 0);
+                    legacy = targetPos.subtract(mc.player.getEyePosition());
                 } else {
-                    legacy = predictorPos.subtract(mc.player.getPos());
+                    legacy = predictorPos.subtract(mc.player.position());
                 }
 
-                Vec3d forward = ElytraOptimizeUtils.calculateLookTowardsTargetV3Direction(legacy, 1.7);
-                if (legacy.dotProduct(forward) < 0) {
+                net.minecraft.world.phys.Vec3 forward = ElytraOptimizeUtils.calculateLookTowardsTargetV3Direction(legacy, 1.7);
+                if (legacy.dot(forward) < 0) {
                     return legacy;
                 } else {
                     return forward;
@@ -956,7 +953,7 @@ public class ElytraBot extends BaseModule {
                 }
             } else {
                 stateMachine.setState(STATE_NONE);
-                movementDirection = Vec3d.ZERO;
+                movementDirection = net.minecraft.world.phys.Vec3.ZERO;
             }
             lastFallDistance = PlayerStateManager.INSTANCE.fallDistance;
         }
@@ -987,9 +984,9 @@ public class ElytraBot extends BaseModule {
         public boolean shouldAttackSimple() {
             boolean useAntiShield = shouldUseAntiShield();
             if (useAntiShield) return true;
-            if (VItem.getInstance().isSpear(mc.player.getActiveItem())) return false;
+            if (VItem.getInstance().isSpear(mc.player.getUseItem())) return false;
             if (!base.maceAttackUseSimple.get()) return false;
-            if ((mc.player.getAttackCooldownProgress(0.5F) > 0.95F)) {
+            if ((mc.player.getAttackStrengthScale(0.5F) > 0.95F)) {
                 if (base.maceAttackConsiderUse.get()
                         && CombatTasks.getAttackAura().checkUsing()) {
                     return false;
@@ -1053,13 +1050,13 @@ public class ElytraBot extends BaseModule {
     public static class MaceArua extends AbstractMaceBehaviour implements HitListener {
 
         public int onStatePullUp(StateMachine machine) {
-            Vec3d testMovement = new Vec3d(0, 0.1, 0);
-            Vec3d simulation = MovTasks.simulateMovement(mc.player, mc.player.getPos(), testMovement, true);
-            boolean simulationHead = simulation.squaredDistanceTo(testMovement) > 1E-4;
+            net.minecraft.world.phys.Vec3 testMovement = new net.minecraft.world.phys.Vec3(0, 0.1, 0);
+            net.minecraft.world.phys.Vec3 simulation = MovTasks.simulateMovement(mc.player, mc.player.position(), testMovement, true);
+            boolean simulationHead = simulation.distanceToSqr(testMovement) > 1E-4;
             boolean shouldForcePullUp = shouldPullUpEating();
-            Vec3d predictor = base.maceUsePredictor.get()
+            net.minecraft.world.phys.Vec3 predictor = base.maceUsePredictor.get()
                     ? PositionPredict.INSTANCE.attackPredictArgument.get().predict(base.target)
-                    : base.target.getPos();
+                    : base.target.position();
             if (shouldForcePullUp) {
                 setTargetToEat(predictor, simulationHead);
                 machine.markForEndState();
@@ -1085,7 +1082,7 @@ public class ElytraBot extends BaseModule {
                             && mc.player.getY() > base.target.getY()
                             && !base.currentInCombatRange) {
                         double bias = base.maceChaseFollowYBias.get().getValue();
-                        Vec3d vec3d = predictor.subtract(mc.player.getPos());
+                        net.minecraft.world.phys.Vec3 vec3d = predictor.subtract(mc.player.position());
                         double xz = Math.max(Math.abs(vec3d.x), Math.abs(vec3d.z));
                         double y = Math.abs(vec3d.y);
                         // do not follow if distance not close enough
@@ -1115,17 +1112,17 @@ public class ElytraBot extends BaseModule {
             if (shouldPullUpEating()) {
                 return STATE_PULL_UP;
             }
-            Vec3d targetPos = base.maceUsePredictor.get()
+            net.minecraft.world.phys.Vec3 targetPos = base.maceUsePredictor.get()
                     ? PositionPredict.INSTANCE.attackPredictArgument.get().predict(base.target)
-                    : base.target.getPos();
+                    : base.target.position();
             double lerpY = base.maceYLevelWeight.get();
             double baseY = base.target.getY();
             currentTargetUpFly = baseY + 0.5 < targetPos.y;
             double yLerp = currentTargetUpFly ? (targetPos.y * lerpY + baseY * (1.0D - lerpY)) : targetPos.y;
-            targetPos = targetPos.withAxis(Direction.Axis.Y, yLerp);
+            targetPos = targetPos.with(Direction.Axis.Y, yLerp);
             boolean mayAttack = shouldAttackSimple() || shouldAttackMace();
             boolean targetInRange = TargetSelector.INSTANCE.isWithinAttackRange(
-                    mc.player.getPos(),
+                    mc.player.position(),
                     base.target.getBoundingBox(),
                     CombatTasks.getCombatExtra().getAttackAtTargetRange(base.target));
             // 限制高度 但是对面是往上飞的 不需要
@@ -1138,9 +1135,9 @@ public class ElytraBot extends BaseModule {
                 }
                 return STATE_WAIT_ATTACK;
             } else {
-                Vec3d testMovement = new Vec3d(0, -0.1, 0);
-                Vec3d simulation = MovTasks.simulateMovement(mc.player, mc.player.getPos(), testMovement, true);
-                boolean simulationFeet = simulation.squaredDistanceTo(testMovement) > 1E-4;
+                net.minecraft.world.phys.Vec3 testMovement = new net.minecraft.world.phys.Vec3(0, -0.1, 0);
+                net.minecraft.world.phys.Vec3 simulation = MovTasks.simulateMovement(mc.player, mc.player.position(), testMovement, true);
+                boolean simulationFeet = simulation.distanceToSqr(testMovement) > 1E-4;
                 // do not follow because no enough height and other people will overhead us
                 boolean pullUp = simulationFeet;
                 double minimalHeight = base.maceFollowMinHeight.get();
@@ -1167,14 +1164,14 @@ public class ElytraBot extends BaseModule {
             return STATE_FOLLOW;
         }
 
-        private void setTargetToEat(Vec3d predictor, boolean headSimulation) {
+        private void setTargetToEat(net.minecraft.world.phys.Vec3 predictor, boolean headSimulation) {
             if (headSimulation) {
-                Vec3d vec3d = base.target.getPos().subtract(mc.player.getPos());
-                if (vec3d.horizontalLength() > base.combatRange()) {
+                net.minecraft.world.phys.Vec3 vec3d = base.target.position().subtract(mc.player.position());
+                if (vec3d.horizontalDistance() > base.combatRange()) {
                     setTargetToPlayerUpper(predictor);
                 } else {
                     movementDirection =
-                            new Vec3d(-vec3d.x, 0, -vec3d.z).normalize().multiply(10);
+                            new net.minecraft.world.phys.Vec3(-vec3d.x, 0, -vec3d.z).normalize().scale(10);
                 }
 
             } else {
@@ -1182,19 +1179,19 @@ public class ElytraBot extends BaseModule {
             }
         }
 
-        protected void setTargetToPlayerUpper(Vec3d predictor) {
+        protected void setTargetToPlayerUpper(net.minecraft.world.phys.Vec3 predictor) {
 
-            Vec3d movement = null;
+            net.minecraft.world.phys.Vec3 movement = null;
             boolean onGroundSupport = base.currentOnGround;
             boolean executeSmoothHideFlight = false;
             boolean antiSpear = willUseAntiSpear(base.flyAntiSpearWhenPullup.get(), predictor)
-                    && (mc.player.getY() > predictor.getY()
-                            || mc.player.getPos().subtract(predictor).horizontalLength() < base.combatSpearRange.get());
-            boolean yLow = predictor.getY() >= mc.player.getY();
+                    && (mc.player.getY() > predictor.y()
+                            || mc.player.position().subtract(predictor).horizontalDistance() < base.combatSpearRange.get());
+            boolean yLow = predictor.y() >= mc.player.getY();
             if (base.combatSmoothFlight1.get() && !onGroundSupport) {
                 double combatRange = base.combatMaceRange.get();
                 if (base.combatSmoothArg14.get().isPresent()) {
-                    Vec3 arguments = base.combatSmoothArg14.get().getValue();
+                    me.matl114.hacks.utils.config.Vec3 arguments = base.combatSmoothArg14.get().getValue();
                     double predictorYL = predictor.y - mc.player.getY();
                     if (predictorYL > arguments.x()) {
                         combatRange += Math.min(predictorYL - arguments.x(), arguments.z()) * arguments.y();
@@ -1205,34 +1202,34 @@ public class ElytraBot extends BaseModule {
                                 || base.currentAction == TargetAction.TOWARDS
                                 || base.currentAction == TargetAction.SLOW_SPEED);
                 if (mayCombatFlight && yLow) {
-                    Vec3d center = base.target.dimensions.getBoxAt(predictor).getCenter();
+                    net.minecraft.world.phys.Vec3 center = base.target.dimensions.makeBoundingBox(predictor).getCenter();
                     {
                         double radius = combatRange + base.combatSmoothArg1.get();
-                        Pair<Vec3d, Vec3d> tangents =
-                                MathUtils.getTangentWithSameXZ(center, radius, mc.player.getEyePos());
-                        Vec3d vec3d = tangents.getFirst();
-                        Vec3d vec3d2 = tangents.getSecond();
-                        Vec3d vec3d3 = vec3d.y < vec3d2.y ? vec3d2 : vec3d;
+                        Pair<net.minecraft.world.phys.Vec3, net.minecraft.world.phys.Vec3> tangents =
+                                MathUtils.getTangentWithSameXZ(center, radius, mc.player.getEyePosition());
+                        net.minecraft.world.phys.Vec3 vec3d = tangents.getFirst();
+                        net.minecraft.world.phys.Vec3 vec3d2 = tangents.getSecond();
+                        net.minecraft.world.phys.Vec3 vec3d3 = vec3d.y < vec3d2.y ? vec3d2 : vec3d;
                         // go upper not horizontal
                         vec3d3 = vec3d3.add(0, 1E-2, 0);
                         if (Math.abs(base.combatSmoothArg11.get()) > 1E-6
                                 && (base.combatSmoothArg15.get()
-                                                ? center.subtract(mc.player.getEyePos())
-                                                        .horizontalLengthSquared()
-                                                : center.squaredDistanceTo(mc.player.getEyePos()))
+                                                ? center.subtract(mc.player.getEyePosition())
+                                                        .horizontalDistanceSqr()
+                                                : center.distanceToSqr(mc.player.getEyePosition()))
                                         < MathUtils.s2(base.combatSmoothArg16.get())) {
                             // 垂线
                             vec3d3 = vec3d3.normalize();
-                            Vec3d delta = mc.player.getEyePos().subtract(center);
-                            Vec3d horizontalMul =
-                                    new Vec3d(delta.x, 0, delta.z).normalize().multiply(base.combatSmoothArg11.get());
+                            net.minecraft.world.phys.Vec3 delta = mc.player.getEyePosition().subtract(center);
+                            net.minecraft.world.phys.Vec3 horizontalMul =
+                                    new net.minecraft.world.phys.Vec3(delta.x, 0, delta.z).normalize().scale(base.combatSmoothArg11.get());
                             vec3d3 = vec3d3.add(horizontalMul).normalize();
                         }
                         if (vec3d3.y > 0) {
-                            movement = vec3d3.normalize().multiply(10);
+                            movement = vec3d3.normalize().scale(10);
                         }
                         executeSmoothHideFlight =
-                                center.squaredDistanceTo(mc.player.getEyePos()) < MathUtils.s2(radius);
+                                center.distanceToSqr(mc.player.getEyePosition()) < MathUtils.s2(radius);
                     }
                 }
             }
@@ -1240,36 +1237,36 @@ public class ElytraBot extends BaseModule {
                     && base.combatSmoothFlight2.get()
                     && base.currentAction != TargetAction.ESCAPING
                     && !onGroundSupport) {
-                if (predictor.getY() < mc.player.getY()
-                        && predictor.getY() + base.combatSmoothArg22.get() > mc.player.getY()
-                        && predictor.subtract(mc.player.getPos()).horizontalLength() < base.combatSmoothArg21.get()) {
-                    movement = new Vec3d(0, 10, 0);
+                if (predictor.y() < mc.player.getY()
+                        && predictor.y() + base.combatSmoothArg22.get() > mc.player.getY()
+                        && predictor.subtract(mc.player.position()).horizontalDistance() < base.combatSmoothArg21.get()) {
+                    movement = new net.minecraft.world.phys.Vec3(0, 10, 0);
                     if (base.angleOptimizePullUp.get() && base.angleOptimizeRadicalPullup.get()) {
-                        Vec3d direction = predictor
-                                .subtract(mc.player.getPos())
+                        net.minecraft.world.phys.Vec3 direction = predictor
+                                .subtract(mc.player.position())
                                 .normalize()
-                                .multiply(10);
-                        movement = new Vec3d(direction.x, 10, direction.z);
+                                .scale(10);
+                        movement = new net.minecraft.world.phys.Vec3(direction.x, 10, direction.z);
                     }
                 }
             }
             if (movement == null) {
                 // normal pull up
                 movement = predictor
-                        .withAxis(Direction.Axis.Y, (predictor.getY() + (base.maceHeight.get())))
-                        .subtract(mc.player.getPos());
+                        .with(Direction.Axis.Y, (predictor.y() + (base.maceHeight.get())))
+                        .subtract(mc.player.position());
                 if (movement.length() < 5) {
-                    movement = movement.normalize().multiply(5);
+                    movement = movement.normalize().scale(5);
                 }
             }
             if (base.pullUpAngleOptimize.get().isPresent() && !onGroundSupport && !executeSmoothHideFlight) {
-                double horizontalDistance = movement.horizontalLength();
+                double horizontalDistance = movement.horizontalDistance();
                 if (horizontalDistance > 1E-1) {
-                    Vec3d lastMovement = PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed;
-                    Vec3d lastHorizontal = lastMovement.withAxis(Direction.Axis.Y, 0);
+                    net.minecraft.world.phys.Vec3 lastMovement = PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed;
+                    net.minecraft.world.phys.Vec3 lastHorizontal = lastMovement.with(Direction.Axis.Y, 0);
                     double distance = base.pullUpAngleOptimize.get().getValue();
                     if (distance > horizontalDistance) {
-                        if (lastHorizontal.dotProduct(movement) < 0) {
+                        if (lastHorizontal.dot(movement) < 0) {
                             movement = movement.multiply(-1, 1, -1);
                         }
                     }
@@ -1282,26 +1279,26 @@ public class ElytraBot extends BaseModule {
             }
             if (base.angleOptimizePullUp.get()) {
                 if (movementDirection.y > 1E-6) {
-                    double horizontal = mc.player.getPos().subtract(predictor).horizontalLength();
+                    double horizontal = mc.player.position().subtract(predictor).horizontalDistance();
                     if (base.angleOptimizeRadicalPullup.get()) {
                         if (executeSmoothHideFlight) {
                             double horizontal2 = Math.max(Math.abs(movementDirection.x), Math.abs(movementDirection.z));
                             double sgnX = MathUtils.sgn(movementDirection.x);
                             double sgnZ = MathUtils.sgn(movementDirection.z);
-                            movementDirection = new Vec3d(sgnX * horizontal2, movementDirection.y, sgnZ * horizontal2);
+                            movementDirection = new net.minecraft.world.phys.Vec3(sgnX * horizontal2, movementDirection.y, sgnZ * horizontal2);
                         }
                         if (!executeSmoothHideFlight
                                 && yLow
                                 && base.angleOptimizePullRange.get().isPresent()) {
                             var range = base.angleOptimizePullRange.get().getValue();
                             if (horizontal < range) {
-                                Vec3d horizontalDelta = mc.player
-                                        .getPos()
+                                net.minecraft.world.phys.Vec3 horizontalDelta = mc.player
+                                        .position()
                                         .subtract(predictor)
-                                        .withAxis(Direction.Axis.Y, 0)
+                                        .with(Direction.Axis.Y, 0)
                                         .normalize()
-                                        .multiply(6);
-                                movementDirection = horizontalDelta.withAxis(Direction.Axis.Y, movementDirection.y);
+                                        .scale(6);
+                                movementDirection = horizontalDelta.with(Direction.Axis.Y, movementDirection.y);
                             }
                         }
                     } else {
@@ -1310,9 +1307,9 @@ public class ElytraBot extends BaseModule {
                             if (executeSmoothHideFlight) {
                                 double sgnX = MathUtils.sgn(movementDirection.x);
                                 double sgnZ = MathUtils.sgn(movementDirection.z);
-                                movementDirection = new Vec3d(sgnX * horizontal2, horizontal2, sgnZ * horizontal2);
+                                movementDirection = new net.minecraft.world.phys.Vec3(sgnX * horizontal2, horizontal2, sgnZ * horizontal2);
                             } else {
-                                movementDirection = movementDirection.withAxis(Direction.Axis.Y, horizontal2);
+                                movementDirection = movementDirection.with(Direction.Axis.Y, horizontal2);
                             }
                         }
                     }
@@ -1321,14 +1318,14 @@ public class ElytraBot extends BaseModule {
             }
             double len = movementDirection.length();
             if (len < 5) {
-                movementDirection = movementDirection.normalize().multiply(5);
+                movementDirection = movementDirection.normalize().scale(5);
             }
             if (base.flyAntiSpearAfterAngle.get() && antiSpear) {
                 antiSpear(base.flyAntiSpearWhenPullup.get());
             }
         }
 
-        protected void setTargetToPlayer(Vec3d targetPos) {
+        protected void setTargetToPlayer(net.minecraft.world.phys.Vec3 targetPos) {
             movementDirection = calculateTargetDirection(targetPos);
             boolean onGroundSupport = base.currentOnGround;
             if (onGroundSupport) {
@@ -1341,7 +1338,7 @@ public class ElytraBot extends BaseModule {
                 // use real value, because predictors may predict wrong values
                 if (targetPos.y > mc.player.getY()) {
                     // to nothing modify
-                    movementDirection = movementDirection.withAxis(Direction.Axis.Y, 0);
+                    movementDirection = movementDirection.with(Direction.Axis.Y, 0);
                     // 我没招了。这还是尽快重开吧
                 }
             }
@@ -1361,19 +1358,19 @@ public class ElytraBot extends BaseModule {
                     } else {
                         distance = distancePair.x();
                     }
-                    double horizontal = mc.player.getPos().subtract(targetPos).length();
+                    double horizontal = mc.player.position().subtract(targetPos).length();
                     if (horizontal > distance) {
                         double horizontal2 = Math.max(Math.abs(movementDirection.x), Math.abs(movementDirection.z));
                         if (horizontal2 > 0.1) {
                             // rescale
                             if (!base.angleOptimizeRadicalFollow.get().isPresent()
                                     || Math.abs(movementDirection.y)
-                                            < movementDirection.horizontalLength()
+                                            < movementDirection.horizontalDistance()
                                                     * Math.tan(Math.toRadians(base.angleOptimizeRadicalFollow
                                                             .get()
                                                             .getValue()))) {
                                 if (Math.abs(movementDirection.y) > horizontal2) {
-                                    movementDirection = movementDirection.withAxis(Direction.Axis.Y, -horizontal2);
+                                    movementDirection = movementDirection.with(Direction.Axis.Y, -horizontal2);
                                 }
                                 movementDirection =
                                         ElytraOptimizeUtils.calculateBestDownForwardSpeed(movementDirection, true);
@@ -1384,7 +1381,7 @@ public class ElytraBot extends BaseModule {
             }
             double len = movementDirection.length();
             if (len < 5) {
-                movementDirection = movementDirection.normalize().multiply(5);
+                movementDirection = movementDirection.normalize().scale(5);
             }
             if (base.flyAntiSpearAfterAngle.get() && antiSpear) {
                 antiSpear(base.flyAntiSpear.get());
@@ -1414,14 +1411,14 @@ public class ElytraBot extends BaseModule {
     }
 
     public static class MaceAuraGround extends AbstractMaceBehaviour implements HitListener {
-        private void setTargetToEat(Vec3d predictor, boolean headSimulation) {
+        private void setTargetToEat(net.minecraft.world.phys.Vec3 predictor, boolean headSimulation) {
             if (headSimulation) {
-                Vec3d vec3d = base.target.getPos().subtract(mc.player.getPos());
-                if (vec3d.horizontalLength() > base.combatRange()) {
+                net.minecraft.world.phys.Vec3 vec3d = base.target.position().subtract(mc.player.position());
+                if (vec3d.horizontalDistance() > base.combatRange()) {
                     setTargetToPlayerUpper(predictor);
                 } else {
                     movementDirection =
-                            new Vec3d(-vec3d.x, 0, -vec3d.z).normalize().multiply(10);
+                            new net.minecraft.world.phys.Vec3(-vec3d.x, 0, -vec3d.z).normalize().scale(10);
                 }
 
             } else {
@@ -1433,9 +1430,9 @@ public class ElytraBot extends BaseModule {
         public int onStatePullUp(StateMachine machine) {
             boolean shouldForcePullUp = shouldPullUpEating();
             boolean shouldFollow;
-            Vec3d testMovement = new Vec3d(0, 0.1, 0);
-            Vec3d simulation = MovTasks.simulateMovement(mc.player, mc.player.getPos(), testMovement, true);
-            boolean simulationHead = simulation.squaredDistanceTo(testMovement) > 1E-4;
+            net.minecraft.world.phys.Vec3 testMovement = new net.minecraft.world.phys.Vec3(0, 0.1, 0);
+            net.minecraft.world.phys.Vec3 simulation = MovTasks.simulateMovement(mc.player, mc.player.position(), testMovement, true);
+            boolean simulationHead = simulation.distanceToSqr(testMovement) > 1E-4;
             double targetY = base.target.getY() + base.maceHeightGround.get();
             // check pulling time
             boolean mayFollow = (mc.player.getY() >= targetY)
@@ -1448,14 +1445,14 @@ public class ElytraBot extends BaseModule {
                 if (!shouldForcePullUp) {
                     return STATE_FOLLOW;
                 } else {
-                    setTargetToEat(base.target.getPos(), simulationHead);
+                    setTargetToEat(base.target.position(), simulationHead);
                     machine.markForEndState();
                     return STATE_PULL_UP;
                 }
             } else {
-                Vec3d predictor = base.maceUsePredictor.get()
+                net.minecraft.world.phys.Vec3 predictor = base.maceUsePredictor.get()
                         ? PositionPredict.INSTANCE.attackPredictArgument.get().predict(base.target)
-                        : base.target.getPos();
+                        : base.target.position();
                 setTargetToPlayerUpper(predictor);
                 machine.markForEndState();
                 return STATE_PULL_UP;
@@ -1471,11 +1468,11 @@ public class ElytraBot extends BaseModule {
             if (shouldPullUpEating()) {
                 return STATE_PULL_UP;
             }
-            Vec3d targetPos = base.maceUsePredictor.get()
+            net.minecraft.world.phys.Vec3 targetPos = base.maceUsePredictor.get()
                     ? PositionPredict.INSTANCE.attackPredictArgument.get().predict(base.target)
-                    : base.target.getPos();
+                    : base.target.position();
             boolean targetInRange = TargetSelector.INSTANCE.isWithinAttackRange(
-                    mc.player.getPos(),
+                    mc.player.position(),
                     base.target.getBoundingBox(),
                     CombatTasks.getCombatExtra().getAttackAtTargetRange(base.target));
             if (base.flyAntiSpearUseSpearResetWhenFollow.get()) {
@@ -1483,18 +1480,18 @@ public class ElytraBot extends BaseModule {
             }
             if (base.currentOnGround) {
                 if (targetInRange) {
-                    setTargetToPlayer(base.target.getPos());
+                    setTargetToPlayer(base.target.position());
                     scheduleAttack();
                     machine.markForEndState();
                     return STATE_WAIT_ATTACK;
                 } else {
-                    setTargetToPlayer(base.target.getPos());
-                    Vec3d testMovement = movementDirection.normalize().multiply(0.1);
-                    Vec3d simulation = MovTasks.simulateMovement(mc.player, mc.player.getPos(), testMovement, true);
-                    boolean simulationFeet = simulation.squaredDistanceTo(testMovement) > 1E-4;
+                    setTargetToPlayer(base.target.position());
+                    net.minecraft.world.phys.Vec3 testMovement = movementDirection.normalize().scale(0.1);
+                    net.minecraft.world.phys.Vec3 simulation = MovTasks.simulateMovement(mc.player, mc.player.position(), testMovement, true);
+                    boolean simulationFeet = simulation.distanceToSqr(testMovement) > 1E-4;
                     if (simulationFeet) {
                         // reset movement
-                        movementDirection = Vec3d.ZERO;
+                        movementDirection = net.minecraft.world.phys.Vec3.ZERO;
                         return STATE_PULL_UP;
                     } else {
                         machine.markForEndState();
@@ -1502,12 +1499,12 @@ public class ElytraBot extends BaseModule {
                     }
                 }
             } else {
-                Vec3d testVelocity = new Vec3d(0, 1, 0);
-                Vec3d simulation = MovTasks.simulateMovement(base.target, targetPos, testVelocity, false);
-                boolean targetHeadSimulation = simulation.squaredDistanceTo(testVelocity) > 1E-4;
+                net.minecraft.world.phys.Vec3 testVelocity = new net.minecraft.world.phys.Vec3(0, 1, 0);
+                net.minecraft.world.phys.Vec3 simulation = MovTasks.simulateMovement(base.target, targetPos, testVelocity, false);
+                boolean targetHeadSimulation = simulation.distanceToSqr(testVelocity) > 1E-4;
                 if (targetHeadSimulation) {
-                    Vec3d target = targetPos.add(0, -1.62 - 2.8 + simulation.length(), 0);
-                    movementDirection = target.subtract(mc.player.getPos());
+                    net.minecraft.world.phys.Vec3 target = targetPos.add(0, -1.62 - 2.8 + simulation.length(), 0);
+                    movementDirection = target.subtract(mc.player.position());
                     if (movementDirection.y > -1 && targetInRange) {
                         scheduleAttack();
                         machine.markForEndState();
@@ -1520,14 +1517,14 @@ public class ElytraBot extends BaseModule {
                     }
                 } else {
                     if (targetInRange) {
-                        setTargetToPlayer(base.target.getPos());
+                        setTargetToPlayer(base.target.position());
                         scheduleAttack();
                         machine.markForEndState();
                         return STATE_FOLLOW;
                     } else {
                         setTargetToPlayer(targetPos);
                         if (movementDirection.y > 0) {
-                            movementDirection = Vec3d.ZERO;
+                            movementDirection = net.minecraft.world.phys.Vec3.ZERO;
                             return STATE_PULL_UP;
                         } else {
                             machine.markForEndState();
@@ -1539,40 +1536,40 @@ public class ElytraBot extends BaseModule {
         }
 
         @Override
-        protected void setTargetToPlayerUpper(Vec3d predictor) {
+        protected void setTargetToPlayerUpper(net.minecraft.world.phys.Vec3 predictor) {
             if (base.currentOnGround) {
                 if (predictor.y > mc.player.getY()) {
                     movementDirection = predictor
-                            .withAxis(Direction.Axis.Y, (predictor.getY() + (base.maceHeightGround.get())))
-                            .subtract(mc.player.getPos());
+                            .with(Direction.Axis.Y, (predictor.y() + (base.maceHeightGround.get())))
+                            .subtract(mc.player.position());
                 } else {
-                    Vec3d delta = mc.player.getPos().subtract(predictor);
-                    double horizontal = delta.horizontalLength();
+                    net.minecraft.world.phys.Vec3 delta = mc.player.position().subtract(predictor);
+                    double horizontal = delta.horizontalDistance();
                     double height = base.maceHeightGround.get();
                     if (horizontal < height && delta.y > horizontal) {
                         movementDirection = delta;
                     } else {
-                        Vec3d targetPos = delta.withAxis(Direction.Axis.Y, 0)
+                        net.minecraft.world.phys.Vec3 targetPos = delta.with(Direction.Axis.Y, 0)
                                 .normalize()
-                                .multiply(height)
-                                .withAxis(Direction.Axis.Y, height);
+                                .scale(height)
+                                .with(Direction.Axis.Y, height);
                         movementDirection = targetPos.subtract(delta);
                     }
                 }
             } else {
-                Vec3d testVelocity = new Vec3d(0, 1, 0);
-                Vec3d simulation = MovTasks.simulateMovement(base.target, predictor, testVelocity, false);
-                boolean targetHeadSimulation = simulation.squaredDistanceTo(testVelocity) > 1E-4;
+                net.minecraft.world.phys.Vec3 testVelocity = new net.minecraft.world.phys.Vec3(0, 1, 0);
+                net.minecraft.world.phys.Vec3 simulation = MovTasks.simulateMovement(base.target, predictor, testVelocity, false);
+                boolean targetHeadSimulation = simulation.distanceToSqr(testVelocity) > 1E-4;
                 // no space above target
                 if (targetHeadSimulation) {
-                    movementDirection = predictor.add(testVelocity).subtract(mc.player.getPos());
+                    movementDirection = predictor.add(testVelocity).subtract(mc.player.position());
                 } else {
-                    Vec3d movement = null;
-                    boolean yLow = predictor.getY() >= mc.player.getY();
+                    net.minecraft.world.phys.Vec3 movement = null;
+                    boolean yLow = predictor.y() >= mc.player.getY();
                     if (base.combatSmoothFlight1.get()) {
                         double combatRange = base.combatMaceRange.get();
                         if (base.combatSmoothArg14.get().isPresent()) {
-                            Vec3 arguments = base.combatSmoothArg14.get().getValue();
+                            me.matl114.hacks.utils.config.Vec3 arguments = base.combatSmoothArg14.get().getValue();
                             double predictorYL = predictor.y - mc.player.getY();
                             if (predictorYL > arguments.x()) {
                                 combatRange += Math.min(predictorYL - arguments.x(), arguments.z()) * arguments.y();
@@ -1584,55 +1581,55 @@ public class ElytraBot extends BaseModule {
                                         || base.currentAction == TargetAction.TOWARDS
                                         || base.currentAction == TargetAction.SLOW_SPEED);
                         if (mayCombatFlight && yLow) {
-                            Vec3d center =
-                                    base.target.dimensions.getBoxAt(predictor).getCenter();
+                            net.minecraft.world.phys.Vec3 center =
+                                    base.target.dimensions.makeBoundingBox(predictor).getCenter();
                             double radius = combatRange + base.combatSmoothArg1.get();
-                            Pair<Vec3d, Vec3d> tangents =
-                                    MathUtils.getTangentWithSameXZ(center, radius, mc.player.getEyePos());
-                            Vec3d vec3d = tangents.getFirst();
-                            Vec3d vec3d2 = tangents.getSecond();
-                            Vec3d vec3d3 = vec3d.y < vec3d2.y ? vec3d2 : vec3d;
+                            Pair<net.minecraft.world.phys.Vec3, net.minecraft.world.phys.Vec3> tangents =
+                                    MathUtils.getTangentWithSameXZ(center, radius, mc.player.getEyePosition());
+                            net.minecraft.world.phys.Vec3 vec3d = tangents.getFirst();
+                            net.minecraft.world.phys.Vec3 vec3d2 = tangents.getSecond();
+                            net.minecraft.world.phys.Vec3 vec3d3 = vec3d.y < vec3d2.y ? vec3d2 : vec3d;
                             // go upper not horizontal
                             vec3d3 = vec3d3.add(0, 1E-2, 0);
                             if (Math.abs(base.combatSmoothArg11.get()) > 1E-6
                                     && ((base.combatSmoothArg15.get()
-                                                    ? center.subtract(mc.player.getEyePos())
-                                                            .horizontalLengthSquared()
-                                                    : center.squaredDistanceTo(mc.player.getEyePos()))
+                                                    ? center.subtract(mc.player.getEyePosition())
+                                                            .horizontalDistanceSqr()
+                                                    : center.distanceToSqr(mc.player.getEyePosition()))
                                             < MathUtils.s2(base.combatSmoothArg16.get()))) {
                                 // 垂线
                                 vec3d3 = vec3d3.normalize();
-                                Vec3d delta = mc.player.getEyePos().subtract(center);
-                                Vec3d horizontalMul = new Vec3d(delta.x, 0, delta.z)
+                                net.minecraft.world.phys.Vec3 delta = mc.player.getEyePosition().subtract(center);
+                                net.minecraft.world.phys.Vec3 horizontalMul = new net.minecraft.world.phys.Vec3(delta.x, 0, delta.z)
                                         .normalize()
-                                        .multiply(base.combatSmoothArg11.get());
+                                        .scale(base.combatSmoothArg11.get());
                                 vec3d3 = vec3d3.add(horizontalMul).normalize();
                             }
                             if (vec3d3.y > 0) {
-                                movement = vec3d3.normalize().multiply(10);
+                                movement = vec3d3.normalize().scale(10);
                             }
                         }
                     }
                     if (movement == null) {
                         movement = predictor
-                                .withAxis(Direction.Axis.Y, (predictor.getY() + (base.maceHeightGround.get())))
-                                .subtract(mc.player.getPos());
+                                .with(Direction.Axis.Y, (predictor.y() + (base.maceHeightGround.get())))
+                                .subtract(mc.player.position());
                         if (movement.length() < 5) {
-                            movement = movement.normalize().multiply(5);
+                            movement = movement.normalize().scale(5);
                         }
                     }
                     movementDirection = movement;
                 }
             }
             if (movementDirection.length() < 5) {
-                movementDirection = movementDirection.normalize().multiply(5);
+                movementDirection = movementDirection.normalize().scale(5);
             }
         }
 
         @Override
-        protected void setTargetToPlayer(Vec3d targetPos) {
-            Vec3d playerPos = mc.player.getPos();
-            Vec3d fallbackTargetPos;
+        protected void setTargetToPlayer(net.minecraft.world.phys.Vec3 targetPos) {
+            net.minecraft.world.phys.Vec3 playerPos = mc.player.position();
+            net.minecraft.world.phys.Vec3 fallbackTargetPos;
             if (base.currentOnGround) {
                 fallbackTargetPos =
                         targetPos.add(0, base.followOnGroundHeight.get().orElse(0.5), 0);
@@ -1644,18 +1641,18 @@ public class ElytraBot extends BaseModule {
             boolean found = false;
             if (base.currentOnGround) {
                 double attackAtTargetRange = CombatTasks.getCombatExtra().getAttackAtTargetRange(base.target);
-                Vec3d targetEyePos = base.target.getEyePos();
-                BlockHitResult raycastResult = mc.world.raycast(new RaycastContext(
-                        mc.player.getEyePos(),
+                net.minecraft.world.phys.Vec3 targetEyePos = base.target.getEyePosition();
+                BlockHitResult raycastResult = mc.level.clip(new ClipContext(
+                        mc.player.getEyePosition(),
                         targetEyePos,
-                        net.minecraft.world.RaycastContext.ShapeType.COLLIDER,
-                        net.minecraft.world.RaycastContext.FluidHandling.NONE,
+                        net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE,
                         mc.player));
                 if (raycastResult != null
                         && raycastResult.getType() != HitResult.Type.MISS
-                        && raycastResult.getPos().squaredDistanceTo(targetEyePos)
+                        && raycastResult.getLocation().distanceToSqr(targetEyePos)
                                 <= MathUtils.s2(2.0D * attackAtTargetRange)) {
-                    BlockPos raycastPos = net.minecraft.util.math.BlockPos.ofFloored(raycastResult.getPos());
+                    BlockPos raycastPos = net.minecraft.core.BlockPos.containing(raycastResult.getLocation());
                     int searchRadius = Math.max(1, (int) Math.ceil(attackAtTargetRange));
                     List<BlockPos> searchPoses = new ArrayList<>();
                     for (int x = raycastPos.getX() - searchRadius; x <= raycastPos.getX() + searchRadius; x++) {
@@ -1666,26 +1663,26 @@ public class ElytraBot extends BaseModule {
                         }
                     }
                     searchPoses.sort(
-                            Comparator.comparingDouble(pos -> pos.toCenterPos().squaredDistanceTo(targetEyePos)));
+                            Comparator.comparingDouble(pos -> Vec3.atCenterOf(pos).distanceToSqr(targetEyePos)));
                     for (BlockPos pos : searchPoses) {
-                        Vec3d centerPos = pos.toCenterPos();
+                        net.minecraft.world.phys.Vec3 centerPos = Vec3.atCenterOf(pos);
                         if (!TargetSelector.INSTANCE.isWithinAttackRange(
                                 centerPos, base.target.getBoundingBox(), attackAtTargetRange + 0.5D)) {
                             continue;
                         }
-                        if (mc.world
-                                        .raycast(new RaycastContext(
+                        if (mc.level
+                                        .clip(new ClipContext(
                                                 playerPos,
                                                 centerPos,
-                                                RaycastContext.ShapeType.COLLIDER,
-                                                RaycastContext.FluidHandling.NONE,
+                                                ClipContext.Block.COLLIDER,
+                                                ClipContext.Fluid.NONE,
                                                 mc.player))
                                         .getType()
                                 != HitResult.Type.MISS) {
                             continue;
                         }
-                        Box box = mc.player.dimensions.getBoxAt(centerPos);
-                        if (!mc.world.isSpaceEmpty(box)) {
+                        AABB box = mc.player.dimensions.makeBoundingBox(centerPos);
+                        if (!mc.level.noCollision(box)) {
                             continue;
                         }
                         movementDirection = centerPos.subtract(playerPos);
@@ -1699,7 +1696,7 @@ public class ElytraBot extends BaseModule {
                         calculateTargetDirection(fallbackTargetPos); // fallbackTargetPos.subtract(playerPos);
             }
             if (movementDirection.length() < 5 && movementDirection.length() > 1E-6) {
-                movementDirection = movementDirection.normalize().multiply(5);
+                movementDirection = movementDirection.normalize().scale(5);
             }
         }
 
@@ -1750,44 +1747,44 @@ public class ElytraBot extends BaseModule {
 
         public int onStateNone(StateMachine machine) {
             if (base.target != null) {
-                if (!VItem.getInstance().isSpear(mc.player.getMainHandStack())
-                        && !VItem.getInstance().isSpear(mc.player.getOffHandStack())) {
+                if (!VItem.getInstance().isSpear(mc.player.getMainHandItem())
+                        && !VItem.getInstance().isSpear(mc.player.getOffhandItem())) {
                     base.logI18N("message.module.elytra-bot.no-spear");
                 }
                 return STATE_FOLLOW;
             }
             machine.markForEndState();
-            movementDirection = Vec3d.ZERO;
+            movementDirection = net.minecraft.world.phys.Vec3.ZERO;
             return STATE_NONE;
         }
 
-        private Vec3d getTargetPosition() {
-            Vec3d predictedPosition = base.spearUsePredictor.get()
+        private net.minecraft.world.phys.Vec3 getTargetPosition() {
+            net.minecraft.world.phys.Vec3 predictedPosition = base.spearUsePredictor.get()
                     ? PositionPredict.INSTANCE
                             .getPredictor(base.target)
                             .predict(2, PositionPredict.Mode.PREDICTOR_NV.ordinal(), 10)
-                    : base.target.getPos();
-            Vec3d delta = predictedPosition.subtract(base.target.getPos());
+                    : base.target.position();
+            net.minecraft.world.phys.Vec3 delta = predictedPosition.subtract(base.target.position());
             if (base.currentOnGround) {
-                return base.target.getEyePos().add(delta);
+                return base.target.getEyePosition().add(delta);
             }
 
             return base.target.getBoundingBox().getCenter().add(delta);
         }
 
         public int onStateFollow(StateMachine machine) {
-            Vec3d targetPos = getTargetPosition();
-            if (mc.player.getEyePos().squaredDistanceTo(targetPos) < MathUtils.s2(getActiveRange())) {
+            net.minecraft.world.phys.Vec3 targetPos = getTargetPosition();
+            if (mc.player.getEyePosition().distanceToSqr(targetPos) < MathUtils.s2(getActiveRange())) {
                 return STATE_NEAR_FOLLOW;
             }
             machine.markForEndState();
             /// compute their
-            Vec3d originalLook = targetPos.subtract(mc.player.getEyePos());
+            net.minecraft.world.phys.Vec3 originalLook = targetPos.subtract(mc.player.getEyePosition());
             if (originalLook.length() < 6) {
-                originalLook = originalLook.normalize().multiply(6);
+                originalLook = originalLook.normalize().scale(6);
             }
             if (canAdjustMovement()) {
-                if (adjustMovementForSpear((PlayerEntity) base.target, originalLook, false)) {
+                if (adjustMovementForSpear((Player) base.target, originalLook, false)) {
                     return STATE_FOLLOW;
                 }
             }
@@ -1799,7 +1796,7 @@ public class ElytraBot extends BaseModule {
             return base.spearAntiSpear.get() && base.isTargetUsingSpear();
         }
 
-        private boolean adjustMovementForSpear(PlayerEntity otherShit, Vec3d originalLook, boolean expand) {
+        private boolean adjustMovementForSpear(Player otherShit, net.minecraft.world.phys.Vec3 originalLook, boolean expand) {
             // shit not work
             // handle their shit ass spear
 
@@ -1808,7 +1805,7 @@ public class ElytraBot extends BaseModule {
             // < 0) {
             //                return false;
             //            }
-            if (otherShit.squaredDistanceTo(mc.player.getPos())
+            if (otherShit.distanceToSqr(mc.player.position())
                     < MathUtils.s2(getActiveRange() * 2 + base.spearAntiSpearExtraDistance.get())) {
                 if (Tasks.getTick() % 5 < 2) {
                     return moveAdjust(originalLook);
@@ -1817,52 +1814,52 @@ public class ElytraBot extends BaseModule {
                 }
             }
 
-            Box ourBox = expand ? mc.player.getBoundingBox().expand(0.85, 0.85, 0.85) : mc.player.getBoundingBox();
-            Vec3d theirKnownMovement = PositionPredict.INSTANCE.predictKnownMovement(otherShit);
-            Vec3d theirPredictedPos = PositionPredict.INSTANCE
+            AABB ourBox = expand ? mc.player.getBoundingBox().inflate(0.85, 0.85, 0.85) : mc.player.getBoundingBox();
+            net.minecraft.world.phys.Vec3 theirKnownMovement = PositionPredict.INSTANCE.predictKnownMovement(otherShit);
+            net.minecraft.world.phys.Vec3 theirPredictedPos = PositionPredict.INSTANCE
                     .spearPredictArgument
                     .get()
                     .predict(otherShit); // predictFlyingPosition(otherShit, 2, 6);
-            Vec3d facing = otherShit.getRotationVector();
-            Debug.debug("Spear judgement", theirKnownMovement, theirPredictedPos, mc.player.getPos());
-            double reachD = theirKnownMovement.dotProduct(facing);
-            Vec3d theirPredictedEyePos = theirPredictedPos.add(0, otherShit.getEyeHeight(otherShit.getPose()), 0);
-            Vec3d raycastStart = theirPredictedEyePos.add(facing.multiply(getMinRange()));
-            Vec3d raycastEnd = theirPredictedEyePos.add(
-                    facing.multiply(getActiveRange() + reachD + base.spearAntiSpearExtraDistance.get()));
-            if (ourBox.raycast(raycastStart, raycastEnd).isPresent()) {
+            net.minecraft.world.phys.Vec3 facing = otherShit.getLookAngle();
+            Debug.debug("Spear judgement", theirKnownMovement, theirPredictedPos, mc.player.position());
+            double reachD = theirKnownMovement.dot(facing);
+            net.minecraft.world.phys.Vec3 theirPredictedEyePos = theirPredictedPos.add(0, otherShit.getEyeHeight(otherShit.getPose()), 0);
+            net.minecraft.world.phys.Vec3 raycastStart = theirPredictedEyePos.add(facing.scale(getMinRange()));
+            net.minecraft.world.phys.Vec3 raycastEnd = theirPredictedEyePos.add(
+                    facing.scale(getActiveRange() + reachD + base.spearAntiSpearExtraDistance.get()));
+            if (ourBox.clip(raycastStart, raycastEnd).isPresent()) {
                 return moveAdjust(originalLook);
             }
             return false;
             // do spear raytrace
         }
 
-        private boolean moveAdjust(Vec3d originalLook) {
+        private boolean moveAdjust(net.minecraft.world.phys.Vec3 originalLook) {
             //
             Debug.debug("Judget may hit");
-            Vec3d originalLookHorizontal = originalLook.getHorizontal();
-            Vec3d vertical = new Vec3d(0, 1, 0);
-            Vec3d side = vertical.crossProduct(originalLookHorizontal);
-            Vec3d revertDirection =
-                    side.normalize().multiply(originalLookHorizontal.length()).add(0, originalLookHorizontal.y, 0);
-            Vec3d testVector = revertDirection.normalize().multiply(0.5);
-            Vec3d simulate = MovTasks.simulateMovement(mc.player, mc.player.getPos(), testVector, false);
-            if (simulate.squaredDistanceTo(testVector) < 0.1) {
+            net.minecraft.world.phys.Vec3 originalLookHorizontal = originalLook.horizontal();
+            net.minecraft.world.phys.Vec3 vertical = new net.minecraft.world.phys.Vec3(0, 1, 0);
+            net.minecraft.world.phys.Vec3 side = vertical.cross(originalLookHorizontal);
+            net.minecraft.world.phys.Vec3 revertDirection =
+                    side.normalize().scale(originalLookHorizontal.length()).add(0, originalLookHorizontal.y, 0);
+            net.minecraft.world.phys.Vec3 testVector = revertDirection.normalize().scale(0.5);
+            net.minecraft.world.phys.Vec3 simulate = MovTasks.simulateMovement(mc.player, mc.player.position(), testVector, false);
+            if (simulate.distanceToSqr(testVector) < 0.1) {
                 movementDirection = revertDirection;
                 Debug.debug("JudgeA", movementDirection);
                 RenderTasks.drawBoxMov(
-                        mc.player.getBoundingBox(), revertDirection.normalize().multiply(1.7), 50, Color.BLUE);
+                        mc.player.getBoundingBox(), revertDirection.normalize().scale(1.7), 50, Color.BLUE);
                 return true;
             } else {
-                revertDirection = revertDirection.negate();
-                testVector = testVector.negate();
-                simulate = MovTasks.simulateMovement(mc.player, mc.player.getPos(), testVector, false);
-                if (simulate.squaredDistanceTo(testVector) < 0.1) {
+                revertDirection = revertDirection.reverse();
+                testVector = testVector.reverse();
+                simulate = MovTasks.simulateMovement(mc.player, mc.player.position(), testVector, false);
+                if (simulate.distanceToSqr(testVector) < 0.1) {
                     movementDirection = revertDirection;
                     Debug.debug("JudgeB", movementDirection);
                     RenderTasks.drawBoxMov(
                             mc.player.getBoundingBox(),
-                            revertDirection.normalize().multiply(1.7),
+                            revertDirection.normalize().scale(1.7),
                             50,
                             Color.BLUE);
                     return true;
@@ -1871,7 +1868,7 @@ public class ElytraBot extends BaseModule {
             return false;
         }
 
-        private boolean movementPredictAdjust(Vec3d originalLook) {
+        private boolean movementPredictAdjust(net.minecraft.world.phys.Vec3 originalLook) {
             return false;
         }
 
@@ -1883,8 +1880,8 @@ public class ElytraBot extends BaseModule {
                     return STATE_PULL_OVER;
                 }
             }
-            Vec3d targetPosition = getTargetPosition();
-            if (mc.player.getEyePos().squaredDistanceTo(targetPosition) > MathUtils.s2(getActiveRange())) {
+            net.minecraft.world.phys.Vec3 targetPosition = getTargetPosition();
+            if (mc.player.getEyePosition().distanceToSqr(targetPosition) > MathUtils.s2(getActiveRange())) {
                 return STATE_FOLLOW;
             } else {
                 //                else if (++nearFollowTimer > getMaxAttackPeriod()) {
@@ -1893,21 +1890,21 @@ public class ElytraBot extends BaseModule {
                 //                    nearFollowTimer = 0;
                 //                }
                 machine.markForEndState();
-                Vec3d look = targetPosition.subtract(mc.player.getEyePos());
+                net.minecraft.world.phys.Vec3 look = targetPosition.subtract(mc.player.getEyePosition());
                 if (look.length() < 6) {
-                    look = look.normalize().multiply(6);
+                    look = look.normalize().scale(6);
                 }
                 if (canAdjustMovement()) {
-                    if (adjustMovementForSpear((PlayerEntity) base.target, look, false)) {
+                    if (adjustMovementForSpear((Player) base.target, look, false)) {
                         return STATE_NEAR_FOLLOW;
                     }
                 }
-                Vec3d lookHorizontal = look.withAxis(Direction.Axis.Y, 0);
-                Vec3d lastMoveHorizontal =
-                        PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed.withAxis(Direction.Axis.Y, 0);
-                double dotValue = lookHorizontal.dotProduct(lastMoveHorizontal);
+                net.minecraft.world.phys.Vec3 lookHorizontal = look.with(Direction.Axis.Y, 0);
+                net.minecraft.world.phys.Vec3 lastMoveHorizontal =
+                        PlayerStateManager.INSTANCE.lastKnownRealMovementSpeed.with(Direction.Axis.Y, 0);
+                double dotValue = lookHorizontal.dot(lastMoveHorizontal);
                 if (dotValue < 0) {
-                    look = look.negate();
+                    look = look.reverse();
                 }
                 movementDirection = look;
                 return STATE_NEAR_FOLLOW;
@@ -1915,7 +1912,7 @@ public class ElytraBot extends BaseModule {
         }
         // todo: howto when combating
         public int onStatePullOver(StateMachine machine) {
-            Vec3d targetPosition;
+            net.minecraft.world.phys.Vec3 targetPosition;
             if (++pullOverTimer > getCooldown()) {
                 return STATE_FOLLOW;
             } else {
@@ -1928,45 +1925,45 @@ public class ElytraBot extends BaseModule {
                         // stable
                         int leftTicks = getCooldown() - pullOverTimer;
                         double canChaseDistance = Math.max(0.0D, 1.0D * (leftTicks));
-                        if (mc.player.getEyePos().squaredDistanceTo(targetPosition) > MathUtils.s2(canChaseDistance)) {
+                        if (mc.player.getEyePosition().distanceToSqr(targetPosition) > MathUtils.s2(canChaseDistance)) {
                             return STATE_FOLLOW;
                         }
                     } else if (base.currentAction == TargetAction.ESCAPING) {
                         // chasing
                         // do not too close,
                         double canChaseDistance = getMinRange();
-                        if (mc.player.getEyePos().squaredDistanceTo(targetPosition) > MathUtils.s2(canChaseDistance)) {
+                        if (mc.player.getEyePosition().distanceToSqr(targetPosition) > MathUtils.s2(canChaseDistance)) {
                             return STATE_FOLLOW;
                         }
                     } else {
                         // meeting
                         // escape their attack range, can hit
                         double canChaseDistance = getActiveRange();
-                        if (mc.player.getEyePos().squaredDistanceTo(targetPosition) > MathUtils.s2(canChaseDistance)) {
+                        if (mc.player.getEyePosition().distanceToSqr(targetPosition) > MathUtils.s2(canChaseDistance)) {
                             return STATE_FOLLOW;
                         }
                     }
                 }
             }
             machine.markForEndState();
-            Vec3d look = targetPosition.subtract(mc.player.getEyePos());
+            net.minecraft.world.phys.Vec3 look = targetPosition.subtract(mc.player.getEyePosition());
             if (look.length() < 6) {
-                look = look.normalize().multiply(6);
+                look = look.normalize().scale(6);
             }
             if (canAdjustMovement()) {
-                if (adjustMovementForSpear((PlayerEntity) base.target, look, true)) {
+                if (adjustMovementForSpear((Player) base.target, look, true)) {
                     return STATE_PULL_OVER;
                 }
             }
             if (base.currentOnGround) {
-                if (look.lengthSquared() < getMinRange()) {
-                    movementDirection = look.negate().add(0, 1, 0);
+                if (look.lengthSqr() < getMinRange()) {
+                    movementDirection = look.reverse().add(0, 1, 0);
                 } else {
-                    movementDirection = look.negate();
+                    movementDirection = look.reverse();
                 }
             } else {
-                movementDirection = look.negate();
-                movementDirection = movementDirection.withAxis(Direction.Axis.Y, Math.abs(movementDirection.y));
+                movementDirection = look.reverse();
+                movementDirection = movementDirection.with(Direction.Axis.Y, Math.abs(movementDirection.y));
             }
             //            Vec3d lookHorizontal = movementDirection.withAxis(Direction.Axis.Y, 0);
             //            Vec3d lastMoveHorizontal =
@@ -2007,7 +2004,7 @@ public class ElytraBot extends BaseModule {
             if (mc.player.isFallFlying() || mc.player.getAbilities().flying) {
                 stateMachine.step();
             } else {
-                movementDirection = Vec3d.ZERO;
+                movementDirection = net.minecraft.world.phys.Vec3.ZERO;
                 stateMachine.setState(STATE_NONE);
             }
         }

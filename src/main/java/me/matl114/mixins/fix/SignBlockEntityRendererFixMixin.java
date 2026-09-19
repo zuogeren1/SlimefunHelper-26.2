@@ -3,29 +3,29 @@ package me.matl114.mixins.fix;
 import me.matl114.accessors.interfaces.MetadataHolder;
 import me.matl114.hacks.RenderTasks;
 import me.matl114.hacks.modules.render.RenderOptimize;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.client.render.block.entity.AbstractSignBlockEntityRenderer;
-import net.minecraft.client.render.block.entity.state.SignBlockEntityRenderState;
-import net.minecraft.client.render.command.ModelCommandRenderer;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.renderer.blockentity.AbstractSignRenderer;
+import net.minecraft.client.renderer.blockentity.state.SignRenderState;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(AbstractSignBlockEntityRenderer.class)
+@Mixin(AbstractSignRenderer.class)
 public abstract class SignBlockEntityRendererFixMixin {
 
     @Inject(
             method =
-                    "updateRenderState(Lnet/minecraft/block/entity/SignBlockEntity;Lnet/minecraft/client/render/block/entity/state/SignBlockEntityRenderState;FLnet/minecraft/util/math/Vec3d;Lnet/minecraft/client/render/command/ModelCommandRenderer$CrumblingOverlayCommand;)V",
+                    "extractRenderState(Lnet/minecraft/world/level/block/entity/SignBlockEntity;Lnet/minecraft/client/renderer/blockentity/state/SignRenderState;FLnet/minecraft/world/phys/Vec3;Lnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V",
             at = @At("RETURN"))
     public void onSignBlockEntityStateUpdate(
             SignBlockEntity signBlockEntity,
-            SignBlockEntityRenderState signBlockEntityRenderState,
+            SignRenderState signBlockEntityRenderState,
             float f,
-            Vec3d vec3d,
-            ModelCommandRenderer.CrumblingOverlayCommand crumblingOverlayCommand,
+            Vec3 vec3d,
+            ModelFeatureRenderer.CrumblingOverlay crumblingOverlayCommand,
             CallbackInfo ci) {
         RenderOptimize optimize = RenderTasks.getRenderOptimize();
         if (optimize.enableBlockLabelRenderOpt.get()

@@ -1,6 +1,6 @@
 package me.matl114.accessors.access;
 
-import net.minecraft.client.gui.screen.ingame.MerchantScreen;
+import net.minecraft.client.gui.screens.inventory.MerchantScreen;
 
 public interface MerchantScreenAccess {
     public int getSelectedIndex();

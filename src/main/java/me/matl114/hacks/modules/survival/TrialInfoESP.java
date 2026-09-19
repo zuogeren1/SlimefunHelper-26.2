@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.survival;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.access.ChunkAccess;
 import me.matl114.events.Event;
@@ -20,24 +21,23 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.CommonUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.TrialSpawnerBlock;
-import net.minecraft.block.VaultBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.entity.TrialSpawnerBlockEntity;
-import net.minecraft.block.entity.VaultBlockEntity;
-import net.minecraft.block.enums.TrialSpawnerState;
-import net.minecraft.block.vault.VaultSharedData;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.TrialSpawnerBlock;
+import net.minecraft.world.level.block.VaultBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTypes;
+import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
+import net.minecraft.world.level.block.entity.vault.VaultBlockEntity;
+import net.minecraft.world.level.block.entity.vault.VaultSharedData;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public class TrialInfoESP extends BaseModule {
     public TrialInfoESP() {
@@ -57,7 +57,7 @@ public class TrialInfoESP extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> color = builder(root.add("color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.AQUA))
+            .defaultValue(new WrapColor(ChatFormatting.AQUA))
             .build();
 
     @Override
@@ -72,7 +72,7 @@ public class TrialInfoESP extends BaseModule {
     private Map<ChunkPos, Set<BlockPos>> cachedVaultsAndTrials = new HashMap<>();
     TimerExecutor cacheClearTimer = new TimerExecutor();
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         if (cacheClearTimer.run(1000)) {
             cachedVaultsAndTrials = new HashMap<>();
         }
@@ -83,7 +83,7 @@ public class TrialInfoESP extends BaseModule {
                     Set<BlockPos> sets = new HashSet<>();
                     for (var blockEntities : ChunkAccess.of(chunk).blockEntityEntries()) {
                         var bt = blockEntities.getValue().getType();
-                        if (bt == BlockEntityType.VAULT || bt == BlockEntityType.TRIAL_SPAWNER) {
+                        if (bt == BlockEntityTypes.VAULT || bt == BlockEntityTypes.TRIAL_SPAWNER) {
                             sets.add(blockEntities.getKey());
                         }
                     }
@@ -92,13 +92,13 @@ public class TrialInfoESP extends BaseModule {
             }
             for (var re : cachedVaultsAndTrials.values()) {
                 for (var bp : re) {
-                    BlockEntity be = mc.world.getBlockEntity(bp);
-                    List<Text> textLines = new ArrayList<>();
+                    BlockEntity be = mc.level.getBlockEntity(bp);
+                    List<Component> textLines = new ArrayList<>();
                     if (be instanceof TrialSpawnerBlockEntity be1) {
-                        BlockState currentState = mc.world.getBlockState(bp);
-                        TrialSpawnerState state = currentState.get(TrialSpawnerBlock.TRIAL_SPAWNER_STATE);
+                        BlockState currentState = mc.level.getBlockState(bp);
+                        TrialSpawnerState state = currentState.getValue(TrialSpawnerBlock.STATE);
                         if (state == TrialSpawnerState.WAITING_FOR_PLAYERS) {
-                            textLines.add(Text.translatable("message.module.trial-info-esp.display.trial-ready"));
+                            textLines.add(Component.translatable("message.module.trial-info-esp.display.trial-ready"));
                         } else if (state == TrialSpawnerState.COOLDOWN) {
                             OptionalLong cooldownLong = WorldManager.INSTANCE.getTrialSpawnerCooldownStartTime(be1);
                             String time;
@@ -112,7 +112,7 @@ public class TrialInfoESP extends BaseModule {
                                 time = "?";
                             }
                             textLines.add(
-                                    Text.translatable("message.module.trial-info-esp.display.trial-cooldown", time));
+                                    Component.translatable("message.module.trial-info-esp.display.trial-cooldown", time));
                         } else if (state != TrialSpawnerState.INACTIVE) {
                             OptionalLong activeLong = WorldManager.INSTANCE.getTrialSpawnerActiveStartTime(be1);
                             String time;
@@ -126,40 +126,40 @@ public class TrialInfoESP extends BaseModule {
                                 time = "?";
                             }
                             textLines.add(
-                                    Text.translatable("message.module.trial-info-esp.display.trial-active", time));
+                                    Component.translatable("message.module.trial-info-esp.display.trial-active", time));
                         }
-                        var entity = be1.getSpawner().getData().setDisplayEntity(be1.getSpawner(), mc.world, state);
+                        var entity = be1.getTrialSpawner().getStateData().getOrCreateDisplayEntity(be1.getTrialSpawner(), mc.level, state);
                         if (entity != null) {
-                            textLines.add(Text.translatable(
+                            textLines.add(Component.translatable(
                                     "message.module.trial-info-esp.display.trial-type",
-                                    entity.getType().getName()));
+                                    entity.getType().getDescription()));
                         }
                     } else if (be instanceof VaultBlockEntity be2) {
-                        BlockState currentState = mc.world.getBlockState(bp);
-                        boolean omin = currentState.get(VaultBlock.OMINOUS);
+                        BlockState currentState = mc.level.getBlockState(bp);
+                        boolean omin = currentState.getValue(VaultBlock.OMINOUS);
                         textLines.add(
                                 omin
-                                        ? Text.translatable("message.module.trial-info.esp.display.vault-type.ominous")
-                                        : Text.translatable("message.module.trial-info.esp.display.vault-type.common"));
+                                        ? Component.translatable("message.module.trial-info.esp.display.vault-type.ominous")
+                                        : Component.translatable("message.module.trial-info.esp.display.vault-type.common"));
                         VaultSharedData sharedData = be2.getSharedData();
                         var set = sharedData.getConnectedPlayers();
-                        if (!set.contains(mc.player.getUuid())) {
-                            textLines.add(Text.translatable("message.module.trial-info-esp.display.vault-can-open"));
+                        if (!set.contains(mc.player.getUUID())) {
+                            textLines.add(Component.translatable("message.module.trial-info-esp.display.vault-can-open"));
                         } else {
                             textLines.add(
-                                    Text.translatable("message.module.trial-info-esp.display.vault-can-not-open"));
+                                    Component.translatable("message.module.trial-info-esp.display.vault-can-not-open"));
                         }
                         if (!set.isEmpty()) {
-                            textLines.add(Text.translatable(
+                            textLines.add(Component.translatable(
                                     "message.module.trial-info-esp.display.vault-opened-times", set.size()));
                         }
                     }
                     if (!textLines.isEmpty()) {
-                        MutableText result = Text.empty().append(textLines.get(0));
+                        MutableComponent result = Component.empty().append(textLines.get(0));
                         for (int i = 1; i < textLines.size(); i++) {
-                            result = result.append(Text.literal("\n")).append(textLines.get(i));
+                            result = result.append(Component.literal("\n")).append(textLines.get(i));
                         }
-                        Vec3d textPos = bp.toCenterPos().add(0.0D, 0.4, 0.0D);
+                        Vec3 textPos = Vec3.atCenterOf(bp).add(0.0D, 0.4, 0.0D);
                         textCollector.submit(
                                 new RenderElements.Text(result, textPos, (float) textScale.get()),
                                 color.get().withAlpha(255));
@@ -169,7 +169,7 @@ public class TrialInfoESP extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<MatrixStack> event) {
+    public void onRender3D(Event<PoseStack> event) {
         if (!enable.get()) {
             return;
         }
@@ -181,7 +181,7 @@ public class TrialInfoESP extends BaseModule {
         }
     }
 
-    private void onSwitchWorld(Event<World> event) {
+    private void onSwitchWorld(Event<Level> event) {
         cachedVaultsAndTrials.clear();
     }
 }

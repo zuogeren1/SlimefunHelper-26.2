@@ -29,15 +29,15 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.CommonUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class XaeroHelper extends BaseModule {
     public static XaeroHelper INSTANCE;
@@ -54,7 +54,7 @@ public class XaeroHelper extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> loadedChunkColor = builder(root.add("loaded-chunk-render-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.RED)))
+            .defaultValue(new WrapColor((ChatFormatting.RED)))
             .build();
 
     public final FlagRef xplusBaritonePathFix =
@@ -132,8 +132,8 @@ public class XaeroHelper extends BaseModule {
 
     final List<LineWrapper<?>> loadedChunkLines = new ArrayList<>();
 
-    public List<LineWrapper<?>> supplyLoadedChunkLines(int x, int y, int w, RegistryKey<World> dimension) {
-        if (mc.world != null && Objects.equals(mc.world.getRegistryKey(), dimension)) {
+    public List<LineWrapper<?>> supplyLoadedChunkLines(int x, int y, int w, ResourceKey<Level> dimension) {
+        if (mc.level != null && Objects.equals(mc.level.dimension(), dimension)) {
             return loadedChunkLines;
         } else {
             return List.of();
@@ -185,7 +185,7 @@ public class XaeroHelper extends BaseModule {
         }
     }
 
-    public void onTickMapRender(Event<ClientPlayerEntity> event) {
+    public void onTickMapRender(Event<LocalPlayer> event) {
         if (loadedChunkRender.get() && loadedChunkFeature != null) {
             Set<ChunkPos> chunkPoses = new HashSet<>(100);
             for (var chunk : CommonUtils.chunks(false)) {
@@ -196,19 +196,19 @@ public class XaeroHelper extends BaseModule {
     }
 
     private static final Map<String, Object> formatMap = ImmutableMap.<String, Object>builder()
-            .put("pos", Text.translatable("message.module.xaero-helper.right-click-command.pos"))
-            .put("pos_str", Text.translatable("message.module.xaero-helper.right-click-command.pos_str"))
-            .put("x", Text.translatable("message.module.xaero-helper.right-click-command.pos_x"))
-            .put("y", Text.translatable("message.module.xaero-helper.right-click-command.pos_y"))
-            .put("z", Text.translatable("message.module.xaero-helper.right-click-command.pos_z"))
+            .put("pos", Component.translatable("message.module.xaero-helper.right-click-command.pos"))
+            .put("pos_str", Component.translatable("message.module.xaero-helper.right-click-command.pos_str"))
+            .put("x", Component.translatable("message.module.xaero-helper.right-click-command.pos_x"))
+            .put("y", Component.translatable("message.module.xaero-helper.right-click-command.pos_y"))
+            .put("z", Component.translatable("message.module.xaero-helper.right-click-command.pos_z"))
             .build();
 
     public void onXaeroWorldMapClick(Event<ArrayList<MapClickContext>> event) {
         if (xaeroCommandInsert.get()) {
-            RegistryKey<World> worldKey = event.getArgs(0);
+            ResourceKey<Level> worldKey = event.getArgs(0);
             BlockPos pos = event.getArgs(1);
             Map<String, String> map = ImmutableMap.<String, String>builder()
-                    .put("world", worldKey.getValue().getPath())
+                    .put("world", worldKey.identifier().getPath())
                     .put("pos", "%d %d %d".formatted(pos.getX(), pos.getY(), pos.getZ()))
                     .put("pos_str", "%d,%d,%d".formatted(pos.getX(), pos.getY(), pos.getZ()))
                     .put("x", String.valueOf(pos.getX()))
@@ -216,7 +216,7 @@ public class XaeroHelper extends BaseModule {
                     .put("z", String.valueOf(pos.getZ()))
                     .build();
             for (var format : xaeroRightClickCommand.get().list()) {
-                String name = ChatUtils.textToPlainString(Text.translatable(
+                String name = ChatUtils.textToPlainString(Component.translatable(
                         "message.module.xaero-helper.right-click-command.command", format.formatText(formatMap)));
                 event.context.add(new MapClickContext(name, (world, position) -> {
                     String formatted = format.format(map);
@@ -224,7 +224,7 @@ public class XaeroHelper extends BaseModule {
                 }));
             }
             for (var format : xaeroRightClickSuggest.get().list()) {
-                String name = ChatUtils.textToPlainString(Text.translatable(
+                String name = ChatUtils.textToPlainString(Component.translatable(
                         "message.module.xaero-helper.right-click-command.suggest", format.formatText(formatMap)));
                 event.context.add(new MapClickContext(name, (world, position) -> {
                     String formatted = format.format(map);
@@ -255,13 +255,13 @@ public class XaeroHelper extends BaseModule {
         }
     }
 
-    public void onXaeroTempWaypointSync(Event<ClientPlayerEntity> eventVoid) {
+    public void onXaeroTempWaypointSync(Event<LocalPlayer> eventVoid) {
         if (checkNull()) return;
         if (!XaeroHooks.getInstance().isXaeroMiniMapEnable()) {
             return;
         }
         IXWaypointFactory factory = XaeroHooks.getInstance().getWaypointFactory();
-        if (!Objects.equals(factory.getCurrentWorld(), mc.world.getRegistryKey())) {
+        if (!Objects.equals(factory.getCurrentWorld(), mc.level.dimension())) {
             destroyTempWaypoints();
             return;
         }
@@ -274,7 +274,7 @@ public class XaeroHelper extends BaseModule {
             if (TravellingControl.travelTask == null) {
                 destroyTravelPoint();
             } else {
-                Vec3d target = TravellingControl.travelTask.getCurrentFlyingTarget();
+                Vec3 target = TravellingControl.travelTask.getCurrentFlyingTarget();
                 BlockPos pos = new BlockPos((int) target.x, (int) Math.clamp(target.y, -512, 512), (int) target.z);
                 if (travelPoint == null) {
                     travelPoint = factory.createWaypoint(
@@ -283,7 +283,7 @@ public class XaeroHelper extends BaseModule {
                             pos.getZ(),
                             "[SFH] Travel",
                             "T",
-                            Formatting.GREEN.ordinal(),
+                            ChatFormatting.GREEN.ordinal(),
                             0,
                             true,
                             true);

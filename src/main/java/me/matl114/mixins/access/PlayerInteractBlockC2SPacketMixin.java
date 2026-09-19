@@ -5,9 +5,9 @@ import lombok.Setter;
 import me.matl114.accessors.access.PlayerInteractBlockC2SPacketAccess;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Unique;
@@ -16,17 +16,17 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Setter
 @Getter
 @Environment(EnvType.CLIENT)
-@Mixin(PlayerInteractBlockC2SPacket.class)
+@Mixin(ServerboundUseItemOnPacket.class)
 public abstract class PlayerInteractBlockC2SPacketMixin implements PlayerInteractBlockC2SPacketAccess {
 
     @Override
     @Mutable
     @Accessor("hand")
-    public abstract void setHand(Hand hand);
+    public abstract void setHand(InteractionHand hand);
 
     @Override
     @Mutable
-    @Accessor("blockHitResult")
+    @Accessor("blockHit")
     public abstract void setBlockHitResult(BlockHitResult blockHitResult);
 
     @Override

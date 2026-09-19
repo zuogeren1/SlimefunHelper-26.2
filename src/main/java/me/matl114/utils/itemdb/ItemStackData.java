@@ -11,11 +11,11 @@ import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VItem;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtException;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public interface ItemStackData {
     public JsonElement getAsJson();
@@ -54,7 +54,7 @@ public interface ItemStackData {
             try {
                 ItemStack stack = VItem.getInstance()
                         .getVersionedCodec()
-                        .decode(ItemStackUtils.registry().getOps(JsonOps.INSTANCE), jsonMap)
+                        .decode(ItemStackUtils.registry().createSerializationContext(JsonOps.INSTANCE), jsonMap)
                         .getOrThrow()
                         .getFirst();
                 return stack.isEmpty() ? ItemStack.EMPTY : stack;
@@ -64,10 +64,10 @@ public interface ItemStackData {
         } else {
             String jsonString = json.getAsString();
             try {
-                NbtCompound nbtElement = (NbtCompound) VNbt.getInstance().readNbt(jsonString);
+                CompoundTag nbtElement = (CompoundTag) VNbt.getInstance().readNbt(jsonString);
                 ItemStack stack = VItem.getInstance()
                         .getVersionedCodec()
-                        .decode(ItemStackUtils.registry().getOps(NbtOps.INSTANCE), nbtElement)
+                        .decode(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE), nbtElement)
                         .getOrThrow()
                         .getFirst();
                 return stack.isEmpty() ? ItemStack.EMPTY : stack;
@@ -81,7 +81,7 @@ public interface ItemStackData {
         if (stack.isEmpty()) {
             return JsonNull.INSTANCE;
         } else {
-            NbtCompound nbt = VItem.getInstance().toNbt(stack, ItemStackUtils.registry());
+            CompoundTag nbt = VItem.getInstance().toNbt(stack, ItemStackUtils.registry());
             return new JsonPrimitive(VNbt.getInstance().writeNbt(nbt));
         }
     }
@@ -145,7 +145,7 @@ public interface ItemStackData {
                             && data.getItemStack().isEmpty());
         }
 
-        private static final int EMPTY_HASHCODE = ItemStack.hashCode(ItemStack.EMPTY);
+        private static final int EMPTY_HASHCODE = ItemStack.hashItemAndComponents(ItemStack.EMPTY);
 
         @Override
         public int hashCode() {
@@ -228,7 +228,7 @@ public interface ItemStackData {
             if (cachedHash == null) {
                 resolveItemStack();
                 if (valid) {
-                    cachedHash = ItemStack.hashCode(stack);
+                    cachedHash = ItemStack.hashItemAndComponents(stack);
                 } else {
                     cachedHash = jsonRaw.hashCode();
                 }
@@ -254,7 +254,7 @@ public interface ItemStackData {
                 boolean v1 = valid;
                 boolean v2 = data.isValid();
                 if (v1 && v2) {
-                    return ItemStack.areItemsAndComponentsEqual(stack, data.getItemStack());
+                    return ItemStack.isSameItemSameComponents(stack, data.getItemStack());
                 } else if (!v1 && !v2) {
                     return Objects.equals(jsonRaw, data.getAsJson());
                 } else {
@@ -310,7 +310,7 @@ public interface ItemStackData {
         @Override
         public int hashCode() {
             if (cachedHash == null) {
-                cachedHash = ItemStack.hashCode(itemStack);
+                cachedHash = ItemStack.hashItemAndComponents(itemStack);
             }
             return cachedHash;
         }
@@ -321,7 +321,7 @@ public interface ItemStackData {
                 return true;
             } else if (obj instanceof ItemStackData data) {
                 if (data.isValid()) {
-                    return ItemStack.areItemsAndComponentsEqual(itemStack, data.getItemStack());
+                    return ItemStack.isSameItemSameComponents(itemStack, data.getItemStack());
                 } else {
                     return false;
                 }

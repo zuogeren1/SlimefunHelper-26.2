@@ -25,46 +25,51 @@ import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.utils.itemdb.ItemStackData;
 import me.matl114.utils.itemdb.ItemStackDataWithAmount;
 import me.matl114.utils.tasks.LimitedSpeedExecutor;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.block.entity.ShulkerBoxBlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.component.ComponentType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
-import net.minecraft.network.packet.s2c.play.OpenScreenS2CPacket;
-import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.PlayerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.DoubleBlockCombiner;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 public class InvTasks {
     public static void init() {}
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     @ApiMethod
-    public static Screen getCurrentServerScreen(PlayerEntity player) {
+    public static Screen getCurrentServerScreen(Player player) {
         if (player == null) {
             return null;
         }
@@ -72,10 +77,10 @@ public class InvTasks {
         if (player instanceof ClientPlayerAccess access) {
             nowScreen = access.getServerOpeningScreen();
         } else {
-            nowScreen = MinecraftClient.getInstance().currentScreen;
+            nowScreen = Minecraft.getInstance().gui.screen();
         }
         // ignore Creative screen as it is not handled by server
-        if (nowScreen instanceof CreativeInventoryScreen) {
+        if (nowScreen instanceof CreativeModeInventoryScreen) {
             return null;
         }
         return nowScreen;
@@ -83,29 +88,29 @@ public class InvTasks {
 
     @ApiMethod
     public static boolean dropAllCursorStack() {
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         if (player == null) return false;
 
-        ScreenHandler handler = ClientPlayerAccess.of(player).getServerScreenHandler();
-        if (handler.getCursorStack() != null && !handler.getCursorStack().isEmpty()) {
-            ItemStack cleanedCursor = ItemStackUtils.getCleanedItem(handler.getCursorStack(), false, false);
+        AbstractContainerMenu handler = ClientPlayerAccess.of(player).getServerScreenHandler();
+        if (handler.getCarried() != null && !handler.getCarried().isEmpty()) {
+            ItemStack cleanedCursor = ItemStackUtils.getCleanedItem(handler.getCarried(), false, false);
             InvTasks.getClickExecutor().execute(() -> {
-                MinecraftClient.getInstance()
-                        .interactionManager
-                        .clickSlot(handler.syncId, -999, 0, SlotActionType.PICKUP, player);
+                Minecraft.getInstance()
+                        .gameMode
+                        .handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, player);
             });
             for (int i = 0; i < handler.slots.size(); i++) {
-                ItemStack slot = handler.getSlot(i).getStack();
-                if (!ItemStack.areItemsEqual(slot, cleanedCursor)) {
+                ItemStack slot = handler.getSlot(i).getItem();
+                if (!ItemStack.isSameItem(slot, cleanedCursor)) {
                     continue;
                 }
                 ItemStack cleaned = ItemStackUtils.getCleanedItem(slot, false, false);
-                if (ItemStack.areItemsAndComponentsEqual(cleaned, cleanedCursor)) {
+                if (ItemStack.isSameItemSameComponents(cleaned, cleanedCursor)) {
                     final int index = i;
                     InvTasks.getClickExecutor().execute(() -> {
-                        MinecraftClient.getInstance()
-                                .interactionManager
-                                .clickSlot(handler.syncId, index, 1, SlotActionType.THROW, player);
+                        Minecraft.getInstance()
+                                .gameMode
+                                .handleContainerInput(handler.containerId, index, 1, ContainerInput.THROW, player);
                     });
                 }
             }
@@ -118,14 +123,14 @@ public class InvTasks {
     @ApiMethod
     public static void takeAllContainerItem() {
         Screen nowScreen = getCurrentServerScreen(mc.player);
-        if (nowScreen instanceof HandledScreen<?> handled) {
-            ScreenHandler handler = handled.getScreenHandler();
+        if (nowScreen instanceof AbstractContainerScreen<?> handled) {
+            AbstractContainerMenu handler = handled.getMenu();
             for (int i = 0; i < handler.slots.size(); i++) {
                 Slot slot = handler.getSlot(i);
-                if (!(slot.inventory instanceof PlayerInventory)) {
+                if (!(slot.container instanceof Inventory)) {
                     final int index = i;
                     clickExecutor.execute(() -> {
-                        mc.interactionManager.clickSlot(handler.syncId, index, 1, SlotActionType.QUICK_MOVE, mc.player);
+                        mc.gameMode.handleContainerInput(handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
                     });
                 }
             }
@@ -135,14 +140,14 @@ public class InvTasks {
     @ApiMethod
     public static void saveAllPlayerItem() {
         Screen nowScreen = getCurrentServerScreen(mc.player);
-        if (nowScreen instanceof HandledScreen<?> handled) {
-            ScreenHandler handler = handled.getScreenHandler();
+        if (nowScreen instanceof AbstractContainerScreen<?> handled) {
+            AbstractContainerMenu handler = handled.getMenu();
             for (int i = 0; i < handler.slots.size(); i++) {
                 Slot slot = handler.getSlot(i);
-                if (slot.inventory instanceof PlayerInventory) {
+                if (slot.container instanceof Inventory) {
                     final int index = i;
                     clickExecutor.execute(() -> {
-                        mc.interactionManager.clickSlot(handler.syncId, index, 1, SlotActionType.QUICK_MOVE, mc.player);
+                        mc.gameMode.handleContainerInput(handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
                     });
                 }
             }
@@ -151,12 +156,12 @@ public class InvTasks {
 
     @ApiMethod
     public static boolean isHandledScreen(Screen screen) {
-        return screen instanceof HandledScreen;
+        return screen instanceof AbstractContainerScreen;
     }
 
     @ApiMethod
-    public static boolean quickMoveSlotItem(HandledScreen screen, int slotIndex) {
-        Slot slot = screen.getScreenHandler().getSlot(slotIndex);
+    public static boolean quickMoveSlotItem(AbstractContainerScreen screen, int slotIndex) {
+        Slot slot = screen.getMenu().getSlot(slotIndex);
         if (slot != null) {
             return quickMoveSlotItem(screen, slot);
         }
@@ -164,18 +169,18 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static boolean quickMoveSlotItem(HandledScreen screen, Slot slot) {
+    public static boolean quickMoveSlotItem(AbstractContainerScreen screen, Slot slot) {
         if (slot != null) {
-            ScreenHandler handler = screen.getScreenHandler();
-            ItemStack cleanedStack = ItemStackUtils.getCleanedItem(slot.getStack(), false, false);
-            boolean isPlayerInventory = slot.inventory instanceof PlayerInventory;
+            AbstractContainerMenu handler = screen.getMenu();
+            ItemStack cleanedStack = ItemStackUtils.getCleanedItem(slot.getItem(), false, false);
+            boolean isPlayerInventory = slot.container instanceof Inventory;
 
             for (int i = 0; i < handler.slots.size(); i++) {
                 Slot slot2 = handler.getSlot(i);
-                if (((slot2.inventory instanceof PlayerInventory) == isPlayerInventory)
-                        && ItemStack.areItemsEqual(cleanedStack, slot2.getStack())
-                        && ItemStack.areItemsAndComponentsEqual(
-                                cleanedStack, ItemStackUtils.getCleanedItem(slot2.getStack(), false, false))) {
+                if (((slot2.container instanceof Inventory) == isPlayerInventory)
+                        && ItemStack.isSameItem(cleanedStack, slot2.getItem())
+                        && ItemStack.isSameItemSameComponents(
+                                cleanedStack, ItemStackUtils.getCleanedItem(slot2.getItem(), false, false))) {
                     quickMoveSlot(screen, i);
                 }
             }
@@ -185,41 +190,41 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static void quickMoveSlot(HandledScreen handler, int index, boolean ignoreConfig) {
-        quickMoveSlot(handler.getScreenHandler(), index, ignoreConfig);
+    public static void quickMoveSlot(AbstractContainerScreen handler, int index, boolean ignoreConfig) {
+        quickMoveSlot(handler.getMenu(), index, ignoreConfig);
     }
 
     @ApiMethod
-    public static void quickMoveSlot(HandledScreen handler, int index) {
-        quickMoveSlot(handler.getScreenHandler(), index, false);
+    public static void quickMoveSlot(AbstractContainerScreen handler, int index) {
+        quickMoveSlot(handler.getMenu(), index, false);
     }
 
-    public static void quickMoveSlot(ScreenHandler handler, int index, boolean ignoreConfig) {
+    public static void quickMoveSlot(AbstractContainerMenu handler, int index, boolean ignoreConfig) {
         if (!ignoreConfig
-                && handler.getSlot(index).getStack().getCount() > 1
+                && handler.getSlot(index).getItem().getCount() > 1
                 && getFastInv().enableLeftOne.get()) {
             //            Debug.info("quick move 1");
-            int syncId = handler.syncId;
-            if (!handler.getCursorStack().isEmpty()) {
-                Debug.chat(Text.literal("[left 1] ")
-                        .formatted(Formatting.RED)
-                        .append(Text.literal("cursor stack needs to be empty to apply left-one quickMove")));
+            int syncId = handler.containerId;
+            if (!handler.getCarried().isEmpty()) {
+                Debug.chat(Component.literal("[left 1] ")
+                        .withStyle(ChatFormatting.RED)
+                        .append(Component.literal("cursor stack needs to be empty to apply left-one quickMove")));
                 return;
             }
             Slot slot = handler.getSlot(index);
-            if (slot.getStack().isEmpty()) {
+            if (slot.getItem().isEmpty()) {
                 return;
             }
-            boolean tryTake = slot.inventory instanceof PlayerInventory;
+            boolean tryTake = slot.container instanceof Inventory;
             boolean hasPlace = false;
             for (Slot s : handler.slots) {
                 // skip same-side inventory
-                if ((s.inventory instanceof PlayerInventory) == tryTake) {
+                if ((s.container instanceof Inventory) == tryTake) {
                     continue;
                 }
-                if (s.getStack().isEmpty()
-                        || (s.getStack().getCount() < s.getStack().getMaxCount()
-                                && ItemStack.areItemsAndComponentsEqual(slot.getStack(), s.getStack()))) {
+                if (s.getItem().isEmpty()
+                        || (s.getItem().getCount() < s.getItem().getMaxStackSize()
+                                && ItemStack.isSameItemSameComponents(slot.getItem(), s.getItem()))) {
                     hasPlace = true;
                     break;
                 }
@@ -228,9 +233,9 @@ public class InvTasks {
             if (!hasPlace) {
                 return;
             }
-            mc.interactionManager.clickSlot(syncId, index, 0, SlotActionType.PICKUP, mc.player);
-            mc.interactionManager.clickSlot(syncId, index, 1, SlotActionType.PICKUP, mc.player);
-            ItemStack sample = handler.getCursorStack();
+            mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.PICKUP, mc.player);
+            mc.gameMode.handleContainerInput(syncId, index, 1, ContainerInput.PICKUP, mc.player);
+            ItemStack sample = handler.getCarried();
             if (sample.isEmpty()) {
                 return;
             }
@@ -238,66 +243,66 @@ public class InvTasks {
             sample = sample.copy();
             for (int i = 0; i < handler.slots.size(); ++i) {
                 Slot s = handler.slots.get(i);
-                if ((s.inventory instanceof PlayerInventory) == tryTake) {
+                if ((s.container instanceof Inventory) == tryTake) {
                     continue;
                 }
-                if (s.getStack().isEmpty()
-                        || (s.getStack().getCount() < s.getStack().getMaxCount()
-                                && ItemStack.areItemsAndComponentsEqual(slot.getStack(), s.getStack()))) {
-                    mc.interactionManager.clickSlot(syncId, i, 0, SlotActionType.PICKUP, mc.player);
-                    if (handler.getCursorStack().isEmpty()) {
+                if (s.getItem().isEmpty()
+                        || (s.getItem().getCount() < s.getItem().getMaxStackSize()
+                                && ItemStack.isSameItemSameComponents(slot.getItem(), s.getItem()))) {
+                    mc.gameMode.handleContainerInput(syncId, i, 0, ContainerInput.PICKUP, mc.player);
+                    if (handler.getCarried().isEmpty()) {
                         return;
                     }
                 }
             }
-            if (!handler.getCursorStack().isEmpty()) {
-                mc.interactionManager.clickSlot(syncId, index, 0, SlotActionType.PICKUP, mc.player);
+            if (!handler.getCarried().isEmpty()) {
+                mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.PICKUP, mc.player);
             }
             //            while (handler.getSlot(index).getStack().getCount() > 1){
-            //                mc.interactionManager.clickSlot(syncId, index, 1,SlotActionType.PICKUP,mc.player);
-            //                mc.interactionManager.clickSlot(syncId, index, 0, SlotActionType.QUICK_MOVE, mc.player);
-            //                mc.interactionManager.clickSlot(syncId, index, 0,);
+            //                mc.gameMode.handleContainerInput(syncId, index, 1,ContainerInput.PICKUP,mc.player);
+            //                mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.QUICK_MOVE, mc.player);
+            //                mc.gameMode.handleContainerInput(syncId, index, 0,);
             //            }
-            //                mc.interactionManager.clickSlot(syncId, index, 1,SlotActionType.PICKUP,mc.player);
+            //                mc.gameMode.handleContainerInput(syncId, index, 1,ContainerInput.PICKUP,mc.player);
             //                int maxTry = 33;
             //                while (handler.getCursorStack().getCount() > 1){
-            //                    mc.interactionManager.clickSlot(syncId, index, 1, SlotActionType.PICKUP, mc.player);
+            //                    mc.gameMode.handleContainerInput(syncId, index, 1, ContainerInput.PICKUP, mc.player);
             //                    if(-- maxTry <= 0){
             //                        break;
             //                    }
             //                }
-            //                mc.interactionManager.clickSlot(syncId, index, 0, SlotActionType.QUICK_MOVE, mc.player);
-            //                mc.interactionManager.clickSlot(syncId, index, 1,SlotActionType.PICKUP,mc.player);
+            //                mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.QUICK_MOVE, mc.player);
+            //                mc.gameMode.handleContainerInput(syncId, index, 1,ContainerInput.PICKUP,mc.player);
 
         } else {
-            if (handler.getCursorStack().isEmpty()) {
-                mc.interactionManager.clickSlot(handler.syncId, -999, 0, SlotActionType.PICKUP, mc.player);
+            if (handler.getCarried().isEmpty()) {
+                mc.gameMode.handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, mc.player);
             }
-            mc.interactionManager.clickSlot(handler.syncId, index, 0, SlotActionType.QUICK_MOVE, mc.player);
+            mc.gameMode.handleContainerInput(handler.containerId, index, 0, ContainerInput.QUICK_MOVE, mc.player);
         }
     }
 
     @ApiMethod
-    public static boolean quickDropSlotItem(HandledScreen handler, int index) {
-        Slot slot = handler.getScreenHandler().getSlot(index);
+    public static boolean quickDropSlotItem(AbstractContainerScreen handler, int index) {
+        Slot slot = handler.getMenu().getSlot(index);
         if (slot != null) {
             return quickDropSlotItem(handler, slot);
         }
         return false;
     }
 
-    public static boolean quickDropSlotItem(HandledScreen handled, Slot slot) {
-        if (slot != null && slot.getStack() != null && slot.getStack().getItem() != Items.AIR) {
-            ItemStack cleanedStack = ItemStackUtils.getCleanedItem(slot.getStack(), false, false);
-            ScreenHandler handler = handled.getScreenHandler();
+    public static boolean quickDropSlotItem(AbstractContainerScreen handled, Slot slot) {
+        if (slot != null && slot.getItem() != null && slot.getItem().getItem() != Items.AIR) {
+            ItemStack cleanedStack = ItemStackUtils.getCleanedItem(slot.getItem(), false, false);
+            AbstractContainerMenu handler = handled.getMenu();
             for (int i = 0; i < handler.slots.size(); i++) {
                 Slot slot2 = handler.getSlot(i);
-                if (ItemStack.areItemsEqual(cleanedStack, slot2.getStack())
-                        && ItemStack.areItemsAndComponentsEqual(
-                                cleanedStack, ItemStackUtils.getCleanedItem(slot2.getStack(), false, false))) {
+                if (ItemStack.isSameItem(cleanedStack, slot2.getItem())
+                        && ItemStack.isSameItemSameComponents(
+                                cleanedStack, ItemStackUtils.getCleanedItem(slot2.getItem(), false, false))) {
                     final int index = i;
                     clickExecutor.execute(() -> {
-                        mc.interactionManager.clickSlot(handler.syncId, index, 1, SlotActionType.THROW, mc.player);
+                        mc.gameMode.handleContainerInput(handler.containerId, index, 1, ContainerInput.THROW, mc.player);
                     });
                 }
             }
@@ -308,24 +313,24 @@ public class InvTasks {
 
     public static void setCreativeInventory(ItemStack itemStack, int slot) {
         if (slot < InventoryUtils.getPlayerInvSize()) {
-            mc.player.getInventory().setStack(slot, itemStack.copy());
-            mc.interactionManager.clickCreativeStack(itemStack, INVENTORY_INDEX_TO_SCREEN_SLOT[slot]);
+            mc.player.getInventory().setItem(slot, itemStack.copy());
+            mc.gameMode.handleCreativeModeItemAdd(itemStack, INVENTORY_INDEX_TO_SCREEN_SLOT[slot]);
         }
     }
 
     @ApiMethod
     public static ItemStack getHotbarStack(int hotbar) {
         return hotbar == 40
-                ? mc.player.getInventory().getStack(40)
-                : mc.player.getInventory().getMainStacks().get(hotbar);
+                ? mc.player.getInventory().getItem(40)
+                : mc.player.getInventory().getNonEquipmentItems().get(hotbar);
     }
 
     @ApiMethod
     public static int getTopInventorySize() {
-        if (mc.currentScreen instanceof HandledScreen handledScreen && handledScreen.getScreenHandler() != null) {
+        if (mc.gui.screen() instanceof AbstractContainerScreen handledScreen && handledScreen.getMenu() != null) {
             int idx = 0;
-            for (var slot : handledScreen.getScreenHandler().slots) {
-                if (slot.inventory instanceof PlayerInventory) {
+            for (var slot : handledScreen.getMenu().slots) {
+                if (slot.container instanceof Inventory) {
                     return idx;
                 } else {
                     idx += 1;
@@ -363,26 +368,26 @@ public class InvTasks {
     @ApiMethod
     public static void creativeGive(ItemStack itemStack, int count) {
         if (mc.player != null
-                && mc.interactionManager != null
-                && mc.interactionManager.getCurrentGameMode().isCreative()) {
-            PlayerScreenHandler inventoryView = mc.player.playerScreenHandler;
-            int stackMax = itemStack.getMaxCount();
+                && mc.gameMode != null
+                && mc.gameMode.getPlayerMode().isCreative()) {
+            InventoryMenu inventoryView = mc.player.inventoryMenu;
+            int stackMax = itemStack.getMaxStackSize();
             for (int i : INVENTORY_INDEX_TO_SCREEN_SLOT) {
                 Slot slot0 = inventoryView.getSlot(i);
                 int transfer = 0;
                 ItemStack stackToSet = null;
-                if (slot0.getStack().isEmpty()) {
+                if (slot0.getItem().isEmpty()) {
                     transfer = Math.min(stackMax, count);
                     stackToSet = itemStack.copyWithCount(transfer);
-                } else if (slot0.getStack().getCount() < stackMax
-                        && ItemStack.areItemsAndComponentsEqual(slot0.getStack(), itemStack)) {
-                    transfer = Math.min(stackMax - slot0.getStack().getCount(), count);
-                    stackToSet = itemStack.copyWithCount(slot0.getStack().getCount() + transfer);
+                } else if (slot0.getItem().getCount() < stackMax
+                        && ItemStack.isSameItemSameComponents(slot0.getItem(), itemStack)) {
+                    transfer = Math.min(stackMax - slot0.getItem().getCount(), count);
+                    stackToSet = itemStack.copyWithCount(slot0.getItem().getCount() + transfer);
                 }
                 count -= transfer;
                 if (stackToSet != null) {
-                    mc.interactionManager.clickCreativeStack(stackToSet, i);
-                    slot0.setStack(stackToSet);
+                    mc.gameMode.handleCreativeModeItemAdd(stackToSet, i);
+                    slot0.setByPlayer(stackToSet);
                 }
                 if (count <= 0) return;
             }
@@ -391,7 +396,7 @@ public class InvTasks {
                 int transfer = Math.min(stackMax, count);
                 count -= transfer;
                 sample.setCount(transfer);
-                mc.interactionManager.dropCreativeStack(sample);
+                mc.gameMode.handleCreativeModeItemDrop(sample);
             }
         }
     }
@@ -399,31 +404,31 @@ public class InvTasks {
     @ApiMethod
     public static void creativeAddItem(ItemStack itemStack, int count) {
         if (mc.player != null
-                && mc.interactionManager != null
-                && mc.interactionManager.getCurrentGameMode().isCreative()) {
+                && mc.gameMode != null
+                && mc.gameMode.getPlayerMode().isCreative()) {
             int slot = -1;
 
-            PlayerScreenHandler inventoryView = mc.player.playerScreenHandler;
-            int stackMax = itemStack.getMaxCount();
+            InventoryMenu inventoryView = mc.player.inventoryMenu;
+            int stackMax = itemStack.getMaxStackSize();
             int countA = count;
             for (int i : INVENTORY_INDEX_TO_SCREEN_SLOT) {
                 Slot slot0 = inventoryView.getSlot(i);
-                if (slot0.getStack().isEmpty()) {
+                if (slot0.getItem().isEmpty()) {
                     slot = i;
                     break;
-                } else if (slot0.getStack().getCount() < stackMax
-                        && ItemStack.areItemsAndComponentsEqual(slot0.getStack(), itemStack)) {
+                } else if (slot0.getItem().getCount() < stackMax
+                        && ItemStack.isSameItemSameComponents(slot0.getItem(), itemStack)) {
                     slot = i;
-                    countA = count + slot0.getStack().getCount();
+                    countA = count + slot0.getItem().getCount();
                     break;
                 }
             }
             ItemStack stackToGive = itemStack.copyWithCount(Math.min(stackMax, countA));
             if (slot != -1) {
-                inventoryView.getSlot(slot).setStack(stackToGive);
-                mc.interactionManager.clickCreativeStack(stackToGive, slot);
+                inventoryView.getSlot(slot).setByPlayer(stackToGive);
+                mc.gameMode.handleCreativeModeItemAdd(stackToGive, slot);
             } else {
-                mc.interactionManager.dropCreativeStack(stackToGive);
+                mc.gameMode.handleCreativeModeItemDrop(stackToGive);
             }
         }
     }
@@ -431,37 +436,37 @@ public class InvTasks {
     @ApiMethod
     public static void creativeDrop(ItemStack itemStack, int count) {
         if (itemStack.isEmpty()) return;
-        mc.interactionManager.dropCreativeStack(itemStack.copyWithCount(count));
+        mc.gameMode.handleCreativeModeItemDrop(itemStack.copyWithCount(count));
     }
 
     @ApiMethod
     public static void copyGiveCommand(ItemStack itemStack) {
 
-        mc.keyboard.setClipboard(createGiveCommand(itemStack.copyWithCount(itemStack.getMaxCount())));
+        mc.keyboardHandler.setClipboard(createGiveCommand(itemStack.copyWithCount(itemStack.getMaxStackSize())));
     }
 
     @ApiMethod
     public static String createGiveCommand(ItemStack itemStack) {
         if (itemStack.isEmpty()) return "";
         StringBuilder builder = new StringBuilder("/minecraft:give @s ");
-        builder.append(Registries.ITEM.getId(itemStack.getItem()));
+        builder.append(BuiltInRegistries.ITEM.getKey(itemStack.getItem()));
         if (ItemStackUtils.hasInPatch(itemStack)) {
             builder.append('[');
-            Map<ComponentType, Optional> map = new HashMap<>(itemStack.components.changedComponents);
+            Map<DataComponentType, Optional> map = new HashMap<>(itemStack.components.patch);
             int index = 0;
             for (var entry : map.entrySet()) {
                 if (index > 0) {
                     builder.append(',');
                 }
-                Identifier identifier = Registries.DATA_COMPONENT_TYPE.getId(entry.getKey());
+                Identifier identifier = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(entry.getKey());
                 if (identifier != null) {
                     String cmp = identifier.toString();
                     Optional val = entry.getValue();
                     if (val.isPresent()) {
                         try {
                             String nbtSeri = entry.getKey()
-                                    .getCodecOrThrow()
-                                    .encodeStart(ItemStackUtils.registry().getOps(NbtOps.INSTANCE), val.get())
+                                    .codecOrThrow()
+                                    .encodeStart(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE), val.get())
                                     .getOrThrow()
                                     .toString();
                             builder.append(cmp).append('=').append(nbtSeri);
@@ -483,19 +488,19 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static boolean isScreenHandlerValid(ScreenHandler handler) {
-        return mc.player != null && mc.player.currentScreenHandler == handler;
+    public static boolean isScreenHandlerValid(AbstractContainerMenu handler) {
+        return mc.player != null && mc.player.containerMenu == handler;
     }
 
     @ApiMethod
-    public static void quickMoveSlotOrDrop(ScreenHandler handler, int slot) {
+    public static void quickMoveSlotOrDrop(AbstractContainerMenu handler, int slot) {
         if (!isScreenHandlerValid(handler)) return;
-        if (!handler.getCursorStack().isEmpty()) {
-            mc.interactionManager.clickSlot(handler.syncId, -999, 0, SlotActionType.PICKUP, mc.player);
+        if (!handler.getCarried().isEmpty()) {
+            mc.gameMode.handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, mc.player);
         }
         quickMoveSlot(handler, slot, true);
-        if (!handler.getSlot(slot).getStack().isEmpty()) {
-            mc.interactionManager.clickSlot(handler.syncId, slot, 1, SlotActionType.THROW, mc.player);
+        if (!handler.getSlot(slot).getItem().isEmpty()) {
+            mc.gameMode.handleContainerInput(handler.containerId, slot, 1, ContainerInput.THROW, mc.player);
         }
     }
 
@@ -517,7 +522,7 @@ public class InvTasks {
 
         public void addMatchingSlot(int idx, Slot slot) {
             slots.add(idx);
-            count += slot.getStack().getCount();
+            count += slot.getItem().getCount();
         }
 
         public int[] toIntArray() {
@@ -526,22 +531,22 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static SlotMatchingResult allSlotMatch(HandledScreen handledScreen) {
+    public static SlotMatchingResult allSlotMatch(AbstractContainerScreen handledScreen) {
         var result = new SlotMatchingResult();
-        int[] array = IntStream.range(0, handledScreen.getScreenHandler().slots.size())
+        int[] array = IntStream.range(0, handledScreen.getMenu().slots.size())
                 .toArray();
         result.slots = new IntArrayList(array);
         return result;
     }
 
     @ApiMethod
-    public static SlotMatchingResult getContainerSlots(HandledScreen handledScreen) {
+    public static SlotMatchingResult getContainerSlots(AbstractContainerScreen handledScreen) {
         var result = new SlotMatchingResult();
-        var allSlots = handledScreen.getScreenHandler().slots;
+        var allSlots = handledScreen.getMenu().slots;
         int size = allSlots.size();
         for (int i = 0; i < size; ++i) {
             Slot slot = allSlots.get(i);
-            if (slot != null && !(slot.inventory instanceof PlayerInventory)) {
+            if (slot != null && !(slot.container instanceof Inventory)) {
                 // all match
                 result.slots.add(i);
             }
@@ -550,13 +555,13 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static SlotMatchingResult getPlayerInventorySlots(ScreenHandler handledScreen) {
+    public static SlotMatchingResult getPlayerInventorySlots(AbstractContainerMenu handledScreen) {
         var result = new SlotMatchingResult();
         var allSlots = handledScreen.slots;
         int size = allSlots.size();
         for (int i = 0; i < size; ++i) {
             Slot slot = allSlots.get(i);
-            if (slot != null && slot.inventory instanceof PlayerInventory) {
+            if (slot != null && slot.container instanceof Inventory) {
                 // all match
                 result.slots.add(i);
             }
@@ -565,12 +570,12 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static SlotMatchingResult getEmptySlots(ScreenHandler handledScreen, int... slots) {
+    public static SlotMatchingResult getEmptySlots(AbstractContainerMenu handledScreen, int... slots) {
         var result = new SlotMatchingResult();
         var allSlots = handledScreen.slots;
         for (int i : slots) {
             Slot slot = allSlots.get(i);
-            if (slot != null && slot.getStack().isEmpty()) {
+            if (slot != null && slot.getItem().isEmpty()) {
 
                 // all match
                 result.slots.add(i);
@@ -580,16 +585,16 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static SlotMatchingResult getItemStackMatchingSlot(ScreenHandler screen, ItemStack stack, int... list) {
+    public static SlotMatchingResult getItemStackMatchingSlot(AbstractContainerMenu screen, ItemStack stack, int... list) {
         if (stack.isEmpty()) return getEmptySlots(screen, list);
         var result = new SlotMatchingResult();
         result.setItemSample(stack);
         var allSlots = screen.slots;
         for (int i : list) {
             Slot slot = allSlots.get(i);
-            if (slot != null && !slot.getStack().isEmpty()) {
+            if (slot != null && !slot.getItem().isEmpty()) {
 
-                if (ItemStack.areItemsAndComponentsEqual(slot.getStack(), stack)) {
+                if (ItemStack.isSameItemSameComponents(slot.getItem(), stack)) {
                     // all match
                     result.addMatchingSlot(i, slot);
                 }
@@ -607,7 +612,7 @@ public class InvTasks {
      */
     @ApiMethod
     public static void moveStackToSlotRanged(
-            ScreenHandler handledScreen,
+            AbstractContainerMenu handledScreen,
             ItemStack itemStack,
             int toSlot,
             int toAmountAdd,
@@ -634,49 +639,49 @@ public class InvTasks {
      */
     @ApiMethod
     public static void moveStackToSlot(
-            ScreenHandler handledScreen,
+            AbstractContainerMenu handledScreen,
             ItemStack itemStack,
             int toSlot,
             int toAmountAdd,
             boolean removeExist,
             int... trustedSlotIndexList) {
         if (itemStack.isEmpty()) return;
-        ScreenHandler handler = handledScreen;
+        AbstractContainerMenu handler = handledScreen;
         if (!isScreenHandlerValid(handler)) return;
         // 操作前先清空指针
-        if (!handler.getCursorStack().isEmpty()) {
-            mc.interactionManager.clickSlot(handler.syncId, -999, 0, SlotActionType.PICKUP, mc.player);
+        if (!handler.getCarried().isEmpty()) {
+            mc.gameMode.handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, mc.player);
         }
-        ItemStack stackAt = handler.getSlot(toSlot).getStack();
+        ItemStack stackAt = handler.getSlot(toSlot).getItem();
         int toAmount = toAmountAdd;
         if (!stackAt.isEmpty()) {
-            if (ItemStack.areItemsAndComponentsEqual(stackAt, itemStack)) {
+            if (ItemStack.isSameItemSameComponents(stackAt, itemStack)) {
                 toAmount += stackAt.getCount();
             } else {
                 // 不要动
                 if (!removeExist) return;
                 // remove stackAt
-                mc.interactionManager.clickSlot(handler.syncId, toSlot, 1, SlotActionType.QUICK_MOVE, mc.player);
+                mc.gameMode.handleContainerInput(handler.containerId, toSlot, 1, ContainerInput.QUICK_MOVE, mc.player);
                 // 不是哥们怎么没取完啊
-                if (!handler.getSlot(toSlot).getStack().isEmpty()) {
+                if (!handler.getSlot(toSlot).getItem().isEmpty()) {
                     // 看我给你丢出去
-                    mc.interactionManager.clickSlot(handler.syncId, toSlot, 1, SlotActionType.THROW, mc.player);
+                    mc.gameMode.handleContainerInput(handler.containerId, toSlot, 1, ContainerInput.THROW, mc.player);
                 }
             }
         }
         // 填满一组不需要控制数量!
-        if (toAmount >= itemStack.getMaxCount()) {
-            toAmount = itemStack.getMaxCount();
-            if (handler.getSlot(toSlot).getStack().getCount() >= toAmount) {
+        if (toAmount >= itemStack.getMaxStackSize()) {
+            toAmount = itemStack.getMaxStackSize();
+            if (handler.getSlot(toSlot).getItem().getCount() >= toAmount) {
                 return;
             }
             // 直接填满就行
             for (var i : trustedSlotIndexList) {
-                if (!handler.getSlot(i).getStack().isEmpty()
-                        && ItemStack.areItemsAndComponentsEqual(
-                                handler.getSlot(i).getStack(), itemStack)) {
+                if (!handler.getSlot(i).getItem().isEmpty()
+                        && ItemStack.isSameItemSameComponents(
+                                handler.getSlot(i).getItem(), itemStack)) {
                     moveStackFromTo(handler, i, toSlot);
-                    if (handler.getSlot(toSlot).getStack().getCount() >= toAmount) {
+                    if (handler.getSlot(toSlot).getItem().getCount() >= toAmount) {
                         break;
                     }
                 }
@@ -684,18 +689,18 @@ public class InvTasks {
         } else {
             // 考虑数量
             for (var i : trustedSlotIndexList) {
-                if (!handler.getSlot(i).getStack().isEmpty()
-                        && ItemStack.areItemsAndComponentsEqual(
-                                handler.getSlot(i).getStack(), itemStack)) {
-                    int currentAmount = handler.getSlot(toSlot).getStack().getCount();
+                if (!handler.getSlot(i).getItem().isEmpty()
+                        && ItemStack.isSameItemSameComponents(
+                                handler.getSlot(i).getItem(), itemStack)) {
+                    int currentAmount = handler.getSlot(toSlot).getItem().getCount();
                     //
-                    if (currentAmount + handler.getSlot(i).getStack().getCount() > toAmount) {
+                    if (currentAmount + handler.getSlot(i).getItem().getCount() > toAmount) {
                         // satisfy , use tasks to
                         moveStackFromToAmount(handler, i, toSlot, toAmount - currentAmount);
                         break;
                     } else {
                         moveStackFromTo(handler, i, toSlot);
-                        if (handler.getSlot(toSlot).getStack().getCount() >= toAmount) {
+                        if (handler.getSlot(toSlot).getItem().getCount() >= toAmount) {
                             break;
                         }
                     }
@@ -706,7 +711,7 @@ public class InvTasks {
 
     @ApiMethod
     public static void moveRecipePatternToContainer(
-            ScreenHandler screen, ItemStack[] ingredients, int[] slot, int patternAmount, boolean removeOrigin) {
+            AbstractContainerMenu screen, ItemStack[] ingredients, int[] slot, int patternAmount, boolean removeOrigin) {
         int[] playerInv = getPlayerInventorySlots(screen).toIntArray();
         moveRecipePatternToContainer(
                 screen,
@@ -718,19 +723,19 @@ public class InvTasks {
     }
 
     public static void moveRecipePatternToContainer(
-            ScreenHandler screen,
+            AbstractContainerMenu screen,
             ItemStack[] ingredients,
             int[] slot,
             int patternAmount,
             boolean removeOrigin,
-            BiFunction<ScreenHandler, ItemStack, SlotMatchingResult> slotMatchProvider) {
+            BiFunction<AbstractContainerMenu, ItemStack, SlotMatchingResult> slotMatchProvider) {
         int size = ingredients.length;
         Preconditions.checkArgument(slot.length == size);
         Map<ItemStackSample, IntList> stackRecipe = new HashMap<>();
         IntList emptySlots = new IntArrayList();
         for (int i = 0; i < size; ++i) {
             ItemStack item = ingredients[i];
-            if (item != null && !item.isEmpty()) {
+            if (item != null && item.count() != 0) {
                 ItemStackSample sample = new ItemStackSample(item);
                 int index = i;
                 stackRecipe.compute(sample, (key, list) -> {
@@ -799,19 +804,19 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static void moveStackFromTo(ScreenHandler handler, int fromIndex, int toSlot) {
-        mc.interactionManager.clickSlot(handler.syncId, fromIndex, 0, SlotActionType.PICKUP, mc.player);
-        mc.interactionManager.clickSlot(handler.syncId, toSlot, 0, SlotActionType.PICKUP, mc.player);
-        if (!handler.getCursorStack().isEmpty()) {
-            mc.interactionManager.clickSlot(handler.syncId, fromIndex, 0, SlotActionType.PICKUP, mc.player);
+    public static void moveStackFromTo(AbstractContainerMenu handler, int fromIndex, int toSlot) {
+        mc.gameMode.handleContainerInput(handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
+        mc.gameMode.handleContainerInput(handler.containerId, toSlot, 0, ContainerInput.PICKUP, mc.player);
+        if (!handler.getCarried().isEmpty()) {
+            mc.gameMode.handleContainerInput(handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
         }
     }
 
     @ApiMethod
-    public static void moveStackFromToAmount(ScreenHandler handler, int fromIndex, int toSlot, int amount) {
+    public static void moveStackFromToAmount(AbstractContainerMenu handler, int fromIndex, int toSlot, int amount) {
         Slot currentFrom = handler.getSlot(fromIndex);
         Slot currentTo = handler.getSlot(toSlot);
-        int currentFromAmount = currentFrom.getStack().getCount();
+        int currentFromAmount = currentFrom.getItem().getCount();
 
         // from 的数量完全不够
         if (currentFromAmount <= amount) {
@@ -819,8 +824,8 @@ public class InvTasks {
             return;
         } else {
             // from的数量超出了,我们只需要amount个
-            int currentToAmount = currentTo.getStack().getCount();
-            int max = currentFrom.getStack().getMaxCount();
+            int currentToAmount = currentTo.getItem().getCount();
+            int max = currentFrom.getItem().getMaxStackSize();
             if (currentToAmount + amount >= max) {
                 // 如果amount赛过去就满了《那和直接把from赛过去一样
                 moveStackFromTo(handler, fromIndex, toSlot);
@@ -836,51 +841,51 @@ public class InvTasks {
                     int distanceToHalf = Math.abs(halfTrans - amount);
                     int minDelta = Math.min(Math.min(amount, currentFromAmount - amount), distanceToHalf);
                     if (minDelta == amount) {
-                        mc.interactionManager.clickSlot(handler.syncId, fromIndex, 0, SlotActionType.PICKUP, mc.player);
+                        mc.gameMode.handleContainerInput(handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
                         for (var i = 0; i < amount; ++i) {
-                            mc.interactionManager.clickSlot(
-                                    handler.syncId, toSlot, 1, SlotActionType.PICKUP, mc.player);
+                            mc.gameMode.handleContainerInput(
+                                    handler.containerId, toSlot, 1, ContainerInput.PICKUP, mc.player);
                         }
-                        if (!handler.getCursorStack().isEmpty()) {
-                            mc.interactionManager.clickSlot(
-                                    handler.syncId, fromIndex, 0, SlotActionType.PICKUP, mc.player);
+                        if (!handler.getCarried().isEmpty()) {
+                            mc.gameMode.handleContainerInput(
+                                    handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
                         }
                         return;
                     } else if (minDelta == currentFromAmount - amount) {
-                        mc.interactionManager.clickSlot(handler.syncId, fromIndex, 0, SlotActionType.PICKUP, mc.player);
+                        mc.gameMode.handleContainerInput(handler.containerId, fromIndex, 0, ContainerInput.PICKUP, mc.player);
                         for (int i = 0; i < minDelta; ++i) {
-                            mc.interactionManager.clickSlot(
-                                    handler.syncId, fromIndex, 1, SlotActionType.PICKUP, mc.player);
+                            mc.gameMode.handleContainerInput(
+                                    handler.containerId, fromIndex, 1, ContainerInput.PICKUP, mc.player);
                         }
-                        mc.interactionManager.clickSlot(handler.syncId, toSlot, 0, SlotActionType.PICKUP, mc.player);
+                        mc.gameMode.handleContainerInput(handler.containerId, toSlot, 0, ContainerInput.PICKUP, mc.player);
                         return;
                     } else {
                         //
                         if (halfTrans <= amount) {
-                            mc.interactionManager.clickSlot(
-                                    handler.syncId, fromIndex, 1, SlotActionType.PICKUP, mc.player);
-                            mc.interactionManager.clickSlot(
-                                    handler.syncId, toSlot, 0, SlotActionType.PICKUP, mc.player);
+                            mc.gameMode.handleContainerInput(
+                                    handler.containerId, fromIndex, 1, ContainerInput.PICKUP, mc.player);
+                            mc.gameMode.handleContainerInput(
+                                    handler.containerId, toSlot, 0, ContainerInput.PICKUP, mc.player);
                             // 通过计算currentTo增长了多少来更新amount
-                            amount = amount - currentTo.getStack().getCount() + currentToAmount;
-                            currentToAmount = currentTo.getStack().getCount();
-                            currentFromAmount = currentFrom.getStack().getCount();
+                            amount = amount - currentTo.getItem().getCount() + currentToAmount;
+                            currentToAmount = currentTo.getItem().getCount();
+                            currentFromAmount = currentFrom.getItem().getCount();
                             continue;
                         } else {
-                            mc.interactionManager.clickSlot(
-                                    handler.syncId, fromIndex, 1, SlotActionType.PICKUP, mc.player);
+                            mc.gameMode.handleContainerInput(
+                                    handler.containerId, fromIndex, 1, ContainerInput.PICKUP, mc.player);
                             int trans = (currentFromAmount + 1) / 2 - amount;
                             for (int i = 0; i < trans; ++i) {
-                                mc.interactionManager.clickSlot(
-                                        handler.syncId, fromIndex, 1, SlotActionType.PICKUP, mc.player);
+                                mc.gameMode.handleContainerInput(
+                                        handler.containerId, fromIndex, 1, ContainerInput.PICKUP, mc.player);
                             }
-                            mc.interactionManager.clickSlot(
-                                    handler.syncId, toSlot, 0, SlotActionType.PICKUP, mc.player);
+                            mc.gameMode.handleContainerInput(
+                                    handler.containerId, toSlot, 0, ContainerInput.PICKUP, mc.player);
                             return;
                         }
                     }
                 }
-                Debug.chat(Text.literal("Error while transfering itemStacks, which takes 10 more loop "));
+                Debug.chat(Component.literal("Error while transfering itemStacks, which takes 10 more loop "));
             }
         }
     }
@@ -893,7 +898,7 @@ public class InvTasks {
     public static final ItemStack INV_ICON_UNKNOWN = new ItemStack(Items.BARRIER);
     private static final ItemStack INV_ICON_NO_ITEM = new ItemStack(Items.BEDROCK);
 
-    public static ItemStack generateIconForScreen(HandledScreen<?> screen) {
+    public static ItemStack generateIconForScreen(AbstractContainerScreen<?> screen) {
         if (screen instanceof TileInventory tile && !tile.isVirtual()) {
             Block blockType = tile.getBlockType();
             if (blockType != null) {
@@ -909,25 +914,25 @@ public class InvTasks {
     // suppress random source use when dropItem
     public static final ThreadLocal<Boolean> SUPPRESS_DROPITEM_SPAWN = ThreadLocal.withInitial(() -> false);
 
-    public static void clickSlotAsync(int slotId, int button, SlotActionType actionType) {
+    public static void clickSlotAsync(int slotId, int button, ContainerInput actionType) {
         if (mc.player == null) return;
         // handler or player inv
 
-        ScreenHandler screenHandler = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
-        ScreenHandler currentHandler = mc.player.currentScreenHandler;
+        AbstractContainerMenu screenHandler = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
+        AbstractContainerMenu currentHandler = mc.player.containerMenu;
 
-        int syncId = screenHandler.syncId;
+        int syncId = screenHandler.containerId;
         // won't miss any inject
-        boolean shouldReplace = syncId != currentHandler.syncId;
+        boolean shouldReplace = syncId != currentHandler.containerId;
         try {
             if (shouldReplace) {
                 // use fake screen handler
-                mc.player.currentScreenHandler = screenHandler;
+                mc.player.containerMenu = screenHandler;
             }
-            mc.interactionManager.clickSlot(syncId, slotId, button, actionType, mc.player);
+            mc.gameMode.handleContainerInput(syncId, slotId, button, actionType, mc.player);
         } finally {
             if (shouldReplace) {
-                mc.player.currentScreenHandler = currentHandler;
+                mc.player.containerMenu = currentHandler;
             }
         }
         return;
@@ -937,9 +942,9 @@ public class InvTasks {
     private static BlockHitResult lastInteract = null;
     private static int lastInteractTimestamp = -1;
 
-    private static void listenInteractBlockPacket(PlayerInteractBlockC2SPacket packet) {
-        if (packet.getBlockHitResult().getType() == HitResult.Type.BLOCK) {
-            lastInteract = packet.getBlockHitResult();
+    private static void listenInteractBlockPacket(ServerboundUseItemOnPacket packet) {
+        if (packet.getHitResult().getType() == HitResult.Type.BLOCK) {
+            lastInteract = packet.getHitResult();
             lastInteractTimestamp = Tasks.getTick();
         }
     }
@@ -950,7 +955,7 @@ public class InvTasks {
         if (timeStamp < lastInteractTimestamp + 20 && lastInteract != null) {
             BlockPos hitPose = lastInteract.getBlockPos();
             if (hitPose != null
-                    && targetBlock.test(mc.world.getBlockState(hitPose).getBlock())) {
+                    && targetBlock.test(mc.level.getBlockState(hitPose).getBlock())) {
                 return hitPose;
             }
             // block Type not match,
@@ -961,51 +966,51 @@ public class InvTasks {
     public static int LAST_SYNC_ID = 0;
     // for screen desync fix
     public static final int MAX_DEQUE_SIZE = 8;
-    public static Deque<ScreenHandler> historyScreens = new ArrayDeque<>();
+    public static Deque<AbstractContainerMenu> historyScreens = new ArrayDeque<>();
 
-    public static void onOpenScreen(Event<OpenScreenS2CPacket> packet) {
-        LAST_SYNC_ID = packet.context.getSyncId();
+    public static void onOpenScreen(Event<ClientboundOpenScreenPacket> packet) {
+        LAST_SYNC_ID = packet.context.getContainerId();
     }
 
-    public static void onOpenScreenCreate(Event<HandledScreen<?>> eventScreen) {
-        if (eventScreen.context != null && eventScreen.context.getScreenHandler() != null) {
-            historyScreens.addLast(eventScreen.context.getScreenHandler());
+    public static void onOpenScreenCreate(Event<AbstractContainerScreen<?>> eventScreen) {
+        if (eventScreen.context != null && eventScreen.context.getMenu() != null) {
+            historyScreens.addLast(eventScreen.context.getMenu());
         }
         while (historyScreens.size() > MAX_DEQUE_SIZE) {
             historyScreens.removeFirst();
         }
     }
 
-    public static void onInventoryOld(Event<ScreenHandlerSlotUpdateS2CPacket> invS2CPacket) {
-        if (mc.player == null || mc.world == null) return;
-        int syncId = invS2CPacket.context.getSyncId();
-        if (mc.interactionManager.getCurrentGameMode().isSurvivalLike()
-                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().syncId != syncId
-                && mc.player.currentScreenHandler.syncId != syncId
+    public static void onInventoryOld(Event<ClientboundContainerSetSlotPacket> invS2CPacket) {
+        if (mc.player == null || mc.level == null) return;
+        int syncId = invS2CPacket.context.getContainerId();
+        if (mc.gameMode.getPlayerMode().isSurvival()
+                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().containerId != syncId
+                && mc.player.containerMenu.containerId != syncId
                 && syncId != 0) {
             // maybe we click too fast that we miss something
             var pkt = invS2CPacket.context;
             for (var handler : historyScreens) {
-                if (handler.syncId == syncId) {
-                    handler.setStackInSlot(pkt.getSlot(), pkt.getRevision(), pkt.getStack());
+                if (handler.containerId == syncId) {
+                    handler.setItem(pkt.getSlot(), pkt.getStateId(), pkt.getItem());
                     return;
                 }
             }
         }
     }
 
-    public static void onInventoryOld2(Event<InventoryS2CPacket> eventInv) {
-        if (mc.player == null || mc.world == null) return;
-        int syncId = eventInv.context.syncId();
-        if (mc.interactionManager.getCurrentGameMode().isSurvivalLike()
-                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().syncId != syncId
-                && mc.player.currentScreenHandler.syncId != syncId
+    public static void onInventoryOld2(Event<ClientboundContainerSetContentPacket> eventInv) {
+        if (mc.player == null || mc.level == null) return;
+        int syncId = eventInv.context.containerId();
+        if (mc.gameMode.getPlayerMode().isSurvival()
+                && ClientPlayerAccess.of(mc.player).getServerScreenHandler().containerId != syncId
+                && mc.player.containerMenu.containerId != syncId
                 && syncId != 0) {
             // maybe we click too fast that we miss something
             var pkt = eventInv.context;
             for (var handler : historyScreens) {
-                if (handler.syncId == syncId) {
-                    handler.updateSlotStacks(pkt.revision(), pkt.contents(), pkt.cursorStack());
+                if (handler.containerId == syncId) {
+                    handler.initializeContents(pkt.stateId(), pkt.items(), pkt.carriedItem());
                     return;
                 }
             }
@@ -1029,37 +1034,37 @@ public class InvTasks {
         }
     }
 
-    public static void fastAsyncUpdateRevision(Event<ScreenHandlerSlotUpdateS2CPacket> eventUpdate) {
-        if (mc.player == null || mc.world == null) return;
-        int syncId = eventUpdate.context.getSyncId();
-        if (mc.interactionManager.getCurrentGameMode().isSurvivalLike()) {
+    public static void fastAsyncUpdateRevision(Event<ClientboundContainerSetSlotPacket> eventUpdate) {
+        if (mc.player == null || mc.level == null) return;
+        int syncId = eventUpdate.context.getContainerId();
+        if (mc.gameMode.getPlayerMode().isSurvival()) {
             if (syncId == 0) {
-                syncPlayerInventoryRevision(eventUpdate.context.getRevision());
+                syncPlayerInventoryRevision(eventUpdate.context.getStateId());
             } else {
-                ScreenHandler handler = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
-                if (handler.syncId == syncId) {
-                    handler.revision = eventUpdate.context.getRevision();
+                AbstractContainerMenu handler = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
+                if (handler.containerId == syncId) {
+                    handler.stateId = eventUpdate.context.getStateId();
                 }
             }
         }
     }
 
-    public static void fastAsyncUpdateRevision2(Event<InventoryS2CPacket> eventUpdate) {
+    public static void fastAsyncUpdateRevision2(Event<ClientboundContainerSetContentPacket> eventUpdate) {
         if (mc.player == null) return;
-        int syncId = eventUpdate.context.syncId();
-        if (mc.interactionManager.getCurrentGameMode().isSurvivalLike()) {
+        int syncId = eventUpdate.context.containerId();
+        if (mc.gameMode.getPlayerMode().isSurvival()) {
             if (syncId == 0) {
-                syncPlayerInventoryRevision(eventUpdate.context.revision());
+                syncPlayerInventoryRevision(eventUpdate.context.stateId());
             } else {
-                ScreenHandler handler = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
-                if (handler.syncId == syncId) {
-                    handler.revision = eventUpdate.context.revision();
+                AbstractContainerMenu handler = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
+                if (handler.containerId == syncId) {
+                    handler.stateId = eventUpdate.context.stateId();
                 }
             }
         }
     }
 
-    public static void onGameJoin(Event<ClientPlayerEntity> gameJoin) {
+    public static void onGameJoin(Event<LocalPlayer> gameJoin) {
         LAST_SYNC_ID = 0;
         historyScreens.clear();
     }
@@ -1083,22 +1088,22 @@ public class InvTasks {
     }
 
     public static int predictOpenVanillaContainerSize(BlockPos blockPos) {
-        if (mc.world.getBlockEntity(blockPos) instanceof Inventory inventory) {
-            int size = inventory.size();
+        if (mc.level.getBlockEntity(blockPos) instanceof Container inventory) {
+            int size = inventory.getContainerSize();
             if (inventory instanceof ChestBlockEntity chest) {
-                BlockState state = chest.getCachedState();
+                BlockState state = chest.getBlockState();
                 if (state.getBlock() instanceof ChestBlock chestBlock) {
-                    if (ChestBlock.isChestBlocked(mc.world, blockPos)) {
+                    if (ChestBlock.isChestBlockedAt(mc.level, blockPos)) {
                         size = 0;
-                    } else if (ChestBlock.getDoubleBlockType(state) != DoubleBlockProperties.Type.SINGLE) {
+                    } else if (ChestBlock.getBlockType(state) != DoubleBlockCombiner.BlockType.SINGLE) {
                         size = 54;
                     }
                 }
             }
             if (inventory instanceof ShulkerBoxBlockEntity shulker) {
-                BlockState state = shulker.getCachedState();
-                if (shulker.getAnimationStage() == ShulkerBoxBlockEntity.AnimationStage.CLOSED
-                        && !InteractUtils.canShulkerOpen(mc.world, blockPos, state)) {
+                BlockState state = shulker.getBlockState();
+                if (shulker.getAnimationStatus() == ShulkerBoxBlockEntity.AnimationStatus.CLOSED
+                        && !InteractUtils.canShulkerOpen(mc.level, blockPos, state)) {
                     size = 0;
                 }
             }
@@ -1107,22 +1112,22 @@ public class InvTasks {
         return 0;
     }
 
-    public static void executePredictInventoryAction(Inventory topInventory, Consumer<ScreenHandler> callback) {
+    public static void executePredictInventoryAction(Container topInventory, Consumer<AbstractContainerMenu> callback) {
         // todo fix prediction initialization
         int nextPredictedIndex = (InvTasks.LAST_SYNC_ID % 100) + 1;
-        ScreenHandler fakeScreenHandler = new GenericContainerScreenHandler(
-                ScreenUtils.getGenericScreenType(topInventory.size()),
+        AbstractContainerMenu fakeScreenHandler = new ChestMenu(
+                ScreenUtils.getGenericScreenType(topInventory.getContainerSize()),
                 nextPredictedIndex,
                 mc.player.getInventory(),
                 topInventory,
-                ((topInventory.size() - 1) / 9) + 1);
-        GenericContainerScreenHandler.createGeneric9x6(nextPredictedIndex, mc.player.getInventory());
-        ScreenHandler handler = mc.player.currentScreenHandler;
+                ((topInventory.getContainerSize() - 1) / 9) + 1);
+        ChestMenu.sixRows(nextPredictedIndex, mc.player.getInventory());
+        AbstractContainerMenu handler = mc.player.containerMenu;
         try {
-            mc.player.currentScreenHandler = fakeScreenHandler;
+            mc.player.containerMenu = fakeScreenHandler;
             callback.accept(fakeScreenHandler);
         } finally {
-            mc.player.currentScreenHandler = handler;
+            mc.player.containerMenu = handler;
         }
     }
 
@@ -1207,21 +1212,21 @@ public class InvTasks {
         Tasks.registerGameTask(r -> {
             InvTasks.clickExecutor.reset();
         });
-        Listener.registerSinglePacketListener(PlayerInteractBlockC2SPacket.class, InvTasks::listenInteractBlockPacket);
-        Listener.getPacketPoint().getChannel(OpenScreenS2CPacket.class).registerHandler(InvTasks::onOpenScreen);
+        Listener.registerSinglePacketListener(ServerboundUseItemOnPacket.class, InvTasks::listenInteractBlockPacket);
+        Listener.getPacketPoint().getChannel(ClientboundOpenScreenPacket.class).registerHandler(InvTasks::onOpenScreen);
         Listener.getGameJoinPoint().registerHandler(InvTasks::onGameJoin);
         Listener.getPostOpenHandledScreen().registerHandler(InvTasks::onOpenScreenCreate);
         Listener.getPacketPostHandlePoint()
-                .getChannel(ScreenHandlerSlotUpdateS2CPacket.class)
+                .getChannel(ClientboundContainerSetSlotPacket.class)
                 .registerHandler(InvTasks::onInventoryOld);
         Listener.getPacketPostHandlePoint()
-                .getChannel(InventoryS2CPacket.class)
+                .getChannel(ClientboundContainerSetContentPacket.class)
                 .registerHandler(InvTasks::onInventoryOld2);
         Listener.getPacketPoint()
-                .getChannel(ScreenHandlerSlotUpdateS2CPacket.class)
+                .getChannel(ClientboundContainerSetSlotPacket.class)
                 .registerHandler(InvTasks::fastAsyncUpdateRevision);
         Listener.getPacketPoint()
-                .getChannel(InventoryS2CPacket.class)
+                .getChannel(ClientboundContainerSetContentPacket.class)
                 .registerHandler(InvTasks::fastAsyncUpdateRevision2);
         moduleManager.registerFactories(InvTasks::initModules);
         HackModules.registerModuleGroup(moduleManager);

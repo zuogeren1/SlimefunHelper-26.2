@@ -3,8 +3,8 @@ package xaero.hud.minimap.world;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import xaero.hud.minimap.waypoint.set.WaypointSet;
 import xaero.hud.minimap.world.container.MinimapWorldContainer;
 import xaero.hud.path.XaeroPath;
@@ -66,11 +66,11 @@ public final class MinimapWorld {
         return false;
     }
 
-    public RegistryKey<World> getDimId() {
+    public ResourceKey<Level> getDimId() {
         return null;
     }
 
-    public void setDimId(RegistryKey<World> dimId) {}
+    public void setDimId(ResourceKey<Level> dimId) {}
 
     public int getSetCount() {
         return 0;

@@ -41,25 +41,25 @@ import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.collections.Point;
 import me.matl114.utils.itemdb.ItemStackData;
 import me.matl114.utils.itemdb.ItemStackDataWithAmount;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
-import net.minecraft.network.packet.s2c.play.OpenScreenS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.World;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 
 public class RecipeDatabase extends BaseModule {
 
@@ -110,7 +110,7 @@ public class RecipeDatabase extends BaseModule {
         if (InvTasks.getCustomItemDatabase().isLoaded()) {
             onLoad();
         }
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(OpenScreenS2CPacket.class), this::onScreenOpen);
+        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundOpenScreenPacket.class), this::onScreenOpen);
     }
 
     @Getter
@@ -247,32 +247,32 @@ public class RecipeDatabase extends BaseModule {
     }
 
     private static final Set<?> SCREEN_TYPES = Set.of(
-            ScreenHandlerType.GENERIC_9X6,
-            ScreenHandlerType.GENERIC_9X3,
-            ScreenHandlerType.GENERIC_9X4,
-            ScreenHandlerType.GENERIC_9X5);
+            MenuType.GENERIC_9x6,
+            MenuType.GENERIC_9x3,
+            MenuType.GENERIC_9x4,
+            MenuType.GENERIC_9x5);
 
-    public void onScreenOpen(Event<OpenScreenS2CPacket> event) {
+    public void onScreenOpen(Event<ClientboundOpenScreenPacket> event) {
         if (mc.player == null) return;
-        HandledScreen screen = ClientPlayerAccess.of(mc.player).getServerOpeningScreen();
-        if (screen == null || screen.getScreenHandler().syncId != event.context.getSyncId()) {
+        AbstractContainerScreen screen = ClientPlayerAccess.of(mc.player).getServerOpeningScreen();
+        if (screen == null || screen.getMenu().containerId != event.context.getContainerId()) {
             return;
         }
         if (this.enable.get()
                 && !lockCurrentData.get()
-                && SCREEN_TYPES.contains(screen.getScreenHandler().getType())
-                && screen instanceof GenericContainerScreen container
+                && SCREEN_TYPES.contains(screen.getMenu().getType())
+                && screen instanceof ContainerScreen container
                 && screen.getTitle() != null) {
             String title = screen.getTitle().getString();
             if (title != null) {
                 title = title.replaceAll("§.", "");
                 if (slimefunBookTitle.get().test(title)) {
                     Listener.addPostPacketCatcher(
-                            new TimedPacketCatcherImpl<>(InventoryS2CPacket.class, 20, (packetEvent) -> {
+                            new TimedPacketCatcherImpl<>(ClientboundContainerSetContentPacket.class, 20, (packetEvent) -> {
                                 var packet = packetEvent.context();
-                                if (packet.syncId() == container.getScreenHandler().syncId) {
+                                if (packet.containerId() == container.getMenu().containerId) {
                                     // execute immediately after the update of menu
-                                    mc.executeSync(() -> {
+                                    mc.executeIfPossible(() -> {
                                         onScreenContent(container);
                                     });
                                     return true;
@@ -286,19 +286,19 @@ public class RecipeDatabase extends BaseModule {
 
     private static final int[] recipeSlots = {3, 4, 5, 12, 13, 14, 21, 22, 23};
 
-    public void onScreenContent(GenericContainerScreen screen) {
+    public void onScreenContent(ContainerScreen screen) {
         if (mc.player == null) return;
-        DefaultedList<Slot> slots = screen.getScreenHandler().slots;
+        NonNullList<Slot> slots = screen.getMenu().slots;
         // brief judgement of recipe
         if (slots.size() >= 27
-                && slots.get(2).getStack().isEmpty()
-                && slots.get(11).getStack().isEmpty()
-                && slots.get(20).getStack().isEmpty()
-                && slots.get(15).getStack().isEmpty()
-                && slots.get(17).getStack().isEmpty()
-                && slots.get(25).getStack().isEmpty()
-                && !slots.get(16).getStack().isEmpty()) {
-            ItemStack stack = slots.get(16).getStack();
+                && slots.get(2).getItem().isEmpty()
+                && slots.get(11).getItem().isEmpty()
+                && slots.get(20).getItem().isEmpty()
+                && slots.get(15).getItem().isEmpty()
+                && slots.get(17).getItem().isEmpty()
+                && slots.get(25).getItem().isEmpty()
+                && !slots.get(16).getItem().isEmpty()) {
+            ItemStack stack = slots.get(16).getItem();
             String id = ItemStackUtils.getSfId(stack);
 
             if (id != null) {
@@ -309,7 +309,7 @@ public class RecipeDatabase extends BaseModule {
                         // 存在这个,
                         SlimefunRecipeEntry entry = id2Recipe.get(id);
                         if (entry.output().isEmpty()
-                                && !slots.get(16).getStack().isEmpty()) {
+                                && !slots.get(16).getItem().isEmpty()) {
                             shouldUpdate = true;
                         } else if (lockExistingData.get()) {
                             shouldUpdate = false;
@@ -317,7 +317,7 @@ public class RecipeDatabase extends BaseModule {
                             ItemStack[] ingredient = entry.inputs();
                             if (ingredient.length == 9) {
                                 for (int i = 0; i < 9; ++i) {
-                                    ItemStack stackI = slots.get(recipeSlots[i]).getStack();
+                                    ItemStack stackI = slots.get(recipeSlots[i]).getItem();
                                     // if it is lock, return immediately
                                     if (isLockedItem(stackI)) return;
                                     if (!ItemStackUtils.matchItemWithoutLore(ingredient[i], stackI)) {
@@ -332,7 +332,7 @@ public class RecipeDatabase extends BaseModule {
                         }
                     } else {
                         for (int i = 0; i < 9; ++i) {
-                            ItemStack stackI = slots.get(recipeSlots[i]).getStack();
+                            ItemStack stackI = slots.get(recipeSlots[i]).getItem();
                             // if it is lock, return immediately
                             if (isLockedItem(stackI)) return;
                         }
@@ -341,19 +341,19 @@ public class RecipeDatabase extends BaseModule {
                     }
                 }
                 if (shouldUpdate) {
-                    ItemStack rtypeIcon = slots.get(10).getStack();
+                    ItemStack rtypeIcon = slots.get(10).getItem();
                     String recipeTypeName = rtypeIcon.isEmpty()
                             ? "NULL_RECIPE"
-                            : rtypeIcon.getName().getString().replace("§.", "");
+                            : rtypeIcon.getHoverName().getString().replace("§.", "");
                     validateRecipeType(recipeTypeName, rtypeIcon);
 
                     List<ItemStackDataWithAmount> ingredients = new ArrayList<>();
                     for (int i = 0; i < 9; ++i) {
                         ingredients.add(ItemStackDataWithAmount.of(
-                                slots.get(recipeSlots[i]).getStack()));
+                                slots.get(recipeSlots[i]).getItem()));
                     }
                     ItemStackDataWithAmount output =
-                            ItemStackDataWithAmount.of(slots.get(16).getStack());
+                            ItemStackDataWithAmount.of(slots.get(16).getItem());
                     SlimefunRecipeEntry entry = new SlimefunRecipeEntry(recipeTypeName, id, ingredients, output);
                     putSlimefunEntry(entry);
                 }
@@ -553,15 +553,15 @@ public class RecipeDatabase extends BaseModule {
         private static final Tagged WOODEN_FENCES = new Tagged(BlockTags.WOODEN_FENCES);
         private static final BlockMatcher FIRE = new BlockMatcher() {
             public Set<Block> getPotentials() {
-                Set<Block> fires = Registries.BLOCK.getOrThrow(BlockTags.FIRE).stream()
-                        .map(RegistryEntry::value)
+                Set<Block> fires = BuiltInRegistries.BLOCK.getOrThrow(BlockTags.FIRE).stream()
+                        .map(Holder::value)
                         .collect(Collectors.toCollection(HashSet::new));
                 fires.add(Blocks.AIR);
                 return fires;
             }
 
             public boolean match(Block b) {
-                return b == Blocks.AIR || b.getRegistryEntry().isIn(BlockTags.FIRE);
+                return b == Blocks.AIR || b.builtInRegistryHolder().is(BlockTags.FIRE);
             }
 
             @Override
@@ -577,25 +577,25 @@ public class RecipeDatabase extends BaseModule {
             BlockMatcher[] array = new BlockMatcher[9];
             for (int i = 0; i < 9; ++i) {
                 Item item = inputs[i].getItem();
-                net.minecraft.block.Block block = null;
+                net.minecraft.world.level.block.Block block = null;
                 if (item == Items.AIR) {
                     block = Blocks.AIR;
                 } else if (item == Items.FLINT_AND_STEEL) {
                     block = Blocks.FIRE;
                 } else {
-                    block = Block.getBlockFromItem(item);
+                    block = Block.byItem(item);
                 }
-                RegistryEntry<Block> blockRegistryEntry = block.getRegistryEntry();
+                Holder<Block> blockRegistryEntry = block.builtInRegistryHolder();
                 int idx = (2 - i / 3) * 3 + i % 3;
-                if (blockRegistryEntry.isIn(BlockTags.LOGS)) {
+                if (blockRegistryEntry.is(BlockTags.LOGS)) {
                     array[idx] = LOGS;
-                } else if (blockRegistryEntry.isIn(BlockTags.WOODEN_TRAPDOORS)) {
+                } else if (blockRegistryEntry.is(BlockTags.WOODEN_TRAPDOORS)) {
                     array[idx] = WOODEN_TRAPDOORS;
-                } else if (blockRegistryEntry.isIn(BlockTags.WOODEN_SLABS)) {
+                } else if (blockRegistryEntry.is(BlockTags.WOODEN_SLABS)) {
                     array[idx] = WOODEN_SLABS;
-                } else if (blockRegistryEntry.isIn(BlockTags.WOODEN_FENCES)) {
+                } else if (blockRegistryEntry.is(BlockTags.WOODEN_FENCES)) {
                     array[idx] = WOODEN_FENCES;
-                } else if (blockRegistryEntry.isIn(BlockTags.FIRE)) {
+                } else if (blockRegistryEntry.is(BlockTags.FIRE)) {
                     array[idx] = FIRE;
                 } else {
                     if (item == Items.AIR) {
@@ -642,7 +642,7 @@ public class RecipeDatabase extends BaseModule {
         public BlockMatcher[] blockTypes;
         public Point dispenserPos;
         boolean symm;
-        public Map<BiPredicate<World, BlockPos>, Vec3i> predicate2LeftRightAxis = new Object2ReferenceArrayMap<>();
+        public Map<BiPredicate<Level, BlockPos>, Vec3i> predicate2LeftRightAxis = new Object2ReferenceArrayMap<>();
 
         public DispenserMultiBlockLookup(BlockMatcher[] blockTypes, boolean isSymm) {
             this.blockTypes = blockTypes;
@@ -661,14 +661,14 @@ public class RecipeDatabase extends BaseModule {
                 // has dispensor
                 for (Direction dir : symm ? DIR_SYMM : DIR_CONSIDER) {
                     {
-                        generatePredicate(dir.getVector());
+                        generatePredicate(dir.getUnitVec3i());
                     }
                 }
             }
         }
 
         private void generatePredicate(Vec3i axis) {
-            List<BiPredicate<World, BlockPos>> listPredicates = new ArrayList<>();
+            List<BiPredicate<Level, BlockPos>> listPredicates = new ArrayList<>();
             for (int i = 0; i < 9; ++i) {
                 BlockMatcher matcher = blockTypes[i];
                 // jump dispenser
@@ -679,7 +679,7 @@ public class RecipeDatabase extends BaseModule {
                     Vec3i targetPos = new Vec3i(axis.getX() * daxis, dy, axis.getZ() * daxis);
                     listPredicates.add((world, pos) -> {
                         return matcher.match(
-                                world.getBlockState(pos.add(targetPos)).getBlock());
+                                world.getBlockState(pos.offset(targetPos)).getBlock());
                     });
                 }
             }
@@ -693,12 +693,12 @@ public class RecipeDatabase extends BaseModule {
                     axis);
         }
 
-        public Collection<MultiBlockHelper.MultiBlockLocation> lookup(World world, BlockPos dispensorPos) {
+        public Collection<MultiBlockHelper.MultiBlockLocation> lookup(Level world, BlockPos dispensorPos) {
             Collection<MultiBlockHelper.MultiBlockLocation> block = new HashSet<>();
             if (dispensorPos != null) {
                 for (var pd : predicate2LeftRightAxis.entrySet()) {
                     if (pd.getKey().test(world, dispensorPos)) {
-                        BlockPos pos = dispensorPos.add(
+                        BlockPos pos = dispensorPos.offset(
                                 -this.dispenserPos.x * pd.getValue().getX(),
                                 -this.dispenserPos.y,
                                 -this.dispenserPos.x * pd.getValue().getZ());

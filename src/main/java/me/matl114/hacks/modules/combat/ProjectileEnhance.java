@@ -18,20 +18,29 @@ import me.matl114.utils.Debug;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.ItemStackUtils;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ChargedProjectilesComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.*;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.*;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.EggItem;
+import net.minecraft.world.item.EnderpearlItem;
+import net.minecraft.world.item.ExperienceBottleItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.LingeringPotionItem;
+import net.minecraft.world.item.SplashPotionItem;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.item.component.ChargedProjectiles;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class ProjectileEnhance extends BaseModule {
     public final ModulePath projectile = makePath(Configs.COMBAT_CONFIG, "projectile");
@@ -77,35 +86,35 @@ public class ProjectileEnhance extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onTridentDupe);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onTridentDupe);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractItemC2SPacket.class), this::onPlayerInteractItem);
+                Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onPlayerInteractItem);
     }
 
     public static float getShootingPowerCrossbow(ItemStack a) {
-        ChargedProjectilesComponent stack = a.get(DataComponentTypes.CHARGED_PROJECTILES);
+        ChargedProjectiles stack = a.get(DataComponents.CHARGED_PROJECTILES);
         return (stack != null && stack.contains(Items.FIREWORK_ROCKET)) ? 1.6F : 3.15F;
     }
 
-    public void onTridentDupe(Event<PlayerActionC2SPacket> actionC2SPacketEvent) {
+    public void onTridentDupe(Event<ServerboundPlayerActionPacket> actionC2SPacketEvent) {
         var actionC2SPacket = actionC2SPacketEvent.context();
-        if (actionC2SPacket.getAction() == PlayerActionC2SPacket.Action.RELEASE_USE_ITEM
+        if (actionC2SPacket.getAction() == ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM
                 && mc.player != null
                 && tridentDupe.get()
-                && mc.player.getMainHandStack().getItem() instanceof TridentItem trident) {
+                && mc.player.getMainHandItem().getItem() instanceof TridentItem trident) {
             // dupe trident
-            mc.interactionManager.clickSlot(
-                    mc.player.currentScreenHandler.syncId,
+            mc.gameMode.handleContainerInput(
+                    mc.player.containerMenu.containerId,
                     3,
                     InventoryUtils.getSelectedSlot(),
-                    SlotActionType.SWAP,
+                    ContainerInput.SWAP,
                     mc.player);
             Tasks.scheduleDelayed(
-                    () -> mc.interactionManager.clickSlot(
-                            mc.player.currentScreenHandler.syncId,
+                    () -> mc.gameMode.handleContainerInput(
+                            mc.player.containerMenu.containerId,
                             3,
                             InventoryUtils.getSelectedSlot(),
-                            SlotActionType.SWAP,
+                            ContainerInput.SWAP,
                             mc.player),
                     1);
         }
@@ -113,7 +122,7 @@ public class ProjectileEnhance extends BaseModule {
 
     private boolean passUseItemIdCheck(ItemStack stack) {
 
-        String id = Registries.ITEM.getId(stack.getItem()).getPath();
+        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
         if (useItemId.get().test(id)) {
             return true;
         }
@@ -122,13 +131,13 @@ public class ProjectileEnhance extends BaseModule {
         return sfid != null && useItemId.get().test(sfid);
     }
     // todo: test crossbow, may wrong
-    public void onPlayerInteractItem(Event<PlayerInteractItemC2SPacket> packetMutableObject) {
+    public void onPlayerInteractItem(Event<ServerboundUseItemPacket> packetMutableObject) {
         // targeting
         if (packetMutableObject.isCancelled()) return;
 
         if (enable.get()) {
-            PlayerInteractItemC2SPacket packet = packetMutableObject.context();
-            Hand hand = packet.getHand();
+            ServerboundUseItemPacket packet = packetMutableObject.context();
+            InteractionHand hand = packet.getHand();
             ItemStack stack = PlayerInteractItemC2SPacketAccess.of(packetMutableObject.context)
                     .getItemStack();
             // access to the item before it is used up to 0 count
@@ -154,15 +163,15 @@ public class ProjectileEnhance extends BaseModule {
                     if (makeReaim) {
                         Entity target = CombatTasks.getTargetSelector().searchAimableEntity(false);
                         if (target != null) {
-                            Debug.chat(Text.literal("[Proj Aim] Aim at %s"
-                                            .formatted(target instanceof PlayerEntity player ? "player " : "entity "))
+                            Debug.chat(Component.literal("[Proj Aim] Aim at %s"
+                                            .formatted(target instanceof Player player ? "player " : "entity "))
                                     .append(EntityUtils.getEntityDisplayable(target))
-                                    .formatted(Formatting.GREEN));
+                                    .withStyle(ChatFormatting.GREEN));
 
-                            Vec3d facing = CombatTasks.getPositionPredict()
+                            Vec3 facing = CombatTasks.getPositionPredict()
                                     .predictAimPositionForEntity(target, velocity)
-                                    .subtract(mc.player.getEyePos());
-                            Vec2f redirectTarget = CombatTasks.calculatePitchYawPredict(velocity, Vec3d.ZERO, facing);
+                                    .subtract(mc.player.getEyePosition());
+                            Vec2 redirectTarget = CombatTasks.calculatePitchYawPredict(velocity, Vec3.ZERO, facing);
                             if (Float.isNaN(redirectTarget.x)
                                     || Float.isInfinite(redirectTarget.x)
                                     || Float.isNaN(redirectTarget.y)
@@ -170,16 +179,16 @@ public class ProjectileEnhance extends BaseModule {
                                 Debug.chat("[Proj Aim] Proj failed to reach the target");
                             } else {
                                 // recreate packet to en, do something
-                                packet = new PlayerInteractItemC2SPacket(
+                                packet = new ServerboundUseItemPacket(
                                         hand, packet.getSequence(), redirectTarget.y, redirectTarget.x);
                             }
                         } else {
-                            Debug.chat(Text.literal("[Proj Aim] Target absent"));
+                            Debug.chat(Component.literal("[Proj Aim] Target absent"));
                         }
                     }
                 }
                 if (enableTp.get()) {
-                    if (stack.getItem() instanceof EnderPearlItem pearl
+                    if (stack.getItem() instanceof EnderpearlItem pearl
                             || stack.getItem() instanceof SplashPotionItem
                             || stack.getItem() instanceof ExperienceBottleItem
                             || stack.getItem() instanceof LingeringPotionItem
@@ -188,12 +197,12 @@ public class ProjectileEnhance extends BaseModule {
                         {
                             boolean exactTp = enhanceTp.get();
                             double range = tpDistance.get();
-                            Vec3d facing = EntityUtils.pitchYawToRotation(
-                                    packet.getPitch(), packet.getYaw()); // mc.player.getRotationVector();
-                            Vec3d facingNorm = facing.normalize();
-                            Vec3d oppositeFacing = Vec3d.ZERO.subtract(facingNorm);
-                            Vec3d finalMove = Vec3d.ZERO;
-                            Vec3d currentPlayerPos = mc.player.getPos();
+                            Vec3 facing = EntityUtils.pitchYawToRotation(
+                                    packet.getXRot(), packet.getYRot()); // mc.player.getRotationVector();
+                            Vec3 facingNorm = facing.normalize();
+                            Vec3 oppositeFacing = Vec3.ZERO.subtract(facingNorm);
+                            Vec3 finalMove = Vec3.ZERO;
+                            Vec3 currentPlayerPos = mc.player.position();
 
                             test_tp_position:
                             {
@@ -201,23 +210,23 @@ public class ProjectileEnhance extends BaseModule {
                                 MovTasks.CollisionContext context = new MovTasks.CollisionCache(
                                         mc.player,
                                         currentPlayerPos,
-                                        currentPlayerPos.add(oppositeFacing.multiply(range + 1.0d)),
+                                        currentPlayerPos.add(oppositeFacing.scale(range + 1.0d)),
                                         true);
                                 double test = range;
                                 for (; test > 10.0D; test -= 1.0D) {
                                     if (exactTp) {
-                                        Vec3d oppositeMultiply = oppositeFacing.multiply(test);
+                                        Vec3 oppositeMultiply = oppositeFacing.scale(test);
                                         if (MovTasks.validMoveTo(
                                                 context,
                                                 currentPlayerPos.add(oppositeMultiply),
-                                                Vec3d.ZERO.subtract(oppositeMultiply))) {
+                                                Vec3.ZERO.subtract(oppositeMultiply))) {
                                             finalMove = oppositeMultiply;
                                             break test_tp_position;
                                         }
                                     } else {
                                         if (MovTasks.validMoveToAndBack(
-                                                context, currentPlayerPos, oppositeFacing.multiply(test))) {
-                                            finalMove = oppositeFacing.multiply(test);
+                                                context, currentPlayerPos, oppositeFacing.scale(test))) {
+                                            finalMove = oppositeFacing.scale(test);
                                             break test_tp_position;
                                         }
                                     }
@@ -226,12 +235,12 @@ public class ProjectileEnhance extends BaseModule {
                                 // check again
                                 test = 10.0D;
                                 for (; test > 0.0D; test -= 0.5D) {
-                                    Vec3d oppositeMultiply = oppositeFacing.multiply(test);
+                                    Vec3 oppositeMultiply = oppositeFacing.scale(test);
                                     if (exactTp) {
                                         if (MovTasks.validMoveTo(
                                                 context,
                                                 currentPlayerPos.add(oppositeMultiply),
-                                                Vec3d.ZERO.subtract(oppositeMultiply))) {
+                                                Vec3.ZERO.subtract(oppositeMultiply))) {
                                             finalMove = oppositeMultiply;
                                             break test_tp_position;
                                         }
@@ -241,20 +250,20 @@ public class ProjectileEnhance extends BaseModule {
                                             break test_tp_position;
                                         }
                                     }
-                                    Vec3d oppoHorizontal = new Vec3d(oppositeMultiply.x, 0.0d, oppositeMultiply.z);
-                                    Vec3d simulateMove =
+                                    Vec3 oppoHorizontal = new Vec3(oppositeMultiply.x, 0.0d, oppositeMultiply.z);
+                                    Vec3 simulateMove =
                                             context.simulateMovement(mc.player, currentPlayerPos, oppoHorizontal);
                                     if (MovTasks.validMovementAsServer(oppoHorizontal, simulateMove)) {
-                                        Vec3d simulateDownMove = context.simulateMovement(
+                                        Vec3 simulateDownMove = context.simulateMovement(
                                                 mc.player,
                                                 currentPlayerPos.add(simulateMove),
-                                                new Vec3d(0, oppositeMultiply.y, 0));
-                                        Vec3d wholeMovement = simulateMove.add(simulateDownMove);
+                                                new Vec3(0, oppositeMultiply.y, 0));
+                                        Vec3 wholeMovement = simulateMove.add(simulateDownMove);
                                         // y does not matter , xz matters
                                         if (MovTasks.validMoveTo(
                                                 context,
                                                 currentPlayerPos.add(wholeMovement),
-                                                wholeMovement.multiply(-1))) {
+                                                wholeMovement.scale(-1))) {
                                             finalMove = wholeMovement;
                                             break test_tp_position;
                                         }
@@ -262,14 +271,14 @@ public class ProjectileEnhance extends BaseModule {
                                 }
                                 // should strengthen move when test < 10,
                             }
-                            if (finalMove.lengthSquared() > 1E-4) {
+                            if (finalMove.lengthSqr() > 1E-4) {
                                 // 随便写的阈值 速度太快不需要转向
-                                List<Vec3d> tpSequence = MovTasks.generateTpSequence(
+                                List<Vec3> tpSequence = MovTasks.generateTpSequence(
                                         currentPlayerPos, currentPlayerPos.add(finalMove), false, 161, true);
                                 if (!tpSequence.isEmpty()) {
-                                    Debug.chat(Text.literal("[Proj TP] Projectile Velocity Simulate %.2f"
+                                    Debug.chat(Component.literal("[Proj TP] Projectile Velocity Simulate %.2f"
                                                     .formatted(finalMove.length()))
-                                            .formatted(Formatting.GREEN));
+                                            .withStyle(ChatFormatting.GREEN));
                                     List<MovTasks.MovInfo> movements = new ArrayList<>();
                                     int size = tpSequence.size();
                                     for (int i = 0; i < size; ++i) {
@@ -289,7 +298,7 @@ public class ProjectileEnhance extends BaseModule {
 
                                 // send packets to simulate movements
                             }
-                            Debug.chat(Text.literal("[Proj TP] Projectile Velocity fail to simulate"));
+                            Debug.chat(Component.literal("[Proj TP] Projectile Velocity fail to simulate"));
                         }
                     }
                 }

@@ -15,10 +15,10 @@ import me.matl114.hooks.impl.baritone.BaritoneFuture;
 import me.matl114.hooks.impl.baritone.BaritoneLanding;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
@@ -61,15 +61,15 @@ public abstract class ElytraProcessMixin {
     }
 
     @ModifyExpressionValue(
-            method = {"a(Lnet/minecraft/util/math/BlockPos;Z)V", "pathTo0(Lnet/minecraft/util/math/BlockPos;Z)V"},
+            method = {"a(Lnet/minecraft/core/BlockPos;Z)V", "pathTo0(Lnet/minecraft/core/BlockPos;Z)V"},
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/world/World;getRegistryKey()Lnet/minecraft/registry/RegistryKey;"),
+                            target = "Lnet/minecraft/world/level/Level;dimension()Lnet/minecraft/resources/ResourceKey;"),
             require = 0)
-    private RegistryKey<World> hookGetRegistryKey(RegistryKey<World> original) {
-        if (BaritoneFix.INSTANCE.enableDimensionFix.get() && original != World.NETHER) {
-            return World.NETHER;
+    private ResourceKey<Level> hookGetRegistryKey(ResourceKey<Level> original) {
+        if (BaritoneFix.INSTANCE.enableDimensionFix.get() && original != Level.NETHER) {
+            return Level.NETHER;
         }
         return original;
     }
@@ -155,7 +155,7 @@ public abstract class ElytraProcessMixin {
     //        if(BaritoneFix.INSTANCE.fixErrorFly.get()){
     //            Box box1 = BaritoneFix.INSTANCE.processBoxOfElytraFlight();
     //            if(box1 != null){
-    //                var pl =  MinecraftClient.getInstance().player;
+    //                var pl =  Minecraft.getInstance().player;
     //                cachedBox = pl.getBoundingBox();
     //                pl.setBoundingBox(box1);
     //            }
@@ -167,7 +167,7 @@ public abstract class ElytraProcessMixin {
     //    private void hookElytraBehaviorSolverBox2(boolean par1, boolean par2, CallbackInfoReturnable<PathingCommand>
     // cir){
     //        if(cachedBox != null){
-    //            MinecraftClient.getInstance().player.setBoundingBox(cachedBox);
+    //            Minecraft.getInstance().player.setBoundingBox(cachedBox);
     //            cachedBox = null;
     //        }
     //    }
@@ -206,16 +206,16 @@ public abstract class ElytraProcessMixin {
 
     @WrapOperation(
             method = "onTick",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;isOnGround()Z"),
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;onGround()Z"),
             require = 0)
-    private boolean onAutoJumpRewrite(ClientPlayerEntity instance, Operation<Boolean> original) {
+    private boolean onAutoJumpRewrite(LocalPlayer instance, Operation<Boolean> original) {
         if (BaritoneFix.INSTANCE.handleAutoJump()) {
             return false;
         }
         return original.call(instance);
     }
 
-    @Inject(method = "pathTo(Lnet/minecraft/util/math/BlockPos;)V", at = @At("RETURN"), require = 0)
+    @Inject(method = "pathTo(Lnet/minecraft/core/BlockPos;)V", at = @At("RETURN"), require = 0)
     private void pathTo(BlockPos par1, CallbackInfo ci) {
         BaritoneHooks.getElytraPathingEvent().broadcast(par1);
     }

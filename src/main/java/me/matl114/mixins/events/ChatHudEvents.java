@@ -12,11 +12,11 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.gui.hud.MessageIndicator;
-import net.minecraft.network.message.MessageSignatureData;
-import net.minecraft.text.Text;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MessageSignature;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -26,15 +26,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ChatHud.class)
+@Mixin(ChatComponent.class)
 public abstract class ChatHudEvents implements ChatHudAccess {
     @Shadow
     @Final
-    private List<ChatHudLine.Visible> visibleMessages;
+    private List<GuiMessage.Line> trimmedMessages;
 
     @Shadow
     @Final
-    private List<ChatHudLine> messages;
+    private List<GuiMessage> allMessages;
 
     @Unique
     public String uniqueId;
@@ -47,23 +47,23 @@ public abstract class ChatHudEvents implements ChatHudAccess {
 
     @Unique
     @Override
-    public ArrayList<ChatHudLine.Visible> getVisibleLines() {
-        return (ArrayList<ChatHudLine.Visible>) this.visibleMessages;
+    public ArrayList<GuiMessage.Line> getVisibleLines() {
+        return (ArrayList<GuiMessage.Line>) this.trimmedMessages;
     }
 
     @Inject(
             method =
-                    "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+                    "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
             at = @At("HEAD"),
             cancellable = true)
     private void onMessageAdd(
-            Text message,
-            MessageSignatureData signatureData,
-            MessageIndicator indicator,
+            Component message,
+            MessageSignature signatureData,
+            GuiMessageTag indicator,
             CallbackInfo ci,
-            @Local(argsOnly = true) LocalRef<Text> textLocalRef) {
+            @Local(argsOnly = true) LocalRef<Component> textLocalRef) {
         if (!Listener.getMessageAddToHud().isEmpty()) {
-            Event<Text> addMessageEvent = new Event<>(message, true, true, signatureData, indicator);
+            Event<Component> addMessageEvent = new Event<>(message, true, true, signatureData, indicator);
             Listener.getMessageAddToHud().handleValue(addMessageEvent);
             if (addMessageEvent.isCancelled()) {
                 ci.cancel();
@@ -74,35 +74,35 @@ public abstract class ChatHudEvents implements ChatHudAccess {
 
     @Inject(
             method =
-                    "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+                    "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/hud/ChatHud;logChatMessage(Lnet/minecraft/client/gui/hud/ChatHudLine;)V",
+                                    "Lnet/minecraft/client/gui/components/ChatComponent;logChatMessage(Lnet/minecraft/client/multiplayer/chat/GuiMessage;)V",
                             shift = At.Shift.AFTER))
     private void onChatHudLineCreate(
-            Text message,
-            MessageSignatureData signatureData,
-            MessageIndicator indicator,
+            Component message,
+            MessageSignature signatureData,
+            GuiMessageTag indicator,
             CallbackInfo ci,
-            @Local ChatHudLine line) {
+            @Local GuiMessage line) {
         ChatHudLineAccess.of(line).setUniqueMessageId(uniqueId);
     }
 
     @Unique
     @Override
     public void clearUniqueMessages(String id) {
-        this.visibleMessages.removeIf(
+        this.trimmedMessages.removeIf(
                 s -> Objects.equals(ChatHudLineAccess.of(s).getUniqueMessageId(), id));
-        this.messages.removeIf(s -> Objects.equals(ChatHudLineAccess.of(s).getUniqueMessageId(), id));
+        this.allMessages.removeIf(s -> Objects.equals(ChatHudLineAccess.of(s).getUniqueMessageId(), id));
     }
 
-    @Inject(method = "addVisibleMessage", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "addMessageToDisplayQueue", at = @At("HEAD"), cancellable = true)
     private void onVisibleMessageAdd(
-            ChatHudLine message, CallbackInfo ci, @Local(argsOnly = true) LocalRef<ChatHudLine> lineLocalRef) {
+            GuiMessage message, CallbackInfo ci, @Local(argsOnly = true) LocalRef<GuiMessage> lineLocalRef) {
         if (!Listener.getMessageAddToVisible().isEmpty()) {
-            Event<ChatHudLine> addMessageEvent = new Event<>(message, true, true);
+            Event<GuiMessage> addMessageEvent = new Event<>(message, true, true);
             Listener.getMessageAddToVisible().handleValue(addMessageEvent);
             if (addMessageEvent.isCancelled()) {
                 ci.cancel();
@@ -113,14 +113,14 @@ public abstract class ChatHudEvents implements ChatHudAccess {
     }
 
     @ModifyExpressionValue(
-            method = "addVisibleMessage",
+            method = "addMessageToDisplayQueue",
             at =
                     @At(
                             value = "NEW",
                             target =
-                                    "(ILnet/minecraft/text/OrderedText;Lnet/minecraft/client/gui/hud/MessageIndicator;Z)Lnet/minecraft/client/gui/hud/ChatHudLine$Visible;"))
-    private ChatHudLine.Visible onVisibleLineCreate(
-            ChatHudLine.Visible original, @Local(argsOnly = true) ChatHudLine line) {
+                                    "(ILnet/minecraft/util/FormattedCharSequence;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;Z)Lnet/minecraft/client/multiplayer/chat/GuiMessage$Line;"))
+    private GuiMessage.Line onVisibleLineCreate(
+            GuiMessage.Line original, @Local(argsOnly = true) GuiMessage line) {
         String unique = ChatHudLineAccess.of(line).getUniqueMessageId();
         if (unique != null) {
             ChatHudLineAccess.of(original).setUniqueMessageId(unique);

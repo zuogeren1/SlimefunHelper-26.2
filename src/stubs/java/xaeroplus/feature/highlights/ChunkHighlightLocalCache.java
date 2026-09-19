@@ -2,8 +2,8 @@ package xaeroplus.feature.highlights;
 
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public class ChunkHighlightLocalCache extends ChunkHighlightBaseCacheHandler {
     private static final int maxNumber = 5000;
@@ -25,7 +25,7 @@ public class ChunkHighlightLocalCache extends ChunkHighlightBaseCacheHandler {
             final int windowRegionX,
             final int windowRegionZ,
             final int windowRegionSize,
-            final RegistryKey<World> dimension) {
+            final ResourceKey<Level> dimension) {
         return null;
     }
 

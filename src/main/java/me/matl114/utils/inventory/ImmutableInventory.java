@@ -1,40 +1,40 @@
 package me.matl114.utils.inventory;
 
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
-public abstract class ImmutableInventory implements Inventory {
+public abstract class ImmutableInventory implements Container {
     @Override
-    public ItemStack removeStack(int slot, int amount) {
+    public ItemStack removeItem(int slot, int amount) {
         return ItemStack.EMPTY;
     }
 
     @Override
-    public ItemStack removeStack(int slot) {
+    public ItemStack removeItemNoUpdate(int slot) {
         return ItemStack.EMPTY;
     }
 
     @Override
-    public void setStack(int slot, ItemStack stack) {}
+    public void setItem(int slot, ItemStack stack) {}
 
     @Override
-    public void markDirty() {}
+    public void setChanged() {}
 
     @Override
-    public boolean canPlayerUse(PlayerEntity player) {
+    public boolean stillValid(Player player) {
         return false;
     }
 
     @Override
-    public void clear() {}
+    public void clearContent() {}
 
     @Override
     public boolean isEmpty() {
-        int size = size();
+        int size = getContainerSize();
         for (var re = 0; re < size; ++re) {
-            var item = getStack(re);
-            if (!item.isEmpty()) return false;
+            var item = getItem(re);
+            if (item.count() != 0) return false;
         }
         return true;
     }

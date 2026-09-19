@@ -10,11 +10,11 @@ import me.matl114.hacks.modules.survival.XaeroHelper;
 import me.matl114.hooks.XaeroHooks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.DrawnTextConsumer;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ActiveTextCollector;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.gui.screens.ChatScreen;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,31 +24,31 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ChatHud.class)
+@Mixin(ChatComponent.class)
 public abstract class ChatHudMixin {
     @Shadow
     @Final
-    private List<ChatHudLine.Visible> visibleMessages;
+    private List<GuiMessage.Line> trimmedMessages;
 
     @Shadow
     @Final
-    private MinecraftClient client;
+    private Minecraft minecraft;
 
     // mixin for chatHistoryLength override
     @Inject(
-            method = "addVisibleMessage",
+            method = "addMessageToDisplayQueue",
             at =
                     @At(
                             value = "INVOKE",
                             target = "Ljava/util/List;removeLast()Ljava/lang/Object;",
                             shift = At.Shift.BEFORE),
             cancellable = true)
-    private void resizeChatHistoryMaxLength(ChatHudLine message, CallbackInfo ci) {
+    private void resizeChatHistoryMaxLength(GuiMessage message, CallbackInfo ci) {
         if (ChatExtra.INSTANCE.overrideChatHistoryLength.get()) {
             int chat = ChatTasks.getChatExtra().chatHistoryLength.get();
             if (chat > 0) {
                 // 提前结束
-                if (this.visibleMessages.size() <= chat) {
+                if (this.trimmedMessages.size() <= chat) {
                     ci.cancel();
                 }
             }
@@ -66,9 +66,9 @@ public abstract class ChatHudMixin {
         }
     }
 
-    @Inject(method = "render(Lnet/minecraft/client/font/DrawnTextConsumer;IIZ)V", at = @At("HEAD"))
+    @Inject(method = "captureClickableText(Lnet/minecraft/client/gui/ActiveTextCollector;IIZ)V", at = @At("HEAD"))
     private void onRenderChatScreen(
-            DrawnTextConsumer textConsumer,
+            ActiveTextCollector textConsumer,
             int windowHeight,
             int currentTick,
             boolean expanded,
@@ -76,7 +76,7 @@ public abstract class ChatHudMixin {
             @Local(argsOnly = true) LocalBooleanRef expanding) {
         if (XaeroHelper.INSTANCE.transparentGuiMapFix.get()
                 && XaeroHooks.getInstance().isXaeroWorldMapEnable()
-                && XaeroHooks.getInstance().isGuiMap(client.currentScreen)) {
+                && XaeroHooks.getInstance().isGuiMap(minecraft.gui.screen())) {
             expanding.set(true);
         }
     }

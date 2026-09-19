@@ -7,17 +7,17 @@ import me.matl114.gui.FilterService;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.presets.single.RegistryDisplays;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import oshi.util.tuples.Triplet;
 
-public class ListRegistrySelectWidget<T> extends ListSelectWidget<Triplet<Text, Identifier, T>> {
+public class ListRegistrySelectWidget<T> extends ListSelectWidget<Triplet<Component, Identifier, T>> {
     public T getSelectedRegistry() {
         return selected() == null ? null : selected().getC();
     }
 
-    private static final BiPredicate<Triplet<Text, Identifier, Object>, String> filter = (s, b) -> {
+    private static final BiPredicate<Triplet<Component, Identifier, Object>, String> filter = (s, b) -> {
         String id = s.getB().toString();
         if (FilterService.nameMatch(id, b)) {
             return true;
@@ -30,8 +30,8 @@ public class ListRegistrySelectWidget<T> extends ListSelectWidget<Triplet<Text, 
     };
 
     public ListRegistrySelectWidget(
-            List<Triplet<Text, Identifier, T>> list,
-            Function<Triplet<Text, Identifier, T>, RenderHandler> renderFactory,
+            List<Triplet<Component, Identifier, T>> list,
+            Function<Triplet<Component, Identifier, T>, RenderHandler> renderFactory,
             ValueAccessor<String> filterInput,
             int x,
             int y,
@@ -45,10 +45,10 @@ public class ListRegistrySelectWidget<T> extends ListSelectWidget<Triplet<Text, 
         return registry.stream().toList();
     }
 
-    public static <T> List<Triplet<Text, Identifier, T>> list(
-            List<T> lst, Registry<T> registry, Function<T, Text> localization) {
+    public static <T> List<Triplet<Component, Identifier, T>> list(
+            List<T> lst, Registry<T> registry, Function<T, Component> localization) {
         return lst.stream()
-                .map(s -> new Triplet<Text, Identifier, T>(localization.apply(s), registry.getId(s), s))
+                .map(s -> new Triplet<Component, Identifier, T>(localization.apply(s), registry.getKey(s), s))
                 .toList();
     }
 

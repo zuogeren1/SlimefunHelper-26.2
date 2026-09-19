@@ -3,12 +3,12 @@ package me.matl114.gui.presets.single;
 import me.matl114.gui.GenericBackGroundScreen;
 import me.matl114.gui.basic.ContentDelegateWidget;
 import me.matl114.gui.basic.DrawableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class SimpleScreen extends GenericBackGroundScreen {
     DrawableWidget widget;
 
-    public SimpleScreen(Text title, int backgroundWidth, int backgroundDefaultHeight, DrawableWidget widget) {
+    public SimpleScreen(Component title, int backgroundWidth, int backgroundDefaultHeight, DrawableWidget widget) {
         super(title, backgroundWidth, backgroundDefaultHeight);
         this.widget = widget;
     }

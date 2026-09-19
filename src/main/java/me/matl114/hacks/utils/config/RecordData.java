@@ -18,7 +18,7 @@ import me.matl114.managers.config.*;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.collections.MutableRecord;
 import me.matl114.utils.config.AttrKeyValue;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class RecordData implements NBTParsable<RecordData> {
     Map<String, ?> recordMap;
@@ -60,7 +60,7 @@ public class RecordData implements NBTParsable<RecordData> {
     private static void openEditorScreen(AttrKeyValue<RecordData> keyValue) {
         MutableRecord record = keyValue.getOriginValue().toMutable();
         DrawableWidget widget = WidgetUtils.createMutableRecordEditScreen(
-                Text.translatable("widget.nbt-parsable.record-data.edit-screen.title"),
+                Component.translatable("widget.nbt-parsable.record-data.edit-screen.title"),
                 List::of,
                 record,
                 Function.identity(),
@@ -88,7 +88,7 @@ public class RecordData implements NBTParsable<RecordData> {
                     int dxx = dx > 2 * dy ? dx - dy : dx;
                     widget.addDrawableChild(ExecutableWidget.instance(0, 0, dxx, dy)
                             .setElementHandler(new ButtonElement(
-                                            TextProvider.of(Text.translatable(
+                                            TextProvider.of(Component.translatable(
                                                     "widget.nbt-parsable.record-data.open-edit-screen")),
                                             ButtonAction.run(() -> openEditorScreen(custom)))
                                     .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -105,7 +105,7 @@ public class RecordData implements NBTParsable<RecordData> {
                 } else {
                     widget.addDrawableChild(ExecutableWidget.instance(0, 0, dx, dy)
                             .setElementHandler(new ButtonElement(
-                                            TextProvider.of(Text.translatable(
+                                            TextProvider.of(Component.translatable(
                                                     "widget.nbt-parsable.record-data.no-editable-field")),
                                             ButtonAction.empty())
                                     .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(

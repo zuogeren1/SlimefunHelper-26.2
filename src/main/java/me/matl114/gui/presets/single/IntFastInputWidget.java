@@ -11,16 +11,16 @@ import me.matl114.gui.elements.PlateElement;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.kv.AttrKeyValues;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 @Accessors(chain = true)
 public class IntFastInputWidget extends SubScreenWidget {
     final AttrKeyValue<Integer> keyValue;
     final Consumer<AttrKeyValue<Integer>> callback;
-    ContentDelegateWidget<TextFieldWidget> inputField;
+    ContentDelegateWidget<EditBox> inputField;
     final int inputDx;
     int inputTextDx;
 
@@ -83,7 +83,7 @@ public class IntFastInputWidget extends SubScreenWidget {
         protected void initBackgroundAndText() {
             super.initBackgroundAndText();
             DisplayWidget.instance(inputTextDx - 2, 12, inputDx - inputTextDx, dy - 16)
-                    .setRenderHandler(RawTextElement.instance((i) -> Text.literal("/" + this.maxValue))
+                    .setRenderHandler(RawTextElement.instance((i) -> Component.literal("/" + this.maxValue))
                             .setAlignment(-1))
                     .addToSub(this);
         }
@@ -97,17 +97,17 @@ public class IntFastInputWidget extends SubScreenWidget {
         }
         if (inputField.getDelegate() != null) {
             // trigger update internal and text update
-            inputField.getDelegate().setText(String.valueOf(val0));
+            inputField.getDelegate().setValue(String.valueOf(val0));
         }
     }
 
-    private static final Text A1 = Text.literal("+1");
-    private static final Text A16 = Text.literal("+16");
-    private static final Text A64 = Text.literal("+64");
-    private static final Text N1 = Text.literal("-1");
-    private static final Text N16 = Text.literal("-16");
-    private static final Text N64 = Text.literal("-64");
-    private static final Text CONFIRM = Text.translatable("widget.gui.int-fast-input-widget.confirm");
+    private static final Component A1 = Component.literal("+1");
+    private static final Component A16 = Component.literal("+16");
+    private static final Component A64 = Component.literal("+64");
+    private static final Component N1 = Component.literal("-1");
+    private static final Component N16 = Component.literal("-16");
+    private static final Component N64 = Component.literal("-64");
+    private static final Component CONFIRM = Component.translatable("widget.gui.int-fast-input-widget.confirm");
     protected static Identifier CANCEL_GUI_TEXTURE = new Identifier("minecraft", "container/beacon/cancel");
 
     protected void initFastButtons() {
@@ -143,7 +143,7 @@ public class IntFastInputWidget extends SubScreenWidget {
                 .setRenderHandler(PlateElement.instance())
                 .addToSub(this);
         DisplayWidget.instance(4, 1, inputDx - 8, 10)
-                .setRenderHandler(RawTextElement.instance(Text.literal(keyValue.getKeyName()))
+                .setRenderHandler(RawTextElement.instance(Component.literal(keyValue.getKeyName()))
                         .setAlignment(-1))
                 .addToSub(this);
         inputField =

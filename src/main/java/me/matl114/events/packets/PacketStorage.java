@@ -1,8 +1,8 @@
 package me.matl114.events.packets;
 
 import javax.annotation.Nullable;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.PacketType;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.PacketType;
 
 public interface PacketStorage {
     long timestampMS();
@@ -10,7 +10,7 @@ public interface PacketStorage {
     @Nullable
     PacketType<?> packetType();
 
-    NetworkSide side();
+    PacketFlow side();
 
     void send();
 

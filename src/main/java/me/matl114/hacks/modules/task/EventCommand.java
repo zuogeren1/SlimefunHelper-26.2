@@ -21,10 +21,10 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.CollectionUtils;
 import me.matl114.utils.InventoryUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Items;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 
 public class EventCommand extends BaseModule {
     public static EventCommand INSTANCE;
@@ -177,7 +177,7 @@ public class EventCommand extends BaseModule {
         return cnt >= data.<Integer>get(KEY_TOTEM_MIN, 0) && cnt <= data.<Integer>get(KEY_TOTEM_MAX, Integer.MAX_VALUE);
     }
 
-    private boolean testPopTotem(RecordData data, PlayerEntity player) {
+    private boolean testPopTotem(RecordData data, Player player) {
         int popCnt = PlayerStateManager.INSTANCE.getPlayerPopCount(player);
         return popCnt >= data.<Integer>get(KEY_POP_TOTEM_MIN, 0)
                 && popCnt <= data.<Integer>get(KEY_POP_TOTEM_MAX, Integer.MAX_VALUE);
@@ -189,7 +189,7 @@ public class EventCommand extends BaseModule {
                 && health <= data.get(KEY_SELF_HEALTH_MAX, Double.MAX_VALUE);
     }
 
-    private boolean testTargetHealth(RecordData data, PlayerEntity player) {
+    private boolean testTargetHealth(RecordData data, Player player) {
         double health = player.getHealth();
         return health >= data.get(KEY_TARGET_HEALTH_MIN, Double.MIN_VALUE)
                 && health <= data.get(KEY_TARGET_HEALTH_MAX, Double.MAX_VALUE);
@@ -212,7 +212,7 @@ public class EventCommand extends BaseModule {
         });
     }
 
-    public void onEvent(EventType type, PlayerEntity target) {
+    public void onEvent(EventType type, Player target) {
         onEventType(
                 type,
                 (recordData) -> {
@@ -235,19 +235,19 @@ public class EventCommand extends BaseModule {
 
     private HashMap<String, String> createContext() {
         return new HashMap<>(Map.of(
-                "player", mc.player.getNameForScoreboard(),
+                "player", mc.player.getScoreboardName(),
                 "pos", "%.2f %.2f %.2f".formatted(mc.player.getX(), mc.player.getY(), mc.player.getZ()),
                 "x", "%.2f".formatted(mc.player.getX()),
                 "y", "%.2f".formatted(mc.player.getY()),
                 "z", "%.2f".formatted(mc.player.getZ()),
-                "pitch", "%.2f".formatted(mc.player.getPitch()),
-                "yaw", "%.2f".formatted(mc.player.getYaw()),
-                "world", mc.world.getRegistryKey().getValue().getPath(),
+                "pitch", "%.2f".formatted(mc.player.getXRot()),
+                "yaw", "%.2f".formatted(mc.player.getYRot()),
+                "world", mc.level.dimension().identifier().getPath(),
                 "pop_cnt", String.valueOf(PlayerStateManager.INSTANCE.getPlayerPopCount(mc.player))));
     }
 
-    private void appendTargetContext(HashMap<String, String> context, PlayerEntity player) {
-        context.put("target", player.getNameForScoreboard());
+    private void appendTargetContext(HashMap<String, String> context, Player player) {
+        context.put("target", player.getScoreboardName());
         context.put("target_x", "%.2f".formatted(player.getX()));
         context.put("target_y", "%.2f".formatted(player.getY()));
         context.put("target_z", "%.2f".formatted(player.getZ()));
@@ -258,7 +258,7 @@ public class EventCommand extends BaseModule {
         executeDelayed(s, createContext());
     }
 
-    private void executeDelayed(StringFormat s, PlayerEntity target) {
+    private void executeDelayed(StringFormat s, Player target) {
         var context = createContext();
         appendTargetContext(context, target);
         executeDelayed(s, context);
@@ -278,19 +278,19 @@ public class EventCommand extends BaseModule {
     //        }
     //    }
     //
-    public void onWorldChange(Event<World> event) {
+    public void onWorldChange(Event<Level> event) {
         if (enable.get()) {
             onEvent(EventType.WORLD_CHANGE, null);
         }
     }
     //
-    public void onGameJoin(Event<ClientPlayerEntity> event) {
+    public void onGameJoin(Event<LocalPlayer> event) {
         if (enable.get()) {
             onEvent(EventType.JOIN_GAME, null);
         }
     }
 
-    public void onPostTick(Event<ClientPlayerEntity> eventPost) {
+    public void onPostTick(Event<LocalPlayer> eventPost) {
         if (enable.get()) {
             onEvent(EventType.TICK, null);
         }
@@ -299,7 +299,7 @@ public class EventCommand extends BaseModule {
     public void onTriggerTotem(Event<CombatPlayer> event) {
         if (checkNull()) return;
         if (enable.get()) {
-            PlayerEntity pl = event.context.player();
+            Player pl = event.context.player();
             if (pl == mc.player) {
                 onEvent(EventType.SELF_TRIGGER_TOTEM, null);
             } else {
@@ -311,7 +311,7 @@ public class EventCommand extends BaseModule {
     public void onDeath(Event<CombatPlayer> event) {
         if (checkNull()) return;
         if (enable.get()) {
-            PlayerEntity pl = event.context.player();
+            Player pl = event.context.player();
             if (pl == mc.player) {
                 onEvent(EventType.SELF_DEATH, null);
             } else {
@@ -337,7 +337,7 @@ public class EventCommand extends BaseModule {
     //        if (checkNull()) return;
     //        if (enable.get()
     //                && event.context.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING
-    //                && event.context.getEntity(mc.world) == mc.player) {
+    //                && event.context.getEntity(mc.level) == mc.player) {
     //            onEventType(EventType.TRIGGER_TOTEM, this::executeDelayed);
     //        }
     //    }

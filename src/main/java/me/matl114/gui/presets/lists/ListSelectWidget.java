@@ -10,7 +10,7 @@ import lombok.experimental.Accessors;
 import me.matl114.gui.FilterService;
 import me.matl114.gui.basic.*;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.util.Colors;
+import net.minecraft.util.CommonColors;
 
 @Getter
 @Setter
@@ -76,7 +76,7 @@ public class ListSelectWidget<W> extends ScrollableListWidget {
         renderHandler =
                 renderHandler.combineRender((element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
                     if (triplet == selected) {
-                        RenderHandler.drawHighLightBox(context, 0, 0, this.dx, this.entryHeight, Colors.WHITE);
+                        RenderHandler.drawHighLightBox(context, 0, 0, this.dx, this.entryHeight, CommonColors.WHITE);
                     }
                 });
         InputHandler mouseHandler = InputHandler.run(() -> {

@@ -10,13 +10,13 @@ import me.matl114.hacks.ChatTasks;
 import me.matl114.hacks.utils.chat.ChatScreenTextFieldWidget;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.ChatInputSuggestor;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.CommandSuggestions;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -27,34 +27,34 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen implements CustomFocusBehaviourScreenAccess, ChatScreenAccess {
     @Shadow
-    public abstract void sendMessage(String chatText, boolean addToHistory);
+    public abstract void handleChatInput(String chatText, boolean addToHistory);
 
     @Shadow
-    protected TextFieldWidget chatField;
+    protected EditBox input;
 
     @Shadow
-    private int messageHistoryIndex;
+    private int historyPos;
 
     @Shadow
-    protected String originalChatText;
+    protected String initial;
 
     @Unique
     public void resetMessageHistoryIndex() {
-        messageHistoryIndex = MinecraftClient.getInstance()
-                .inGameHud
-                .getChatHud()
-                .getMessageHistory()
+        historyPos = Minecraft.getInstance()
+                .gui
+                .hud.chat
+                .getRecentChat()
                 .size();
     }
 
-    @Accessor("chatInputSuggestor")
-    public abstract ChatInputSuggestor getSuggestor();
+    @Accessor("commandSuggestions")
+    public abstract CommandSuggestions getSuggestor();
 
-    public TextFieldWidget getInputWidget() {
-        return chatField;
+    public EditBox getInputWidget() {
+        return input;
     }
 
-    protected ChatScreenMixin(Text title) {
+    protected ChatScreenMixin(Component title) {
         super(title);
     }
 
@@ -74,26 +74,26 @@ public abstract class ChatScreenMixin extends Screen implements CustomFocusBehav
     //    }
     // interface
     @WrapOperation(
-            method = "onChatFieldUpdate",
+            method = "onEdited",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/gui/screen/ChatInputSuggestor;setWindowActive(Z)V"))
+                            target = "Lnet/minecraft/client/gui/components/CommandSuggestions;setAllowSuggestions(Z)V"))
     private void fixChatInputSuggestor(
-            ChatInputSuggestor instance,
+            CommandSuggestions instance,
             boolean windowActive,
             Operation<Void> original,
             @Local(argsOnly = true) String chatText) {
         if (ChatTasks.getChatExtra().tabFix.get()) {
             original.call(instance, true);
         } else {
-            original.call(instance, !Objects.equals(chatText, this.originalChatText));
+            original.call(instance, !Objects.equals(chatText, this.initial));
         }
     }
 
     @Unique
-    public Element getDefaultElement() {
-        return this.chatField;
+    public GuiEventListener getDefaultElement() {
+        return this.input;
     }
 
     @Unique
@@ -104,7 +104,7 @@ public abstract class ChatScreenMixin extends Screen implements CustomFocusBehav
 
     // warn: do not cancel normalize, conflict with other mods
     @WrapOperation(
-            method = "normalize",
+            method = "normalizeChatMessage",
             at = @At(value = "INVOKE", target = "Ljava/lang/String;trim()Ljava/lang/String;"))
     private String cancelTrim(String instance, Operation<String> original) {
         if (!ChatTasks.getChatExtra().escapeChatTrim.get()) {
@@ -114,7 +114,7 @@ public abstract class ChatScreenMixin extends Screen implements CustomFocusBehav
     }
 
     @WrapOperation(
-            method = "normalize",
+            method = "normalizeChatMessage",
             at =
                     @At(
                             value = "INVOKE",
@@ -129,12 +129,12 @@ public abstract class ChatScreenMixin extends Screen implements CustomFocusBehav
     }
 
     @WrapOperation(
-            method = "normalize",
+            method = "normalizeChatMessage",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/util/StringHelper;truncateChat(Ljava/lang/String;)Ljava/lang/String;"))
+                                    "Lnet/minecraft/util/StringUtil;trimChatMessage(Ljava/lang/String;)Ljava/lang/String;"))
     private String cancelTruncate(String text, Operation<String> original) {
         if (!ChatTasks.getChatExtra().noChathudInputLimit.get()) {
             return original.call(text);
@@ -148,9 +148,9 @@ public abstract class ChatScreenMixin extends Screen implements CustomFocusBehav
                     @At(
                             value = "FIELD",
                             target =
-                                    "Lnet/minecraft/client/gui/screen/ChatScreen;chatField:Lnet/minecraft/client/gui/widget/TextFieldWidget;",
+                                    "Lnet/minecraft/client/gui/screens/ChatScreen;input:Lnet/minecraft/client/gui/components/EditBox;",
                             ordinal = 0))
-    private void modifyTextFieldWidget(ChatScreen instance, TextFieldWidget value, Operation<Void> original) {
+    private void modifyTextFieldWidget(ChatScreen instance, EditBox value, Operation<Void> original) {
         original.call(instance, new ChatScreenTextFieldWidget((ChatScreen) (Screen) this));
     }
 }

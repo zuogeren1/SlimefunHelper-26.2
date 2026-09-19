@@ -5,8 +5,8 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 
 @Data
 @AllArgsConstructor
@@ -14,7 +14,7 @@ import net.minecraft.util.Hand;
 @Accessors(fluent = true, chain = true)
 public class UseItem {
     @Setter
-    ActionResult actionResult;
+    InteractionResult actionResult;
 
-    final Hand hand;
+    final InteractionHand hand;
 }

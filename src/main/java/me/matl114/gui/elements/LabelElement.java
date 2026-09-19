@@ -5,28 +5,28 @@ import me.matl114.gui.basic.RenderHandler;
 import me.matl114.gui.basic.TextProvider;
 import me.matl114.gui.complex.RawTextElement;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.CommonColors;
+import net.minecraft.util.FormattedCharSequence;
 
 public class LabelElement extends RawTextElement {
     protected static final Identifier BACKGROUND_RESOURCE =
             new Identifier("slimefunhelper", "textures/custom/recipecontainer.png");
 
-    public static LabelElement instance(Text text) {
-        return new LabelElement(text, Colors.WHITE);
+    public static LabelElement instance(Component text) {
+        return new LabelElement(text, CommonColors.WHITE);
     }
 
     public LabelElement(int color) {
-        this(Text.empty(), color);
+        this(Component.empty(), color);
     }
 
-    public LabelElement(Text text, int color) {
+    public LabelElement(Component text, int color) {
         this(text, color, 0);
     }
 
-    public LabelElement(Text text, int color, int alignment) {
+    public LabelElement(Component text, int color, int alignment) {
         this(TextProvider.of(text), color, alignment);
     }
 
@@ -48,7 +48,7 @@ public class LabelElement extends RawTextElement {
             float delta,
             float alpha,
             boolean shouldHighlight) {
-        OrderedText text1 = text.getLabel(element);
+        FormattedCharSequence text1 = text.getLabel(element);
         if (text1 != null) {
             context.drawTexturedQuad(
                     BACKGROUND_RESOURCE,
@@ -63,7 +63,7 @@ public class LabelElement extends RawTextElement {
                     v1);
             RenderHandler.drawScaledText0(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     text1,
                     0,
                     0,

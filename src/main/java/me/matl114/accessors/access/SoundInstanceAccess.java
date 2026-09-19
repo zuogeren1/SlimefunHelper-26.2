@@ -1,6 +1,6 @@
 package me.matl114.accessors.access;
 
-import net.minecraft.client.sound.AbstractSoundInstance;
+import net.minecraft.client.resources.sounds.AbstractSoundInstance;
 
 public interface SoundInstanceAccess {
     public void setScale(double scale);

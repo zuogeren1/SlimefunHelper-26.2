@@ -1,8 +1,8 @@
 package me.matl114.events.impl;
 
-import net.minecraft.client.gui.screen.recipebook.RecipeBookProvider;
-import net.minecraft.client.gui.screen.recipebook.RecipeBookWidget;
-import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
+import net.minecraft.client.gui.screens.recipebook.RecipeUpdateListener;
 
 public record RecipeBookToggle(
-        RecipeBookProvider provider, RecipeBookWidget recipeBookWidget, ButtonWidget toggleWidget) {}
+        RecipeUpdateListener provider, RecipeBookComponent recipeBookWidget, Button toggleWidget) {}

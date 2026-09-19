@@ -25,13 +25,13 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.config.PropertyTracker;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 public class ChatTools extends BaseModule {
@@ -101,18 +101,18 @@ public class ChatTools extends BaseModule {
     }
 
     public void onRemoveCommandPrefix() {
-        if (mc.currentScreen instanceof ChatScreen chatScreen) {
-            if (chatScreen.getFocused() instanceof TextFieldWidget widget
-                    && widget.getText().startsWith("/")) {
-                widget.setText(widget.getText().substring(1));
+        if (mc.gui.screen() instanceof ChatScreen chatScreen) {
+            if (chatScreen.getFocused() instanceof EditBox widget
+                    && widget.getValue().startsWith("/")) {
+                widget.setValue(widget.getValue().substring(1));
             }
         }
     }
 
     public int counter = 0;
 
-    public void onTick(Event<ClientPlayerEntity> gt) {
-        if (mc.getNetworkHandler() != null && autoSend.get()) {
+    public void onTick(Event<LocalPlayer> gt) {
+        if (mc.getConnection() != null && autoSend.get()) {
             counter += 1;
             if (counter >= period.getValue()) {
                 counter = 0;
@@ -125,20 +125,20 @@ public class ChatTools extends BaseModule {
 
     private static final Identifier LOCK_ENABLE_SPRITE = Identifier.tryParse("slimefunhelper:gui/lock_enable");
     private static final Identifier LOCK_DISABLE_SPRITE = Identifier.tryParse("slimefunhelper:gui/lock_disable");
-    private static final List<Text> TOOLTIPS_CHAT_TOOLS = List.of(Text.literal("点击展开/关闭聊天框小工具栏"));
-    private static final List<Text> TOOLTIPS_SEND_CACHE = List.of(Text.literal("发送缓存聊天框中的东西"));
-    private static final List<Text> TOOLTIPS_AUTO_SEND =
-            List.of(Text.literal("自动发送缓存聊天框中的东西"), Text.literal("查看配置界面以调整参数"));
-    private static final List<Text> TOOLTIPS_KEEP_INV =
-            List.of(Text.literal("切换是否keepChatInv"), Text.literal("若启用,回车发送文字后将仍保持在聊天界面"));
-    private static final List<Text> TOOLTIPS_SEL_TO_UNICODE =
-            List.of(Text.literal("点击将当前正在输入的输入框中"), Text.literal("输入的字符转为unicode字符"));
-    private static final List<Text> TOOLTIPS_INT_TO_CHAR = List.of(Text.literal("可以将旁边的小输入框中的数字和字符进行ascii转换"));
-    private static final List<Text> TOOLTIPS_ENCRYPT =
-            List.of(Text.literal("左击切换是否进行消息加密"), Text.literal("右击以打开配置文件"), Text.literal("按住ctrl发送可以禁用加密"));
-    private static final List<Text> TOOLTIPS_FORMAT = List.of(Text.literal("左击切换是否进行聊天格式化"), Text.literal("右击以打开配置文件"));
-    private static final List<Text> TOOLTIPS_SPECIAL_CHARS =
-            List.of(Text.literal("点击展开/关闭特殊字符快捷键"), Text.literal("可以在配置界面中配置特殊字符列表"));
+    private static final List<Component> TOOLTIPS_CHAT_TOOLS = List.of(Component.literal("点击展开/关闭聊天框小工具栏"));
+    private static final List<Component> TOOLTIPS_SEND_CACHE = List.of(Component.literal("发送缓存聊天框中的东西"));
+    private static final List<Component> TOOLTIPS_AUTO_SEND =
+            List.of(Component.literal("自动发送缓存聊天框中的东西"), Component.literal("查看配置界面以调整参数"));
+    private static final List<Component> TOOLTIPS_KEEP_INV =
+            List.of(Component.literal("切换是否keepChatInv"), Component.literal("若启用,回车发送文字后将仍保持在聊天界面"));
+    private static final List<Component> TOOLTIPS_SEL_TO_UNICODE =
+            List.of(Component.literal("点击将当前正在输入的输入框中"), Component.literal("输入的字符转为unicode字符"));
+    private static final List<Component> TOOLTIPS_INT_TO_CHAR = List.of(Component.literal("可以将旁边的小输入框中的数字和字符进行ascii转换"));
+    private static final List<Component> TOOLTIPS_ENCRYPT =
+            List.of(Component.literal("左击切换是否进行消息加密"), Component.literal("右击以打开配置文件"), Component.literal("按住ctrl发送可以禁用加密"));
+    private static final List<Component> TOOLTIPS_FORMAT = List.of(Component.literal("左击切换是否进行聊天格式化"), Component.literal("右击以打开配置文件"));
+    private static final List<Component> TOOLTIPS_SPECIAL_CHARS =
+            List.of(Component.literal("点击展开/关闭特殊字符快捷键"), Component.literal("可以在配置界面中配置特殊字符列表"));
 
     public void sendCachedMessage() {
         String val = chatCache.get();
@@ -149,57 +149,57 @@ public class ChatTools extends BaseModule {
 
     private String int2CharFieldContent = "";
 
-    private void tranlateInt2char(TextFieldWidget int2CharInputField) {
-        String value = int2CharInputField.getText();
+    private void tranlateInt2char(EditBox int2CharInputField) {
+        String value = int2CharInputField.getValue();
         if (value.isEmpty()) return;
         try {
             int val = Integer.parseInt(value);
             try {
                 char ch = (char) val;
-                int2CharInputField.setText(String.valueOf(ch));
+                int2CharInputField.setValue(String.valueOf(ch));
             } catch (Throwable e) {
-                int2CharInputField.setText("Error");
+                int2CharInputField.setValue("Error");
             }
         } catch (Throwable e) {
             char ch = value.charAt(0);
-            int2CharInputField.setText(String.valueOf(((int) ch)));
+            int2CharInputField.setValue(String.valueOf(((int) ch)));
         }
     }
 
     SubScreenWidget basicSubScreenWidget;
     ContentDelegateWidget<SubScreenWidget> delegateToolScreen;
     ContentDelegateWidget<SubScreenWidget> delegateSpecialCharWidget;
-    TextFieldWidget cacheWidget;
-    TextFieldWidget int2CharInputField;
+    EditBox cacheWidget;
+    EditBox int2CharInputField;
 
     @Nullable
-    private TextFieldWidget findCurrentFocusing() {
-        if (mc.currentScreen instanceof ChatScreen chat && chat.getFocused() instanceof TextFieldWidget textField) {
+    private EditBox findCurrentFocusing() {
+        if (mc.gui.screen() instanceof ChatScreen chat && chat.getFocused() instanceof EditBox textField) {
             return textField;
         } else if (basicSubScreenWidget != null
                 && basicSubScreenWidget.isFocused()
                 && basicSubScreenWidget.getSelected() instanceof ContentDelegateWidget<?> contentDelegateWidget
-                && contentDelegateWidget.getDelegate() instanceof TextFieldWidget text) {
+                && contentDelegateWidget.getDelegate() instanceof EditBox text) {
             return text;
         } else return null;
     }
 
-    private static final Text ENABLE_STATE = Text.literal("-").setStyle(Style.EMPTY.withBold(true));
-    private static final Text DISABLE_STATE = Text.literal("+").setStyle(Style.EMPTY.withBold(true));
+    private static final Component ENABLE_STATE = Component.literal("-").setStyle(Style.EMPTY.withBold(true));
+    private static final Component DISABLE_STATE = Component.literal("+").setStyle(Style.EMPTY.withBold(true));
 
     private void initToolWidget() {
         int totalWith = 250; // -250 ~ 0
         int totalHeight = 68; //  -104 ~ -36
         SubScreenWidget basicSubScreenWidget = new SubScreenWidget(0, 0, 250, 68);
         // -56 -> -56 - (-104)
-        ContentDelegateWidget<TextFieldWidget> helperWidgetWrapper = McWidgetHelpers.createTextFieldEditBox(
+        ContentDelegateWidget<EditBox> helperWidgetWrapper = McWidgetHelpers.createTextFieldEditBox(
                 0, 48, 120, 20, PropertyTracker.event(chatCache::set), chatCache.get());
         cacheWidget = helperWidgetWrapper.getDelegate();
 
         // todo： add translatable to buttons and everything
         ExecutableWidget.instance(120, 48, 60, 20)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.literal("send cache")),
+                                TextProvider.of(Component.literal("send cache")),
                                 ButtonAction.run(() -> ChatTasks.sayMessage(chatCache.get(), true)))
                         .withTooltips(TooltipHandler.of(TOOLTIPS_SEND_CACHE)))
                 .addToSub(basicSubScreenWidget);
@@ -208,7 +208,7 @@ public class ChatTools extends BaseModule {
                 Configs.CHAT_CONFIG, chatTools.add("auto-chat").toPath());
         ExecutableWidget.instance(180, 48, 50, 20)
                 .setElementHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("auto-send")), ButtonAction.run(toggle))
+                        new ButtonElement(TextProvider.of(Component.literal("auto-send")), ButtonAction.run(toggle))
                                 .setActivePredicate(el -> autoSend.get())
                                 .withTooltips(TooltipHandler.of(TOOLTIPS_AUTO_SEND)))
                 .addToSub(basicSubScreenWidget);
@@ -217,17 +217,17 @@ public class ChatTools extends BaseModule {
                 Configs.CHAT_CONFIG, chatTools.add("keep-chat-inv").toPath());
         ExecutableWidget.instance(180, 24, 70, 20)
                 .setElementHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("keep-chat-inv")), ButtonAction.run(toggle2))
+                        new ButtonElement(TextProvider.of(Component.literal("keep-chat-inv")), ButtonAction.run(toggle2))
                                 .setActivePredicate((el) -> keepChatInv.get())
                                 .withTooltips(TooltipHandler.of(TOOLTIPS_KEEP_INV)))
                 .addToSub(basicSubScreenWidget);
 
         ExecutableWidget.instance(120, 24, 60, 20)
                 .setElementHandler(
-                        new ButtonElement(TextProvider.of(Text.literal("to-unicode")), ButtonAction.run(() -> {
-                                    TextFieldWidget widget = findCurrentFocusing();
+                        new ButtonElement(TextProvider.of(Component.literal("to-unicode")), ButtonAction.run(() -> {
+                                    EditBox widget = findCurrentFocusing();
                                     if (widget != null) {
-                                        widget.setText(ChatUtils.toUnicodedString(widget.getText()));
+                                        widget.setValue(ChatUtils.toUnicodedString(widget.getValue()));
                                     }
                                 }))
                                 .withTooltips(TooltipHandler.of(TOOLTIPS_SEL_TO_UNICODE)))
@@ -248,7 +248,7 @@ public class ChatTools extends BaseModule {
                 .addToSub(basicSubScreenWidget);
         ExecutableWidget.instance(20, 24, 20, 20)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.literal("F").formatted(Formatting.BOLD)),
+                                TextProvider.of(Component.literal("F").withStyle(ChatFormatting.BOLD)),
                                 ButtonAction.isLeft((i) -> {
                                     if (i) {
                                         ChatTasks.getChatExtra().enableFormat.toggle();
@@ -261,13 +261,13 @@ public class ChatTools extends BaseModule {
                         .withTooltips(TooltipHandler.of(TOOLTIPS_FORMAT)))
                 .addToSub(basicSubScreenWidget);
 
-        ContentDelegateWidget<TextFieldWidget> helperWidget = McWidgetHelpers.createTextFieldEditBox(
+        ContentDelegateWidget<EditBox> helperWidget = McWidgetHelpers.createTextFieldEditBox(
                 40, 24, 40, 20, PropertyTracker.event(s -> int2CharFieldContent = s), int2CharFieldContent);
         int2CharInputField = helperWidget.getDelegate();
 
         ExecutableWidget.instance(80, 24, 40, 20)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.literal("int<->char")),
+                                TextProvider.of(Component.literal("int<->char")),
                                 ButtonAction.run(() -> tranlateInt2char(int2CharInputField)))
                         .withTooltips(TooltipHandler.of(TOOLTIPS_INT_TO_CHAR)))
                 .addToSub(basicSubScreenWidget);
@@ -311,10 +311,10 @@ public class ChatTools extends BaseModule {
                     final String valueOfChar = value;
                     ExecutableWidget.instance(100 - 25 * x, (totalY - y) * 24, 22, 20)
                             .setElementHandler(new ButtonElement(
-                                    TextProvider.of(Text.literal(valueOfChar)), ButtonAction.run(() -> {
-                                        TextFieldWidget focused = findCurrentFocusing();
+                                    TextProvider.of(Component.literal(valueOfChar)), ButtonAction.run(() -> {
+                                        EditBox focused = findCurrentFocusing();
                                         if (focused != null) {
-                                            focused.write(valueOfChar);
+                                            focused.insertText(valueOfChar);
                                         }
                                     })))
                             .addToSub(specialCharWidgets);
@@ -344,7 +344,7 @@ public class ChatTools extends BaseModule {
             } else {
                 delegateToolScreen.setContentDelegate(null);
             }
-            if (mc.currentScreen instanceof ChatScreen chat) {
+            if (mc.gui.screen() instanceof ChatScreen chat) {
                 ScreenAccess access = ScreenAccess.of(chat);
                 // do not make concurrent modification
                 Tasks.scheduleDelayed(
@@ -391,11 +391,11 @@ public class ChatTools extends BaseModule {
         // do not consider subClasses
         if (keepChatInv.get()
                 && mc.player != null
-                && mc.world != null
-                && mc.currentScreen != null
-                && mc.currentScreen.getClass() == ChatScreen.class
+                && mc.level != null
+                && mc.gui.screen() != null
+                && mc.gui.screen().getClass() == ChatScreen.class
                 && ScreenUtils.hasEnterDown()) {
-            ChatScreenAccess access = ChatScreenAccess.of((ChatScreen) mc.currentScreen);
+            ChatScreenAccess access = ChatScreenAccess.of((ChatScreen) mc.gui.screen());
             access.resetMessageHistoryIndex();
             event.cancel();
         }

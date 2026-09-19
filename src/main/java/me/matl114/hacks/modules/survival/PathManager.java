@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.survival;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -38,17 +39,16 @@ import me.matl114.utils.commands.params.SimpleCommandArgs;
 import me.matl114.utils.commands.params.api.CommandExecution;
 import me.matl114.utils.commands.params.api.TabResult;
 import me.matl114.versioned.api.VRender;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.decoration.DisplayEntity;
-import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class PathManager extends BaseModule {
     public static PathManager INSTANCE;
@@ -57,8 +57,8 @@ public class PathManager extends BaseModule {
     private static final double SNAPSHOT_ROLLBACK_DISTANCE = 3.0D;
     private static final double SNAPSHOT_ROLLBACK_DISTANCE_SQUARED =
             SNAPSHOT_ROLLBACK_DISTANCE * SNAPSHOT_ROLLBACK_DISTANCE;
-    private static final Vec3d SNAPSHOT_RENDER_FROM = new Vec3d(-0.25D, -0.25D, -0.25D);
-    private static final Vec3d SNAPSHOT_RENDER_TO = new Vec3d(0.25D, 0.25D, 0.25D);
+    private static final Vec3 SNAPSHOT_RENDER_FROM = new Vec3(-0.25D, -0.25D, -0.25D);
+    private static final Vec3 SNAPSHOT_RENDER_TO = new Vec3(0.25D, 0.25D, 0.25D);
     private static final String PATH_PATH = "path_storage";
     private static final int TRIM_LOOKAHEAD = 10;
     private static final double TRIM_MAX_DISTANCE_SQUARED = 25.0D;
@@ -110,7 +110,7 @@ public class PathManager extends BaseModule {
         registerListener(Listener.getPreGameTick(), this::onTickRunningBaritone);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(Listener.getServerLeavePoint(), this::onDisconnect);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerRespawnS2CPacket.class), this::onRespawn);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundRespawnPacket.class), this::onRespawn);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(Listener.getPreGameTick(), this::onTickRunningBaritoneGoal);
     }
@@ -299,7 +299,7 @@ public class PathManager extends BaseModule {
             context.sendMessage("&c当前没有正在录制的路径");
             return;
         }
-        startSnapshot(mc.player.getBlockPos());
+        startSnapshot(mc.player.blockPosition());
         context.sendMessage("&a当前位置以添加");
         return;
     }
@@ -326,8 +326,8 @@ public class PathManager extends BaseModule {
             return;
         }
         pauseRecord = true;
-        context.sendMessage(Text.literal("&a当前记录已暂停, 输入!!pathm modify continue (点击该文本以补全)继续录制")
-                .styled(s -> s.withClickEvent(
+        context.sendMessage(Component.literal("&a当前记录已暂停, 输入!!pathm modify continue (点击该文本以补全)继续录制")
+                .withStyle(s -> s.withClickEvent(
                         ChatUtils.getSuggestCommand(MainCommand.getMainCommandPrefix() + "pathm modify continue"))));
     }
 
@@ -510,7 +510,7 @@ public class PathManager extends BaseModule {
         int current = 0;
         while (current < path.size()) {
             BlockPos currentPos = path.get(current);
-            trimmed.add(currentPos.toImmutable());
+            trimmed.add(currentPos.immutable());
             int next = current + 1;
             int maxNext = Math.min(path.size() - 1, current + TRIM_LOOKAHEAD);
             for (int target = maxNext; target >= current + 2; --target) {
@@ -525,42 +525,42 @@ public class PathManager extends BaseModule {
     }
 
     private boolean isDetour(BlockPos point, BlockPos lineStart, BlockPos lineEnd) {
-        Vec3d pointVec = Vec3d.ofCenter(point);
-        Vec3d startVec = Vec3d.ofCenter(lineStart);
-        Vec3d endVec = Vec3d.ofCenter(lineEnd);
-        Vec3d line = endVec.subtract(startVec);
-        double lineLengthSquared = line.lengthSquared();
+        Vec3 pointVec = Vec3.atCenterOf(point);
+        Vec3 startVec = Vec3.atCenterOf(lineStart);
+        Vec3 endVec = Vec3.atCenterOf(lineEnd);
+        Vec3 line = endVec.subtract(startVec);
+        double lineLengthSquared = line.lengthSqr();
         if (lineLengthSquared <= 0.0D) {
             return false;
         }
-        double projection = pointVec.subtract(startVec).dotProduct(line) / lineLengthSquared;
+        double projection = pointVec.subtract(startVec).dot(line) / lineLengthSquared;
         if (projection < 0.0D || projection > 1.0D) {
             return false;
         }
-        Vec3d foot = startVec.add(line.multiply(projection));
-        return pointVec.squaredDistanceTo(foot) < TRIM_MAX_DISTANCE_SQUARED;
+        Vec3 foot = startVec.add(line.scale(projection));
+        return pointVec.distanceToSqr(foot) < TRIM_MAX_DISTANCE_SQUARED;
     }
 
-    private void onPreTick(Event<ClientPlayerEntity> event) {
+    private void onPreTick(Event<LocalPlayer> event) {
         if (recordingStorage != null) {
             if (checkNull()) {
                 finishPath("录制任务意外退出", null);
             } else {
-                ClientPlayerEntity player = mc.player;
+                LocalPlayer player = mc.player;
                 if (!recordingFlightStarted) {
                     if (!player.isFallFlying()) {
                         return;
                     }
-                    startSnapshot(player.getBlockPos());
+                    startSnapshot(player.blockPosition());
                     recordingFlightStarted = true;
                     return;
                 }
-                recordCurrentPosition(player.getBlockPos());
+                recordCurrentPosition(player.blockPosition());
             }
         }
     }
 
-    private void onWorldSwitch(Event<World> event) {
+    private void onWorldSwitch(Event<Level> event) {
         finishPath("切换世界", null);
         currentPath = null;
         stopCurrentRunningBaritone();
@@ -572,7 +572,7 @@ public class PathManager extends BaseModule {
         stopCurrentRunningBaritone();
     }
 
-    private void onRespawn(Event<PlayerRespawnS2CPacket> event) {
+    private void onRespawn(Event<ClientboundRespawnPacket> event) {
         finishPath("玩家重生", null);
         currentPath = null;
         stopCurrentRunningBaritone();
@@ -580,7 +580,7 @@ public class PathManager extends BaseModule {
 
     private static final int POSITION_FLAG = VRender.createTextPositionFlag(0, 1);
 
-    private void onRender(Event<MatrixStack> event) {
+    private void onRender(Event<PoseStack> event) {
         if (!render.get() || checkNull()) {
             return;
         }
@@ -589,45 +589,45 @@ public class PathManager extends BaseModule {
         if (recordingSnapshot == null && currentSegSubPath.isEmpty()) {
             return;
         }
-        Vec3d feetPos = RenderUtils.getCameraPos();
+        Vec3 feetPos = RenderUtils.getCameraPos();
         RenderUtils.startDrawVirtual(event.context());
         try {
             if (recordingSnapshot != null) {
-                Vec3d snapshotPos = recordingSnapshot.snapshotPos().toCenterPos();
+                Vec3 snapshotPos = Vec3.atCenterOf(recordingSnapshot.snapshotPos());
                 RenderUtils.drawOutlinedBox(
                         event.context(),
                         snapshotPos.add(SNAPSHOT_RENDER_FROM),
                         snapshotPos.add(SNAPSHOT_RENDER_TO),
                         Color.CYAN);
-                Vec3d delta = snapshotPos.subtract(feetPos);
+                Vec3 delta = snapshotPos.subtract(feetPos);
                 RenderUtils.drawLineVirtualCameraCoord(
                         event.context(), delta, RenderUtils.getTracerOrigin(0.0F), Color.CYAN);
                 var stack = event.context;
-                stack.push();
+                stack.pushPose();
                 stack.translate(delta.x, delta.y + 0.25, delta.z);
                 // title的高度是9 我们希望这个9在 0.75 ~ 1.0之间
                 // 我希望他看向我
                 float scaling = (float) delta.length();
-                stack.multiply(RenderUtils.getBillboardRotation(DisplayEntity.BillboardMode.CENTER, 0, 0));
+                stack.mulPose(RenderUtils.getBillboardRotation(Display.BillboardConstraints.CENTER, 0, 0));
                 stack.scale(0.002F * scaling, 0.002F * scaling, 1);
                 VRender.getInstance()
                         .drawTextCameraCoord(
-                                Text.literal("距离: %.1f".formatted(scaling)).asOrderedText(),
+                                Component.literal("距离: %.1f".formatted(scaling)).getVisualOrderText(),
                                 stack,
-                                Vec3d.ZERO,
+                                Vec3.ZERO,
                                 VRender.createTextPositionFlag(0, 1),
                                 Color.WHITE,
                                 VRender.DEFAULT_TEXT);
 
-                stack.pop();
-                Vec3d lastPos = snapshotPos;
+                stack.popPose();
+                Vec3 lastPos = snapshotPos;
                 if (recordingPath != null) {
                     var lst = recordingPath.bp();
                     var size = lst.size();
                     for (var i = size - 1; i >= 0; --i) {
                         var bbb = lst.get(i);
 
-                        Vec3d ppp = bbb.toCenterPos();
+                        Vec3 ppp = Vec3.atCenterOf(bbb);
                         RenderUtils.drawOutlinedBox(
                                 event.context(),
                                 ppp.add(SNAPSHOT_RENDER_FROM),
@@ -635,7 +635,7 @@ public class PathManager extends BaseModule {
                                 Color.CYAN);
                         RenderUtils.drawLineVirtual(event.context(), ppp, lastPos, Color.CYAN);
                         lastPos = ppp;
-                        if (bbb.getSquaredDistance(feetPos) > MathUtils.s2(autoWriteDistance.get() * 2)) {
+                        if (bbb.distToCenterSqr(feetPos) > MathUtils.s2(autoWriteDistance.get() * 2)) {
                             break;
                         }
                     }
@@ -649,17 +649,17 @@ public class PathManager extends BaseModule {
         }
     }
 
-    private void renderPathSegment(MatrixStack matrices, List<BlockPos> path, Color color) {
-        Vec3d lastPos = null;
+    private void renderPathSegment(PoseStack matrices, List<BlockPos> path, Color color) {
+        Vec3 lastPos = null;
         for (BlockPos pos : path) {
-            Vec3d pointPos = pos.toCenterPos();
+            Vec3 pointPos = Vec3.atCenterOf(pos);
             RenderUtils.drawOutlinedBox(
                     matrices, pointPos.add(SNAPSHOT_RENDER_FROM), pointPos.add(SNAPSHOT_RENDER_TO), color);
             if (lastPos != null) {
                 RenderUtils.drawLineVirtual(matrices, lastPos, pointPos, color);
             }
             lastPos = pointPos;
-            if (lastPos.squaredDistanceTo(mc.player.getPos()) > MathUtils.s2(autoWriteDistance.get() * 8)) {
+            if (lastPos.distanceToSqr(mc.player.position()) > MathUtils.s2(autoWriteDistance.get() * 8)) {
                 break;
             }
         }
@@ -727,7 +727,7 @@ public class PathManager extends BaseModule {
         }
         List<BlockPos> path = recordingPath.bp();
         if (path.isEmpty() || !path.getLast().equals(pos)) {
-            path.add(pos.toImmutable());
+            path.add(pos.immutable());
         }
         //
         if (recordingStorage != null) {
@@ -740,9 +740,9 @@ public class PathManager extends BaseModule {
         if (recordingPath != null && !recordingPath.bp.isEmpty()) {
             BlockPos pos = recordingPath.bp().get(recordingPath.bp.size() - 1);
             recordingSnapshot = new RecordSnapshot(pos);
-            recordingSnapshot.lastPosition = mc.player.getBlockPos();
+            recordingSnapshot.lastPosition = mc.player.blockPosition();
         } else {
-            startSnapshot(mc.player.getBlockPos());
+            startSnapshot(mc.player.blockPosition());
         }
     }
 
@@ -792,7 +792,7 @@ public class PathManager extends BaseModule {
             return false;
         }
         double writeDistance = autoWriteDistance.get();
-        double disSqr = snapshot.snapshotPos().getSquaredDistance(current);
+        double disSqr = snapshot.snapshotPos().distSqr(current);
         if (disSqr < MathUtils.s2(writeDistance)) {
             return !canSee(snapshot.snapshotPos(), current);
         }
@@ -800,14 +800,14 @@ public class PathManager extends BaseModule {
     }
 
     private boolean canSee(BlockPos from, BlockPos to) {
-        if (mc.world == null || mc.player == null) {
+        if (mc.level == null || mc.player == null) {
             return false;
         }
-        if (from.getSquaredDistance(to) > MathUtils.s2(autoWriteDistance.get() + 10)) {
+        if (from.distSqr(to) > MathUtils.s2(autoWriteDistance.get() + 10)) {
             return false;
         }
-        Vec3d[] fromCorners = makeBodyCorners(makeBodyBox(Vec3d.ofBottomCenter(from)));
-        Vec3d[] toCorners = makeBodyCorners(makeBodyBox(Vec3d.ofBottomCenter(to)));
+        Vec3[] fromCorners = makeBodyCorners(makeBodyBox(Vec3.atBottomCenterOf(from)));
+        Vec3[] toCorners = makeBodyCorners(makeBodyBox(Vec3.atBottomCenterOf(to)));
         for (int i = 0; i < fromCorners.length; ++i) {
             if (!hasClearLine(fromCorners[i], toCorners[i])) {
                 return false;
@@ -816,14 +816,14 @@ public class PathManager extends BaseModule {
         return true;
     }
 
-    private boolean hasClearLine(Vec3d from, Vec3d to) {
-        HitResult result = mc.world.raycast(new RaycastContext(
-                from, to, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, mc.player));
+    private boolean hasClearLine(Vec3 from, Vec3 to) {
+        HitResult result = mc.level.clip(new ClipContext(
+                from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
         return result.getType() != HitResult.Type.BLOCK;
     }
 
-    private Box makeBodyBox(Vec3d bottomCenter) {
-        return new Box(
+    private AABB makeBodyBox(Vec3 bottomCenter) {
+        return new AABB(
                 bottomCenter.x - 0.4D,
                 bottomCenter.y,
                 bottomCenter.z - 0.4D,
@@ -832,16 +832,16 @@ public class PathManager extends BaseModule {
                 bottomCenter.z + 0.4D);
     }
 
-    private Vec3d[] makeBodyCorners(Box box) {
-        return new Vec3d[] {
-            new Vec3d(box.minX, box.minY, box.minZ),
-            new Vec3d(box.maxX, box.minY, box.minZ),
-            new Vec3d(box.minX, box.maxY, box.minZ),
-            new Vec3d(box.maxX, box.maxY, box.minZ),
-            new Vec3d(box.minX, box.minY, box.maxZ),
-            new Vec3d(box.maxX, box.minY, box.maxZ),
-            new Vec3d(box.minX, box.maxY, box.maxZ),
-            new Vec3d(box.maxX, box.maxY, box.maxZ)
+    private Vec3[] makeBodyCorners(AABB box) {
+        return new Vec3[] {
+            new Vec3(box.minX, box.minY, box.minZ),
+            new Vec3(box.maxX, box.minY, box.minZ),
+            new Vec3(box.minX, box.maxY, box.minZ),
+            new Vec3(box.maxX, box.maxY, box.minZ),
+            new Vec3(box.minX, box.minY, box.maxZ),
+            new Vec3(box.maxX, box.minY, box.maxZ),
+            new Vec3(box.minX, box.maxY, box.maxZ),
+            new Vec3(box.maxX, box.maxY, box.maxZ)
         };
     }
 
@@ -871,11 +871,11 @@ public class PathManager extends BaseModule {
         if (checkNull()) {
             return List.copyOf(path);
         }
-        BlockPos current = mc.player.getBlockPos();
+        BlockPos current = mc.player.blockPosition();
         int nearest = 0;
         double minDistance = Double.MAX_VALUE;
         for (int i = 0; i < path.size(); ++i) {
-            double distance = path.get(i).getSquaredDistance(current);
+            double distance = path.get(i).distSqr(current);
             if (distance < minDistance) {
                 minDistance = distance;
                 nearest = i;
@@ -900,13 +900,13 @@ public class PathManager extends BaseModule {
             if (pos == null) {
                 continue;
             }
-            BlockPos immutable = pos.toImmutable();
+            BlockPos immutable = pos.immutable();
             if (current.isEmpty()) {
                 current.add(immutable);
                 previous = immutable;
                 continue;
             }
-            if (previous.getSquaredDistance(immutable) > maxDistanceSquared) {
+            if (previous.distSqr(immutable) > maxDistanceSquared) {
                 segments.add(new PathSeg(current, cut));
                 current = new ArrayList<>();
             }
@@ -920,12 +920,12 @@ public class PathManager extends BaseModule {
     }
 
     private static String currentWorldKey() {
-        return mc.world == null ? "" : mc.world.getRegistryKey().getValue().toString();
+        return mc.level == null ? "" : mc.level.dimension().identifier().toString();
     }
 
     int lastUpdatedIndex = 0;
 
-    public void onTickRunningBaritone(Event<ClientPlayerEntity> event) {
+    public void onTickRunningBaritone(Event<LocalPlayer> event) {
         if (!rerunningBaritone || currentPath == null || checkNull()) {
             return;
         }
@@ -946,12 +946,12 @@ public class PathManager extends BaseModule {
 
             return;
         }
-        BlockPos playerPos = event.context().getBlockPos();
+        BlockPos playerPos = event.context().blockPosition();
         if (!currentSeg.started()) {
             lastUpdatedIndex = 0;
             setBaritoneGoal(currentSeg.start());
             currentSeg.markAutoGoalIssued();
-            if (currentSeg.start().getSquaredDistance(playerPos) < 10000) {
+            if (currentSeg.start().distSqr(playerPos) < 10000) {
                 currentSeg.updateIndex(playerPos);
                 setBaritoneNetherPath(currentSeg.currentSubPath());
                 setBaritoneGoal(currentSeg.end());
@@ -970,7 +970,7 @@ public class PathManager extends BaseModule {
                 return;
             }
         }
-        if (playerPos.getSquaredDistance(currentSeg.end()) <= 10000) {
+        if (playerPos.distSqr(currentSeg.end()) <= 10000) {
             endBaritonePathOverride();
             currentPath.advanceSegment();
             var seg = currentPath.currentSegment();
@@ -985,7 +985,7 @@ public class PathManager extends BaseModule {
         }
     }
 
-    public void onTickRunningBaritoneGoal(Event<ClientPlayerEntity> event) {
+    public void onTickRunningBaritoneGoal(Event<LocalPlayer> event) {
         if (!rerunningBaritone || currentPath == null || checkNull()) {
             return;
         }
@@ -1005,23 +1005,23 @@ public class PathManager extends BaseModule {
             stopCurrentRunningBaritone();
             return;
         }
-        BlockPos playerPos = event.context().getBlockPos();
+        BlockPos playerPos = event.context().blockPosition();
         if (!currentSeg.started()) {
             setBaritoneGoal(currentSeg.start());
             currentSeg.markAutoGoalIssued();
-            if (currentSeg.start().getSquaredDistance(playerPos) < 10000) {
+            if (currentSeg.start().distSqr(playerPos) < 10000) {
                 currentSeg.updateGoalIndex(playerPos, goalDistance.get());
                 setBaritoneGoal(currentSeg.currentBlockPos());
                 currentSeg.markStarted();
             }
             return;
         } else {
-            if (playerPos.getSquaredDistance(currentSeg.currentBlockPos()) < 10000) {
+            if (playerPos.distSqr(currentSeg.currentBlockPos()) < 10000) {
                 currentSeg.updateGoalIndex(playerPos, goalDistance.get());
                 setBaritoneGoal(currentSeg.currentBlockPos());
             }
         }
-        if (playerPos.getSquaredDistance(currentSeg.end()) <= 10000) {
+        if (playerPos.distSqr(currentSeg.end()) <= 10000) {
             endBaritonePathOverride();
             currentPath.advanceSegment();
             var seg = currentPath.currentSegment();
@@ -1062,7 +1062,7 @@ public class PathManager extends BaseModule {
     }
 
     private boolean isChunkLoaded(BlockPos pos) {
-        return mc.world != null && WorldUtils.isChunkLoaded(pos.getX() >> 4, pos.getZ() >> 4);
+        return mc.level != null && WorldUtils.isChunkLoaded(pos.getX() >> 4, pos.getZ() >> 4);
     }
 
     private void stopCurrentRunningBaritone() {
@@ -1103,23 +1103,23 @@ public class PathManager extends BaseModule {
     }
 
     private BlockPos adjustPathPointByEnvironment(BlockPos pos) {
-        if (pos == null || mc.world == null) {
+        if (pos == null || mc.level == null) {
             return pos;
         }
         int above = firstNonAirDistance(pos, 1);
         int below = firstNonAirDistance(pos, -1);
         if (above > below && below < 3) {
-            return pos.add(0, above, 0).toImmutable();
+            return pos.offset(0, above, 0).immutable();
         }
         if (below > above && above < 3) {
-            return pos.add(0, -below, 0).toImmutable();
+            return pos.offset(0, -below, 0).immutable();
         }
-        return pos.toImmutable();
+        return pos.immutable();
     }
 
     private int firstNonAirDistance(BlockPos pos, int direction) {
         for (int distance = 1; distance <= 3; ++distance) {
-            BlockPos checkPos = pos.add(0, direction * distance, 0);
+            BlockPos checkPos = pos.offset(0, direction * distance, 0);
             if (isLoadedNonAir(checkPos)) {
                 return distance;
             }
@@ -1131,8 +1131,8 @@ public class PathManager extends BaseModule {
         if (!isChunkLoaded(pos)) {
             return false;
         }
-        var state = mc.world.getBlockState(pos);
-        return !state.isAir() && !state.isLiquid();
+        var state = mc.level.getBlockState(pos);
+        return !state.isAir() && !state.liquid();
     }
 
     private void setBaritoneAutoGoal(BlockPos pos) {}
@@ -1159,7 +1159,7 @@ public class PathManager extends BaseModule {
 
     public static class RecordPath {
         private static final Codec<List<BlockPos>> POS_CODEC =
-                Codec.LONG.xmap(BlockPos::fromLong, BlockPos::asLong).listOf();
+                Codec.LONG.xmap(BlockPos::of, BlockPos::asLong).listOf();
 
         public static final Codec<RecordPath> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                         POS_CODEC.fieldOf("pos").forGetter(RecordPath::bp),
@@ -1179,7 +1179,7 @@ public class PathManager extends BaseModule {
             this.bp = new ArrayList<>();
             for (BlockPos pos : bp) {
                 if (pos != null) {
-                    this.bp.add(pos.toImmutable());
+                    this.bp.add(pos.immutable());
                 }
             }
             this.world = world == null ? "" : world;
@@ -1205,7 +1205,7 @@ public class PathManager extends BaseModule {
         private int ticks;
 
         private RecordSnapshot(BlockPos snapshotPos) {
-            this.snapshotPos = snapshotPos.toImmutable();
+            this.snapshotPos = snapshotPos.immutable();
             this.lastPosition = this.snapshotPos;
         }
 
@@ -1215,11 +1215,11 @@ public class PathManager extends BaseModule {
 
         private boolean shouldRollback(BlockPos current) {
             return ticks > SNAPSHOT_ROLLBACK_TICKS
-                    && snapshotPos.getSquaredDistance(current) <= SNAPSHOT_ROLLBACK_DISTANCE_SQUARED;
+                    && snapshotPos.distSqr(current) <= SNAPSHOT_ROLLBACK_DISTANCE_SQUARED;
         }
 
         private void updateLastPosition(BlockPos pos) {
-            lastPosition = pos.toImmutable();
+            lastPosition = pos.immutable();
         }
 
         private BlockPos snapshotPos() {
@@ -1299,21 +1299,21 @@ public class PathManager extends BaseModule {
             BlockPos lastPos = null;
             for (BlockPos pos : points) {
                 if (lastPos != null && cut) {
-                    double distance = lastPos.getSquaredDistance(pos);
+                    double distance = lastPos.distSqr(pos);
                     if (distance > 25) {
-                        Vec3d vec3d1 = lastPos.toCenterPos();
-                        Vec3d vec3d2 = pos.toCenterPos();
-                        Vec3d delta = vec3d2.subtract(vec3d1);
+                        Vec3 vec3d1 = Vec3.atCenterOf(lastPos);
+                        Vec3 vec3d2 = Vec3.atCenterOf(pos);
+                        Vec3 delta = vec3d2.subtract(vec3d1);
                         double len = delta.length();
                         delta = delta.normalize();
                         int seq = (((int) len - 1) / 5) + 1;
                         for (var re = 1; re < seq; ++re) {
                             immutablePoints.add(
-                                    BlockPos.ofFloored(vec3d1.add(delta.multiply(len * re / (double) seq))));
+                                    BlockPos.containing(vec3d1.add(delta.scale(len * re / (double) seq))));
                         }
                     }
                 }
-                immutablePoints.add(pos.toImmutable());
+                immutablePoints.add(pos.immutable());
                 lastPos = pos;
             }
             this.points = List.copyOf(immutablePoints);
@@ -1355,12 +1355,12 @@ public class PathManager extends BaseModule {
                 return false;
             }
             if (stuckReference == null) {
-                stuckReference = playerPos.toImmutable();
+                stuckReference = playerPos.immutable();
                 stuckTicks = 0;
                 return false;
             }
-            if (stuckReference.getSquaredDistance(playerPos) > PATH_SEG_STUCK_DISTANCE_SQUARED) {
-                stuckReference = playerPos.toImmutable();
+            if (stuckReference.distSqr(playerPos) > PATH_SEG_STUCK_DISTANCE_SQUARED) {
+                stuckReference = playerPos.immutable();
                 stuckTicks = 0;
                 return false;
             }
@@ -1386,7 +1386,7 @@ public class PathManager extends BaseModule {
                 //                if(mc.player.getPos().squaredDistanceTo(points.get(i).toCenterPos()) < 16){
                 //                    currentIndex = i + 1;
                 //                }
-                double distance = points.get(i).getSquaredDistance(playerPos);
+                double distance = points.get(i).distSqr(playerPos);
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     bestIndex = i;
@@ -1402,7 +1402,7 @@ public class PathManager extends BaseModule {
                 return false;
             }
             for (; currentIndex < points.size() - 1; ++currentIndex) {
-                double distance = points.get(currentIndex).getSquaredDistance(playerPos);
+                double distance = points.get(currentIndex).distSqr(playerPos);
                 if (distance > MathUtils.s2(goalDistance)) {
                     break;
                 }

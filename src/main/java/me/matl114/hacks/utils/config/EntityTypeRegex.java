@@ -5,15 +5,15 @@ import java.util.function.Predicate;
 import me.matl114.managers.config.*;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.EntityUtils;
-import net.minecraft.entity.EntityType;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.EntityType;
 
 public class EntityTypeRegex extends RegistryRegex<EntityType<?>>
         implements Predicate<EntityType<?>>, NBTParsable<RegistryRegex<EntityType<?>>> {
 
     public EntityTypeRegex(Regex regex) {
-        super(regex, Registries.ENTITY_TYPE);
+        super(regex, BuiltInRegistries.ENTITY_TYPE);
     }
 
     public static final NBTType<EntityTypeRegex> TYPE = new NBTType<>(
@@ -47,7 +47,7 @@ public class EntityTypeRegex extends RegistryRegex<EntityType<?>>
             if (Objects.equals(nbtTypeName, RegistryRegex.TYPE.typeName())) {
                 NBTParsable.registerNBTType(RegistryRegex.TYPE);
                 var regex = nbtType.get();
-                if (regex instanceof RegistryRegex regg && regg.registry == Registries.ENTITY_TYPE) {
+                if (regex instanceof RegistryRegex regg && regg.registry == BuiltInRegistries.ENTITY_TYPE) {
                     return Optional.of(new EntityTypeRegex(regg.parent));
                 }
             } else {
@@ -63,7 +63,7 @@ public class EntityTypeRegex extends RegistryRegex<EntityType<?>>
     }
 
     @Override
-    public List<Text> getRules() {
+    public List<Component> getRules() {
         return ChatUtils.parseTooltipsTranslation("widget.nbt-parsable.entity-type-regex.rules.tooltips", "");
     }
 }

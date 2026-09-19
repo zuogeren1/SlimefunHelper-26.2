@@ -13,21 +13,21 @@ import me.matl114.hacks.InvTasks;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.apache.commons.lang3.function.Consumers;
 
 public class InventoryViewScreen extends GenericBackGroundScreen {
     protected BlockPos blockPos;
-    protected ClientWorld blockWorld;
+    protected ClientLevel blockWorld;
     //    protected HandledScreen<?> handledScreen;
     protected final GridSubScreen<DrawableWidget> grid;
     protected final GridSubScreen<DrawableWidget> modifyPlayerInventoryGrid;
@@ -36,10 +36,10 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
     protected SlotElement iconStack;
     protected boolean modifiable = false;
 
-    public InventoryViewScreen(HandledScreen<?> handledScreen) {
+    public InventoryViewScreen(AbstractContainerScreen<?> handledScreen) {
         this(
-                handledScreen.getScreenHandler().slots.stream()
-                        .filter(i -> !(i.inventory instanceof PlayerInventory))
+                handledScreen.getMenu().slots.stream()
+                        .filter(i -> !(i.container instanceof Inventory))
                         .toList(),
                 handledScreen.getTitle(),
                 InvTasks.generateIconForScreen(handledScreen));
@@ -49,25 +49,25 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
         }
     }
 
-    private static List<Slot> streamInventoryToSlot(Inventory inventory, int size) {
+    private static List<Slot> streamInventoryToSlot(Container inventory, int size) {
         return IntStream.range(0, size)
                 .mapToObj((i) -> new Slot(inventory, i, 0, 0))
                 .toList();
     }
 
-    public InventoryViewScreen(Inventory inventory, Text title, ItemStack icon) {
+    public InventoryViewScreen(Container inventory, Component title, ItemStack icon) {
         this(inventory, title, icon, false);
     }
 
-    public InventoryViewScreen(Inventory inventory, Text title, ItemStack icon, boolean modifiable) {
-        this(streamInventoryToSlot(inventory, inventory.size()), title, icon, modifiable);
+    public InventoryViewScreen(Container inventory, Component title, ItemStack icon, boolean modifiable) {
+        this(streamInventoryToSlot(inventory, inventory.getContainerSize()), title, icon, modifiable);
     }
 
-    public InventoryViewScreen(List<Slot> list, Text title, ItemStack icon) {
+    public InventoryViewScreen(List<Slot> list, Component title, ItemStack icon) {
         this(list, title, icon, false);
     }
 
-    public InventoryViewScreen(List<Slot> list, Text title, ItemStack icon, boolean modifiable) {
+    public InventoryViewScreen(List<Slot> list, Component title, ItemStack icon, boolean modifiable) {
         super(title, 240, 320);
         this.grid = new GridSubScreen<>(40, TITLE_OCCUPIED + DATA_OCCUPIED, 160, 120, 16, 16);
 
@@ -94,19 +94,19 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
                 .addTo(this);
         ElementHandler labelElement;
         if (blockPos != null) {
-            labelElement = LabelElement.instance(Text.literal("%s [%d, %d, %d] "
+            labelElement = LabelElement.instance(Component.literal("%s [%d, %d, %d] "
                                     .formatted(
                                             this.blockWorld
-                                                    .getRegistryKey()
-                                                    .getValue()
+                                                    .dimension()
+                                                    .identifier()
                                                     .toString(),
                                             blockPos.getX(),
                                             blockPos.getY(),
                                             blockPos.getZ()))
-                            .append(Text.translatable("widget.gui.inventory-view-screen.click-slot")))
+                            .append(Component.translatable("widget.gui.inventory-view-screen.click-slot")))
                     .withInputHandler(InputHandler.run(() -> {
-                        MinecraftClient.getInstance()
-                                .keyboard
+                        Minecraft.getInstance()
+                                .keyboardHandler
                                 .setClipboard("%d %d %d".formatted(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                     }))
                     .withTooltips(TooltipHandler.of(Streams.concat(
@@ -118,8 +118,8 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
                                             .stream())
                             .toList()));
         } else {
-            labelElement = LabelElement.instance(Text.translatable("widget.gui.inventory-view-screen.virtual-screen")
-                            .append(Text.translatable("widget.gui.inventory-view-screen.click-slot")))
+            labelElement = LabelElement.instance(Component.translatable("widget.gui.inventory-view-screen.virtual-screen")
+                            .append(Component.translatable("widget.gui.inventory-view-screen.click-slot")))
                     .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                             "widget.gui.inventory-view-screen.click-slot.tooltips", "")));
         }
@@ -132,8 +132,8 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
                 .addTo(this);
         ExecutableWidget.instance(this.x + 40, this.y + TITLE_OCCUPIED + DATA_OCCUPIED + 120, 160, DATA_OCCUPIED)
                 .setElementHandler(LabelElement.instance(
-                                Text.translatable("widget.gui.inventory-view-screen.player-inventory-view")
-                                        .append(Text.translatable("widget.gui.inventory-view-screen.click-slot")))
+                                Component.translatable("widget.gui.inventory-view-screen.player-inventory-view")
+                                        .append(Component.translatable("widget.gui.inventory-view-screen.click-slot")))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.inventory-view-screen.player-inventory-view.tooltips", ""))))
                 .addTo(this);
@@ -146,7 +146,7 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
                 .setRenderHandler(((element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
                     if (cursorStack != null && !cursorStack.isEmpty()) {
                         context.drawItem(cursorStack, mouseX - 8, mouseY - 8, 999, 0);
-                        context.drawItemInSlot(mc.textRenderer, cursorStack, mouseX - 8, mouseY - 8, null);
+                        context.drawItemInSlot(mc.font, cursorStack, mouseX - 8, mouseY - 8, null);
                     }
                 }))
                 .addTo(this);
@@ -167,7 +167,7 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
 
     protected DrawableWidget makeIcon(Slot screen) {
         return ExecutableWidget.instance(0, 0, 16, 16)
-                .setElementHandler(new SlotElement(screen.inventory, screen.getIndex(), (stack, i) -> {
+                .setElementHandler(new SlotElement(screen.container, screen.getContainerSlot(), (stack, i) -> {
                             if (ScreenUtils.hasShiftDown()) {
                                 shiftClickItem(stack, screen);
                                 return true;
@@ -193,7 +193,7 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
 
     protected DrawableWidget makeSelfInventoryView(Slot screen) {
         return ExecutableWidget.instance(0, 0, 16, 16)
-                .setElementHandler(new SlotElement(screen.inventory, screen.getIndex(), (stack, i) -> {
+                .setElementHandler(new SlotElement(screen.container, screen.getContainerSlot(), (stack, i) -> {
                             return pickupItem(screen);
                         })
                         .setShowItemTooltips(() -> cursorStack == null || cursorStack.isEmpty()));
@@ -229,8 +229,8 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
 
     protected boolean pickupItem(Slot slot) {
         if (cursorStack == null || cursorStack.isEmpty()) {
-            if (!slot.getStack().isEmpty()) {
-                cursorStack = slot.getStack().copy();
+            if (!slot.getItem().isEmpty()) {
+                cursorStack = slot.getItem().copy();
                 return true;
             }
         }
@@ -240,7 +240,7 @@ public class InventoryViewScreen extends GenericBackGroundScreen {
     protected void placeItem(Slot slot, ItemStack stack) {
         if (modifiable) {
             try {
-                slot.setStack(stack);
+                slot.setByPlayer(stack);
             } catch (Throwable e) {
             }
         }

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.mine;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.ArrayDeque;
 import java.util.Objects;
@@ -22,12 +23,11 @@ import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 public class QueueMine extends BaseModule {
     public static QueueMine INSTANCE;
@@ -75,7 +75,7 @@ public class QueueMine extends BaseModule {
     }
 
     int lastSumitTick = 0;
-    RenderCollector<Box> outline = RenderCollectors.createBoxCollector(true, false, false);
+    RenderCollector<AABB> outline = RenderCollectors.createBoxCollector(true, false, false);
 
     public void onPostInputEvent(Event<Void> eventVoid) {
         outline.clear();
@@ -85,11 +85,11 @@ public class QueueMine extends BaseModule {
         }
         if (useDoubleBreak.get()
                 && supportDoubleBreakGhostHand.get()
-                && PlayerInteractionAccess.of(mc.interactionManager).getCurrentFailBreakPos() != null) {
+                && PlayerInteractionAccess.of(mc.gameMode).getCurrentFailBreakPos() != null) {
             PacketMine.INSTANCE.tickGhostHandDoubleBreak(null, false);
         }
         for (var re : breakRequest) {
-            outline.submit(new Box(re).expand(-0.2), color.get().withAlpha(255));
+            outline.submit(new AABB(re).inflate(-0.2), color.get().withAlpha(255));
         }
     }
 
@@ -98,19 +98,19 @@ public class QueueMine extends BaseModule {
         if (!ignoreCooldown.get() && MineExtra.INSTANCE.getMiningPacketCooldown(1) > 0) {
             shouldTryStartBreak = false;
         }
-        var access = PlayerInteractionAccess.of(mc.interactionManager);
+        var access = PlayerInteractionAccess.of(mc.gameMode);
         if (access == null) return;
 
         if (shouldTryStartBreak) {
             boolean currentCanDoubleBreak = access.getCurrentFailBreakPos() == null && useDoubleBreak.get();
             while (!breakRequest.isEmpty()) {
                 BlockPos posLatest = breakRequest.peek();
-                if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), posLatest)) {
+                if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), posLatest)) {
                     breakRequest.poll();
                     continue;
                 }
-                BlockState state = mc.world.getBlockState(posLatest);
-                if (state.getBlock().getHardness() < 0.0F || state.isLiquid() || state.isAir()) {
+                BlockState state = mc.level.getBlockState(posLatest);
+                if (state.getBlock().defaultDestroyTime() < 0.0F || state.liquid() || state.isAir()) {
                     breakRequest.poll();
                     continue;
                 }
@@ -146,7 +146,7 @@ public class QueueMine extends BaseModule {
         if (!breakRequest.isEmpty()) {
             BlockPos posLatest = breakRequest.peek();
             if (Objects.equals(posLatest, access.getCurrentMiningPos())
-                    && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), posLatest)) {
+                    && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), posLatest)) {
                 if (access.breakIfComplete()) {
                     breakRequest.poll();
                 }
@@ -160,7 +160,7 @@ public class QueueMine extends BaseModule {
             if (hitResult.getType() == HitResult.Type.BLOCK) {
                 boolean att = event.getArgs(0);
                 BlockHitResult blockHitResult = (BlockHitResult) hitResult;
-                BlockPos pos = blockHitResult.getBlockPos().toImmutable();
+                BlockPos pos = blockHitResult.getBlockPos().immutable();
                 event.cancel();
                 if (sumitMine(pos)) {
                     lastSumitTick = Tasks.getTick();
@@ -177,14 +177,14 @@ public class QueueMine extends BaseModule {
         if (!breakRequest.isEmpty() && breakRequest.stream().anyMatch(pos::equals)) {
             return false;
         }
-        if (Objects.equals(PlayerInteractionAccess.of(mc.interactionManager).getCurrentFailBreakPos(), pos)) {
+        if (Objects.equals(PlayerInteractionAccess.of(mc.gameMode).getCurrentFailBreakPos(), pos)) {
             return false;
         }
         breakRequest.add(pos);
         return true;
     }
 
-    public void onRender(Event<MatrixStack> eventRender) {
+    public void onRender(Event<PoseStack> eventRender) {
         if (render.get()) {
             RenderUtils.startDrawVirtual(eventRender.context);
             try {

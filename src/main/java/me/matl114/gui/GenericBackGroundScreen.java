@@ -4,11 +4,11 @@ import java.util.List;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.elements.LabelElement;
 import me.matl114.gui.elements.PlateElement;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
 
 public class GenericBackGroundScreen extends GenericScreen {
-    public GenericBackGroundScreen(Text title, int backgroundWidth, int backgroundDefaultHeight) {
+    public GenericBackGroundScreen(Component title, int backgroundWidth, int backgroundDefaultHeight) {
         super(title, backgroundWidth, backgroundDefaultHeight);
     }
 
@@ -19,7 +19,7 @@ public class GenericBackGroundScreen extends GenericScreen {
     protected DrawableWidget background;
     protected DrawableWidget titleWidget;
 
-    protected List<Text> provideTitleTooltips(DrawableWidget widget) {
+    protected List<Component> provideTitleTooltips(DrawableWidget widget) {
         return null;
     }
 
@@ -31,7 +31,7 @@ public class GenericBackGroundScreen extends GenericScreen {
                 .addTo(this);
         this.titleWidget = ExecutableWidget.instance(
                         this.x + 5, this.y + 5, this.backgroundWidth - 10, TITLE_LABEL_HEIGHT)
-                .setElementHandler(new LabelElement(this::getTitleLabel, Colors.WHITE, 0)
+                .setElementHandler(new LabelElement(this::getTitleLabel, CommonColors.WHITE, 0)
                         .withInputHandler(InputHandler.isLeft(this::runClickTitle))
                         .withTooltips(TooltipHandler.of(this::provideTitleTooltips)))
                 .addTo(this);

@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Objects;
 import me.matl114.utils.ApiMethod;
 import me.matl114.utils.Debug;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 @ApiMethod
 public class ReflectHelper {
@@ -57,18 +57,18 @@ public class ReflectHelper {
 
     public static void logClassInfo(Object what) {
         Class<?> clazz = what instanceof Class<?> ? (Class<?>) what : what.getClass();
-        Debug.chat(Text.literal("=== " + clazz.getSimpleName() + "的信息 ===").formatted(Formatting.YELLOW));
+        Debug.chat(Component.literal("=== " + clazz.getSimpleName() + "的信息 ===").withStyle(ChatFormatting.YELLOW));
         String type;
-        Debug.chat(Text.literal("类型: " + Modifier.toString(clazz.getModifiers())));
-        Debug.chat(Text.literal("父类: " + clazz.getSuperclass()));
-        Debug.chat(Text.literal("接口: " + Arrays.asList(clazz.getInterfaces())));
+        Debug.chat(Component.literal("类型: " + Modifier.toString(clazz.getModifiers())));
+        Debug.chat(Component.literal("父类: " + clazz.getSuperclass()));
+        Debug.chat(Component.literal("接口: " + Arrays.asList(clazz.getInterfaces())));
         Debug.chat(
-                Text.literal("=== " + getClassNameForLog(clazz) + " 的构造器信息 ===").formatted(Formatting.GREEN));
+                Component.literal("=== " + getClassNameForLog(clazz) + " 的构造器信息 ===").withStyle(ChatFormatting.GREEN));
 
         for (var con : clazz.getDeclaredConstructors()) {
             String str = getMethodInfo(con);
             Debug.chat(str);
-            Debug.chat(Text.literal("=========").formatted(Formatting.GREEN));
+            Debug.chat(Component.literal("=========").withStyle(ChatFormatting.GREEN));
         }
     }
 
@@ -147,11 +147,11 @@ public class ReflectHelper {
     public static void logMethodsInfo(Object what) {
         Class<?> clazz = what instanceof Class<?> ? (Class<?>) what : what.getClass();
         Debug.chat(
-                Text.literal("=== " + getClassNameForLog(clazz) + " 的方法信息 ===").formatted(Formatting.GREEN));
+                Component.literal("=== " + getClassNameForLog(clazz) + " 的方法信息 ===").withStyle(ChatFormatting.GREEN));
         for (var method : clazz.getMethods()) {
             String str = getMethodInfo(method);
             Debug.chat(str);
-            Debug.chat(Text.literal("=========").formatted(Formatting.GREEN));
+            Debug.chat(Component.literal("=========").withStyle(ChatFormatting.GREEN));
         }
     }
 
@@ -165,13 +165,13 @@ public class ReflectHelper {
 
     public static void logPrivateMethodsInfo(Object what) {
         Class<?> clazz = what instanceof Class<?> ? (Class<?>) what : what.getClass();
-        Debug.chat(Text.literal("=== " + getClassNameForLog(clazz) + " 的私有方法信息 ===")
-                .formatted(Formatting.GREEN));
+        Debug.chat(Component.literal("=== " + getClassNameForLog(clazz) + " 的私有方法信息 ===")
+                .withStyle(ChatFormatting.GREEN));
         for (var method : clazz.getDeclaredMethods()) {
             if (!Modifier.isPublic(method.getModifiers())) {
                 String str = getMethodInfo(method);
                 Debug.chat(str);
-                Debug.chat(Text.literal("=========").formatted(Formatting.GREEN));
+                Debug.chat(Component.literal("=========").withStyle(ChatFormatting.GREEN));
             }
         }
     }

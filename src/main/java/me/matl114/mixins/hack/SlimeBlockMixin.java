@@ -3,11 +3,11 @@ package me.matl114.mixins.hack;
 import me.matl114.hacks.MovTasks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.SlimeBlock;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.SlimeBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,15 +18,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class SlimeBlockMixin {
 
     @Inject(
-            method = "onSteppedOn",
+            method = "stepOn",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/entity/Entity;setVelocity(Lnet/minecraft/util/math/Vec3d;)V",
+                            target = "Lnet/minecraft/world/entity/Entity;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V",
                             shift = At.Shift.BEFORE),
             cancellable = true)
     private void onDisableSlimeBlockVelocityModify(
-            World world, BlockPos pos, BlockState state, Entity entity, CallbackInfo ci) {
+            Level world, BlockPos pos, BlockState state, Entity entity, CallbackInfo ci) {
         if (MovTasks.getNoSlowDown().blockSpecial.get()) {
             ci.cancel();
         }

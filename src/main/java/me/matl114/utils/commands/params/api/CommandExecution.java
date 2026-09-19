@@ -5,31 +5,31 @@ import javax.annotation.Nullable;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.commands.interruption.InvalidExecutorError;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Vector2f;
 import org.joml.Vector3d;
 
 public interface CommandExecution {
     @Nullable
-    public PlayerEntity getExecutor();
+    public Player getExecutor();
 
     boolean hasPermission(String permission);
 
     default boolean isPlayer() {
-        return getExecutor() instanceof PlayerEntity;
+        return getExecutor() instanceof Player;
     }
 
-    public static CommandExecution sender(@Nonnull PlayerEntity sender) {
+    public static CommandExecution sender(@Nonnull Player sender) {
         return new Sender(sender);
     }
 
     public void sendMessage(@Nonnull String message);
 
-    public void sendMessage(Text message);
+    public void sendMessage(Component message);
 
     public Vector2f getExecuteRot();
 
@@ -37,7 +37,7 @@ public interface CommandExecution {
     public Vector3d getExecutePos();
 
     default Vector3d getExecuteEyePos() {
-        if (getExecutor() instanceof PlayerEntity pl) {
+        if (getExecutor() instanceof Player pl) {
             return getExecutePos().add(0, pl.getEyeHeight(pl.getPose()), 0);
         } else {
             return getExecutePos();
@@ -45,12 +45,12 @@ public interface CommandExecution {
     }
 
     @Nonnull
-    public World getExecuteWorld();
+    public Level getExecuteWorld();
 
     @Nonnull
-    default PlayerEntity getExecutorPlayer() {
+    default Player getExecutorPlayer() {
         if (isPlayer()) {
-            return (PlayerEntity) getExecutor();
+            return (Player) getExecutor();
         } else {
             throw new InvalidExecutorError(false);
         }
@@ -58,11 +58,11 @@ public interface CommandExecution {
 
     public CommandExecution EMPTY = new Sender(null);
 
-    public record Sender(PlayerEntity sender) implements CommandExecution {
+    public record Sender(Player sender) implements CommandExecution {
 
         @org.jetbrains.annotations.Nullable
         @Override
-        public PlayerEntity getExecutor() {
+        public Player getExecutor() {
             return sender;
         }
 
@@ -79,7 +79,7 @@ public interface CommandExecution {
         }
 
         @Override
-        public void sendMessage(Text message) {
+        public void sendMessage(Component message) {
             if (sender != null) {
                 Debug.sendPlayer(message);
             }
@@ -87,8 +87,8 @@ public interface CommandExecution {
 
         @Override
         public Vector2f getExecuteRot() {
-            if (sender instanceof PlayerEntity p) {
-                return new Vector2f(p.getPitch(), p.getYaw());
+            if (sender instanceof Player p) {
+                return new Vector2f(p.getXRot(), p.getYRot());
             } else {
                 return new Vector2f(0, 0);
             }
@@ -96,7 +96,7 @@ public interface CommandExecution {
 
         @Override
         public Vector3d getExecutePos() {
-            if (sender instanceof PlayerEntity p) {
+            if (sender instanceof Player p) {
                 return new Vector3d(p.getX(), p.getY(), p.getZ());
             } else {
                 return new Vector3d(0, 0, 0);
@@ -104,10 +104,10 @@ public interface CommandExecution {
         }
 
         @Override
-        public World getExecuteWorld() {
-            return sender instanceof PlayerEntity player
-                    ? player.getEntityWorld()
-                    : MinecraftClient.getInstance().world;
+        public Level getExecuteWorld() {
+            return sender instanceof Player player
+                    ? player.level()
+                    : Minecraft.getInstance().level;
         }
     }
 
@@ -115,7 +115,7 @@ public interface CommandExecution {
 
         @org.jetbrains.annotations.Nullable
         @Override
-        public PlayerEntity getExecutor() {
+        public Player getExecutor() {
             return null;
         }
 
@@ -132,7 +132,7 @@ public interface CommandExecution {
         }
 
         @Override
-        public void sendMessage(Text message) {
+        public void sendMessage(Component message) {
             if (sout) {
                 Debug.info(message);
             }
@@ -149,8 +149,8 @@ public interface CommandExecution {
         }
 
         @Override
-        public World getExecuteWorld() {
-            return MinecraftClient.getInstance().world;
+        public Level getExecuteWorld() {
+            return Minecraft.getInstance().level;
         }
     }
 }

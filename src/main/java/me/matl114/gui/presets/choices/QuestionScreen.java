@@ -9,21 +9,21 @@ import me.matl114.gui.elements.ButtonElement;
 import me.matl114.gui.elements.LabelElement;
 import me.matl114.gui.elements.MultiLineTextElement;
 import me.matl114.utils.ChatUtils;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class QuestionScreen extends GenericBackGroundScreen {
-    private static final Text QUESTION_LABEL = Text.translatable("widget.gui.question-screen.title");
-    private Text q;
+    private static final Component QUESTION_LABEL = Component.translatable("widget.gui.question-screen.title");
+    private Component q;
     private List<Solution> a;
 
-    public QuestionScreen(Text question, List<Solution> solutions) {
+    public QuestionScreen(Component question, List<Solution> solutions) {
         super(QUESTION_LABEL, 240, 320);
         this.q = question;
         this.a = solutions;
     }
 
     @Override
-    protected List<Text> provideTitleTooltips(DrawableWidget widget) {
+    protected List<Component> provideTitleTooltips(DrawableWidget widget) {
         return ChatUtils.parseTooltipsTranslation("widget.gui.question-screen.title.tooltips", "");
     }
 
@@ -31,10 +31,10 @@ public class QuestionScreen extends GenericBackGroundScreen {
     protected void init() {
         super.init();
         int background = this.backgroundWidth - 10;
-        var re = mc.textRenderer.wrapLines(this.q, background);
+        var re = mc.font.split(this.q, background);
         int height = Math.max(40, 10 * re.size());
         DisplayWidget.instance(this.x + 5, this.y + 30, background, height)
-                .setRenderHandler(LabelElement.instance(Text.empty()))
+                .setRenderHandler(LabelElement.instance(Component.empty()))
                 .addTo(this);
         DisplayWidget.instance(this.x + 5, this.y + 30, background, height)
                 .setRenderHandler(new MultiLineTextElement(this.q, -1))
@@ -71,7 +71,7 @@ public class QuestionScreen extends GenericBackGroundScreen {
             try {
                 task.run();
             } finally {
-                this.close();
+                this.onClose();
             }
         };
     }
@@ -79,11 +79,11 @@ public class QuestionScreen extends GenericBackGroundScreen {
     @AllArgsConstructor
     public abstract static class Solution {
         @Getter
-        Text solutionLabel;
+        Component solutionLabel;
 
         public abstract void execution();
 
-        public static Solution of(Text label, Runnable task) {
+        public static Solution of(Component label, Runnable task) {
             return new Solution(label) {
                 @Override
                 public void execution() {

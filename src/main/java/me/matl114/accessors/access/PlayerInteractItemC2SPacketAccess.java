@@ -1,12 +1,12 @@
 package me.matl114.accessors.access;
 
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.util.Hand;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 
 public interface PlayerInteractItemC2SPacketAccess {
-    void setHand(Hand hand);
+    void setHand(InteractionHand hand);
 
     void setYaw(float yaw);
 
@@ -16,12 +16,12 @@ public interface PlayerInteractItemC2SPacketAccess {
 
     ItemStack getItemStack();
 
-    static PlayerInteractItemC2SPacketAccess of(PlayerInteractItemC2SPacket packet) {
+    static PlayerInteractItemC2SPacketAccess of(ServerboundUseItemPacket packet) {
         return (PlayerInteractItemC2SPacketAccess) packet;
     }
 
-    static PlayerInteractItemC2SPacket setContext(ClientPlayerEntity player, PlayerInteractItemC2SPacket packet) {
-        of(packet).setItemStack(player.getStackInHand(packet.getHand()).copy());
+    static ServerboundUseItemPacket setContext(LocalPlayer player, ServerboundUseItemPacket packet) {
+        of(packet).setItemStack(player.getItemInHand(packet.getHand()).copy());
         return packet;
     }
 }

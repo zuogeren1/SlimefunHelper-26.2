@@ -3,51 +3,51 @@ package me.matl114.gui.complex.other;
 import java.util.function.Consumer;
 import me.matl114.gui.basic.RenderHandler;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
+import net.minecraft.util.Mth;
 
-public class ChatLikeInputWidget extends TextFieldWidget {
+public class ChatLikeInputWidget extends EditBox {
     Consumer<String> callback;
     int messageHistoryIndex;
     String chatLastMessage = "";
 
     public ChatLikeInputWidget(
-            TextRenderer textRenderer, int x, int y, int width, int height, Consumer<String> enterCallback) {
-        super(textRenderer, x, y, width, height, Text.empty());
+            Font textRenderer, int x, int y, int width, int height, Consumer<String> enterCallback) {
+        super(textRenderer, x, y, width, height, Component.empty());
         this.callback = enterCallback;
-        this.setDrawsBackground(false);
+        this.setBordered(false);
     }
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public void setChatFromHistory(int offset) {
         int i = this.messageHistoryIndex + offset;
-        int j = mc.inGameHud.getChatHud().getMessageHistory().size();
-        i = MathHelper.clamp(i, 0, j);
+        int j = mc.gui.hud.chat.getRecentChat().size();
+        i = Mth.clamp(i, 0, j);
         if (i != this.messageHistoryIndex) {
             if (i == j) {
                 this.messageHistoryIndex = j;
-                setText(this.chatLastMessage);
+                setValue(this.chatLastMessage);
             } else {
                 if (this.messageHistoryIndex == j) {
                     // save temp message
-                    this.chatLastMessage = getText();
+                    this.chatLastMessage = getValue();
                 }
 
-                setText((String) mc.inGameHud.getChatHud().getMessageHistory().get(i));
+                setValue((String) mc.gui.hud.chat.getRecentChat().get(i));
                 // this.chatInputSuggestor.setWindowActive(false);
                 this.messageHistoryIndex = i;
             }
         }
     }
 
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         return super.keyPressed(input) || keyPressed(input.key(), input.scancode(), input.modifiers());
     }
 
@@ -65,8 +65,8 @@ public class ChatLikeInputWidget extends TextFieldWidget {
                     return false;
                 }
             } else {
-                this.onAcceptCallback(getText());
-                setText("");
+                this.onAcceptCallback(getValue());
+                setValue("");
                 return true;
             }
         } else {
@@ -79,21 +79,21 @@ public class ChatLikeInputWidget extends TextFieldWidget {
     }
 
     @Override
-    public void renderWidget(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float deltaTicks) {
         context.fill(
                 this.getX(),
                 this.getY() - 2,
                 this.getX() + width,
                 this.getY() + height - 2,
-                mc.options.getTextBackgroundColor(Integer.MIN_VALUE));
+                mc.options.getBackgroundColor(Integer.MIN_VALUE));
         RenderHandler.drawHighlightFrame(
                 VDrawContext.of(context),
                 this.getX() - 1,
                 this.getY() - 3,
                 width + 2,
                 height + 2,
-                this.isFocused() ? Colors.WHITE : Colors.GRAY);
-        super.renderWidget(context, mouseX, mouseY, deltaTicks);
+                this.isFocused() ? CommonColors.WHITE : CommonColors.GRAY);
+        super.extractWidgetRenderState(context, mouseX, mouseY, deltaTicks);
     }
 
     public void onAcceptCallback(String value) {
@@ -107,6 +107,6 @@ public class ChatLikeInputWidget extends TextFieldWidget {
     }
 
     public void resetHistoryIndex() {
-        this.messageHistoryIndex = mc.inGameHud.getChatHud().getMessageHistory().size();
+        this.messageHistoryIndex = mc.gui.hud.chat.getRecentChat().size();
     }
 }

@@ -10,20 +10,20 @@ import me.matl114.events.channels.ListenerPoint;
 import me.matl114.events.impl.BlockUpdate;
 import me.matl114.utils.CommonUtils;
 import me.matl114.utils.WorldUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 public class WorldTasks {
     public static void init() {}
 
     public static Map<ChunkPos, CompletableFuture<Void>> pendingUpdateTasks = new ConcurrentHashMap<>();
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     // optimize, do not block main thread
     private static final ExecutorService scanExecutor = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors() / 2,
@@ -35,13 +35,13 @@ public class WorldTasks {
     private static final Executor processExecutor = Executors.newSingleThreadExecutor();
     static int tickCounter = 0;
 
-    public static void onTick(Event<ClientPlayerEntity> eventUpdate) {
+    public static void onTick(Event<LocalPlayer> eventUpdate) {
         if (++tickCounter > 5) {
             tickCounter = 0;
             Set<ChunkPos> chunkPoses = pendingUpdateTasks.keySet();
             List<ChunkPos> removal = new ArrayList<>(32);
             for (var key : chunkPoses) {
-                if (!mc.world.getChunkManager().isChunkLoaded(key.x, key.z)) {
+                if (!mc.level.getChunkSource().hasChunk(key.x, key.z)) {
                     removal.add(key);
                 }
             }
@@ -59,7 +59,7 @@ public class WorldTasks {
         mc.execute(() -> pendingUpdateTasks.clear());
     }
 
-    public static void onWorldChange(Event<World> event) {
+    public static void onWorldChange(Event<Level> event) {
         cancelAllPendingChunkTasks();
     }
 
@@ -99,7 +99,7 @@ public class WorldTasks {
     public static void restartWorldScanner() {
         Listener.getResetWorldScannListener().broadcast(null);
         cancelAllPendingChunkTasks();
-        if (mc.player == null || mc.world == null) {
+        if (mc.player == null || mc.level == null) {
             return;
         }
         refreshAllChunks();
@@ -107,7 +107,7 @@ public class WorldTasks {
 
     public static void refreshAllChunks() {
         if (shouldExecuteWorldScan()) {
-            for (Chunk chunk : CommonUtils.chunks(false)) {
+            for (ChunkAccess chunk : CommonUtils.chunks(false)) {
                 ChunkPos chunkPos = chunk.getPos();
                 scheduleChunkTask(chunkPos, () -> onChunkReScann(chunkPos), true);
             }
@@ -115,9 +115,9 @@ public class WorldTasks {
     }
 
     private static void onChunkReScann(ChunkPos chunkPos) {
-        if (mc.player == null || mc.world == null) return;
-        if (mc.world.getChunkManager().isChunkLoaded(chunkPos.x, chunkPos.z)) {
-            Chunk chunk = mc.world.getChunkManager().getWorldChunk(chunkPos.x, chunkPos.z);
+        if (mc.player == null || mc.level == null) return;
+        if (mc.level.getChunkSource().hasChunk(chunkPos.x, chunkPos.z)) {
+            ChunkAccess chunk = mc.level.getChunkSource().getChunkNow(chunkPos.x, chunkPos.z);
             if (chunk != null) {
                 List<BiPredicate<BlockPos, BlockState>> statePredicates = new ArrayList<>();
                 Listener.getWorldScannChunkBlockFilterList().broadcast(statePredicates);
@@ -137,8 +137,8 @@ public class WorldTasks {
 
     private static void onBlockStateUpdate(Event<BlockUpdate> event) {
         if (shouldExecuteWorldScan()) {
-            BlockPos pos = event.context.pos().toImmutable();
-            ChunkPos chunkPos = new ChunkPos(pos);
+            BlockPos pos = event.context.pos().immutable();
+            ChunkPos chunkPos = ChunkPos.containing(pos);
             scheduleChunkTask(chunkPos, () -> onSingleBlockValueChange(pos), true);
         }
     }
@@ -146,8 +146,8 @@ public class WorldTasks {
     private static void onSingleBlockValueChange(BlockPos pos) {
         // (checkNull()) return;
         ChunkPos chunkPos = CommonUtils.toChunk(pos);
-        if (mc.world.getChunkManager().isChunkLoaded(chunkPos.x, chunkPos.z)) {
-            BlockState state = mc.world.getBlockState(pos);
+        if (mc.level.getChunkSource().hasChunk(chunkPos.x, chunkPos.z)) {
+            BlockState state = mc.level.getBlockState(pos);
             scanExecutor.execute(() -> {
                 Event<BlockState> stateUpdate = new Event<>(state, false, false, pos, chunkPos);
                 Listener.getWorldScannBlockResult().handleValue(stateUpdate);
@@ -156,10 +156,10 @@ public class WorldTasks {
     }
 
     public static void onChunkUpdate(Event<ChunkPos> chunkDataS2CPacketEvent) {
-        if (mc.world == null || mc.player == null) return;
+        if (mc.level == null || mc.player == null) return;
         if (shouldExecuteWorldScan()) {
             ChunkPos pos = chunkDataS2CPacketEvent.context;
-            Chunk updatedChunk = mc.world.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
+            ChunkAccess updatedChunk = mc.level.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
             if (updatedChunk != null) {
                 // because of chunk update, cancel all the last
                 cancelPendingChunkTask(pos);

@@ -49,8 +49,8 @@ public class Regex implements NBTParsable<Regex>, Predicate<String> {
 
     private static void runHelpRegex() {
         try {
-            URI uri = Util.validateUri(HELP_URL);
-            Util.getOperatingSystem().open(uri);
+            URI uri = Util.parseAndValidateUntrustedUri(HELP_URL);
+            Util.getPlatform().openUri(uri);
         } catch (Throwable e) {
         }
     }

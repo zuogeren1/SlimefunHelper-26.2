@@ -6,28 +6,39 @@ import java.util.stream.Stream;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.hacks.utils.recipes.RecipeIngredient;
-import net.fabricmc.fabric.api.recipe.v1.ingredient.CustomIngredient;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.s2c.play.RecipeBookAddS2CPacket;
-import net.minecraft.network.packet.s2c.play.RecipeBookRemoveS2CPacket;
-import net.minecraft.network.packet.s2c.play.SynchronizeRecipesS2CPacket;
-import net.minecraft.recipe.*;
-import net.minecraft.recipe.display.*;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.context.ContextParameterMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundRecipeBookAddPacket;
+import net.minecraft.network.protocol.game.ClientboundRecipeBookRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket;
+import net.minecraft.world.item.crafting.*;
+import net.minecraft.world.item.crafting.display.*;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.context.ContextMap;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.display.FurnaceRecipeDisplay;
+import net.minecraft.world.item.crafting.display.RecipeDisplay;
+import net.minecraft.world.item.crafting.display.RecipeDisplayEntry;
+import net.minecraft.world.item.crafting.display.RecipeDisplayId;
+import net.minecraft.world.item.crafting.display.ShapedCraftingRecipeDisplay;
+import net.minecraft.world.item.crafting.display.ShapelessCraftingRecipeDisplay;
+import net.minecraft.world.item.crafting.display.SlotDisplay;
+import net.minecraft.world.item.crafting.display.SlotDisplayContext;
+import net.minecraft.world.item.crafting.display.SmithingRecipeDisplay;
+import net.minecraft.world.item.crafting.display.StonecutterRecipeDisplay;
 
 public class RecipeTasks {
-    private static MinecraftClient mc = MinecraftClient.getInstance();
+    private static Minecraft mc = Minecraft.getInstance();
     private static Map<Identifier, RecipeRecord> CACHE;
     public static final Map EMPTY = Map.of();
     public static final Map<String, RecipeType> TYPE_MAP = new LinkedHashMap<>();
 
     public static boolean isVanillaRecipeType(String rid) {
-        return Registries.ITEM.getOrEmpty(Identifier.tryParse(rid)).isPresent();
+        return BuiltInRegistries.ITEM.getOptional(Identifier.tryParse(rid)).isPresent();
     }
 
     private static final Map<String, ItemStack> SUPPORT_VANILLA_RTYPE = Map.of(
@@ -40,8 +51,8 @@ public class RecipeTasks {
             "minecraft:smithing", new ItemStack(Items.SMITHING_TABLE));
 
     public static ItemStack getVanillaRecipeTypeIcon(String rid) {
-        return Registries.ITEM
-                .getOrEmpty(Identifier.tryParse(rid))
+        return BuiltInRegistries.ITEM
+                .getOptional(Identifier.tryParse(rid))
                 .map(ItemStack::new)
                 .orElse(null);
     }
@@ -60,14 +71,14 @@ public class RecipeTasks {
                 map = CACHE;
             }
             // init empty map and do not go in if you are not in a world
-            if (mc.world == null) {
+            if (mc.level == null) {
                 return;
             }
 
-            for (var entry : mc.player.getRecipeBook().recipes.entrySet()) {
+            for (var entry : mc.player.getRecipeBook().known.entrySet()) {
                 var key = entry.getKey();
                 var value = entry.getValue();
-                map.put(Identifier.ofVanilla(String.valueOf(key.index())), RecipeRecord.of(value));
+                map.put(Identifier.withDefaultNamespace(String.valueOf(key.index())), RecipeRecord.of(value));
             }
         }
     }
@@ -85,12 +96,12 @@ public class RecipeTasks {
             Identifier identifier, ItemStack craftingTypeIcon, ItemStack output, RecipeIngredient[] ingredients)
             implements me.matl114.hacks.utils.recipes.RecipeEntry {
         public static RecipeRecord of(RecipeDisplayEntry instance) {
-            ContextParameterMap contextParameterMap = SlotDisplayContexts.createParameters(mc.world);
-            ItemStack craftingStation = instance.display().craftingStation().getFirst(contextParameterMap);
-            ItemStack output = instance.display().result().getFirst(contextParameterMap);
+            ContextMap contextParameterMap = SlotDisplayContext.fromLevel(mc.level);
+            ItemStack craftingStation = instance.display().craftingStation().resolveForFirstStack(contextParameterMap);
+            ItemStack output = instance.display().result().resolveForFirstStack(contextParameterMap);
             RecipeIngredient[] recipeIngredients = transfer3x3RecipeDisplay(instance.display(), contextParameterMap);
             return new RecipeRecord(
-                    Identifier.ofVanilla(String.valueOf(instance.id().index())),
+                    Identifier.withDefaultNamespace(String.valueOf(instance.id().index())),
                     craftingStation,
                     output,
                     recipeIngredients);
@@ -98,7 +109,7 @@ public class RecipeTasks {
 
         @Override
         public String rid() {
-            return Registries.ITEM.getId(craftingTypeIcon.getItem()).toString();
+            return BuiltInRegistries.ITEM.getKey(craftingTypeIcon.getItem()).toString();
         }
 
         @Override
@@ -116,7 +127,7 @@ public class RecipeTasks {
         return recipeRecord.ingredients();
     }
 
-    public static RecipeIngredient[] transfer3x3RecipeDisplay(RecipeDisplay instance, ContextParameterMap map) {
+    public static RecipeIngredient[] transfer3x3RecipeDisplay(RecipeDisplay instance, ContextMap map) {
 
         RecipeIngredient[] ingredients = new RecipeIngredient[9];
 
@@ -128,7 +139,7 @@ public class RecipeTasks {
                 for (int j = 0; j < 3; ++j) {
                     if (i < height && j < width) {
                         ingredients[3 * i + j] = new RecipeIngredient(
-                                (raw.get(width * i + j)).getStacks(map).toArray(ItemStack[]::new));
+                                (raw.get(width * i + j)).resolveForStacks(map).toArray(ItemStack[]::new));
                     } else {
                         ingredients[3 * i + j] = RecipeIngredient.EMPTY;
                     }
@@ -137,28 +148,28 @@ public class RecipeTasks {
         } else if (instance instanceof ShapelessCraftingRecipeDisplay shapeless) {
             int var = 0;
             for (var i : shapeless.ingredients()) {
-                ingredients[var++] = new RecipeIngredient(i.getStacks(map).toArray(ItemStack[]::new));
+                ingredients[var++] = new RecipeIngredient(i.resolveForStacks(map).toArray(ItemStack[]::new));
             }
             for (; var < 9; ++var) {
                 ingredients[var] = RecipeIngredient.EMPTY;
             }
         } else if (instance instanceof FurnaceRecipeDisplay shaped) {
             ingredients[0] =
-                    new RecipeIngredient(shaped.ingredient().getStacks(map).toArray(ItemStack[]::new));
+                    new RecipeIngredient(shaped.ingredient().resolveForStacks(map).toArray(ItemStack[]::new));
             for (var i = 1; i < 9; ++i) {
                 ingredients[i] = RecipeIngredient.EMPTY;
             }
         } else if (instance instanceof StonecutterRecipeDisplay shaped) {
-            ingredients[0] = new RecipeIngredient(shaped.input().getStacks(map).toArray(ItemStack[]::new));
+            ingredients[0] = new RecipeIngredient(shaped.input().resolveForStacks(map).toArray(ItemStack[]::new));
             for (var i = 1; i < 9; ++i) {
                 ingredients[i] = RecipeIngredient.EMPTY;
             }
         } else if (instance instanceof SmithingRecipeDisplay shaped) {
-            ingredients[1] = new RecipeIngredient(shaped.base().getStacks(map).toArray(ItemStack[]::new));
+            ingredients[1] = new RecipeIngredient(shaped.base().resolveForStacks(map).toArray(ItemStack[]::new));
             ingredients[2] =
-                    new RecipeIngredient(shaped.addition().getStacks(map).toArray(ItemStack[]::new));
+                    new RecipeIngredient(shaped.addition().resolveForStacks(map).toArray(ItemStack[]::new));
             ingredients[0] =
-                    new RecipeIngredient(shaped.template().getStacks(map).toArray(ItemStack[]::new));
+                    new RecipeIngredient(shaped.template().resolveForStacks(map).toArray(ItemStack[]::new));
             for (var i = 3; i < 9; ++i) {
                 ingredients[i] = RecipeIngredient.EMPTY;
             }
@@ -172,48 +183,44 @@ public class RecipeTasks {
     }
 
     public static Stream<ItemStack> streamIngredientOptions(Ingredient ingredient) {
-        CustomIngredient ingredients = ingredient.getCustomIngredient();
-        if (ingredients != null)
-            return ingredients.getMatchingItems().map(RegistryEntry::value).map(ItemStack::new);
-        else {
-            return Stream.empty();
-        }
+        // 26.2 移除了 CustomIngredient，Ingredient.items() 直接返回全部匹配项
+        return ingredient.items().map(Holder::value).map(ItemStack::new);
     }
 
-    public static List<Ingredient> getIngredients(NetworkRecipeId recipeEntry) {
-        RecipeDisplayEntry entry = mc.player.getRecipeBook().recipes.get(recipeEntry);
+    public static List<Ingredient> getIngredients(RecipeDisplayId recipeEntry) {
+        RecipeDisplayEntry entry = mc.player.getRecipeBook().known.get(recipeEntry);
         if (entry == null) {
             return List.of();
         }
         return entry.craftingRequirements().orElse(List.of());
     }
 
-    public static ItemStack getRecipeResult(NetworkRecipeId recipeEntry) {
-        RecipeDisplayEntry entry = mc.player.getRecipeBook().recipes.get(recipeEntry);
+    public static ItemStack getRecipeResult(RecipeDisplayId recipeEntry) {
+        RecipeDisplayEntry entry = mc.player.getRecipeBook().known.get(recipeEntry);
         if (entry == null) {
             return ItemStack.EMPTY;
         }
-        ContextParameterMap contextParameterMap = SlotDisplayContexts.createParameters(mc.world);
-        List<ItemStack> stacks = entry.getStacks(contextParameterMap);
+        ContextMap contextParameterMap = SlotDisplayContext.fromLevel(mc.level);
+        List<ItemStack> stacks = entry.resultItems(contextParameterMap);
         return stacks.isEmpty() ? ItemStack.EMPTY : stacks.get(0);
     }
 
-    public static void addRecipe(Event<RecipeBookAddS2CPacket> event) {
-        if (mc.world == null) return;
+    public static void addRecipe(Event<ClientboundRecipeBookAddPacket> event) {
+        if (mc.level == null) return;
         var map = getAllRecipe();
-        for (RecipeBookAddS2CPacket.Entry entry : event.context().entries()) {
+        for (ClientboundRecipeBookAddPacket.Entry entry : event.context().entries()) {
             RecipeDisplayEntry entry0 = entry.contents();
-            map.put(Identifier.ofVanilla(String.valueOf(entry0.id().index())), RecipeRecord.of(entry0));
+            map.put(Identifier.withDefaultNamespace(String.valueOf(entry0.id().index())), RecipeRecord.of(entry0));
         }
     }
 
-    public static void removeRecipe(Event<RecipeBookRemoveS2CPacket> event) {
+    public static void removeRecipe(Event<ClientboundRecipeBookRemovePacket> event) {
         Map<Identifier, RecipeRecord> map;
         if ((map = CACHE) != null) {
             event.context().recipes().stream()
-                    .map(NetworkRecipeId::index)
+                    .map(RecipeDisplayId::index)
                     .map(String::valueOf)
-                    .map(Identifier::ofVanilla)
+                    .map(Identifier::withDefaultNamespace)
                     .forEach(map::remove);
         }
     }
@@ -223,12 +230,12 @@ public class RecipeTasks {
             resetCache();
         });
         Listener.getPacketPostHandlePoint()
-                .getChannel(RecipeBookAddS2CPacket.class)
+                .getChannel(ClientboundRecipeBookAddPacket.class)
                 .registerHandler(RecipeTasks::addRecipe);
         Listener.getPacketPoint()
-                .getChannel(RecipeBookRemoveS2CPacket.class)
+                .getChannel(ClientboundRecipeBookRemovePacket.class)
                 .registerHandler(RecipeTasks::removeRecipe);
         Listener.registerSinglePacketListener(
-                SynchronizeRecipesS2CPacket.class, (Consumer<SynchronizeRecipesS2CPacket>) (p) -> resetCache());
+                ClientboundUpdateRecipesPacket.class, (Consumer<ClientboundUpdateRecipesPacket>) (p) -> resetCache());
     }
 }

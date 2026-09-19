@@ -9,9 +9,9 @@ import me.matl114.hacks.utils.config.BoundedPrimitiveFlagMap;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.player.PlayerModelPart;
-import net.minecraft.util.Arm;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.player.PlayerModelPart;
 
 public class SkinBlink extends BaseModule {
     public SkinBlink() {
@@ -49,16 +49,16 @@ public class SkinBlink extends BaseModule {
         super.onDisableModule();
         if (needRestore) {
             restore();
-            mc.options.sendClientSettings();
+            mc.options.broadcastOptions();
         }
     }
 
     boolean needRestore;
     Map<PlayerModelPart, Boolean> models = new EnumMap<>(PlayerModelPart.class);
-    Arm currentArm = null;
+    HumanoidArm currentArm = null;
     int lastDelay = 0;
 
-    public void onTick(Event<ClientPlayerEntity> eventTick) {
+    public void onTick(Event<LocalPlayer> eventTick) {
         if (enable.get()) {
             if (++lastDelay >= delay.get()) {
                 lastDelay = 0;
@@ -67,7 +67,7 @@ public class SkinBlink extends BaseModule {
                 } else {
                     blink();
                 }
-                mc.options.sendClientSettings();
+                mc.options.broadcastOptions();
             }
         }
     }
@@ -75,10 +75,10 @@ public class SkinBlink extends BaseModule {
     public void restore() {
         needRestore = false;
         for (var entry : models.entrySet()) {
-            mc.options.setPlayerModelPart(entry.getKey(), entry.getValue());
+            mc.options.setModelPart(entry.getKey(), entry.getValue());
         }
         if (currentArm != null) {
-            mc.options.getMainArm().setValue(currentArm);
+            mc.options.mainHand().set(currentArm);
             currentArm = null;
         }
     }
@@ -91,15 +91,15 @@ public class SkinBlink extends BaseModule {
             var modelSet = this.modelSet.get();
             for (var re : PlayerModelPart.values()) {
                 if (modelSet.getState(re)) {
-                    boolean bl = mc.options.isPlayerModelPartEnabled(re);
+                    boolean bl = mc.options.isModelPartEnabled(re);
                     models.put(re, bl);
-                    mc.options.setPlayerModelPart(re, !bl);
+                    mc.options.setModelPart(re, !bl);
                 }
             }
         }
         if (arm.get()) {
-            currentArm = mc.options.getMainArm().getValue();
-            mc.options.getMainArm().setValue(currentArm.getOpposite());
+            currentArm = mc.options.mainHand().get();
+            mc.options.mainHand().set(currentArm.getOpposite());
         }
     }
 

@@ -8,14 +8,14 @@ import java.util.*;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VItem;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.component.ComponentType;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.*;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public final class CraftItemStack extends BukkitItemStack {
     Map<String, String> compoundTag;
@@ -33,14 +33,14 @@ public final class CraftItemStack extends BukkitItemStack {
         this.display = buildDisplay0(compoundTag);
     }
 
-    public static final Codec<ComponentChanges> CODEC_DISPLAY_CHANGES = Codec.<ComponentChanges>of(
-            ComponentChanges.CODEC,
+    public static final Codec<DataComponentPatch> CODEC_DISPLAY_CHANGES = Codec.<DataComponentPatch>of(
+            DataComponentPatch.CODEC,
             Codec.<String, Dynamic<?>>unboundedMap(Codec.STRING, Codec.PASSTHROUGH)
                     .map(s -> {
                         if (s.isEmpty()) {
-                            return ComponentChanges.EMPTY;
+                            return DataComponentPatch.EMPTY;
                         } else {
-                            Reference2ObjectMap<ComponentType<?>, Optional<?>> reference2ObjectMap =
+                            Reference2ObjectMap<DataComponentType<?>, Optional<?>> reference2ObjectMap =
                                     new Reference2ObjectArrayMap<>(s.size());
 
                             for (Map.Entry<String, Dynamic<?>> entry : s.entrySet()) {
@@ -53,13 +53,13 @@ public final class CraftItemStack extends BukkitItemStack {
                                 } else {
                                     realKey = string;
                                 }
-                                ComponentType<?> type =
-                                        Registries.DATA_COMPONENT_TYPE.get(Identifier.tryParse(realKey));
+                                DataComponentType<?> type =
+                                        BuiltInRegistries.DATA_COMPONENT_TYPE.getValue(Identifier.tryParse(realKey));
                                 if (type != null) {
                                     if (removal) {
                                         reference2ObjectMap.put(type, Optional.empty());
                                     } else {
-                                        Codec<?> codec = type.getCodecOrThrow();
+                                        Codec<?> codec = type.codecOrThrow();
                                         codec = VItem.getInstance()
                                                 .getVersionCompatCodecs()
                                                 .getOrDefault(type, codec);
@@ -72,31 +72,31 @@ public final class CraftItemStack extends BukkitItemStack {
                                     }
                                 }
                             }
-                            return new ComponentChanges(reference2ObjectMap);
+                            return new DataComponentPatch(reference2ObjectMap);
                         }
                     }));
 
     private ItemStack buildDisplay0(Map<String, String> tag) {
         if (!Objects.equals(item, "minecraft:air")) {
             try {
-                Item item = Registries.ITEM.get(Identifier.tryParse(this.item));
+                Item item = BuiltInRegistries.ITEM.getValue(Identifier.tryParse(this.item));
                 // if not air then it is unknown item
                 item = item == Items.AIR ? Items.BARRIER : item;
                 ItemStack stack = new ItemStack(item, count);
-                NbtCompound tagCompound = new NbtCompound();
+                CompoundTag tagCompound = new CompoundTag();
                 for (var entry : tag.entrySet()) {
                     try {
-                        final NbtElement componentTag = VNbt.getInstance().readNbtNoRegistry(entry.getValue());
+                        final Tag componentTag = VNbt.getInstance().readNbtNoRegistry(entry.getValue());
                         tagCompound.put(entry.getKey(), componentTag);
                     } catch (Throwable ignoreFormatError) {
                     }
                 }
-                ComponentChanges displayChanges = CODEC_DISPLAY_CHANGES
-                        .decode(ItemStackUtils.registry().getOps(NbtOps.INSTANCE), tagCompound)
+                DataComponentPatch displayChanges = CODEC_DISPLAY_CHANGES
+                        .decode(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE), tagCompound)
                         .result()
                         .map(Pair::getFirst)
-                        .orElse(ComponentChanges.EMPTY);
-                stack.applyChanges(displayChanges);
+                        .orElse(DataComponentPatch.EMPTY);
+                stack.applyComponentsAndValidate(displayChanges);
 
                 return stack;
             } catch (Throwable throwable) {

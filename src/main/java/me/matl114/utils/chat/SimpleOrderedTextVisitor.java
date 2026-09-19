@@ -1,9 +1,9 @@
 package me.matl114.utils.chat;
 
-import net.minecraft.text.CharacterVisitor;
-import net.minecraft.text.Style;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSink;
 
-public class SimpleOrderedTextVisitor implements CharacterVisitor {
+public class SimpleOrderedTextVisitor implements FormattedCharSink {
     StringBuilder builder;
 
     public SimpleOrderedTextVisitor() {

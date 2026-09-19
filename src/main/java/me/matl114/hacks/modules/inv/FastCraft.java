@@ -20,18 +20,18 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.CraftingScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.screen.ingame.MerchantScreen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.NetworkRecipeId;
-import net.minecraft.screen.AbstractCraftingScreenHandler;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CraftingScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.MerchantScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.AbstractCraftingMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.display.RecipeDisplayId;
 import org.spongepowered.asm.mixin.Unique;
 
 public class FastCraft extends BaseModule {
@@ -51,7 +51,7 @@ public class FastCraft extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(HandledScreen.class), this::onCraftScreenInitialize);
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onCraftScreenInitialize);
         registerListener(Listener.getPostToggleRecipeBook(), this::onRecipeBookToggle);
         registerListener(Listener.getClickCraftingRecipe(), this::onRecipeClicked);
         TaskManagers.getToggleManager().register(TaskManagers.PREFIX_BUTTON_TOGGLE + "." + "drop-craft", dropCraft);
@@ -64,7 +64,7 @@ public class FastCraft extends BaseModule {
                 addCraftingInventoryButton(craftingScreen);
             } else if (event.context instanceof InventoryScreen inventoryScreen) {
                 lastScreen = null;
-                if (!mc.interactionManager.getCurrentGameMode().isCreative()) {
+                if (!mc.gameMode.getPlayerMode().isCreative()) {
                     addInventoryButton(inventoryScreen);
                 }
             } else if (event.context instanceof MerchantScreen merchantScreen) {
@@ -81,7 +81,7 @@ public class FastCraft extends BaseModule {
         }
     }
 
-    public void onRecipeClicked(Event<NetworkRecipeId> event) {
+    public void onRecipeClicked(Event<RecipeDisplayId> event) {
         if (!isLock()) {
             lastCrafted = event.context();
         }
@@ -93,23 +93,23 @@ public class FastCraft extends BaseModule {
     }
 
     @Getter
-    private NetworkRecipeId lastCrafted;
+    private RecipeDisplayId lastCrafted;
 
     public void placeLastCraftingRecipe(
-            HandledScreen<? extends AbstractCraftingScreenHandler> craftingScreen, boolean doCraft) {
+            AbstractContainerScreen<? extends AbstractCraftingMenu> craftingScreen, boolean doCraft) {
         // var recipeBook = craftingScreen.getRecipeBookWidget();
-        NetworkRecipeId last = lastCrafted;
+        RecipeDisplayId last = lastCrafted;
         if (last != null) {
-            mc.interactionManager.clickRecipe(craftingScreen.getScreenHandler().syncId, last, true);
+            mc.gameMode.handlePlaceRecipe(craftingScreen.getMenu().containerId, last, true);
             if (doCraft) {
                 int maxCraft = 64;
                 for (Ingredient material : RecipeTasks.getIngredients(last)) {
                     for (ItemStack val :
                             RecipeTasks.streamIngredientOptions(material).toList()) {
-                        maxCraft = Math.min(maxCraft, val.getMaxCount());
+                        maxCraft = Math.min(maxCraft, val.getMaxStackSize());
                     }
                 }
-                int slot = craftingScreen.getScreenHandler().getOutputSlot().getIndex();
+                int slot = craftingScreen.getMenu().getResultSlot().getContainerSlot();
                 craftAtSlotIndex(craftingScreen, maxCraft, slot);
             }
         } else {
@@ -117,7 +117,7 @@ public class FastCraft extends BaseModule {
         }
     }
 
-    public void craftAtSlotIndex(HandledScreen<?> screen, int maxCraft, int slot) {
+    public void craftAtSlotIndex(AbstractContainerScreen<?> screen, int maxCraft, int slot) {
         // Debug.info("What's wrong?",doCraft);
 
         boolean dropCraft = this.dropCraft.get();
@@ -125,14 +125,14 @@ public class FastCraft extends BaseModule {
         if (dropCraft) {
             for (int i = 0; i < maxCraft; ++i) {
                 InvTasks.getClickExecutor().execute(() -> {
-                    mc.interactionManager.clickSlot(
-                            screen.getScreenHandler().syncId, slot, 0, SlotActionType.THROW, mc.player);
+                    mc.gameMode.handleContainerInput(
+                            screen.getMenu().containerId, slot, 0, ContainerInput.THROW, mc.player);
                 });
             }
         } else {
             InvTasks.getClickExecutor().execute(() -> {
-                mc.interactionManager.clickSlot(
-                        screen.getScreenHandler().syncId, slot, 1, SlotActionType.QUICK_MOVE, mc.player);
+                mc.gameMode.handleContainerInput(
+                        screen.getMenu().containerId, slot, 1, ContainerInput.QUICK_MOVE, mc.player);
             });
         }
     }
@@ -157,7 +157,7 @@ public class FastCraft extends BaseModule {
     }
 
     SubScreenWidget lastScreenWidget = null;
-    HandledScreen<?> lastScreen = null;
+    AbstractContainerScreen<?> lastScreen = null;
 
     @Unique
     private void addCraftingInventoryButton(CraftingScreen screen) {
@@ -166,7 +166,7 @@ public class FastCraft extends BaseModule {
 
         ExecutableWidget putLastRecipeButton = ExecutableWidget.instance(120, screen.height / 2 - 25, 24, 12)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.fast-craft.craft")),
+                                TextProvider.of(Component.translatable("widget.fast-craft.craft")),
                                 ButtonAction.run(() -> placeLastCraftingRecipe(screen, ScreenUtils.hasShiftDown())))
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation("widget.fast-craft.craft.tooltips", ""))))
@@ -174,7 +174,7 @@ public class FastCraft extends BaseModule {
 
         ExecutableWidget toggleLockRecipeButton = ExecutableWidget.instance(95, screen.height / 2 - 25, 24, 12)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.fast-craft.lock")),
+                                TextProvider.of(Component.translatable("widget.fast-craft.lock")),
                                 ButtonAction.run(this::toggleRecipeLock))
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation("widget.fast-craft.lock.tooltips", ""))))
@@ -183,7 +183,7 @@ public class FastCraft extends BaseModule {
 
         ExecutableWidget toggleDropButton = ExecutableWidget.instance(120, screen.height / 2 - 72, 24, 12)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.fast-craft.toggle-drop")),
+                                TextProvider.of(Component.translatable("widget.fast-craft.toggle-drop")),
                                 ButtonAction.run(toggle))
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation("widget.fast-craft.toggle-drop.tooltips", ""))))
@@ -214,7 +214,7 @@ public class FastCraft extends BaseModule {
 
         ExecutableWidget putLastRecipeButton = ExecutableWidget.instance(150, screen.height / 2 - 38, 24, 12)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.fast-craft.craft")),
+                                TextProvider.of(Component.translatable("widget.fast-craft.craft")),
                                 ButtonAction.run(() -> placeLastCraftingRecipe(screen, ScreenUtils.hasShiftDown())))
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation("widget.fast-craft.craft.tooltips", ""))))
@@ -222,7 +222,7 @@ public class FastCraft extends BaseModule {
 
         ExecutableWidget toggleLockRecipeButton = ExecutableWidget.instance(150, screen.height / 2 - 25, 24, 12)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.fast-craft.lock")),
+                                TextProvider.of(Component.translatable("widget.fast-craft.lock")),
                                 ButtonAction.run(this::toggleRecipeLock))
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation("widget.fast-craft.lock.tooltips", ""))))
@@ -231,7 +231,7 @@ public class FastCraft extends BaseModule {
 
         ExecutableWidget toggleDropButton = ExecutableWidget.instance(150, screen.height / 2 - 72, 24, 12)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.fast-craft.toggle-drop")),
+                                TextProvider.of(Component.translatable("widget.fast-craft.toggle-drop")),
                                 ButtonAction.run(toggle))
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation("widget.fast-craft.toggle-drop.tooltips", ""))))

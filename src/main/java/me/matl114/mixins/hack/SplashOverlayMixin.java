@@ -6,17 +6,17 @@ import me.matl114.hacks.RenderTasks;
 import me.matl114.utils.ColorUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.SplashOverlay;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.LoadingOverlay;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(SplashOverlay.class)
+@Mixin(LoadingOverlay.class)
 public abstract class SplashOverlayMixin {
     @Inject(
             method = "render",
@@ -24,11 +24,11 @@ public abstract class SplashOverlayMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/DrawContext;drawTexture(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/util/Identifier;IIFFIIIIIII)V",
+                                    "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blit(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIFFIIIIIII)V",
                             ordinal = 1,
                             shift = At.Shift.AFTER))
     private void onRenderOverlay(
-            DrawContext context,
+            GuiGraphicsExtractor context,
             int mouseX,
             int mouseY,
             float deltaTicks,
@@ -37,11 +37,11 @@ public abstract class SplashOverlayMixin {
         if (RenderTasks.getCustomOverlay().enable.get()) {
             Identifier identifier = Identifier.tryParse(
                     RenderTasks.getCustomOverlay().texturePath.get());
-            int i = context.getScaledWindowWidth();
-            int j = context.getScaledWindowHeight();
+            int i = context.guiWidth();
+            int j = context.guiHeight();
             int color = RenderTasks.getCustomOverlay().color.get();
             context.fillGradient(0, 0, i, j, color, color);
-            context.drawTexturedQuad(
+            context.innerBlit(
                     RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
                     identifier,
                     0,
@@ -57,8 +57,8 @@ public abstract class SplashOverlayMixin {
     }
 
     @ModifyExpressionValue(
-            method = "renderProgressBar",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/math/ColorHelper;getArgb(IIII)I"))
+            method = "drawProgressBar",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ARGB;color(IIII)I"))
     private int onOverrideProgressbar(int original, @Local(ordinal = 5) int j) {
         return RenderTasks.getCustomOverlay().colorProgressbar.get().withAlpha(j);
     }

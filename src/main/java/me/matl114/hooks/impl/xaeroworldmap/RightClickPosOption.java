@@ -1,20 +1,20 @@
 package me.matl114.hooks.impl.xaeroworldmap;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import xaero.map.gui.IRightClickableElement;
 import xaero.map.gui.dropdown.rightclick.RightClickOption;
 
 public class RightClickPosOption extends RightClickOption {
     MapClickContext context;
     BlockPos pos;
-    RegistryKey<World> world;
+    ResourceKey<Level> world;
 
     public RightClickPosOption(
             MapClickContext context,
-            RegistryKey<World> currentWorld,
+            ResourceKey<Level> currentWorld,
             BlockPos pos,
             int index,
             IRightClickableElement target) {

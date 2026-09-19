@@ -23,10 +23,10 @@ import me.matl114.utils.commands.commandGroup.SubCommand;
 import me.matl114.utils.commands.commandGroup.TreeSubCommand;
 import me.matl114.utils.commands.params.SimpleCommandArgs;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
-import net.minecraft.world.GameMode;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.world.level.GameType;
 
 public class PlayerQueue extends BaseModule {
     public final ModulePath playerIo = makePath(Configs.RENDER_CONFIG, "player-io.player-queue");
@@ -90,7 +90,7 @@ public class PlayerQueue extends BaseModule {
         uniqueSetPlayer.clear();
     }
 
-    public void onServerInitialize(Event<ClientPlayerEntity> onGameJoin) {
+    public void onServerInitialize(Event<LocalPlayer> onGameJoin) {
         playerQueue.clear();
         uniqueSetPlayer.clear();
         Tasks.scheduleDelayed(this::onInitializeQueue, 20);
@@ -101,8 +101,8 @@ public class PlayerQueue extends BaseModule {
         uniqueSetPlayer.clear();
         if (checkNull()) return;
         int currentQueuePosition = 0;
-        for (var re : mc.getNetworkHandler().getPlayerList()) {
-            if (re.getGameMode() == GameMode.SPECTATOR) {
+        for (var re : mc.getConnection().getOnlinePlayers()) {
+            if (re.getGameMode() == GameType.SPECTATOR) {
                 currentQueuePosition++;
                 playerQueue.addLast(new Entry(
                         VRecord.getId(re.getProfile()),
@@ -158,7 +158,7 @@ public class PlayerQueue extends BaseModule {
         }
     }
 
-    public void playerJoinQueue(PlayerListEntry entry) {
+    public void playerJoinQueue(PlayerInfo entry) {
         UUID uid = VRecord.getId(entry.getProfile());
         if (!uniqueSetPlayer.contains(uid)) {
             uniqueSetPlayer.add(uid);
@@ -183,7 +183,7 @@ public class PlayerQueue extends BaseModule {
         }
     }
 
-    public void playerFinishQueue(PlayerListEntry entry) {
+    public void playerFinishQueue(PlayerInfo entry) {
         UUID uid = VRecord.getId(entry.getProfile());
         var val = leaveQueue(uid);
         if (val != null) {
@@ -192,7 +192,7 @@ public class PlayerQueue extends BaseModule {
         }
     }
 
-    public void playerFinishServer(PlayerListEntry entry) {
+    public void playerFinishServer(PlayerInfo entry) {
         UUID uid = VRecord.getId(entry.getProfile());
         var val = leaveQueue(uid);
         if (val != null) {
@@ -201,23 +201,23 @@ public class PlayerQueue extends BaseModule {
         }
     }
 
-    public void onPlayerListAdd(Event<PlayerListEntry> entry) {
+    public void onPlayerListAdd(Event<PlayerInfo> entry) {
         String name = VRecord.getName(entry.context.getProfile());
         if (trackedPlayers.contains(name)) {
             if (enable.get()) {
                 logI18N("message.module.player-queue.join-server", name);
             }
         }
-        if (entry.context.getGameMode() == GameMode.SPECTATOR) {
+        if (entry.context.getGameMode() == GameType.SPECTATOR) {
             playerJoinQueue(entry.context);
         } else {
             // player skip queue, nothing to do with the queue
         }
     }
 
-    public void onPlayerListModify(Event<PlayerListEntry> entry) {
-        if (entry.getArgs(0) == PlayerListS2CPacket.Action.UPDATE_GAME_MODE) {
-            if (entry.context.getGameMode() == GameMode.SPECTATOR) {
+    public void onPlayerListModify(Event<PlayerInfo> entry) {
+        if (entry.getArgs(0) == ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE) {
+            if (entry.context.getGameMode() == GameType.SPECTATOR) {
                 playerJoinQueue(entry.context);
             } else {
                 playerFinishQueue(entry.context);
@@ -225,8 +225,8 @@ public class PlayerQueue extends BaseModule {
         }
     }
 
-    public void onPlayerListRemove(Event<PlayerListEntry> entry) {
-        if (entry.context.getGameMode() == GameMode.SPECTATOR) {
+    public void onPlayerListRemove(Event<PlayerInfo> entry) {
+        if (entry.context.getGameMode() == GameType.SPECTATOR) {
             playerFinishServer(entry.context);
         }
     }
@@ -268,9 +268,9 @@ public class PlayerQueue extends BaseModule {
             if (entry != null) {
                 Debug.chat("-", re, "(queuing,", (entry.initialize ? "order=unknown)" : "order=" + entry.order + ")"));
             } else {
-                var pentry = mc.getNetworkHandler().getPlayerListEntry(re);
+                var pentry = mc.getConnection().getPlayerInfo(re);
                 if (pentry != null) {
-                    Debug.chat("-", re, pentry.getGameMode() == GameMode.SURVIVAL ? "(online)" : "(queuing)");
+                    Debug.chat("-", re, pentry.getGameMode() == GameType.SURVIVAL ? "(online)" : "(queuing)");
 
                 } else {
                     Debug.chat("-", re, "(offline)");
@@ -289,9 +289,9 @@ public class PlayerQueue extends BaseModule {
                 return;
             }
         }
-        var pentry = mc.getNetworkHandler().getPlayerListEntry(name);
+        var pentry = mc.getConnection().getPlayerInfo(name);
         if (pentry != null) {
-            Debug.chat("-", name, pentry.getGameMode() == GameMode.SURVIVAL ? "(online)" : "(queuing)");
+            Debug.chat("-", name, pentry.getGameMode() == GameType.SURVIVAL ? "(online)" : "(queuing)");
 
         } else {
             Debug.chat("-", name, "(offline)");
@@ -344,7 +344,7 @@ public class PlayerQueue extends BaseModule {
     @AllArgsConstructor
     public static class Entry {
         final UUID uuid;
-        final PlayerListEntry entry;
+        final PlayerInfo entry;
         int order;
         int lastOrder;
         final boolean initialize;

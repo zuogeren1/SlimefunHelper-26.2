@@ -5,7 +5,6 @@ import me.matl114.hacks.api.ModuleGroup;
 import me.matl114.hacks.api.ModuleManager;
 import me.matl114.hacks.modules.HackModules;
 import me.matl114.hacks.modules.survival.*;
-import me.matl114.hacks.modules.survival.ElytraFinder;
 import org.jetbrains.annotations.ApiStatus;
 
 public class SurvivalTasks {

@@ -3,7 +3,6 @@ package me.matl114.hacks;
 import com.google.common.base.Predicates;
 import com.mojang.brigadier.tree.CommandNode;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -34,24 +33,24 @@ import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.utils.tasks.LimitedSpeedExecutor;
 import me.matl114.versioned.api.VEntity;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.visitor.NbtTextFormatter;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
+import net.minecraft.nbt.TextComponentTagVisitor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.PlayerTeam;
 import org.apache.commons.lang3.mutable.MutableInt;
 
 public class ChatTasks {
@@ -107,21 +106,21 @@ public class ChatTasks {
         HackModules.registerModuleGroup(moduleManager);
     }
     // ========================================== utilities ========================================
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     // modified from @ChatScreen.class
     public static void sayMessage(String chatText, boolean addToHistory) {
-        if (MinecraftClient.getInstance().player != null
-                && MinecraftClient.getInstance().player.networkHandler != null) {
+        if (Minecraft.getInstance().player != null
+                && Minecraft.getInstance().player.connection != null) {
             chatText = getChatExtra().normalizeSendText(chatText);
             // in world
             if (addToHistory) {
-                MinecraftClient.getInstance().inGameHud.getChatHud().addToMessageHistory(chatText);
+                Minecraft.getInstance().gui.hud.chat.addRecentChat(chatText);
             }
             if (chatText.startsWith("/")) {
-                MinecraftClient.getInstance().player.networkHandler.sendChatCommand(chatText.substring(1));
+                Minecraft.getInstance().player.connection.sendCommand(chatText.substring(1));
             } else {
-                MinecraftClient.getInstance().player.networkHandler.sendChatMessage(chatText);
+                Minecraft.getInstance().player.connection.sendChat(chatText);
             }
         }
     }
@@ -129,8 +128,8 @@ public class ChatTasks {
     @Getter
     private static final LimitedSpeedExecutor chatExecutor = new LimitedSpeedExecutor(new IntRef(5));
 
-    public static void sendDelayChatMessage(Text text) {
-        chatExecutor.addDelayedExecuteTask(() -> mc.inGameHud.getChatHud().addMessage(text));
+    public static void sendDelayChatMessage(Component text) {
+        chatExecutor.addDelayedExecuteTask(() -> mc.gui.hud.chat.addClientSystemMessage(text));
     }
 
     static {
@@ -220,7 +219,7 @@ public class ChatTasks {
                 case "clickgui" -> Tasks.scheduleDelayed(MainTasks.getClickGui()::openClickGui, 1);
                 default -> Tasks.scheduleDelayed(SlimefunTasks.getSlimefunGuide()::openMainGuideMenu, 1);
             }
-            Debug.chat(Text.literal("成功打开界面").formatted(Formatting.GREEN));
+            Debug.chat(Component.literal("成功打开界面").withStyle(ChatFormatting.GREEN));
         }
 
         {
@@ -235,7 +234,7 @@ public class ChatTasks {
                     .complete();
         }
 
-        public boolean onTask(PlayerEntity player, ArgumentInputStream s, ArgumentReader reader) {
+        public boolean onTask(Player player, ArgumentInputStream s, ArgumentReader reader) {
 
             String val = s.nextNonnull();
             String[] extraArg = reader.getRemainingArgs();
@@ -261,7 +260,7 @@ public class ChatTasks {
                     .complete();
         }
 
-        public boolean onAsyncTask(PlayerEntity player, ArgumentInputStream s, ArgumentReader reader) {
+        public boolean onAsyncTask(Player player, ArgumentInputStream s, ArgumentReader reader) {
             String val = s.nextNonnull();
             String[] extraArg = reader.getRemainingArgs();
             CompletableFuture.runAsync(() -> {
@@ -282,8 +281,8 @@ public class ChatTasks {
                     .arg(SimpleCommandArgs.argumentBuilder()
                             .name("id")
                             .tabSupplier(() -> ItemStackUtils.registry()
-                                    .streamAllRegistryKeys()
-                                    .map(RegistryKey::getValue)
+                                    .registries()
+                                    .map(entry -> entry.key().identifier())
                                     .map(i -> "minecraft".equals(i.getNamespace()) ? i.getPath() : i.toString()))
                             .build())
                     .arg(SimpleCommandArgs.argumentBuilder()
@@ -297,16 +296,16 @@ public class ChatTasks {
 
         public void onListRegistry(ArgumentInputStream re) {
             Identifier identifier = Identifier.tryParse(re.nextNonnull());
-            RegistryKey registryKey = RegistryKey.ofRegistry(identifier);
+            ResourceKey registryKey = ResourceKey.createRegistryKey(identifier);
             Registry result = (Registry)
-                    ItemStackUtils.registry().getOptional(registryKey).orElse(null);
+                    ItemStackUtils.registry().lookup(registryKey).orElse(null);
             if (result != null) {
                 String filter = re.nextNonnull();
-                Debug.chat(Text.literal(identifier.toString() + "所拥有的注册项:").formatted(Formatting.GREEN));
+                Debug.chat(Component.literal(identifier.toString() + "所拥有的注册项:").withStyle(ChatFormatting.GREEN));
                 Identifier filterId = Identifier.tryParse(filter);
                 boolean namespace = filter.contains(":");
-                for (var id : result.getKeys()) {
-                    Identifier identifier1 = ((RegistryKey) id).getValue();
+                for (var id : result.registryKeySet()) {
+                    Identifier identifier1 = ((ResourceKey) id).identifier();
                     String val = identifier1.getPath();
                     if (filterId == null
                             || (val.contains(filterId.getPath())
@@ -315,7 +314,7 @@ public class ChatTasks {
                     }
                 }
             } else {
-                Debug.chat(Text.literal("不存在的注册表: " + identifier).formatted(Formatting.RED));
+                Debug.chat(Component.literal("不存在的注册表: " + identifier).withStyle(ChatFormatting.RED));
             }
         }
 
@@ -346,8 +345,8 @@ public class ChatTasks {
             List datas = new ArrayList<>();
             switch (val) {
                 case "world" -> {
-                    datas = mc.getNetworkHandler().getWorldKeys().stream()
-                            .map(RegistryKey::getValue)
+                    datas = mc.getConnection().levels().stream()
+                            .map(ResourceKey::identifier)
                             .filter(u -> filterId == null
                                     || (u.getPath().contains(filterId.getPath())
                                             && (!namespace || u.getNamespace().contains(filterId.getNamespace()))))
@@ -355,7 +354,7 @@ public class ChatTasks {
                     onResource0(val, datas);
                 }
                 case "command" -> {
-                    datas = mc.getNetworkHandler().getCommandDispatcher().getRoot().getChildren().stream()
+                    datas = mc.getConnection().getCommands().getRoot().getChildren().stream()
                             .map(CommandNode::getName)
                             .filter(u -> u.contains(filter))
                             .sorted(String::compareTo)
@@ -364,17 +363,17 @@ public class ChatTasks {
                 }
                 case "seed" -> {
                     datas = List.of(
-                            Text.literal("服务端加密种子: ")
-                                    .append(ChatUtils.getDisplayedLong(mc.world.getBiomeAccess().seed)),
-                            Text.literal("当前绑定种子: ")
+                            Component.literal("服务端加密种子: ")
+                                    .append(ChatUtils.getDisplayedLong(mc.level.getBiomeManager().biomeZoomSeed)),
+                            Component.literal("当前绑定种子: ")
                                     .append(
                                             SeedOre.INSTANCE.hasCurrentSeed()
                                                     ? ChatUtils.getDisplayedLong(SeedOre.INSTANCE.getCurrentSeed())
-                                                    : Text.literal("暂未输入")));
+                                                    : Component.literal("暂未输入")));
                     onResource0(val, datas);
                 }
                 case "plugins" -> {
-                    Debug.chat(Text.literal("导出Command Namespace获取的数据:").formatted(Formatting.GREEN));
+                    Debug.chat(Component.literal("导出Command Namespace获取的数据:").withStyle(ChatFormatting.GREEN));
                     datas = ClientUtils.getServerCommands().stream()
                             .map(n -> {
                                 var sp = n.split(":");
@@ -386,7 +385,7 @@ public class ChatTasks {
                             .sorted(String::compareTo)
                             .toList();
                     onResource0(val, datas);
-                    Debug.chat(Text.literal("导出Version Tab获取的数据:").formatted(Formatting.GREEN));
+                    Debug.chat(Component.literal("导出Version Tab获取的数据:").withStyle(ChatFormatting.GREEN));
                     ClientUtils.getServerPluginResources().thenAccept((list) -> {
                         onResource0(
                                 val,
@@ -399,19 +398,19 @@ public class ChatTasks {
                     });
                 }
                     //                    case "gamerule"->{
-                    //                        datas = mc.world.getGameRules().toNbt().entries.entrySet().stream()
+                    //                        datas = mc.level.getGameRules().toNbt().entries.entrySet().stream()
                     //                            .map(entry-> entry.getKey()+ ":" + entry.getValue().asString())
                     //                            .filter(u-> u.contains(filter))
                     //                            .toList();
                     //                    }
                 default -> {
-                    Debug.chat(Text.literal("不支持的资源: " + val).formatted(Formatting.RED));
+                    Debug.chat(Component.literal("不支持的资源: " + val).withStyle(ChatFormatting.RED));
                 }
             }
         }
 
         private void onResource0(String name, List datas) {
-            Debug.chat(Text.literal(name + "所拥有的数据:").formatted(Formatting.GREEN));
+            Debug.chat(Component.literal(name + "所拥有的数据:").withStyle(ChatFormatting.GREEN));
             for (var identifier1 : datas) {
                 Debug.chat(identifier1);
             }
@@ -459,24 +458,24 @@ public class ChatTasks {
 
         public void onInfo(ArgumentInputStream re) {
             String info = re.nextSelect(infoTypes);
-            PlayerEntity entity;
+            Player entity;
             String user = re.nextNonnull();
             entity = Objects.equals("#me", user) ? mc.player : EntityUtils.getPlayerByName(user);
             if (entity != null) {
-                Debug.chat("Information about player : ", entity.getNameForScoreboard());
+                Debug.chat("Information about player : ", entity.getScoreboardName());
             }
             switch (info) {
                 case "death" -> {
                     if (entity != null) {
-                        var death = entity.getLastDeathPos();
+                        var death = entity.getLastDeathLocation();
                         if (death.isPresent()) {
                             var deathpoint = death.get();
                             var world = deathpoint.dimension();
                             Debug.chat(
                                     "Last Death Point [World:",
-                                    world.getValue(),
+                                    world.identifier(),
                                     ",Pos:",
-                                    ChatUtils.getDisplayedLocationDouble(Vec3d.of(deathpoint.pos())),
+                                    ChatUtils.getDisplayedLocationDouble(Vec3.atLowerCornerOf(deathpoint.pos())),
                                     "]");
                         } else {
                             Debug.chat("Last Death Point Not Present");
@@ -487,14 +486,14 @@ public class ChatTasks {
                 }
                 case "spawn" -> {
                     Debug.chat("当前世界的出生点:");
-                    BlockPos pos = mc.world.getSpawnPoint().globalPos().pos();
-                    RegistryKey<World> key =
-                            mc.world.getSpawnPoint().globalPos().dimension();
+                    BlockPos pos = mc.level.getRespawnData().globalPos().pos();
+                    ResourceKey<Level> key =
+                            mc.level.getRespawnData().globalPos().dimension();
                     Debug.chat(
                             "World Spawn Point [World:",
-                            key.getValue(),
+                            key.identifier(),
                             ",Pos:",
-                            ChatUtils.getDisplayedLocationDouble(Vec3d.of(pos)),
+                            ChatUtils.getDisplayedLocationDouble(Vec3.atLowerCornerOf(pos)),
                             "]");
                     //                        if(entity != null){
                     //                           // mc.player.spawn
@@ -507,19 +506,19 @@ public class ChatTasks {
                         var comp = VEntity.saveEntityNbt(entity);
                         comp.remove("Inventory");
                         comp.remove("EnderItems");
-                        Debug.chat(new NbtTextFormatter("").apply(comp));
+                        Debug.chat(new TextComponentTagVisitor("").visit(comp));
                     } else {
                         Debug.chat("找不到玩家", user);
                     }
                 }
                 case "inventory" -> {
                     if (entity != null) {
-                        PlayerInventory enderInventory = entity.getInventory();
+                        Inventory enderInventory = entity.getInventory();
                         Tasks.scheduleDelayed(
                                 () -> {
                                     ScreenAccess.of(new InventoryViewScreen(
                                                     enderInventory,
-                                                    Text.literal("背包预览 - " + entity.getNameForScoreboard()),
+                                                    Component.literal("背包预览 - " + entity.getScoreboardName()),
                                                     new ItemStack(Items.CHEST)))
                                             .openFromCurrent();
                                 },
@@ -544,7 +543,7 @@ public class ChatTasks {
                                 () -> {
                                     ScreenAccess.of(new InventoryViewScreen(
                                                     InventoryUtils.createInventory(stacks),
-                                                    Text.literal("背包追踪预览 - " + entity.getNameForScoreboard()),
+                                                    Component.literal("背包追踪预览 - " + entity.getScoreboardName()),
                                                     new ItemStack(Items.BARRIER)))
                                             .openFromCurrent();
                                 },
@@ -555,14 +554,14 @@ public class ChatTasks {
                 }
                 case "ender" -> {
                     if (entity != null) {
-                        Inventory enderInventory = entity == mc.player
+                        Container enderInventory = entity == mc.player
                                 ? ChestHistory.INSTANCE.getTrackedEnderChestInventory()
                                 : entity.getEnderChestInventory();
                         Tasks.scheduleDelayed(
                                 () -> {
                                     ScreenAccess.of(new InventoryViewScreen(
                                                     enderInventory,
-                                                    Text.literal("末影箱预览 - " + entity.getNameForScoreboard()),
+                                                    Component.literal("末影箱预览 - " + entity.getScoreboardName()),
                                                     new ItemStack(Items.ENDER_CHEST)))
                                             .openFromCurrent();
                                 },
@@ -573,17 +572,17 @@ public class ChatTasks {
                     }
                 }
                 case "plist" -> {
-                    Debug.chat(Text.literal("当前可视的玩家列表").formatted(Formatting.GREEN));
-                    mc.getNetworkHandler().getPlayerList().stream()
+                    Debug.chat(Component.literal("当前可视的玩家列表").withStyle(ChatFormatting.GREEN));
+                    mc.getConnection().getOnlinePlayers().stream()
                             .sorted(Comparator.comparing(e -> VRecord.getName(e.getProfile())))
                             .map(entry -> {
-                                var val = Text.literal(
+                                var val = Component.literal(
                                                 "%-16s (Display: ".formatted(VRecord.getName(entry.getProfile())))
                                         .append(
-                                                entry.getDisplayName() == null
-                                                        ? Text.literal("null")
-                                                        : entry.getDisplayName())
-                                        .append(Text.literal(", GameMode: "
+                                                entry.getTabListDisplayName() == null
+                                                        ? Component.literal("null")
+                                                        : entry.getTabListDisplayName())
+                                        .append(Component.literal(", GameMode: "
                                                 + entry.getGameMode().name() + ")"));
                                 Debug.info(val);
                                 return val;
@@ -591,32 +590,32 @@ public class ChatTasks {
                             .forEach(Debug::chat);
                 }
                 case "team" -> {
-                    String user0 = Objects.equals(user, "#me") ? mc.player.getNameForScoreboard() : user;
-                    PlayerListEntry entry =
-                            MinecraftClient.getInstance().getNetworkHandler().getPlayerListEntry(user0);
+                    String user0 = Objects.equals(user, "#me") ? mc.player.getScoreboardName() : user;
+                    PlayerInfo entry =
+                            Minecraft.getInstance().getConnection().getPlayerInfo(user0);
                     if (entry != null) {
-                        Team team = entry.getScoreboardTeam();
+                        PlayerTeam team = entry.getTeam();
                         if (team != null) {
                             Debug.chat("该玩家所在Team: ", team.getName());
                             Debug.chat(
-                                    Text.literal("展示名称: ").formatted(Formatting.GRAY),
+                                    Component.literal("展示名称: ").withStyle(ChatFormatting.GRAY),
                                     team.getDisplayName() == null ? "" : team.getDisplayName());
                             Debug.chat(
-                                    Text.literal("前缀: ").formatted(Formatting.GRAY),
-                                    team.getPrefix() == null ? "" : team.getPrefix());
+                                    Component.literal("前缀: ").withStyle(ChatFormatting.GRAY),
+                                    team.getPlayerPrefix() == null ? "" : team.getPlayerPrefix());
                             Debug.chat(
-                                    Text.literal("后缀: ").formatted(Formatting.GRAY),
-                                    team.getSuffix() == null ? "" : team.getSuffix());
+                                    Component.literal("后缀: ").withStyle(ChatFormatting.GRAY),
+                                    team.getPlayerSuffix() == null ? "" : team.getPlayerSuffix());
                             Debug.chat(
-                                    Text.literal("颜色: ").formatted(Formatting.GRAY),
+                                    Component.literal("颜色: ").withStyle(ChatFormatting.GRAY),
                                     team.getColor() == null ? "" : team.getColor());
-                            Debug.chat(Text.literal("友伤: ").formatted(Formatting.GRAY), team.isFriendlyFireAllowed());
+                            Debug.chat(Component.literal("友伤: ").withStyle(ChatFormatting.GRAY), team.isAllowFriendlyFire());
                             Debug.chat(
-                                    Text.literal("显示隐身队友: ").formatted(Formatting.GRAY),
-                                    team.shouldShowFriendlyInvisibles());
-                            Debug.chat(Text.literal("队员列表:").formatted(Formatting.GRAY));
-                            Debug.chat(Text.literal("-------------------").formatted(Formatting.GREEN));
-                            for (var str : team.getPlayerList()) {
+                                    Component.literal("显示隐身队友: ").withStyle(ChatFormatting.GRAY),
+                                    team.canSeeFriendlyInvisibles());
+                            Debug.chat(Component.literal("队员列表:").withStyle(ChatFormatting.GRAY));
+                            Debug.chat(Component.literal("-------------------").withStyle(ChatFormatting.GREEN));
+                            for (var str : team.getPlayers()) {
                                 Debug.chat(str);
                             }
                         } else {
@@ -627,37 +626,37 @@ public class ChatTasks {
                     }
                 }
                 case "pentry" -> {
-                    String user0 = Objects.equals(user, "#me") ? mc.player.getNameForScoreboard() : user;
-                    PlayerListEntry entry =
-                            MinecraftClient.getInstance().getNetworkHandler().getPlayerListEntry(user0);
+                    String user0 = Objects.equals(user, "#me") ? mc.player.getScoreboardName() : user;
+                    PlayerInfo entry =
+                            Minecraft.getInstance().getConnection().getPlayerInfo(user0);
                     if (entry != null) {
                         Debug.chat("查询到PlayerEntry");
                         Debug.chat(
-                                Text.literal("名字: ").formatted(Formatting.GRAY), VRecord.getName(entry.getProfile()));
+                                Component.literal("名字: ").withStyle(ChatFormatting.GRAY), VRecord.getName(entry.getProfile()));
                         Debug.chat(
-                                Text.literal("UUID: ").formatted(Formatting.GRAY),
+                                Component.literal("UUID: ").withStyle(ChatFormatting.GRAY),
                                 ChatUtils.getClickCopyTargetText(VRecord.getId(entry.getProfile())
                                                 .toString())
-                                        .formatted(Formatting.GREEN));
+                                        .withStyle(ChatFormatting.GREEN));
                         Debug.chat(
-                                Text.literal("Property: ").formatted(Formatting.GRAY),
+                                Component.literal("Property: ").withStyle(ChatFormatting.GRAY),
                                 ChatUtils.getHoverShowText(
                                         "[点击查看具体数据]",
-                                        List.of(Text.literal(VRecord.getProperties(entry.getProfile())
+                                        List.of(Component.literal(VRecord.getProperties(entry.getProfile())
                                                 .toString()))));
                         Debug.chat(
-                                Text.literal("GameMode: ").formatted(Formatting.GRAY),
+                                Component.literal("GameMode: ").withStyle(ChatFormatting.GRAY),
                                 entry.getGameMode().name());
                         Debug.chat(
-                                Text.literal("DisplayName: ").formatted(Formatting.GRAY),
-                                entry.getDisplayName() == null ? Text.literal("null") : entry.getDisplayName());
-                        List<Text> texts = new ArrayList<>();
-                        texts.add(Text.literal("Latency: " + entry.getLatency()));
-                        texts.add(Text.literal("MessageVerifier: " + entry.getMessageVerifier()));
-                        texts.add(Text.literal("SkinTextures: " + entry.getSkinTextures()));
-                        texts.add(Text.literal("Session: " + entry.getSession()));
+                                Component.literal("DisplayName: ").withStyle(ChatFormatting.GRAY),
+                                entry.getTabListDisplayName() == null ? Component.literal("null") : entry.getTabListDisplayName());
+                        List<Component> texts = new ArrayList<>();
+                        texts.add(Component.literal("Latency: " + entry.getLatency()));
+                        texts.add(Component.literal("MessageVerifier: " + entry.getMessageValidator()));
+                        texts.add(Component.literal("SkinTextures: " + entry.getSkin()));
+                        texts.add(Component.literal("Session: " + entry.getChatSession()));
                         Debug.chat(
-                                Text.literal("More: ").formatted(Formatting.GRAY),
+                                Component.literal("More: ").withStyle(ChatFormatting.GRAY),
                                 ChatUtils.getHoverShowText("[点击查看具体数据]", texts));
                     } else {
                         Debug.chat("该玩家没有PlayerEntry");
@@ -667,15 +666,15 @@ public class ChatTasks {
                     Debug.chat("当前服务器:");
                     String ip = CommonUtils.getServerName();
                     Debug.chat(
-                            ChatUtils.getClickCopyTargetText(ip).formatted(Formatting.GREEN),
+                            ChatUtils.getClickCopyTargetText(ip).withStyle(ChatFormatting.GREEN),
                             "|",
-                            mc.world.getRegistryKey().getValue());
+                            mc.level.dimension().identifier());
                 }
                 case "waypoint" -> {
                     Debug.chat("查询中");
-                    PlayerListEntry entry;
+                    PlayerInfo entry;
                     Predicate<WorldUtils.Waypoint> filter;
-                    if ((entry = mc.getNetworkHandler().getPlayerListEntry(user)) != null) {
+                    if ((entry = mc.getConnection().getPlayerInfo(user)) != null) {
                         final String lookup;
                         lookup = VRecord.getId(entry.getProfile()).toString();
                         filter = s -> lookup.equalsIgnoreCase(s.getSource().map(UUID::toString, Function.identity()));
@@ -685,23 +684,23 @@ public class ChatTasks {
                     WorldUtils.getWaypoints().filter(filter).forEach(s -> {
                         Debug.chat(
                                 "Information about waypoint:", s.getSource().map(UUID::toString, Function.identity()));
-                        Optional<PlayerListEntry> optionalEntry = s.getSource()
+                        Optional<PlayerInfo> optionalEntry = s.getSource()
                                 .map(
                                         t -> Optional.ofNullable(
-                                                mc.getNetworkHandler().getPlayerListEntry(t)),
+                                                mc.getConnection().getPlayerInfo(t)),
                                         t -> Optional.ofNullable(
-                                                mc.getNetworkHandler().getPlayerListEntry(t)));
+                                                mc.getConnection().getPlayerInfo(t)));
                         optionalEntry.ifPresent(playerListEntry ->
                                 Debug.chat("Potential Owner: " + VRecord.getName(playerListEntry.getProfile())));
 
                         Debug.chat("config: ");
 
-                        Debug.chat(new NbtTextFormatter("").apply(s.getConfig()));
+                        Debug.chat(new TextComponentTagVisitor("").visit(s.getConfig()));
 
                         Debug.chat("type: " + s.getData().getTypeName());
                         switch (s.getData().getTypeName()) {
                             case "Pos" -> {
-                                Vec3d vec3d = ((WorldUtils.WaypointData.Pos) s.getData()).pos();
+                                Vec3 vec3d = ((WorldUtils.WaypointData.Pos) s.getData()).pos();
                                 Debug.chat("Pos :", vec3d.x, vec3d.y, vec3d.z);
                             }
                             case "Chunk" -> {
@@ -794,7 +793,7 @@ public class ChatTasks {
                             MutableInt counter = new MutableInt(0);
                             Tasks.scheduleRepeatedPre(
                                     () -> {
-                                        if (mc.world == null || mc.player == null) return true;
+                                        if (mc.level == null || mc.player == null) return true;
                                         MainCommand.dispatchCommand(args);
                                         if (counter.incrementAndGet() >= time) {
                                             return true;

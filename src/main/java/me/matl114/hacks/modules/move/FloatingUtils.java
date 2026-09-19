@@ -15,8 +15,8 @@ import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.EntityUtils;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.phys.Vec3;
 
 public class FloatingUtils extends BaseModule implements LegalMovementManager.MovementModifier {
     static LegalMovementManager.DelegateMovementModifier instance;
@@ -100,7 +100,7 @@ public class FloatingUtils extends BaseModule implements LegalMovementManager.Mo
         return PRIORITY_MONITOR;
     }
 
-    PlayerMoveC2SPacket storedPacket;
+    ServerboundMovePlayerPacket storedPacket;
     // fix timer
     boolean forceSilentThisTick = false;
     boolean forceNotSilentThisTick = false;
@@ -114,12 +114,12 @@ public class FloatingUtils extends BaseModule implements LegalMovementManager.Mo
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
         if (!workGrimFloatingThisTick() && enableElytraSlowFall.get()) {
-            if (mc.player.isFallFlying() && !mc.player.isOnGround()) {
+            if (mc.player.isFallFlying() && !mc.player.onGround()) {
                 boolean rotateYaw = Tasks.getTick() % 2 == 0;
                 movementManagerEvent.context.pushImportantRotation(true, rotateYaw);
                 EntityUtils.setEntityPitchSafe(mc.player, 0);
                 if (rotateYaw) {
-                    PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYaw() + 180);
+                    PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYRot() + 180);
                 }
                 movementManagerEvent.context.markForResetRot();
             }
@@ -127,7 +127,7 @@ public class FloatingUtils extends BaseModule implements LegalMovementManager.Mo
     }
 
     @Override
-    public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {
+    public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {
         if (workGrimFloatingThisTick()) {
             movementManagerEvent.cancel();
         }
@@ -139,7 +139,7 @@ public class FloatingUtils extends BaseModule implements LegalMovementManager.Mo
     public void applyBeforeMovementPacketModify(Event<LegalMovementManager> movementManagerEvent) {
         boolean conditionalFreeze = false;
         if (!conditionalFreeze && freezeVoid.get().isPresent()) {
-            if (mc.player.getY() <= mc.world.getBottomY() + freezeVoid.get().getValue()) {
+            if (mc.player.getY() <= mc.level.getMinY() + freezeVoid.get().getValue()) {
                 conditionalFreeze = true;
             }
         }
@@ -159,19 +159,19 @@ public class FloatingUtils extends BaseModule implements LegalMovementManager.Mo
             boolean useOnGroundFloat = ((onGroundFloat.get()) || (forceOnGroundVia1205));
             if (useOnGroundFloat) {
                 storedPacket =
-                        LegacySnapRotManager.INSTANCE.createSnapAt(mc.player.getPitch(), mc.player.getYaw(), true);
+                        LegacySnapRotManager.INSTANCE.createSnapAt(mc.player.getXRot(), mc.player.getYRot(), true);
                 mc.player.setOnGround(true);
                 lastUsingOnGroundDeceive = true;
             } else {
                 if (lastUsingOnGroundDeceive) {
                     lastUsingOnGroundDeceive = false;
                     storedPacket = LegacySnapRotManager.INSTANCE.createSnapAt(
-                            mc.player.getPitch(), mc.player.getYaw(), PlayerStateManager.INSTANCE.lastHasGroundSupport);
+                            mc.player.getXRot(), mc.player.getYRot(), PlayerStateManager.INSTANCE.lastHasGroundSupport);
                 } else {
                     storedPacket = VPacket.newLookAndOnGround(
-                            mc.player.getYaw(),
-                            mc.player.getPitch(),
-                            mc.player.isOnGround(),
+                            mc.player.getYRot(),
+                            mc.player.getXRot(),
+                            mc.player.onGround(),
                             mc.player.horizontalCollision);
                     if (useSnapPacket) {
                         storedPacket = LegacySnapRotManager.INSTANCE.createAsSnap(storedPacket);
@@ -196,11 +196,11 @@ public class FloatingUtils extends BaseModule implements LegalMovementManager.Mo
                 if (forceNotSilentThisTick) {
                     shouldSend = true;
                 } else if (PlayerStateManager.INSTANCE.isRotationDifferent(
-                        storedPacket.getPitch(mc.player.getPitch()), storedPacket.getYaw(mc.player.getYaw()))) {
+                        storedPacket.getXRot(mc.player.getXRot()), storedPacket.getYRot(mc.player.getYRot()))) {
                     shouldSend = true;
                 }
                 if (shouldSend) {
-                    mc.getNetworkHandler().sendPacket(storedPacket);
+                    mc.getConnection().send(storedPacket);
                 }
             }
             // Listener.sendPacketNoEvents(storedPacket);

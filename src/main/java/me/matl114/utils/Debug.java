@@ -4,9 +4,9 @@ import java.util.Arrays;
 import lombok.Getter;
 import me.matl114.SlimefunHelper;
 import me.matl114.hacks.ChatTasks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,21 +20,21 @@ public class Debug {
     }
 
     public static void chat(Object string) {
-        if (string instanceof Text txt) {
+        if (string instanceof Component txt) {
             sendPlayer(txt);
         } else {
-            sendPlayer(Text.literal(string == null ? "null" : string.toString()));
+            sendPlayer(Component.literal(string == null ? "null" : string.toString()));
         }
     }
 
-    public static void sendPlayer(Text text) {
-        if (MinecraftClient.getInstance().player != null) {
+    public static void sendPlayer(Component text) {
+        if (Minecraft.getInstance().player != null) {
             // do not log async
-            if (MinecraftClient.getInstance().isOnThread()) {
-                MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(text);
+            if (Minecraft.getInstance().isSameThread()) {
+                Minecraft.getInstance().gui.hud.chat.addClientSystemMessage(text);
             } else {
-                MinecraftClient.getInstance().execute(() -> {
-                    MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(text);
+                Minecraft.getInstance().execute(() -> {
+                    Minecraft.getInstance().gui.hud.chat.addClientSystemMessage(text);
                 });
             }
         } else {
@@ -43,26 +43,26 @@ public class Debug {
     }
 
     public static void chat(Object... values) {
-        MutableText text = Text.literal("");
+        MutableComponent text = Component.literal("");
         boolean f = true;
         for (var tx : values) {
             if (f) {
                 f = false;
             } else {
-                text.append(Text.of(" "));
+                text.append(Component.nullToEmpty(" "));
             }
 
-            if (tx instanceof Text) {
-                text.append(((Text) tx));
+            if (tx instanceof Component) {
+                text.append(((Component) tx));
             } else {
-                text.append(Text.literal(tx == null ? "null" : tx.toString()));
+                text.append(Component.literal(tx == null ? "null" : tx.toString()));
             }
         }
         sendPlayer(text);
     }
     //    public static void chat(String... string){
-    //        if(MinecraftClient.getInstance().player!=null){
-    //            MinecraftClient.getInstance().player.sendMessage(Text.of(String.join(" ", string)));
+    //        if(Minecraft.getInstance().player!=null){
+    //            Minecraft.getInstance().player.sendMessage(Text.of(String.join(" ", string)));
     //        }
     //    }
 

@@ -21,21 +21,21 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.collections.IndexEntry;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.RespawnAnchorBlock;
-import net.minecraft.entity.damage.DamageTypes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class AnchorAura extends BaseModule {
     private static final float ANCHOR_POWER = 5.0F;
@@ -120,17 +120,17 @@ public class AnchorAura extends BaseModule {
     }
 
     public Map<BlockPos, AnchorCache> trackedAnchorPositions = new LinkedHashMap<>();
-    public List<PlayerEntity> targetEntity = List.of();
+    public List<Player> targetEntity = List.of();
 
-    public void onSwitchWorld(Event<World> event) {
+    public void onSwitchWorld(Event<Level> event) {
         trackedAnchorPositions.clear();
         targetEntity = List.of();
     }
 
     public void refreshTarget() {
         targetEntity = TargetSelector.INSTANCE.getAttackableEntities(range.get()).stream()
-                .filter(PlayerEntity.class::isInstance)
-                .map(PlayerEntity.class::cast)
+                .filter(Player.class::isInstance)
+                .map(Player.class::cast)
                 .filter(EntityUtils::isEntityValid)
                 .filter(player -> player != mc.player)
                 .toList();
@@ -144,12 +144,12 @@ public class AnchorAura extends BaseModule {
                 if (!hasAnchor && !hasGlowStone) {
                     logI18N(
                             "message.module.anchor-arua.no-item.double",
-                            Items.RESPAWN_ANCHOR.getName(),
-                            Items.GLOWSTONE.getName());
+                            Items.RESPAWN_ANCHOR.getName(new ItemStack(Items.RESPAWN_ANCHOR)),
+                            Items.GLOWSTONE.getName(new ItemStack(Items.GLOWSTONE)));
                 } else if (!hasAnchor) {
-                    logI18N("message.module.anchor-arua.no-item", Items.RESPAWN_ANCHOR.getName());
+                    logI18N("message.module.anchor-arua.no-item", Items.RESPAWN_ANCHOR.getName(new ItemStack(Items.RESPAWN_ANCHOR)));
                 } else {
-                    logI18N("message.module.anchor-arua.no-item", Items.GLOWSTONE.getName());
+                    logI18N("message.module.anchor-arua.no-item", Items.GLOWSTONE.getName(new ItemStack(Items.GLOWSTONE)));
                 }
             });
             return false;
@@ -157,26 +157,26 @@ public class AnchorAura extends BaseModule {
         return true;
     }
 
-    public Map<PlayerEntity, Double> calculateAnchorDamage(BlockPos pos) {
+    public Map<Player, Double> calculateAnchorDamage(BlockPos pos) {
         return calculateAnchorDamage(pos, null, true);
     }
 
-    private Map<PlayerEntity, Double> calculateAnchorDamage(
-            BlockPos pos, Map<PlayerEntity, Box> predictedBoxes, boolean usePredict) {
-        Map<PlayerEntity, Double> damageMap = new LinkedHashMap<>();
-        if (mc.world == null || mc.player == null) {
+    private Map<Player, Double> calculateAnchorDamage(
+            BlockPos pos, Map<Player, AABB> predictedBoxes, boolean usePredict) {
+        Map<Player, Double> damageMap = new LinkedHashMap<>();
+        if (mc.level == null || mc.player == null) {
             return damageMap;
         }
-        Vec3d explosionPos = pos.toCenterPos();
-        Map<BlockPos, BlockState> overrides = Map.of(pos, Blocks.AIR.getDefaultState());
-        var access = ExplosionUtils.fromWorldWithOverrides(mc.world, overrides);
+        Vec3 explosionPos = Vec3.atCenterOf(pos);
+        Map<BlockPos, BlockState> overrides = Map.of(pos, Blocks.AIR.defaultBlockState());
+        var access = ExplosionUtils.fromWorldWithOverrides(mc.level, overrides);
         damageMap.put(mc.player, (double) ExplosionUtils.calculateExplosionRawDamage(
                 ANCHOR_POWER, explosionPos, mc.player.getBoundingBox(), access, ExplosionUtils.ALL_TERRAIN));
-        for (PlayerEntity target : targetEntity) {
+        for (Player target : targetEntity) {
             if (!EntityUtils.isEntityValid(target) || target == mc.player) {
                 continue;
             }
-            Box targetBox = getTargetDamageBox(target, predictedBoxes, usePredict);
+            AABB targetBox = getTargetDamageBox(target, predictedBoxes, usePredict);
             damageMap.put(target, (double) ExplosionUtils.calculateExplosionRawDamage(
                     ANCHOR_POWER,
                     explosionPos,
@@ -188,21 +188,21 @@ public class AnchorAura extends BaseModule {
     }
 
     public void tickAnchorPosition() {
-        Map<PlayerEntity, Box> predictedBoxes = new HashMap<>();
+        Map<Player, AABB> predictedBoxes = new HashMap<>();
 
         var iter = trackedAnchorPositions.entrySet().iterator();
         while (iter.hasNext()) {
             var entry = iter.next();
             BlockPos pos = entry.getKey();
-            BlockState blockState = mc.world.getBlockState(pos);
+            BlockState blockState = mc.level.getBlockState(pos);
             if (blockState.getBlock() instanceof RespawnAnchorBlock
-                    && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), pos)) {
-                Map<PlayerEntity, Double> damageMap = calculateAnchorDamage(pos, predictedBoxes, true);
+                    && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), pos)) {
+                Map<Player, Double> damageMap = calculateAnchorDamage(pos, predictedBoxes, true);
                 if (isSuitableExplodePos(pos, damageMap)) {
                     entry.getValue().damageCache = damageMap;
                     // do not override this
                     if (entry.getValue().powerLevel == 0) {
-                        entry.getValue().powerLevel = blockState.get(RespawnAnchorBlock.CHARGES);
+                        entry.getValue().powerLevel = blockState.getValue(RespawnAnchorBlock.CHARGE);
                     }
                 } else {
                     iter.remove();
@@ -211,24 +211,24 @@ public class AnchorAura extends BaseModule {
                 iter.remove();
             }
         }
-        BlockPos playerPos = mc.player.getBlockPos();
+        BlockPos playerPos = mc.player.blockPosition();
         for (var blocks : interactRangeBlocks) {
-            BlockPos testPos = playerPos.add(blocks);
-            BlockState state = mc.world.getBlockState(testPos);
+            BlockPos testPos = playerPos.offset(blocks);
+            BlockState state = mc.level.getBlockState(testPos);
 
             if (state.getBlock() instanceof RespawnAnchorBlock
                     && !trackedAnchorPositions.containsKey(testPos)
-                    && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), testPos)) {
-                Map<PlayerEntity, Double> damageMap = calculateAnchorDamage(testPos, predictedBoxes, true);
+                    && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), testPos)) {
+                Map<Player, Double> damageMap = calculateAnchorDamage(testPos, predictedBoxes, true);
                 if (isSuitableExplodePos(testPos, damageMap)) {
                     trackedAnchorPositions.put(
-                            testPos, new AnchorCache(state.get(RespawnAnchorBlock.CHARGES), damageMap));
+                            testPos, new AnchorCache(state.getValue(RespawnAnchorBlock.CHARGE), damageMap));
                 }
             }
         }
     }
 
-    private boolean isSuitableExplodePos(BlockPos pos, Map<PlayerEntity, Double> damageMap) {
+    private boolean isSuitableExplodePos(BlockPos pos, Map<Player, Double> damageMap) {
         if (damageMap == null || damageMap.isEmpty()) {
             return false;
         }
@@ -243,7 +243,7 @@ public class AnchorAura extends BaseModule {
         return getBestEnemyDamage(damageMap) >= targetDamageThreshold.get();
     }
 
-    //    private boolean isSuitablePacketMineBridgePos(BlockPos pos, Map<PlayerEntity, Double> damageMap) {
+    //    private boolean isSuitablePacketMineBridgePos(BlockPos pos, Map<Player, Double> damageMap) {
     //        return damageMap != null
     //                && !damageMap.isEmpty()
     //                && getBestEnemyDamage(damageMap) > Double.NEGATIVE_INFINITY
@@ -251,9 +251,9 @@ public class AnchorAura extends BaseModule {
     //    }
 
     public boolean isSuitablePosition(BlockPos pos) {
-        BlockState state = mc.world.getBlockState(pos);
-        return (state.isAir() || state.isLiquid() || state.isReplaceable())
-                && InteractUtils.canBlockPlace(mc.player, pos, Blocks.RESPAWN_ANCHOR.getDefaultState());
+        BlockState state = mc.level.getBlockState(pos);
+        return (state.isAir() || state.liquid() || state.canBeReplaced())
+                && InteractUtils.canBlockPlace(mc.player, pos, Blocks.RESPAWN_ANCHOR.defaultBlockState());
     }
 
     int timer = 0;
@@ -261,10 +261,10 @@ public class AnchorAura extends BaseModule {
     public void onPreInputEvents(Event<Void> event) {
         if (checkNull()) return;
         if (enable.get()) {
-            if (!InteractUtils.canRespawnAnchorExplode(mc.world)) {
+            if (!InteractUtils.canRespawnAnchorExplode(mc.level)) {
                 logI18N(
                         "message.module.anchor-arua.invalid-dimension",
-                        mc.world.getRegistryKey().getValue());
+                        mc.level.dimension().identifier());
                 enable.set(false);
                 return;
             }
@@ -290,7 +290,7 @@ public class AnchorAura extends BaseModule {
         int success = 0;
         for (var i = 0; i < entries.size() && success < multiply; ++i) {
             BlockPos targetPos = entries.get(i).getKey();
-            if (InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), targetPos)) {
+            if (InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), targetPos)) {
                 success += litBlockPos(targetPos, entries.get(i).getValue());
             }
         }
@@ -298,16 +298,16 @@ public class AnchorAura extends BaseModule {
     }
 
     public IndexEntry<ItemStack> supplyItem(Item item) {
-        return InventoryUtils.findPlayerItem(s -> s.isOf(item), true, false);
+        return InventoryUtils.findPlayerItem(s -> s.is(item), true, false);
     }
 
     public IndexEntry<ItemStack> supplyNoItem(Item item) {
-        var re = InventoryUtils.findPlayerItem(s -> !s.isOf(item), true, true);
+        var re = InventoryUtils.findPlayerItem(s -> !s.is(item), true, true);
         return re == null ? InventoryUtils.getSelectedItem() : re;
     }
 
     public int litBlockPos(BlockPos targetPos, AnchorCache cache) {
-        BlockState state = mc.world.getBlockState(targetPos);
+        BlockState state = mc.level.getBlockState(targetPos);
         int interactCount = 0;
         if (state.getBlock() instanceof RespawnAnchorBlock) {
             int level = cache.powerLevel;
@@ -321,7 +321,7 @@ public class AnchorAura extends BaseModule {
                 if (callback == null) {
                     return interactCount;
                 }
-                InteractionTasks.handlePlaceMode(mode.get(), hitResult, Hand.MAIN_HAND, swingHand.get());
+                InteractionTasks.handlePlaceMode(mode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
                 interactCount++;
                 level = 1;
                 cache.powerLevel = level;
@@ -336,7 +336,7 @@ public class AnchorAura extends BaseModule {
                 if (callback == null) {
                     return interactCount;
                 }
-                InteractionTasks.handlePlaceMode(mode.get(), hitResult, Hand.MAIN_HAND, swingHand.get());
+                InteractionTasks.handlePlaceMode(mode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
                 interactCount++;
                 level = 0;
                 cache.powerLevel = level;
@@ -350,8 +350,8 @@ public class AnchorAura extends BaseModule {
                     if (callback2 == null) {
                         return interactCount;
                     }
-                    mc.world.setBlockState(targetPos, Blocks.AIR.getDefaultState());
-                    InteractionTasks.handlePlaceMode(mode.get(), hitResult, Hand.MAIN_HAND, swingHand.get());
+                    mc.level.setBlockAndUpdate(targetPos, Blocks.AIR.defaultBlockState());
+                    InteractionTasks.handlePlaceMode(mode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
                     interactCount++;
                     callback2.run();
                 } else {
@@ -366,17 +366,17 @@ public class AnchorAura extends BaseModule {
         if (targetEntity.isEmpty()) {
             return;
         }
-        Map<PlayerEntity, Box> predictedBoxes = new HashMap<>();
+        Map<Player, AABB> predictedBoxes = new HashMap<>();
 
         BlockPos bestPos = null;
 
         FlagEntry<BlockHitResult> bestHitResult = null;
-        Map<PlayerEntity, Double> bestDamageMap = null;
+        Map<Player, Double> bestDamageMap = null;
         double bestEnemyDamage = Double.NEGATIVE_INFINITY;
-        BlockPos currentPos = mc.player.getBlockPos();
+        BlockPos currentPos = mc.player.blockPosition();
         for (Vec3i delta : interactRangeBlocks) {
-            BlockPos pos = currentPos.add(delta);
-            if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), pos)) {
+            BlockPos pos = currentPos.offset(delta);
+            if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), pos)) {
                 continue;
             }
             if (!isSuitablePosition(pos)) {
@@ -388,10 +388,10 @@ public class AnchorAura extends BaseModule {
                 continue;
             }
             if (!InteractExtra.INSTANCE.isWithinInteractRange(
-                    mc.player.getPos(), hitResult.val().getBlockPos())) {
+                    mc.player.position(), hitResult.val().getBlockPos())) {
                 continue;
             }
-            Map<PlayerEntity, Double> damageMap = calculateAnchorDamage(pos, predictedBoxes, true);
+            Map<Player, Double> damageMap = calculateAnchorDamage(pos, predictedBoxes, true);
             // ...
             if (!isSuitableExplodePos(pos, damageMap)) {
                 continue;
@@ -419,7 +419,7 @@ public class AnchorAura extends BaseModule {
                 pos, airplace.get(), !mode.get().isLegal());
         if (InteractUtils.canInteractAndPlace(mc.player, hitResult)
                 && InteractExtra.INSTANCE.isWithinInteractRange(
-                        mc.player.getPos(), hitResult.val().getBlockPos())) {
+                        mc.player.position(), hitResult.val().getBlockPos())) {
             return placeAnchor(pos, hitResult.val());
         }
         return false;
@@ -430,18 +430,18 @@ public class AnchorAura extends BaseModule {
         if (entry == null) return false;
         var runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
         if (runnable == null) return false;
-        InteractionTasks.handlePlaceMode(mode.get(), hitResult, Hand.MAIN_HAND, swingHand.get());
+        InteractionTasks.handlePlaceMode(mode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
         runnable.run();
         return true;
     }
 
-    public void updateAnchor(BlockPos pos, Map<PlayerEntity, Double> damageMap) {
-        Map<PlayerEntity, Double> safeDamageMap =
+    public void updateAnchor(BlockPos pos, Map<Player, Double> damageMap) {
+        Map<Player, Double> safeDamageMap =
                 damageMap == null ? calculateAnchorDamage(pos) : new LinkedHashMap<>(damageMap);
         trackedAnchorPositions.put(pos, new AnchorCache(0, safeDamageMap));
     }
 
-    private Box getTargetDamageBox(PlayerEntity target, Map<PlayerEntity, Box> predictedBoxes, boolean usePredict) {
+    private AABB getTargetDamageBox(Player target, Map<Player, AABB> predictedBoxes, boolean usePredict) {
         if (!usePredict) {
             return target.getBoundingBox();
         }
@@ -451,22 +451,22 @@ public class AnchorAura extends BaseModule {
         return predictedBoxes.computeIfAbsent(target, this::createPredictedTargetBox);
     }
 
-    private Box createPredictedTargetBox(PlayerEntity target) {
-        Box currentBox = target.getBoundingBox();
-        Vec3d currentPos = target.getPos();
-        Vec3d predictedPos =
+    private AABB createPredictedTargetBox(Player target) {
+        AABB currentBox = target.getBoundingBox();
+        Vec3 currentPos = target.position();
+        Vec3 predictedPos =
                 PositionPredict.INSTANCE.attackPredictArgument.get().predict(target);
         if (predictedPos == null
-                || predictedPos.squaredDistanceTo(currentPos) <= MathUtils.s2(PREDICT_POSITION_SWITCH_DISTANCE)) {
+                || predictedPos.distanceToSqr(currentPos) <= MathUtils.s2(PREDICT_POSITION_SWITCH_DISTANCE)) {
             return currentBox;
         }
-        Vec3d realMovement = MovTasks.simulateMovement(target, currentPos, predictedPos.subtract(currentPos), false);
-        return currentBox.offset(realMovement);
+        Vec3 realMovement = MovTasks.simulateMovement(target, currentPos, predictedPos.subtract(currentPos), false);
+        return currentBox.move(realMovement);
     }
 
-    private double getBestEnemyDamage(Map<PlayerEntity, Double> damageMap) {
+    private double getBestEnemyDamage(Map<Player, Double> damageMap) {
         double best = Double.NEGATIVE_INFINITY;
-        for (PlayerEntity target : targetEntity) {
+        for (Player target : targetEntity) {
             if (!EntityUtils.isEntityValid(target) || target == mc.player) {
                 continue;
             }
@@ -482,7 +482,7 @@ public class AnchorAura extends BaseModule {
         if (enable.get() && !eventPreMine.isCancelled()) {
             BlockPos pos = eventPreMine.getArgs(0);
             if (trackedAnchorPositions.containsKey(pos)
-                    && mc.world.getBlockState(pos).getBlock() instanceof RespawnAnchorBlock) {
+                    && mc.level.getBlockState(pos).getBlock() instanceof RespawnAnchorBlock) {
                 eventPreMine.cancel();
             }
         }
@@ -494,8 +494,8 @@ public class AnchorAura extends BaseModule {
             float floatValue = eventPostMine.getArgs(1);
             if (floatValue > 0.7f) {
                 BlockPos pos = eventPostMine.getArgs(0);
-                mc.world.handleBlockUpdate(pos, Blocks.AIR.getDefaultState(), 3);
-                Map<PlayerEntity, Double> damageMap = calculateAnchorDamage(pos, null, false);
+                mc.level.setServerVerifiedBlockState(pos, Blocks.AIR.defaultBlockState(), 3);
+                Map<Player, Double> damageMap = calculateAnchorDamage(pos, null, false);
                 if (isSuitableExplodePos(pos, damageMap)) {
                     if (placeAnchor(pos)) {
                         updateAnchor(pos, damageMap);
@@ -530,6 +530,6 @@ public class AnchorAura extends BaseModule {
     @NoArgsConstructor
     public static class AnchorCache {
         int powerLevel;
-        Map<PlayerEntity, Double> damageCache;
+        Map<Player, Double> damageCache;
     }
 }

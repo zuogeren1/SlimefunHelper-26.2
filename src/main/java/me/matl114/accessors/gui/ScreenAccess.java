@@ -2,15 +2,15 @@ package me.matl114.accessors.gui;
 
 import java.util.function.Consumer;
 import me.matl114.accessors.interfaces.MetadataHolder;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
 
 public interface ScreenAccess extends MetadataHolder {
-    public <T extends Element & Drawable & Selectable> T addDrawableChildTo(T val);
+    public <T extends GuiEventListener & Renderable & NarratableEntry> T addDrawableChildTo(T val);
 
-    public void removeChildFrom(Element val);
+    public void removeChildFrom(GuiEventListener val);
 
     public static ScreenAccess of(Screen screen) {
         return (ScreenAccess) screen;

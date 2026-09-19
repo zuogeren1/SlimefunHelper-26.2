@@ -7,53 +7,53 @@ import java.util.Objects;
 import me.matl114.hacks.modules.render.NoRender;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.render.WeatherRendering;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.render.state.WeatherRenderState;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.WeatherEffectRenderer;
+import net.minecraft.client.renderer.state.level.WeatherRenderState;
+import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(WorldRenderer.class)
+@Mixin(LevelRenderer.class)
 public abstract class WorldRenderMixin {
 
     @WrapOperation(
-            method = "hasBlindnessOrDarkness",
+            method = "doesMobEffectBlockSky",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/LivingEntity;hasStatusEffect(Lnet/minecraft/registry/entry/RegistryEntry;)Z"))
+                                    "Lnet/minecraft/world/entity/LivingEntity;hasEffect(Lnet/minecraft/core/Holder;)Z"))
     public boolean hasBlindnessOrDarkness(
-            LivingEntity instance, RegistryEntry<StatusEffect> effect, Operation<Boolean> original) {
-        if (NoRender.INSTANCE.noDarkNess() && Objects.equals(effect, StatusEffects.DARKNESS)) {
+            LivingEntity instance, Holder<MobEffect> effect, Operation<Boolean> original) {
+        if (NoRender.INSTANCE.noDarkNess() && Objects.equals(effect, MobEffects.DARKNESS)) {
             return false;
         }
-        if (NoRender.INSTANCE.noBlindness() && Objects.equals(effect, StatusEffects.BLINDNESS)) {
+        if (NoRender.INSTANCE.noBlindness() && Objects.equals(effect, MobEffects.BLINDNESS)) {
             return false;
         }
         return original.call(instance, effect);
     }
 
     @WrapWithCondition(
-            method = "render",
+            method = "renderLevel",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/render/WeatherRendering;buildPrecipitationPieces(Lnet/minecraft/world/World;IFLnet/minecraft/util/math/Vec3d;Lnet/minecraft/client/render/state/WeatherRenderState;)V"))
+                                    "Lnet/minecraft/client/renderer/WeatherEffectRenderer;extractRenderState(Lnet/minecraft/world/level/Level;IFLnet/minecraft/world/phys/Vec3;Lnet/minecraft/client/renderer/state/WeatherRenderState;)V"))
     public boolean buildPrecipitationPiecesNoWeather(
-            WeatherRendering instance,
-            World world,
+            WeatherEffectRenderer instance,
+            Level world,
             int ticks,
             float tickProgress,
-            Vec3d cameraPos,
+            Vec3 cameraPos,
             WeatherRenderState state) {
         if (NoRender.INSTANCE.noWeather()) {
             state.intensity = 0;

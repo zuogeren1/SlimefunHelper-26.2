@@ -4,11 +4,11 @@ import java.util.List;
 import java.util.function.Function;
 import me.matl114.gui.basic.ContentDelegateWidget;
 import me.matl114.gui.basic.SubScreenWidget;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
 
-public class GridSubScreen<W extends Element & Drawable & Selectable> extends SubScreenWidget {
+public class GridSubScreen<W extends GuiEventListener & Renderable & NarratableEntry> extends SubScreenWidget {
     final int elementDx;
     final int elementDy;
     final int entryAtWidth;

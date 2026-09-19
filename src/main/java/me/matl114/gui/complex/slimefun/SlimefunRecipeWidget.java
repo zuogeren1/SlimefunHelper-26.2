@@ -12,18 +12,18 @@ import me.matl114.hacks.utils.recipes.RecipeEntry;
 import me.matl114.hacks.utils.recipes.RecipeIngredient;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.inventory.MyIngredientImmutableInventory;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
 
 @Accessors(chain = true)
 public class SlimefunRecipeWidget extends SubScreenWidget {
     ItemStack rtypeIcon;
     String rid;
     ItemStack output;
-    Inventory input;
+    Container input;
     // change it later
     // 14， 11- 29 16 - 119 +4， 30 +4
     protected static final int DX = 144;
@@ -63,7 +63,7 @@ public class SlimefunRecipeWidget extends SubScreenWidget {
                 ExecutableWidget.instance(15 + 18 * j, 5 + 18 * i, 18, 18)
                         .setElementHandler(new SlotElement(input, index)
                                 .withInputHandler(
-                                        InputHandler.isLeft((t) -> callback1.accept(input.getStack(index), t))))
+                                        InputHandler.isLeft((t) -> callback1.accept(input.getItem(index), t))))
                         .addToSub(this);
             }
         }
@@ -80,10 +80,10 @@ public class SlimefunRecipeWidget extends SubScreenWidget {
         // save item
         // ExecutableWidget.instance()
         // creative give
-        boolean displayGive = MinecraftClient.getInstance().interactionManager != null
-                && MinecraftClient.getInstance()
-                        .interactionManager
-                        .getCurrentGameMode()
+        boolean displayGive = Minecraft.getInstance().gameMode != null
+                && Minecraft.getInstance()
+                        .gameMode
+                        .getPlayerMode()
                         .isCreative();
         int buttonAmount = 2 + (displayGive ? 1 : 0);
         // 中心在 123 - 14 + 9 =118
@@ -96,7 +96,7 @@ public class SlimefunRecipeWidget extends SubScreenWidget {
         int index = 0;
         if (displayGive) {
             ExecutableWidget.instance(startX + index * 12, 44, 9, 9)
-                    .setElementHandler(new ButtonElement(TextProvider.of(Text.literal("G")), ButtonAction.run(() -> {
+                    .setElementHandler(new ButtonElement(TextProvider.of(Component.literal("G")), ButtonAction.run(() -> {
                                 InvTasks.creativeAddItem(output.copy(), 64);
                             }))
                             .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -105,7 +105,7 @@ public class SlimefunRecipeWidget extends SubScreenWidget {
             index += 1;
         }
         ExecutableWidget.instance(startX + index * 12, 44, 9, 9)
-                .setElementHandler(new ButtonElement(TextProvider.of(Text.literal("E")), ButtonAction.run(() -> {
+                .setElementHandler(new ButtonElement(TextProvider.of(Component.literal("E")), ButtonAction.run(() -> {
                             InvTasks.openEditScreen(output.copy(), null);
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -113,7 +113,7 @@ public class SlimefunRecipeWidget extends SubScreenWidget {
                 .addToSub(this);
         index++;
         ExecutableWidget.instance(startX + index * 12, 44, 9, 9)
-                .setElementHandler(new ButtonElement(TextProvider.of(Text.literal("+")), ButtonAction.run(() -> {
+                .setElementHandler(new ButtonElement(TextProvider.of(Component.literal("+")), ButtonAction.run(() -> {
                             InvTasks.getSaveItem().removeSavedItem(output.copy());
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(

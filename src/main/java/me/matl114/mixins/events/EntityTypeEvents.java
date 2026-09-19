@@ -6,9 +6,9 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
@@ -17,14 +17,14 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class EntityTypeEvents {
     @WrapOperation(
             method =
-                    "create(Lnet/minecraft/world/World;Lnet/minecraft/entity/SpawnReason;)Lnet/minecraft/entity/Entity;",
+                    "create(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/EntitySpawnReason;)Lnet/minecraft/world/entity/Entity;",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/entity/EntityType$EntityFactory;create(Lnet/minecraft/entity/EntityType;Lnet/minecraft/world/World;)Lnet/minecraft/entity/Entity;"))
+                                    "Lnet/minecraft/world/entity/EntityType$EntityFactory;create(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)Lnet/minecraft/world/entity/Entity;"))
     private <T extends Entity> T onCreate(
-            EntityType.EntityFactory<T> instance, EntityType<T> tEntityType, World world, Operation<T> original) {
+            EntityType.EntityFactory<T> instance, EntityType<T> tEntityType, Level world, Operation<T> original) {
         T val = original.call(instance, tEntityType, world);
         Event<Entity> event = new Event<Entity>(val, true, true, tEntityType);
         Listener.getEntityCreateListener().handleValue(event);

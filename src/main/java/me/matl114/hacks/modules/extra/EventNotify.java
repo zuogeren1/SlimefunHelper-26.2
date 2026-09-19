@@ -21,9 +21,9 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.WindowUtils;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.world.entity.EntityEvent;
 
 public class EventNotify extends BaseModule {
     public final ModulePath path = makePath(Configs.EXTRA_CONFIG, "other.queue-notify");
@@ -70,8 +70,8 @@ public class EventNotify extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(SubtitleS2CPacket.class), this::onTitle);
-        registerListener(Listener.getPacketPostHandlePoint().getChannel(EntityStatusS2CPacket.class), this::onTotemPop);
+        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundSetSubtitleTextPacket.class), this::onTitle);
+        registerListener(Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onTotemPop);
         registerListener(Listener.getServerLeavePoint(), this::onReconfiguration);
         registerListener(Listener.getServerDisconnectPoint(), this::onLeaveServer);
         registerListener(BaritoneHooks.getLandingEvent(), this::onBaritoneEnd);
@@ -79,7 +79,7 @@ public class EventNotify extends BaseModule {
 
     int lastOrder = 0;
 
-    public void onTitle(Event<SubtitleS2CPacket> eventTitle) {
+    public void onTitle(Event<ClientboundSetSubtitleTextPacket> eventTitle) {
         if (enable.get() && enableQueue.get()) {
             String text = ChatUtils.textToPlainString(eventTitle.context.text());
             if (queueRegex.get().test(text)) {
@@ -118,12 +118,12 @@ public class EventNotify extends BaseModule {
         }
     }
 
-    public void onTotemPop(Event<EntityStatusS2CPacket> event) {
+    public void onTotemPop(Event<ClientboundEntityEventPacket> event) {
         if (checkNull()) return;
         if (enable.get()
                 && enablePop.get()
-                && event.context.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING
-                && event.context.getEntity(mc.world) == mc.player) {
+                && event.context.getEventId() == EntityEvent.PROTECTED_FROM_DEATH
+                && event.context.getEntity(mc.level) == mc.player) {
             if (checkMin()) {
                 return;
             }
@@ -163,7 +163,7 @@ public class EventNotify extends BaseModule {
     }
 
     public boolean checkMin() {
-        return onlyMin.get() && mc.getWindow().getWidth() > minScreenWidth.get();
+        return onlyMin.get() && mc.getWindow().getScreenWidth() > minScreenWidth.get();
     }
 
     @Override

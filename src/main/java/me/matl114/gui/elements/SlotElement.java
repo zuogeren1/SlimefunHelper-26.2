@@ -5,15 +5,15 @@ import java.util.function.Supplier;
 import me.matl114.gui.basic.*;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 
 public class SlotElement extends AbstractElement {
-    final Inventory inventory;
+    final Container inventory;
     final int index;
     final SlotClickCallback callback;
 
@@ -25,7 +25,7 @@ public class SlotElement extends AbstractElement {
     protected static final int uheight = 18;
 
     public SlotElement(ItemStack itemStack) {
-        this(new SimpleInventory(itemStack), 0);
+        this(new SimpleContainer(itemStack), 0);
     }
 
     public static SlotElement instance(ItemStack itemStack) {
@@ -37,22 +37,22 @@ public class SlotElement extends AbstractElement {
     }
 
     public SlotElement(ItemStack itemStack, SlotClickCallback callback) {
-        this(new SimpleInventory(itemStack), 0, callback);
+        this(new SimpleContainer(itemStack), 0, callback);
     }
 
     public SlotElement(Supplier<ItemStack> sup) {
         this(InventoryUtils.createReadOnlyOneItemInventory(sup));
     }
 
-    public SlotElement(Inventory inventory) {
+    public SlotElement(Container inventory) {
         this(inventory, 0, SlotClickCallback.DEFAULT);
     }
 
-    public SlotElement(Inventory inventory, int index) {
+    public SlotElement(Container inventory, int index) {
         this(inventory, index, SlotClickCallback.DEFAULT);
     }
 
-    public SlotElement(Inventory inventory, int index, SlotClickCallback callback) {
+    public SlotElement(Container inventory, int index, SlotClickCallback callback) {
         this.inventory = inventory;
         this.index = index;
         this.callback = callback;
@@ -86,7 +86,7 @@ public class SlotElement extends AbstractElement {
             renderSlotFrame(context);
         }
         context.setShaderAlpha(1.0F);
-        ItemStack stack = inventory.getStack(index);
+        ItemStack stack = inventory.getItem(index);
         RenderHandler.drawSingleItem(context, stack, 1, 1, isInSlot);
         if (shouldHighlight) {
             context.fillGuiGradient(1, 1, 1 + 16, 1 + 16, -2130706433, -2130706433, 0);
@@ -138,12 +138,12 @@ public class SlotElement extends AbstractElement {
         // draw tooltips here;
         super.renderExtra0(element, context, mouseX, mouseY, delta, alpha, shouldHighlight);
         if (shouldHighlight && tooltips != null && tooltips.getAsBoolean()) {
-            ItemStack stack = inventory.getStack(index);
+            ItemStack stack = inventory.getItem(index);
             if (!stack.isEmpty()) {
                 context.drawTooltip(
-                        mc.textRenderer,
-                        stack.getTooltip(Item.TooltipContext.create(mc.world), mc.player, TooltipType.ADVANCED),
-                        stack.getTooltipData(),
+                        mc.font,
+                        stack.getTooltipLines(Item.TooltipContext.of(mc.level), mc.player, TooltipFlag.ADVANCED),
+                        stack.getTooltipImage(),
                         mouseX,
                         mouseY);
             }
@@ -152,7 +152,7 @@ public class SlotElement extends AbstractElement {
 
     @Override
     public boolean onClick(ExecutableWidget element, double mouseX, double mouseY, int button) {
-        return callback.handle(inventory.getStack(index), button);
+        return callback.handle(inventory.getItem(index), button);
     }
 
     public static interface SlotClickCallback {

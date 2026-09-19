@@ -2,95 +2,95 @@ package me.matl114.hacks.utils.entity;
 
 import java.util.UUID;
 import javax.annotation.Nonnull;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.world.GameMode;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 
-public class CameraEntity extends AbstractClientPlayerEntity {
-    PlayerEntity player;
-    GameMode mode;
+public class CameraEntity extends AbstractClientPlayer {
+    Player player;
+    GameType mode;
     boolean moveable;
-    PlayerListEntry entry;
+    PlayerInfo entry;
 
-    public CameraEntity(ClientWorld clientWorld, @Nonnull ClientPlayerEntity player, GameMode mode, boolean moveable) {
+    public CameraEntity(ClientLevel clientWorld, @Nonnull LocalPlayer player, GameType mode, boolean moveable) {
         super(clientWorld, player.getGameProfile());
         // avoid id collision
         setId(-getId());
         this.mode = mode;
         this.moveable = moveable;
-        setUuid(UUID.randomUUID());
+        setUUID(UUID.randomUUID());
         copyEquipments(player.getInventory());
         this.player = player;
-        setPosition(player.getPos());
-        setPitch(player.getPitch());
-        setYaw(player.getYaw());
-        resetPosition();
+        setPos(player.position());
+        setXRot(player.getXRot());
+        setYRot(player.getYRot());
+        setOldPosAndRot();
     }
 
-    public PlayerInventory getInventory() {
+    public Inventory getInventory() {
         return this.player != null ? player.getInventory() : super.getInventory();
     }
 
-    public void copyEquipments(PlayerInventory p) {
+    public void copyEquipments(Inventory p) {
         // copy inventory before we set the delegate player
-        getInventory().clone(p);
+        getInventory().replaceWith(p);
     }
 
     @Override
     public boolean isSpectator() {
-        return mode == GameMode.SPECTATOR;
+        return mode == GameType.SPECTATOR;
     }
 
     @Override
     public boolean isCreative() {
-        return mode == GameMode.CREATIVE;
+        return mode == GameType.CREATIVE;
     }
 
     @Override
-    protected PlayerListEntry getPlayerListEntry() {
+    protected PlayerInfo getPlayerInfo() {
         return this.player != null
-                ? MinecraftClient.getInstance().getNetworkHandler().getPlayerListEntry(this.player.getUuid())
+                ? Minecraft.getInstance().getConnection().getPlayerInfo(this.player.getUUID())
                 : null;
     }
 
-    public float getPitch() {
-        return (!moveable && player != null) ? player.getPitch() : super.getPitch();
+    public float getXRot() {
+        return (!moveable && player != null) ? player.getXRot() : super.getXRot();
     }
 
-    public float getYaw() {
-        return (!moveable && player != null) ? player.getYaw() : super.getYaw();
+    public float getYRot() {
+        return (!moveable && player != null) ? player.getYRot() : super.getYRot();
     }
 
     @Override
     public void tick() {
-        if ((!(this.player instanceof ClientPlayerEntity clientPlayer) || clientPlayer.networkHandler.isLoaded())) {
+        if ((!(this.player instanceof LocalPlayer clientPlayer) || clientPlayer.connection.hasClientLoaded())) {
             this.setHealth(this.player.getHealth());
             if (!this.moveable) {
-                this.setPitch(this.player.getPitch());
-                this.setYaw(this.player.getYaw());
-                this.setHeadYaw(this.player.getHeadYaw());
-                this.setBodyYaw(this.player.getBodyYaw());
-                this.setPosition(this.player.getPos());
+                this.setXRot(this.player.getXRot());
+                this.setYRot(this.player.getYRot());
+                this.setYHeadRot(this.player.getYHeadRot());
+                this.setYBodyRot(this.player.getVisualRotationYInDegrees());
+                this.setPos(this.player.position());
             }
             super.tick();
         }
     }
 
     @Override
-    public void tickMovement() {
-        super.tickMovement();
+    public void aiStep() {
+        super.aiStep();
     }
 
-    public boolean isMainPlayer() {
+    public boolean isLocalPlayer() {
         return moveable;
     }
 
-    public boolean canMoveVoluntarily() {
+    public boolean canSimulateMovement() {
         return moveable;
     }
 }

@@ -1,30 +1,30 @@
 package me.matl114.mixins.access;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import me.matl114.accessors.hacks.KeyBindAccess;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
-@Mixin(KeyBinding.class)
+@Mixin(KeyMapping.class)
 public abstract class KeyBindingMixin implements KeyBindAccess {
     @Shadow
-    private InputUtil.Key boundKey;
+    private InputConstants.Key key;
 
     @Unique
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public void resetKeyState() {
         var handle = mc.getWindow();
-        int code = boundKey.getCode();
-        if (boundKey.getCategory() == InputUtil.Type.MOUSE)
-            setPressed(GLFW.glfwGetMouseButton(handle.getHandle(), code) == 1);
-        else setPressed(InputUtil.isKeyPressed(handle, code));
+        int code = key.getValue();
+        if (key.getType() == InputConstants.Type.MOUSE)
+            setDown(GLFW.glfwGetMouseButton(handle.handle(), code) == 1);
+        else setDown(InputConstants.isKeyDown(handle, code));
     }
 
     @Shadow
-    public abstract void setPressed(boolean b);
+    public abstract void setDown(boolean b);
 }

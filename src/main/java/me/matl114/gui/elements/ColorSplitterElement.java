@@ -2,7 +2,7 @@ package me.matl114.gui.elements;
 
 import me.matl114.gui.basic.*;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.OrderedText;
+import net.minecraft.util.FormattedCharSequence;
 
 public class ColorSplitterElement extends ColorLabelTextElement {
 
@@ -20,14 +20,14 @@ public class ColorSplitterElement extends ColorLabelTextElement {
             float alpha,
             boolean shouldHighlight) {
         context.fill(0, 0, element.getTextureWidth(), element.getTextureHeight(), 0, backgroundColor.getColorInt());
-        OrderedText text1 = text.getLabel(element);
+        FormattedCharSequence text1 = text.getLabel(element);
         float width = 0;
         int textColor = color.getColorInt();
         if (text1 != null) {
-            width = mc.textRenderer.getTextHandler().getWidth(text1);
+            width = mc.font.getSplitter().stringWidth(text1);
             RenderHandler.drawScaledText0(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     text1,
                     0,
                     0,

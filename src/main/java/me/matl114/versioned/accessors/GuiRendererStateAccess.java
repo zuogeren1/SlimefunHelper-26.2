@@ -1,6 +1,6 @@
 package me.matl114.versioned.accessors;
 
-import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
 
 public interface GuiRendererStateAccess {
     public void setLayerToDepth();

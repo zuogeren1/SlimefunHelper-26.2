@@ -12,13 +12,13 @@ import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.InventoryUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.item.Items;
 
 public class AutoLogout extends BaseModule {
     public final ModulePath autoLogout = makePath(Configs.EXTRA_CONFIG, "auto-logout");
@@ -75,14 +75,14 @@ public class AutoLogout extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getPostGameTick(), this::onTick);
-        registerListener(Listener.getPacketPoint().getChannel(EntityStatusS2CPacket.class), this::onPacketTotem);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onPacketTotem);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntitySpawnS2CPacket.class), this::onPlayerSpawn);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundAddEntityPacket.class), this::onPlayerSpawn);
     }
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         if (enable.get()) {
-            ClientPlayerEntity player = event.context;
+            LocalPlayer player = event.context;
             if (healthEnable.get() && player.getHealth() <= healthThreshold.get()) {
                 MainTasks.scheduleDisconnect();
                 return;
@@ -103,14 +103,14 @@ public class AutoLogout extends BaseModule {
         }
     }
 
-    public void onPacketTotem(Event<EntityStatusS2CPacket> event) {
-        EntityStatusS2CPacket statusS2CPacket = event.context();
+    public void onPacketTotem(Event<ClientboundEntityEventPacket> event) {
+        ClientboundEntityEventPacket statusS2CPacket = event.context();
         if (enable.get()
                 && totemTriggerEnable.get()
-                && statusS2CPacket.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING
-                && mc.world != null
+                && statusS2CPacket.getEventId() == EntityEvent.PROTECTED_FROM_DEATH
+                && mc.level != null
                 && mc.player != null) {
-            Entity entity = statusS2CPacket.getEntity(mc.world);
+            Entity entity = statusS2CPacket.getEntity(mc.level);
             if (entity != null && entity.getId() == mc.player.getId()) {
                 int leftTotem = totemTriggerCheckLeftTotem.get();
                 // minus one, because one is going to consume
@@ -125,11 +125,11 @@ public class AutoLogout extends BaseModule {
         }
     }
 
-    public void onPlayerSpawn(Event<EntitySpawnS2CPacket> event) {
+    public void onPlayerSpawn(Event<ClientboundAddEntityPacket> event) {
         if (enable.get() && strangerPlayerEnable.get() && mc.player != null) {
-            EntitySpawnS2CPacket spawn = event.context();
-            if (spawn.getEntityType() == EntityType.PLAYER && spawn.getEntityId() != mc.player.getId()) {
-                Entity entity = mc.world.getEntityById(spawn.getEntityId());
+            ClientboundAddEntityPacket spawn = event.context();
+            if (spawn.getType() == EntityTypes.PLAYER && spawn.getId() != mc.player.getId()) {
+                Entity entity = mc.level.getEntity(spawn.getId());
                 if (entity != null && CombatTasks.getTargetSelector().isNotFriend(entity)) {
                     MainTasks.scheduleDisconnect();
                     strangerPlayerEnable.set(false);

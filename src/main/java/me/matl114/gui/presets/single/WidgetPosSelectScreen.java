@@ -8,9 +8,9 @@ import me.matl114.gui.basic.ExecutableWidget;
 import me.matl114.gui.basic.InputHandler;
 import me.matl114.gui.complex.RawTextElement;
 import me.matl114.utils.collections.FPoint;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
 
 public class WidgetPosSelectScreen extends GenericScreen {
     Consumer<FPoint> predicate;
@@ -18,7 +18,7 @@ public class WidgetPosSelectScreen extends GenericScreen {
 
     public WidgetPosSelectScreen(int backgroundWidth, FPoint initializePoint, Consumer<FPoint> pointAcceptor) {
         super(
-                Text.translatable("widget.gui.widget-select-screen.title").formatted(Formatting.GREEN),
+                Component.translatable("widget.gui.widget-select-screen.title").withStyle(ChatFormatting.GREEN),
                 backgroundWidth,
                 60);
         this.predicate = pointAcceptor;
@@ -40,7 +40,7 @@ public class WidgetPosSelectScreen extends GenericScreen {
                         return selectHandler.onAction(element, mouseX, mouseY, button, type);
                     } else {
                         predicate.accept(selected);
-                        this.close();
+                        this.onClose();
                         return true;
                     }
                 })))
@@ -50,19 +50,19 @@ public class WidgetPosSelectScreen extends GenericScreen {
                             (int) (selected.y - 5),
                             (int) (selected.x + 5),
                             (int) (selected.y + 5),
-                            Colors.RED);
+                            CommonColors.RED);
                     context.fill(
                             (int) (selected.x - 5),
                             (int) (selected.y - 1),
                             (int) (selected.x + 5),
                             (int) (selected.y + 1),
-                            Colors.GREEN);
+                            CommonColors.GREEN);
                     context.fill(
                             (int) (selected.x - 1),
                             (int) (selected.y - 5),
                             (int) (selected.x + 1),
                             (int) (selected.y + 5),
-                            Colors.GREEN);
+                            CommonColors.GREEN);
                 }))
                 .addTo(this);
 

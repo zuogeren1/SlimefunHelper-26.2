@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -17,14 +18,14 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Box;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.phys.AABB;
 
 public class EntityESP extends BaseModule {
     public final ModulePath entityRoot = makePath(Configs.RENDER_CONFIG, "detect-entity");
@@ -51,31 +52,31 @@ public class EntityESP extends BaseModule {
     public final NBTRef<EntrySet<EntityType<?>>> whiteList = builder(
                     Configs.RENDER_CONFIG, EntrySet.<EntityType<?>>parameter())
             .path(entityEsp.add("whitelist").toPath())
-            .defaultValue(new EntrySet<>(new Regex("player,wither"), Registries.ENTITY_TYPE))
+            .defaultValue(new EntrySet<>(new Regex("player,wither"), BuiltInRegistries.ENTITY_TYPE))
             .build();
 
     public final NBTRef<EntryPrimitiveMap<EntityType<?>, TextColor>> renderColor = builder(
                     entityEsp.add("color"),
                     NBTType.<EntryPrimitiveMap<EntityType<?>, TextColor>>parameter(EntryPrimitiveMap.class))
             .defaultValue(new EntryPrimitiveMap<>(
-                    Registries.ENTITY_TYPE,
+                    BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.COLOR_TYPE,
                     Map.of(
-                            EntityType.PLAYER, Objects.requireNonNull(TextColor.fromFormatting(Formatting.YELLOW)),
-                            EntityType.ARMOR_STAND, Objects.requireNonNull(TextColor.fromFormatting(Formatting.GREEN))),
-                    TextColor.fromFormatting(Formatting.RED)))
+                            EntityTypes.PLAYER, Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.YELLOW)),
+                            EntityTypes.ARMOR_STAND, Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.GREEN))),
+                    TextColor.fromLegacyFormat(ChatFormatting.RED)))
             .build();
 
     public final NBTRef<EntryPrimitiveMap<EntityType<?>, Boolean>> renderBoxSettings = builder(
                     entityEsp.add("boxing-option"),
                     NBTType.<EntryPrimitiveMap<EntityType<?>, Boolean>>parameter(EntryPrimitiveMap.class))
             .defaultValue(new EntryPrimitiveMap<>(
-                    Registries.ENTITY_TYPE,
+                    BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.BOOLEAN_TYPE,
                     Map.of(
-                            EntityType.PLAYER, true,
-                            EntityType.END_CRYSTAL, true,
-                            EntityType.WITHER, true),
+                            EntityTypes.PLAYER, true,
+                            EntityTypes.END_CRYSTAL, true,
+                            EntityTypes.WITHER, true),
                     false))
             .build();
 
@@ -83,12 +84,12 @@ public class EntityESP extends BaseModule {
                     entityEsp.add("trace-option"),
                     NBTType.<EntryPrimitiveMap<EntityType<?>, Boolean>>parameter(EntryPrimitiveMap.class))
             .defaultValue(new EntryPrimitiveMap<>(
-                    Registries.ENTITY_TYPE,
+                    BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.BOOLEAN_TYPE,
                     Map.of(
-                            EntityType.PLAYER, true,
-                            EntityType.END_CRYSTAL, false,
-                            EntityType.WITHER, true),
+                            EntityTypes.PLAYER, true,
+                            EntityTypes.END_CRYSTAL, false,
+                            EntityTypes.WITHER, true),
                     false))
             .build();
 
@@ -96,12 +97,12 @@ public class EntityESP extends BaseModule {
                     entityEsp.add("highlight-option"),
                     NBTType.<EntryPrimitiveMap<EntityType<?>, Boolean>>parameter(EntryPrimitiveMap.class))
             .defaultValue(new EntryPrimitiveMap<>(
-                    Registries.ENTITY_TYPE,
+                    BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.BOOLEAN_TYPE,
                     Map.of(
-                            EntityType.PLAYER, true,
-                            EntityType.END_CRYSTAL, true,
-                            EntityType.WITHER, true),
+                            EntityTypes.PLAYER, true,
+                            EntityTypes.END_CRYSTAL, true,
+                            EntityTypes.WITHER, true),
                     true))
             .build();
 
@@ -121,14 +122,14 @@ public class EntityESP extends BaseModule {
 
     List<Entity> entities = new ArrayList<>();
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         entities = new ArrayList<>();
         boolean enable = this.enable.get();
 
         var whitelist = whiteList.get().set();
         var glowMap = highLightSettings.get();
-        for (Entity entity : mc.world.getEntities()) {
-            if (entity == mc.gameRenderer.getCamera().getFocusedEntity()) continue;
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity == mc.gameRenderer.mainCamera().entity()) continue;
             if (entity == null || entity.isRemoved()) {
                 continue;
             } else {
@@ -147,7 +148,7 @@ public class EntityESP extends BaseModule {
                 if ((renderLevel == EntityInternalAccess.RENDER_LEVEL_WHITELIST && enable)
                         || renderLevel == EntityInternalAccess.RENDER_LEVEL_FORCE) {
                     if (glowMap.getEntryValueOr(entity.getType(), false)) {
-                        if (!entity.isGlowing()) {
+                        if (!entity.isCurrentlyGlowing()) {
                             access.setGlow0(true);
                         }
                     }
@@ -162,7 +163,7 @@ public class EntityESP extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<MatrixStack> stackE) {
+    public void onRender3D(Event<PoseStack> stackE) {
         if (checkNull()) return;
 
         if (enable.get() && renderMode.get().isIn(RenderMode.RENDER_3D)) {
@@ -196,7 +197,7 @@ public class EntityESP extends BaseModule {
             Color color = getShaderColorByEntityType(entity);
             if (color != null) {
 
-                Box box = RenderUtils.getLerpedBox(entity, tickDelta);
+                AABB box = RenderUtils.getLerpedBox(entity, tickDelta);
                 if (boxMap.getEntryValueOr(entity.getType(), false)) {
                     renderBox.submit(box, color.getRGB());
                 }
@@ -205,7 +206,7 @@ public class EntityESP extends BaseModule {
                 }
             }
         }
-        if (object instanceof MatrixStack stack) {
+        if (object instanceof PoseStack stack) {
             renderBox.render3D(stack);
             renderTrace.render3D(stack);
         } else if (object instanceof VDrawContext vdraw) {
@@ -219,8 +220,8 @@ public class EntityESP extends BaseModule {
     private Color getShaderColorByEntityType(Entity entity) {
         EntityType<?> type = entity.getType();
         TextColor color = renderColor.get().getEntryValue(type);
-        return color != null ? new Color(color.getRgb()) : null;
-        //        if (entity instanceof PlayerEntity entity1) {
+        return color != null ? new Color(color.getValue()) : null;
+        //        if (entity instanceof Player entity1) {
         //            return Color.YELLOW;
         //        }
         //        if (!(entity instanceof LivingEntity)) {

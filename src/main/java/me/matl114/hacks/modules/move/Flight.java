@@ -13,19 +13,18 @@ import me.matl114.hacks.utils.HotKeyUtils;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
 import me.matl114.hacks.utils.move.FlightVelocity;
 import me.matl114.managers.*;
-import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.player.PlayerAbilities;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInputC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdatePlayerAbilitiesC2SPacket;
-import net.minecraft.network.packet.s2c.play.PlayerAbilitiesS2CPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerAbilitiesPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.world.entity.player.Abilities;
+import net.minecraft.world.phys.Vec3;
 
 public class Flight extends BaseModule implements LegalMovementManager.MovementModifier {
     private static LegalMovementManager.DelegateMovementModifier instance;
@@ -109,7 +108,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
     public void onEnableModule() {
         super.onEnableModule();
         if (mc.player != null) {
-            serverSideCanFly = mc.player.getAbilities().allowFlying;
+            serverSideCanFly = mc.player.getAbilities().mayfly;
         }
     }
 
@@ -117,7 +116,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
         super.onDisableModule();
         if (mc.player != null) {
             // cancel fly when disable
-            mc.player.getAbilities().allowFlying = serverSideCanFly;
+            mc.player.getAbilities().mayfly = serverSideCanFly;
             if (mc.player.getAbilities().flying && !serverSideCanFly) {
                 mc.player.getAbilities().flying = false;
             }
@@ -127,28 +126,28 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketListenerPoint(PlayerAbilitiesS2CPacket.class), this::onAbility);
-        registerListener(Listener.getPacketListenerPoint(UpdatePlayerAbilitiesC2SPacket.class), this::onAbilityUpdate);
+        registerListener(Listener.getPacketListenerPoint(ClientboundPlayerAbilitiesPacket.class), this::onAbility);
+        registerListener(Listener.getPacketListenerPoint(ServerboundPlayerAbilitiesPacket.class), this::onAbilityUpdate);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onStartMine);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerInputC2SPacket.class), this::onInterceptFlyInput);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onStartMine);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerInputPacket.class), this::onInterceptFlyInput);
     }
 
-    public void onAbility(Event<PlayerAbilitiesS2CPacket> event) {
+    public void onAbility(Event<ClientboundPlayerAbilitiesPacket> event) {
         var packet1 = event.context();
-        serverSideCanFly = packet1.allowFlying();
+        serverSideCanFly = packet1.canFly();
         if (mc.player != null) {
-            PlayerAbilities abilities = mc.player.getAbilities();
+            Abilities abilities = mc.player.getAbilities();
             // abilities.allowFlying = abilities.allowFlying;
-            abilities.creativeMode = packet1.isCreativeMode();
+            abilities.instabuild = packet1.canInstabuild();
             abilities.invulnerable = packet1.isInvulnerable();
             if (!isActive()) {
-                abilities.allowFlying = packet1.allowFlying();
+                abilities.mayfly = packet1.canFly();
             }
             if (!overrideFlySpeed.get()) {
-                abilities.setFlySpeed(packet1.getFlySpeed());
+                abilities.setFlyingSpeed(packet1.getFlyingSpeed());
             }
-            abilities.setWalkSpeed(packet1.getWalkSpeed());
+            abilities.setWalkingSpeed(packet1.getWalkingSpeed());
             // mc.player.getAbilities().flying = isFly;
         } else {
             // sometimes the player hasn't enter the game, because this is accepted in async thread, so run main
@@ -162,14 +161,14 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
         event.cancel();
     }
 
-    public void onAbilityUpdate(Event<UpdatePlayerAbilitiesC2SPacket> event) {
+    public void onAbilityUpdate(Event<ServerboundPlayerAbilitiesPacket> event) {
         if (isActive() && !serverSideCanFly) {
             event.cancel();
         }
     }
 
     public double getOverridingFlySpeed() {
-        return (mc.player != null && mc.interactionManager.getCurrentGameMode().isCreative())
+        return (mc.player != null && mc.gameMode.getPlayerMode().isCreative())
                 ? overrideFlySpeedCreative.get()
                 : overrideFlySpeedSurvival.get();
     }
@@ -189,13 +188,13 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
 
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
-        ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+        LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
         if (isActive()) {
-            if (!player.getAbilities().allowFlying) {
-                player.getAbilities().allowFlying = true;
+            if (!player.getAbilities().mayfly) {
+                player.getAbilities().mayfly = true;
             }
         } else {
-            player.getAbilities().allowFlying = serverSideCanFly;
+            player.getAbilities().mayfly = serverSideCanFly;
         }
         boolean handled =
                 switch (flightMode.get()) {
@@ -206,11 +205,11 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
                     case MOTION -> {
                         if (isActive() && mc.player.getAbilities().flying) {
                             PlayerInputUtils.Input input = PlayerInputUtils.of(mc.options);
-                            Vec3d movementInput =
-                                    new Vec3d(input.sidewaysSpeed(), input.upwardSpeed(), input.forwardSpeed());
-                            Vec3d velocity = EntityUtils.movementInputToVelocity(
-                                    movementInput, (float) (5 * getOverridingFlySpeed()), player.getYaw());
-                            player.setVelocity(velocity);
+                            Vec3 movementInput =
+                                    new Vec3(input.sidewaysSpeed(), input.upwardSpeed(), input.forwardSpeed());
+                            Vec3 velocity = EntityUtils.movementInputToVelocity(
+                                    movementInput, (float) (5 * getOverridingFlySpeed()), player.getYRot());
+                            player.setDeltaMovement(velocity);
                             velocity = dispatchAntiKickMotion(velocity);
                             // set FlightVelocity Event
                             FlightVelocity flightVelocity = new FlightVelocity(
@@ -218,7 +217,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
                             Listener.getCustomListener()
                                     .broadcast(new EventContainer<>(FlightVelocity.class, flightVelocity));
                             velocity = flightVelocity.toVelocity();
-                            player.setVelocity(velocity);
+                            player.setDeltaMovement(velocity);
                             yield true;
                         }
                         yield false;
@@ -227,13 +226,13 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
                         if (isActive()) {
                             PlayerInputUtils.Input input = PlayerInputUtils.of(mc.options);
                             if (input.jump()) {
-                                Vec3d vec3d = new Vec3d(0, 1, 0);
+                                Vec3 vec3d = new Vec3(0, 1, 0);
                                 vec3d = dispatchAntiKickMotion(vec3d);
                                 if (vec3d.y > 0.8) {
-                                    player.jump();
+                                    player.jumpFromGround();
                                 } else {
-                                    Vec3d playerVec = player.getVelocity();
-                                    player.setVelocity(playerVec.x, vec3d.y, playerVec.z);
+                                    Vec3 playerVec = player.getDeltaMovement();
+                                    player.setDeltaMovement(playerVec.x, vec3d.y, playerVec.z);
                                 }
                                 yield true;
                             }
@@ -251,7 +250,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
         LegalMovementManager.MovementModifier.super.applyAfterInputTick(movementManagerEvent);
     }
 
-    public void dispatchAntiKick(ClientPlayerEntity player) {
+    public void dispatchAntiKick(LocalPlayer player) {
         boolean fakeGilde = false;
         if (((isActive() && doAntiKick.get()))) {
             antiKick(player, fakeGilde);
@@ -264,8 +263,8 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
     @Override
     public void applyBeforeMovementPacketModify(Event<LegalMovementManager> movementManagerEvent) {
         var player = movementManagerEvent.context.playerStatus.entity;
-        boolean onGround = player.isOnGround();
-        if (!onGround && onGroundWhenMine.get() && isInMiningAction() && !player.getAbilities().creativeMode) {
+        boolean onGround = player.onGround();
+        if (!onGround && onGroundWhenMine.get() && isInMiningAction() && !player.getAbilities().instabuild) {
             // instabreak problems
             mineTick = 2;
 
@@ -284,14 +283,14 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
 
     public boolean isInMiningAction() {
         // compact for minebot and instant mining
-        return mc.interactionManager.isBreakingBlock() || (lastStartMinePacket + 1 >= Tasks.getTick());
+        return mc.gameMode.isDestroying() || (lastStartMinePacket + 1 >= Tasks.getTick());
     }
 
     private int lastStartMinePacket = 0;
 
-    public void onStartMine(Event<PlayerActionC2SPacket> actionPacket) {
+    public void onStartMine(Event<ServerboundPlayerActionPacket> actionPacket) {
         if (onGroundWhenMine.get()
-                && actionPacket.context().getAction() == PlayerActionC2SPacket.Action.START_DESTROY_BLOCK) {
+                && actionPacket.context().getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
             lastStartMinePacket = Tasks.getTick();
         }
     }
@@ -316,7 +315,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
     private double preservedLastMotion = 0.0D;
     private boolean waitingForServerResponse;
     // todo: rewrite
-    public void antiKick(ClientPlayerEntity player, boolean fakeGliding) {
+    public void antiKick(LocalPlayer player, boolean fakeGliding) {
         if (MovTasks.seenAsFloating(fakeGliding)) {
             antiKickCount++;
         } else {
@@ -325,7 +324,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
         if (antiKickCount > antiKickPeriod.get()) {
             antiKickCount = 0;
             escapeMotionReset = !shouldResetMotion();
-            preservedLastMotion = player.getVelocity().y;
+            preservedLastMotion = player.getDeltaMovement().y;
             setMotionY(-antiKickOffset);
             // randomly fall down twice
             waitingForServerResponse = true; // Tasks.getTickRandom()%3 == 0;
@@ -354,7 +353,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
 
     }
 
-    public Vec3d dispatchAntiKickMotion(Vec3d controlMotion) {
+    public Vec3 dispatchAntiKickMotion(Vec3 controlMotion) {
         boolean fakeGilde = false;
         if ((fakeGilde || (isActive() && doAntiKick.get()))) {
             return processAntiKickMotion(controlMotion, fakeGilde);
@@ -383,7 +382,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
             } else {
                 // optimize downfly rest
                 if (MovTasks.ENGIN.checkEnvironmentCollision(
-                        mc.player, mc.player.getPos().add(0, -3 * antiKickOffset, 0), false)) {
+                        mc.player, mc.player.position().add(0, -3 * antiKickOffset, 0), false)) {
                     return true;
                 }
                 return false;
@@ -399,7 +398,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
         }
     }
 
-    public Vec3d processAntiKickMotion(Vec3d controlMotion, boolean fakeGlide) {
+    public Vec3 processAntiKickMotion(Vec3 controlMotion, boolean fakeGlide) {
         if (MovTasks.seenAsFloating(fakeGlide)) {
             antiKickCount++;
         } else {
@@ -413,21 +412,21 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
             // randomly fall down twice
             waitingForServerResponse = true; // Tasks.getTickRandom()%3 == 0;
             antiKickOffset0 = antiKickOffset - 0.008;
-            return new Vec3d(controlMotion.x, -antiKickOffset, controlMotion.z);
+            return new Vec3(controlMotion.x, -antiKickOffset, controlMotion.z);
         }
         if (!escapeMotionReset) {
             if (waitingForServerResponse) {
                 antiKickOffset0 += antiKickOffset - 0.008;
                 // there is no fucking packet for response
                 waitingForServerResponse = false;
-                return new Vec3d(controlMotion.x, -antiKickOffset, controlMotion.z);
+                return new Vec3(controlMotion.x, -antiKickOffset, controlMotion.z);
                 // continue fall down til server respond
             } else {
                 antiKickOffset0 = 0D;
                 preservedLastMotion = 0.0D;
                 // set end
                 escapeMotionReset = true;
-                return new Vec3d(controlMotion.x, antiKickOffset0 + preservedLastMotion - 0.0, controlMotion.z);
+                return new Vec3(controlMotion.x, antiKickOffset0 + preservedLastMotion - 0.0, controlMotion.z);
             }
         }
         return controlMotion;
@@ -435,7 +434,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
         //        }
     }
 
-    public void onInterceptFlyInput(Event<PlayerInputC2SPacket> inputPacketEvent) {
+    public void onInterceptFlyInput(Event<ServerboundPlayerInputPacket> inputPacketEvent) {
         //        if(fake1.get() && !serverSideCanFly && mc.player.getAbilities().flying){
         //            // hack fly
         //            inputPacketEvent.cancel();
@@ -444,18 +443,18 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
 
     private void setMotionY(double motionY) {
 
-        mc.options.sneakKey.setPressed(false);
-        mc.options.jumpKey.setPressed(false);
-        Vec3d velocity = mc.player.getVelocity();
-        mc.player.setVelocity(velocity.x, motionY, velocity.z);
+        mc.options.keyShift.setDown(false);
+        mc.options.keyJump.setDown(false);
+        Vec3 velocity = mc.player.getDeltaMovement();
+        mc.player.setDeltaMovement(velocity.x, motionY, velocity.z);
     }
 
     private void restoreKeyPresses() {
         // bugfix when shift click in screen, this key is reset to fall
-        if (mc.currentScreen == null) {
+        if (mc.gui.screen() == null) {
 
-            KeyBindAccess.of(mc.options.jumpKey).resetKeyState();
-            KeyBindAccess.of(mc.options.sneakKey).resetKeyState();
+            KeyBindAccess.of(mc.options.keyJump).resetKeyState();
+            KeyBindAccess.of(mc.options.keyShift).resetKeyState();
         }
     }
 

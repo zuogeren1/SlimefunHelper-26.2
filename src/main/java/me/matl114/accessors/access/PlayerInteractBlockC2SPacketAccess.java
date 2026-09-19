@@ -1,18 +1,18 @@
 package me.matl114.accessors.access;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 
 public interface PlayerInteractBlockC2SPacketAccess {
-    void setHand(Hand hand);
+    void setHand(InteractionHand hand);
 
     void setBlockHitResult(BlockHitResult blockHitResult);
 
@@ -27,27 +27,27 @@ public interface PlayerInteractBlockC2SPacketAccess {
     void setUseContext(UseContext stack);
 
     public static record UseContext(
-            ItemStack stack, BlockState oldState, ActionResult actionResult, boolean blockPlace) {
+            ItemStack stack, BlockState oldState, InteractionResult actionResult, boolean blockPlace) {
         public boolean isEmpty() {
             return stack.isEmpty() || !(stack.getItem() instanceof BlockItem);
         }
 
-        public BlockPos getPlaceBlockPos(Hand hand, BlockHitResult blockHitResult) {
+        public BlockPos getPlaceBlockPos(InteractionHand hand, BlockHitResult blockHitResult) {
             // optimize air place
             if (oldState.isAir()) {
                 return blockHitResult.getBlockPos();
             } else {
-                return new ItemPlacementContext(MinecraftClient.getInstance().player, hand, stack, blockHitResult)
-                        .getBlockPos();
+                return new BlockPlaceContext(Minecraft.getInstance().player, hand, stack, blockHitResult)
+                        .getClickedPos();
             }
         }
 
         public boolean isAccepted() {
-            return actionResult.isAccepted();
+            return actionResult.consumesAction();
         }
     }
 
-    static PlayerInteractBlockC2SPacketAccess of(PlayerInteractBlockC2SPacket packet) {
+    static PlayerInteractBlockC2SPacketAccess of(ServerboundUseItemOnPacket packet) {
         return (PlayerInteractBlockC2SPacketAccess) packet;
     }
 }

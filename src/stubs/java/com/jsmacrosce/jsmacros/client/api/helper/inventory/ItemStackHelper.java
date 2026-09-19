@@ -1,7 +1,7 @@
 package com.jsmacrosce.jsmacros.client.api.helper.inventory;
 
 import com.jsmacrosce.jsmacros.core.helpers.BaseHelper;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemStackHelper extends BaseHelper<ItemStack> {
     public ItemStackHelper(ItemStack base) {

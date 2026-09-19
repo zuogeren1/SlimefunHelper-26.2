@@ -8,16 +8,16 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 
 public abstract class LitematicaHooks implements IHooks {
     public abstract BlockHitResult getEasyPlaceClickedPosition(
             BlockHitResult blockHitResult, BlockState blockState, BlockState blockState2);
 
-    public abstract World getSchematicWorld();
+    public abstract Level getSchematicWorld();
 
     public abstract boolean isEasyPlaceEnabled();
 
@@ -67,8 +67,8 @@ public abstract class LitematicaHooks implements IHooks {
         }
 
         @Override
-        public World getSchematicWorld() {
-            return (World) SchematicWorldHandler.getSchematicWorld();
+        public Level getSchematicWorld() {
+            return (Level) SchematicWorldHandler.getSchematicWorld();
         }
 
         @Override
@@ -101,7 +101,7 @@ public abstract class LitematicaHooks implements IHooks {
         }
 
         @Override
-        public World getSchematicWorld() {
+        public Level getSchematicWorld() {
             return null;
         }
 

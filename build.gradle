@@ -1,5 +1,6 @@
 plugins {
-	id 'fabric-loom' version "1.15-SNAPSHOT"
+	// 26.1 起改用新版 Loom 插件：不 remap Minecraft 与 mod，也不再需要 mappings 声明
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
 	id 'com.gradleup.shadow' version "9.0.0-beta13"
 	id "com.diffplug.spotless" version "8.1.0"
@@ -19,6 +20,14 @@ repositories {
 	gradlePluginPortal()
 	mavenLocal()
 	mavenCentral()
+
+	// 本地映射仓库：自建 yarn 映射以 Maven 坐标形式引用（me.matl114:yarn-special）。
+	// mavenLocal() 会强制查找 POM，而该 artifact 只有 jar；用 artifact() 元数据源跳过 POM 查找。
+	maven {
+		name = 'localM2Artifacts'
+		url = uri("${System.getProperty('user.home')}/.m2/repository")
+		metadataSources { artifact() }
+	}
 
 	maven {
 		url 'https://maven.aliyun.com/nexus/content/groups/public'
@@ -60,34 +69,38 @@ dependencies {
 	minecraft ("com.mojang:minecraft:${project.minecraft_version}"){
 		transitive = false
 	}
-	//mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-	mappings files("mapping/yarn-1.21.11+build-special-v5.local-v2.jar")
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-	modCompileOnly files("libs/baritone-meteor-1.21.11.jar")
-//	modCompileOnly files("libs/xaeroworldmap-fabric-1.21.11-1.41.0.jar")
-//	modCompileOnly files("libs/xaerominimap-fabric-1.21.11-26.1.0.jar")
-//	modCompileOnly files("libs/XaeroPlus-2.32.1+fabric-1.21.11-WM1.41.0-MM26.1.0.jar")
-	modCompileOnly "meteordevelopment:meteor-client:${project.meteor_version}"
+	// 26.1 起 Minecraft 官方 jar 不再混淆，无需任何 mappings 声明
+	// 新版 Loom 不再 remap，modImplementation / modCompileOnly 已移除，改用标准 configuration
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+	compileOnly files("libs/baritone-meteor-26.2.jar")
+//	compileOnly files("libs/xaeroworldmap-fabric-26.2-1.41.0.jar")
+//	compileOnly files("libs/xaerominimap-fabric-26.2-26.1.0.jar")
+//	compileOnly files("libs/XaeroPlus-2.32.1+fabric-26.2-WM1.41.0-MM26.1.0.jar")
+	compileOnly "meteordevelopment:meteor-client:${project.meteor_version}"
 
 	// bridge
-	compileOnly sourceSets.stubs.output
+	// 原为 sourceSets.stubs.output：它同时包含 build/classes/java/stubs 与 build/resources/stubs。
+	// 而 stubs 源集没有资源（processStubsResources 为 NO-SOURCE），该资源目录始终不存在，
+	// 于是 compileClasspath 混入一个无效条目，Loom 的 migrateMappings 因 JDT classpath 校验失败
+	// 报 "invalid environment settings"。改为只引用 classesDirs。
+	compileOnly sourceSets.stubs.output.classesDirs
 	// api
 	api 'com.github.houbb:pinyin:0.4.0'  // 拼音
 	api 'io.netty:netty-handler-proxy:4.1.97.Final' // proxy
 	api 'org.yaml:snakeyaml:1.30' // yml
 
 	// annotations
-	compileOnly 'org.projectlombok:lombok:1.18.30'
+	compileOnly 'org.projectlombok:lombok:1.18.48'
 	compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
-	annotationProcessor 'org.projectlombok:lombok:1.18.30'
+	annotationProcessor 'org.projectlombok:lombok:1.18.48'
 
 
 }
 
 shadowJar {
 	minimize()
-	archiveFileName = "${project.properties["archives_base_name"]}-${project.version}-shadow-raw.jar"
+	archiveFileName = "${project.properties["archives_base_name"]}-${project.version}.jar"
 	configurations = [project.configurations.runtimeClasspath]
 	dependencies {
 		include dependency('com.github.houbb:.*')
@@ -96,7 +109,6 @@ shadowJar {
 		include dependency('org.yaml:snakeyaml:.*')
 		exclude "mappings/mappings.tiny"
 	}
-	finalizedBy(tasks.remapJar)
 }
 
 spotless {
@@ -122,11 +134,7 @@ spotless {
 ////	customMinecraftCache = file("${project.gradle.gradleUserHomeDir}/caches/fabric-loom")
 //}
 
-remapJar {
-	dependsOn shadowJar
-	inputFile = shadowJar.archiveFile.get().asFile
-	archiveFileName = "${project.properties["archives_base_name"]}-${project.version}.jar"
-}
+// 新版 Loom 不再 remap，remapJar 任务已不存在，产物由 shadowJar 直接输出
 
 processResources {
 	inputs.property "version", project.version
@@ -143,15 +151,15 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 21
+	it.options.release = 25
 	options.annotationProcessorPath = configurations.annotationProcessor
 }
 
 java {
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
 }
 //afterEvaluate {
 //
@@ -212,7 +220,15 @@ tasks.named("runClient", JavaExec) {
 //}
 
 
-build.dependsOn spotlessApply
+// 移植期间临时禁用：palantirJavaFormat 会全量重排源文件，淹没迁移 diff，无法 review
+// 移植完成后需恢复
+// build.dependsOn spotlessApply
+
+// 移植期间同时禁用 spotlessCheck：
+// palantir-java-format 2.38.0/2.50.0 与 Java 25 不兼容
+// （NoSuchMethodError: Log$DeferredDiagnosticHandler.getDiagnostics()），
+// 否则 `gradlew build` 会在格式校验阶段失败。
+tasks.matching { it.name.toLowerCase().startsWith('spotless') }.configureEach { enabled = false }
 
 // configure the maven publication
 publishing {

@@ -8,8 +8,8 @@ import lombok.experimental.Accessors;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.complex.BoxElement;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.CommonColors;
 import org.jetbrains.annotations.Nullable;
 
 @Accessors(chain = true)
@@ -134,7 +134,7 @@ public abstract class IconElement extends BoxElement {
             }
         }
         Integer color = (highLightColor == null)
-                ? (highlight ? Integer.valueOf(Colors.WHITE) : null)
+                ? (highlight ? Integer.valueOf(CommonColors.WHITE) : null)
                 : highLightColor.provideTextColor(element, highlight);
         if (color != null) {
             RenderHandler.drawHighlightFrame(

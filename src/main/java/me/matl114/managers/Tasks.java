@@ -10,9 +10,9 @@ import me.matl114.managers.task.Task;
 import me.matl114.managers.task.TimedTask;
 import me.matl114.utils.ApiMethod;
 import me.matl114.utils.Debug;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.crash.CrashException;
+import net.minecraft.ReportedException;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 public class Tasks {
     public static void init() {}
@@ -37,12 +37,12 @@ public class Tasks {
         return secondCounter;
     }
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
-    private static final Set<Consumer<ClientPlayerEntity>> gameTasks = new LinkedHashSet<>();
+    private static final Set<Consumer<LocalPlayer>> gameTasks = new LinkedHashSet<>();
 
     // run when player is not null
-    public static void registerGameTask(Consumer<ClientPlayerEntity> r) {
+    public static void registerGameTask(Consumer<LocalPlayer> r) {
         gameTasks.add(r);
     }
 
@@ -54,7 +54,7 @@ public class Tasks {
                 if (task.execute()) {
                     iter.remove();
                 }
-            } catch (CrashException | StackOverflowError e) {
+            } catch (ReportedException | StackOverflowError e) {
                 // remove exceptional task
                 iter.remove();
                 throw e;
@@ -75,7 +75,7 @@ public class Tasks {
                 if (task.execute()) {
                     iter.remove();
                 }
-            } catch (CrashException | StackOverflowError e) {
+            } catch (ReportedException | StackOverflowError e) {
                 // remove exceptional task
                 iter.remove();
                 throw e;
@@ -88,7 +88,7 @@ public class Tasks {
         }
     }
 
-    public static void doGameTick(ClientPlayerEntity player) {
+    public static void doGameTick(LocalPlayer player) {
         gameTasks.forEach(i -> i.accept(player));
     }
 

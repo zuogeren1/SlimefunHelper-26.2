@@ -1,8 +1,8 @@
 package me.matl114.hooks.impl.xaerowaypoints;
 
 import javax.annotation.Nullable;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public interface IXWaypointFactory {
 
@@ -13,5 +13,5 @@ public interface IXWaypointFactory {
     public IXWaypointAccess getCurrentWaypointSet();
 
     @Nullable
-    public RegistryKey<World> getCurrentWorld();
+    public ResourceKey<Level> getCurrentWorld();
 }

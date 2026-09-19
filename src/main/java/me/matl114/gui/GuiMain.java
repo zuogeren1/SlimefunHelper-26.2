@@ -7,7 +7,7 @@ import java.util.Set;
 import me.matl114.events.Event;
 import me.matl114.events.RenderListener;
 import me.matl114.utils.ResourceUtils;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public class GuiMain {
     public static void init() {}

@@ -6,9 +6,9 @@ import java.util.Locale;
 import java.util.function.Consumer;
 import me.matl114.events.Listener;
 import me.matl114.events.packets.PacketStorage;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.packet.PacketType;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.PacketType;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 public class PacketWrapperSendStorageImpl implements PacketStorage {
@@ -39,7 +39,7 @@ public class PacketWrapperSendStorageImpl implements PacketStorage {
             // initialize;
             com.viaversion.viaversion.api.protocol.packet.PacketType type = this.wrapper.getPacketType();
             if (type != null) {
-                Identifier id = Identifier.ofVanilla(type.getName().toLowerCase(Locale.ROOT));
+                Identifier id = Identifier.withDefaultNamespace(type.getName().toLowerCase(Locale.ROOT));
                 type0 = Listener.getPacketTypeById(id, false);
             }
         }
@@ -48,8 +48,8 @@ public class PacketWrapperSendStorageImpl implements PacketStorage {
     }
 
     @Override
-    public NetworkSide side() {
-        return NetworkSide.SERVERBOUND;
+    public PacketFlow side() {
+        return PacketFlow.SERVERBOUND;
     }
 
     @Override

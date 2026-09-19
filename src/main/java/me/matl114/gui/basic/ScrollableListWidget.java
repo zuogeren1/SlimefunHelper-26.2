@@ -7,8 +7,8 @@ import lombok.Getter;
 import me.matl114.gui.elements.AdvancedScrollElement;
 import me.matl114.utils.config.ValueAccessor;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.util.Mth;
 
 public class ScrollableListWidget extends DrawableWidget implements SubSelectable {
     double percentage = 0.0D;
@@ -51,7 +51,7 @@ public class ScrollableListWidget extends DrawableWidget implements SubSelectabl
     }
 
     private void resizePose(double percentage) {
-        this.percentage = MathHelper.clamp(percentage, 0.0D, 1.0D);
+        this.percentage = Mth.clamp(percentage, 0.0D, 1.0D);
     }
 
     public ScrollableListWidget addScrollingWidget(DrawableWidget widget) {

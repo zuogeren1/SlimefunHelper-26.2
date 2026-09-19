@@ -1,7 +1,6 @@
 package me.matl114.hacks.modules.interact;
 
 import java.util.*;
-import java.util.List;
 import me.matl114.accessors.moonrise.MoonriseBlockStateBaseAccess;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
@@ -21,16 +20,22 @@ import me.matl114.utils.InteractUtils;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.collections.IndexEntry;
-import net.minecraft.block.BlockState;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
-import net.minecraft.world.EmptyBlockView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class Scaffold extends BaseModule {
     //    public static final String[] ENABLE = {"interact-scaffold", "scaffold"};
@@ -126,14 +131,14 @@ public class Scaffold extends BaseModule {
             return;
         }
         try {
-            if (mc.crosshairTarget instanceof BlockHitResult result1) {
+            if (mc.hitResult instanceof BlockHitResult result1) {
                 // same block same side
                 // use vanilla crosshairtarget
                 if (Objects.equals(result1.getBlockPos(), result.getBlockPos())
-                        && Objects.equals(result1.getSide(), result.getSide())
+                        && Objects.equals(result1.getDirection(), result.getDirection())
                         && Objects.equals(result1.getType(), result.getType())) {
                     InteractionTasks.interactBlock(
-                            offhandOk ? Hand.OFF_HAND : Hand.MAIN_HAND, result1, swingHand.get());
+                            offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, result1, swingHand.get());
                     return;
                 }
             }
@@ -142,9 +147,9 @@ public class Scaffold extends BaseModule {
                 var mode = legalMode.get();
                 // todo: delay movement fix
                 InteractionTasks.handlePlaceMode(
-                        mode, result, offhandOk ? Hand.OFF_HAND : Hand.MAIN_HAND, swingHand.get());
+                        mode, result, offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, swingHand.get());
             } else {
-                InteractionTasks.interactBlock(offhandOk ? Hand.OFF_HAND : Hand.MAIN_HAND, result, swingHand.get());
+                InteractionTasks.interactBlock(offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, result, swingHand.get());
             }
         } finally {
             callback.run();
@@ -156,13 +161,13 @@ public class Scaffold extends BaseModule {
     public int supplyBlock() {
         if (availableItemBlocks == null) {
             availableItemBlocks = new HashSet<>();
-            for (var item : Registries.ITEM) {
+            for (var item : BuiltInRegistries.ITEM) {
                 if (item instanceof BlockItem blockItem
-                        && !blockItem.getBlock().getDefaultState().isAir()
+                        && !blockItem.getBlock().defaultBlockState().isAir()
                         && blockItem
                                 .getBlock()
-                                .getDefaultState()
-                                .isFullCube(EmptyBlockView.INSTANCE, BlockPos.ORIGIN)) {
+                                .defaultBlockState()
+                                .isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
                     availableItemBlocks.add(blockItem);
                 }
             }
@@ -193,12 +198,12 @@ public class Scaffold extends BaseModule {
             // Debug.chat("tick", ClientAccess.of(mc).getCooldown());
             // check if we can have any scaffold
             // todo add lerp to config
-            Vec3d playerPos = mc.player.getPos(); // mc.player.getLerpedPos(2.0F); // mc.player.getPos();
+            Vec3 playerPos = mc.player.position(); // mc.player.getLerpedPos(2.0F); // mc.player.getPos();
             // do not predict y level
-            playerPos = new Vec3d(playerPos.x, mc.player.getY(), playerPos.z);
+            playerPos = new Vec3(playerPos.x, mc.player.getY(), playerPos.z);
 
-            BlockPos testPos1 = BlockPos.ofFloored(playerPos.subtract(0, 0.500001F, 0));
-            BlockState blockState = mc.world.getBlockState(testPos1);
+            BlockPos testPos1 = BlockPos.containing(playerPos.subtract(0, 0.500001F, 0));
+            BlockState blockState = mc.level.getBlockState(testPos1);
             // test if the supporting block can support player
             if (!blockState.isAir()
                     && !MoonriseBlockStateBaseAccess.of(blockState).isConstantCollisionShapeEmpty()) {
@@ -206,7 +211,7 @@ public class Scaffold extends BaseModule {
                 return;
             }
 
-            if (blockState.isReplaceable()) {
+            if (blockState.canBeReplaced()) {
                 BlockHitResult hitResult = guessTheBestPlacePositionForTargetingBlock(
                         playerPos.add(0, mc.player.dimensions.eyeHeight(), 0), testPos1);
                 if (hitResult != null) {
@@ -230,20 +235,20 @@ public class Scaffold extends BaseModule {
     //        }
     //    }
 
-    public BlockHitResult guessTheBestPlacePositionForTargetingBlock(Vec3d predictedEyePos, BlockPos pos) {
-        if (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.BLOCK) {
-            BlockHitResult hitResult = ((BlockHitResult) mc.crosshairTarget);
+    public BlockHitResult guessTheBestPlacePositionForTargetingBlock(Vec3 predictedEyePos, BlockPos pos) {
+        if (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK) {
+            BlockHitResult hitResult = ((BlockHitResult) mc.hitResult);
             BlockPos targetPos = hitResult.getBlockPos();
-            Direction dir = hitResult.getSide();
-            BlockPos estimatePlacingPos = targetPos.offset(dir);
+            Direction dir = hitResult.getDirection();
+            BlockPos estimatePlacingPos = targetPos.relative(dir);
             // use vanilla
             if (InteractUtils.canCubePlace(mc.player, estimatePlacingPos) && Objects.equals(estimatePlacingPos, pos)) {
                 return hitResult;
             }
         }
         FlagEntry<BlockHitResult> hitResult;
-        BlockState state = mc.world.getBlockState(pos);
-        if (state.isReplaceable() && InteractUtils.canCubePlace(mc.player, pos)) {
+        BlockState state = mc.level.getBlockState(pos);
+        if (state.canBeReplaced() && InteractUtils.canCubePlace(mc.player, pos)) {
             hitResult = InteractionTasks.getPlaceSupportingResult(
                     predictedEyePos, pos, airplace.get(), !legalMode.get().isLegal());
             if (hitResult != null && InteractUtils.canInteractAndPlace(mc.player, hitResult)) return hitResult.val();
@@ -251,10 +256,10 @@ public class Scaffold extends BaseModule {
 
         for (var vec3d : searchOffsets) {
             if (vec3d.getY() >= -expandYDepth.get()) {
-                BlockPos checkPos = pos.add(vec3d);
-                state = mc.world.getBlockState(checkPos);
+                BlockPos checkPos = pos.offset(vec3d);
+                state = mc.level.getBlockState(checkPos);
                 // filter can place blocks
-                if (state.isReplaceable() && InteractUtils.canCubePlace(mc.player, checkPos)) {
+                if (state.canBeReplaced() && InteractUtils.canCubePlace(mc.player, checkPos)) {
                     hitResult = InteractionTasks.getPlaceSupportingResult(
                             checkPos,
                             !legalMode.get().isLegal(),

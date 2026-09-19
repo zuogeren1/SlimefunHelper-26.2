@@ -3,7 +3,7 @@ package me.matl114.mixins.events;
 import me.matl114.events.Event;
 import me.matl114.events.GlobalEventVars;
 import me.matl114.events.Listener;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.main.Main;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -15,31 +15,31 @@ public abstract class MainEvents {
 
     @Inject(
             method = "main",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;run()V", shift = At.Shift.AFTER))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;run()V", shift = At.Shift.AFTER))
     private static void onMain(String[] args, CallbackInfo ci) {
         // handled crash in the printCrashReportMixin\\
         // printCrashReport will call System.exit, if we see a crashReport here then it is cancelled in the event here
-        if (MinecraftClient.getInstance() == null) {
+        if (Minecraft.getInstance() == null) {
             return;
         }
         if (GlobalEventVars.crashReport != null) {
             GlobalEventVars.crashReport = null;
             GlobalEventVars.crashReportEvent = null;
-            mainLoop(MinecraftClient.getInstance());
+            mainLoop(Minecraft.getInstance());
         } else {
             // not a crash
             if (GlobalEventVars.crashReportEvent == null) {
-                MinecraftClient mc = MinecraftClient.getInstance();
+                Minecraft mc = Minecraft.getInstance();
                 GlobalEventVars.crashReportEvent = new Event<>(mc, mc.isRunning(), false, (Object) null);
                 if (!Listener.getClientMainExit().isEmpty()) {
                     Listener.getClientMainExit().handleValue(GlobalEventVars.crashReportEvent);
                 }
             }
-            if (MinecraftClient.getInstance().isRunning()) {
+            if (Minecraft.getInstance().isRunning()) {
                 if (GlobalEventVars.crashReportEvent.isCancelled()) {
                     GlobalEventVars.crashReportEvent = null;
                     GlobalEventVars.crashReport = null;
-                    mainLoop(MinecraftClient.getInstance());
+                    mainLoop(Minecraft.getInstance());
                 } else {
                     GlobalEventVars.crashReportEvent = null;
                     GlobalEventVars.crashReport = null;
@@ -51,7 +51,7 @@ public abstract class MainEvents {
         }
     }
 
-    private static void mainLoop(MinecraftClient mc) {
+    private static void mainLoop(Minecraft mc) {
         while (true) {
             GlobalEventVars.crashReportEvent = null;
             GlobalEventVars.crashReport = null;
@@ -60,7 +60,7 @@ public abstract class MainEvents {
                 GlobalEventVars.crashReport = null;
             } else {
                 if (!Listener.getClientMainExit().isEmpty()) {
-                    Event<MinecraftClient> event = new Event<>(mc, mc.isRunning(), false, (Object) null);
+                    Event<Minecraft> event = new Event<>(mc, mc.isRunning(), false, (Object) null);
                     Listener.getClientMainExit().handleValue(event);
                     if (!event.isCancelled()) {
                         break;

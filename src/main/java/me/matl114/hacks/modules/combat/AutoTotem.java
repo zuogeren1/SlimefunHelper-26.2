@@ -22,17 +22,17 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import me.matl114.utils.InventoryUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class AutoTotem extends BaseModule {
     private final Random inventorRandom = new Random();
@@ -61,7 +61,7 @@ public class AutoTotem extends BaseModule {
 
     public final NBTRef<EntrySet<Item>> enableHandItems = builder(
                     totem.add("enable-hand-items"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^()$"), Registries.ITEM))
+            .defaultValue(new EntrySet<>(new Regex("^()$"), BuiltInRegistries.ITEM))
             .build();
 
     public final FlagRef antiMiss = flagBuilder(totem.add("anti-miss")).build();
@@ -71,7 +71,7 @@ public class AutoTotem extends BaseModule {
         super.registerAll();
         registerListener(Listener.getPreGameTick(), this::onTick);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
-        registerListener(Listener.getPacketPoint().getChannel(EntityStatusS2CPacket.class), this::onTotem);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onTotem);
         registerListener(Listener.getPlayerInitConfiguration(), this::onPlayerInit);
     }
 
@@ -81,7 +81,7 @@ public class AutoTotem extends BaseModule {
 
     StateExecutor noTotem = new StateExecutor();
     // todo: add legal mode (swap hand)
-    public void onTick(Event<ClientPlayerEntity> ev) {
+    public void onTick(Event<LocalPlayer> ev) {
         if (enable.get()) {
             onTotemLazy();
         }
@@ -117,23 +117,23 @@ public class AutoTotem extends BaseModule {
         if (!swap.canRun(cooldown.get())) {
             return;
         }
-        if (!canBeAccepted(mc.player.getOffHandStack())) {
-            if (smartTotem.get() && mc.player.getMainHandStack().getItem() == Items.TOTEM_OF_UNDYING) {
+        if (!canBeAccepted(mc.player.getOffhandItem())) {
+            if (smartTotem.get() && mc.player.getMainHandItem().getItem() == Items.TOTEM_OF_UNDYING) {
                 return;
             }
             // well looks
             int toSlot = (smartTotem.get()
-                            && mc.player.getMainHandStack().isEmpty()
-                            && !mc.player.getOffHandStack().isEmpty())
+                            && mc.player.getMainHandItem().isEmpty()
+                            && !mc.player.getOffhandItem().isEmpty())
                     ? InventoryUtils.getSelectedSlot()
                     : 40;
-            ScreenHandler handled = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
+            AbstractContainerMenu handled = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
             List<Slot> slots = handled.slots;
             for (var i = 0; i < slots.size(); ++i) {
-                if ((slots.get(i).inventory instanceof PlayerInventory || handled == mc.player.playerScreenHandler)
-                        && slots.get(i).getStack().getItem() == Items.TOTEM_OF_UNDYING) {
+                if ((slots.get(i).container instanceof Inventory || handled == mc.player.inventoryMenu)
+                        && slots.get(i).getItem().getItem() == Items.TOTEM_OF_UNDYING) {
                     MovTasks.getMovExtra().sendPacketsForInventoryAction();
-                    InvTasks.clickSlotAsync(i, toSlot, SlotActionType.SWAP);
+                    InvTasks.clickSlotAsync(i, toSlot, ContainerInput.SWAP);
                     Debug.debug("handle swap success");
                     handleTotemSwapSuccess();
                     return;
@@ -144,15 +144,15 @@ public class AutoTotem extends BaseModule {
     }
 
     public void onTotemTick() {
-        if (!canBeAccepted(mc.player.getOffHandStack())) {
+        if (!canBeAccepted(mc.player.getOffhandItem())) {
             onTotemLazy();
         } else {
             IntList totemList = new IntArrayList();
-            ScreenHandler handled = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
+            AbstractContainerMenu handled = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
             List<Slot> slots = handled.slots;
             for (var i = 0; i < slots.size(); ++i) {
-                if ((slots.get(i).inventory instanceof PlayerInventory || handled == mc.player.playerScreenHandler)
-                        && slots.get(i).getStack().getItem() == Items.TOTEM_OF_UNDYING
+                if ((slots.get(i).container instanceof Inventory || handled == mc.player.inventoryMenu)
+                        && slots.get(i).getItem().getItem() == Items.TOTEM_OF_UNDYING
                         && i != 40) {
                     totemList.add(i);
                 }
@@ -160,7 +160,7 @@ public class AutoTotem extends BaseModule {
             if (!totemList.isEmpty()) {
                 int random = totemList.getInt(inventorRandom.nextInt(totemList.size()));
                 MovTasks.getMovExtra().sendPacketsForInventoryAction();
-                InvTasks.clickSlotAsync(random, 40, SlotActionType.SWAP);
+                InvTasks.clickSlotAsync(random, 40, ContainerInput.SWAP);
                 handleTotemSwapSuccess();
             } else {
                 handleTotemSwapFailure();
@@ -170,26 +170,26 @@ public class AutoTotem extends BaseModule {
 
     TimerExecutor swap = new TimerExecutor();
 
-    public void onTotem(Event<EntityStatusS2CPacket> eventTotem) {
+    public void onTotem(Event<ClientboundEntityEventPacket> eventTotem) {
         if (checkNull()) return;
         if (enable.get()
                 && antiMiss.get()
-                && eventTotem.context.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING
-                && eventTotem.context.getEntity(mc.world) == mc.player) {
-            ItemStack stackInMainHand = mc.player.getMainHandStack();
+                && eventTotem.context.getEventId() == EntityEvent.PROTECTED_FROM_DEATH
+                && eventTotem.context.getEntity(mc.level) == mc.player) {
+            ItemStack stackInMainHand = mc.player.getMainHandItem();
             int consumeSlot =
                     stackInMainHand.getItem() == Items.TOTEM_OF_UNDYING ? InventoryUtils.getSelectedSlot() : 40;
-            mc.player.getInventory().setStack(consumeSlot, ItemStack.EMPTY);
-            ScreenHandler handled = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
+            mc.player.getInventory().setItem(consumeSlot, ItemStack.EMPTY);
+            AbstractContainerMenu handled = ClientPlayerAccess.of(mc.player).getServerScreenHandler();
             List<Slot> slots = handled.slots;
             // revert usage to avoid conflict
             for (var i = slots.size() - 1; i >= 0; --i) {
                 if (i != consumeSlot
-                        && (slots.get(i).inventory instanceof PlayerInventory
-                                || handled == mc.player.playerScreenHandler)
-                        && slots.get(i).getStack().getItem() == Items.TOTEM_OF_UNDYING) {
+                        && (slots.get(i).container instanceof Inventory
+                                || handled == mc.player.inventoryMenu)
+                        && slots.get(i).getItem().getItem() == Items.TOTEM_OF_UNDYING) {
                     MovTasks.getMovExtra().sendPacketsForInventoryAction();
-                    InvTasks.clickSlotAsync(i, consumeSlot, SlotActionType.SWAP);
+                    InvTasks.clickSlotAsync(i, consumeSlot, ContainerInput.SWAP);
                     handleTotemSwapSuccess();
                     Debug.debug("handle antimiss success");
                     // pre tick
@@ -201,7 +201,7 @@ public class AutoTotem extends BaseModule {
         }
     }
 
-    public void onPlayerInit(Event<ClientPlayerEntity> eventPlayer) {
+    public void onPlayerInit(Event<LocalPlayer> eventPlayer) {
         noTotem.state(false);
     }
 

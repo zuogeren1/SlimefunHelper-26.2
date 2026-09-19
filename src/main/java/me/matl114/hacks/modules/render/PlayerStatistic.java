@@ -11,19 +11,19 @@ import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffectUtil;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.potion.Potion;
-import net.minecraft.potion.Potions;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffectUtil;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.Potions;
 
 public class PlayerStatistic extends IRender2DColoredModule {
     private static final int ITEM_ROW_HEIGHT = 9;
@@ -43,13 +43,13 @@ public class PlayerStatistic extends IRender2DColoredModule {
     public final FlagRef enableItems = flagBuilder(hud.add("enable-items")).build();
 
     public final NBTRef<EntrySet<Item>> itemTypes = builder(hud.add("item-types"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(Registries.ITEM, List.of(Items.TOTEM_OF_UNDYING, Items.FIREWORK_ROCKET)))
+            .defaultValue(new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.TOTEM_OF_UNDYING, Items.FIREWORK_ROCKET)))
             .build();
 
     public final FlagRef enablePotions = flagBuilder(hud.add("enable-potions")).build();
 
     public final NBTRef<EntrySet<Potion>> potionTypes = builder(hud.add("potion-types"), EntrySet.<Potion>parameter())
-            .defaultValue(new EntrySet<>(Registries.POTION, List.of(Potions.TURTLE_MASTER.value())))
+            .defaultValue(new EntrySet<>(BuiltInRegistries.POTION, List.of(Potions.TURTLE_MASTER.value())))
             .build();
 
     public final FlagRef enableEffect = flagBuilder(hud.add("enable-effect")).build();
@@ -81,7 +81,7 @@ public class PlayerStatistic extends IRender2DColoredModule {
     }
 
     private void drawItemStatistic(VDrawContext vdraw, ItemStack stack, int count) {
-        OrderedText text = Text.literal(String.valueOf(count)).asOrderedText();
+        FormattedCharSequence text = Component.literal(String.valueOf(count)).getVisualOrderText();
 
         vdraw.pushMatrix();
         {
@@ -95,11 +95,11 @@ public class PlayerStatistic extends IRender2DColoredModule {
             if (!right.get()) {
                 vdraw.getMatrices().translate(9, 0);
             } else {
-                int textWidth = mc.textRenderer.getWidth(text);
+                int textWidth = mc.font.width(text);
                 vdraw.getMatrices().translate(-textWidth, 0);
             }
         }
-        vdraw.drawText(mc.textRenderer, text, 0, 0, color.get().withAlpha(255), true);
+        vdraw.drawText(mc.font, text, 0, 0, color.get().withAlpha(255), true);
         vdraw.popMatrix();
         vdraw.getMatrices().translate(0, ITEM_ROW_HEIGHT);
     }
@@ -109,7 +109,7 @@ public class PlayerStatistic extends IRender2DColoredModule {
         int cnt;
         if (map != null) {
             cnt = map.entrySet().stream()
-                    .filter(s -> s.getKey().sample().isOf(itemType))
+                    .filter(s -> s.getKey().sample().is(itemType))
                     .mapToInt(Map.Entry::getValue)
                     .sum();
         } else {
@@ -119,15 +119,15 @@ public class PlayerStatistic extends IRender2DColoredModule {
     }
 
     private boolean isTurtle(ItemStack stack, Potion potionType) {
-        var potion = stack.get(DataComponentTypes.POTION_CONTENTS);
+        var potion = stack.get(DataComponents.POTION_CONTENTS);
         if (potion != null) {
             var po = potion.potion().orElse(null);
             if (po == null) return false;
             if (Objects.equals(po, potionType)) {
                 return true;
             }
-            var re = potionType.getEffects().stream().map(StatusEffectInstance::getEffectType);
-            var re2 = po.value().getEffects().stream().map(StatusEffectInstance::getEffectType);
+            var re = potionType.getEffects().stream().map(MobEffectInstance::getEffect);
+            var re2 = po.value().getEffects().stream().map(MobEffectInstance::getEffect);
             return Objects.equals(re, re2);
         }
         return false;
@@ -145,18 +145,18 @@ public class PlayerStatistic extends IRender2DColoredModule {
             cnt = 0;
         }
         drawItemStatistic(
-                vdraw, PotionContentsComponent.createStack(Items.POTION, Registries.POTION.getEntry(potionType)), cnt);
+                vdraw, PotionContents.createItemStack(Items.POTION, BuiltInRegistries.POTION.wrapAsHolder(potionType)), cnt);
     }
 
-    private static final RegistryDisplays.IIcon<StatusEffect> statusEffectRenderer =
-            RegistryDisplays.getIcon(StatusEffect.class);
+    private static final RegistryDisplays.IIcon<MobEffect> statusEffectRenderer =
+            RegistryDisplays.getIcon(MobEffect.class);
 
     public void handleEffects(VDrawContext vdraw) {
-        for (var re : mc.player.getStatusEffects()) {
-            OrderedText timeText = StatusEffectUtil.getDurationText(
-                            re, 1.0F, mc.world.getTickManager().getTickRate())
-                    .asOrderedText();
-            float length = mc.textRenderer.getTextHandler().getWidth(timeText);
+        for (var re : mc.player.getActiveEffects()) {
+            FormattedCharSequence timeText = MobEffectUtil.formatDuration(
+                            re, 1.0F, mc.level.tickRateManager().tickrate())
+                    .getVisualOrderText();
+            float length = mc.font.getSplitter().stringWidth(timeText);
             vdraw.pushMatrix();
             if (right.get()) {
                 vdraw.getMatrices().translate(-length - HEIGHT, 0);
@@ -165,18 +165,18 @@ public class PlayerStatistic extends IRender2DColoredModule {
                 vdraw.pushMatrix();
                 {
                     vdraw.getMatrices().scale(0.5F, 0.5F);
-                    statusEffectRenderer.render(1, 1, vdraw, re.getEffectType().value());
+                    statusEffectRenderer.render(1, 1, vdraw, re.getEffect().value());
                     // render level
                     int level = re.getAmplifier();
                     if (level > 0) {
                         String lv = String.valueOf(level + 1);
-                        vdraw.drawText(mc.textRenderer, lv, 17 - mc.textRenderer.getWidth(lv), 9, -1, true);
+                        vdraw.drawText(mc.font, lv, 17 - mc.font.width(lv), 9, -1, true);
                     }
                 }
 
                 vdraw.popMatrix();
                 vdraw.drawText(
-                        mc.textRenderer, timeText, (int) HEIGHT, 0, color.get().withAlpha(255), true);
+                        mc.font, timeText, (int) HEIGHT, 0, color.get().withAlpha(255), true);
             }
             vdraw.popMatrix();
             vdraw.getMatrices().translate(0, HEIGHT);

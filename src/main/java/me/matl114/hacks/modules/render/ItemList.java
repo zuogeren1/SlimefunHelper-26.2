@@ -15,16 +15,16 @@ import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.advancements.predicates.NbtPredicate;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.predicate.NbtPredicate;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemList extends IRender2DColoredModule {
     public ItemList() {
@@ -41,11 +41,11 @@ public class ItemList extends IRender2DColoredModule {
     FlagRef renderSimple;
 
     FlagRef renderImportant;
-    public NBTRef<PrimitiveList<NbtCompound>> nbtPredicate;
+    public NBTRef<PrimitiveList<CompoundTag>> nbtPredicate;
     public NBTRef<EntrySet<Item>> itemType;
     public List<NbtPredicate> predicate;
 
-    public void updatePredicate(List<NbtCompound> compound) {
+    public void updatePredicate(List<CompoundTag> compound) {
         if (compound == null || compound.isEmpty()) {
             predicate = null;
         } else {
@@ -58,15 +58,15 @@ public class ItemList extends IRender2DColoredModule {
     }
 
     private boolean testItemData(ItemStack stack) {
-        ComponentChanges changes = stack.getComponentChanges();
+        DataComponentPatch changes = stack.getComponentsPatch();
         try {
-            NbtCompound nbtCompound = changes.isEmpty()
-                    ? new NbtCompound()
-                    : (NbtCompound) ComponentChanges.CODEC
-                            .encodeStart(ItemStackUtils.registry().getOps(NbtOps.INSTANCE), changes)
+            CompoundTag nbtCompound = changes.isEmpty()
+                    ? new CompoundTag()
+                    : (CompoundTag) DataComponentPatch.CODEC
+                            .encodeStart(ItemStackUtils.registry().createSerializationContext(NbtOps.INSTANCE), changes)
                             .getOrThrow();
             for (var re : predicate) {
-                if (re.test(nbtCompound)) return true;
+                if (re.matches(nbtCompound)) return true;
             }
             return false;
         } catch (Throwable e) {
@@ -81,7 +81,7 @@ public class ItemList extends IRender2DColoredModule {
         renderSimple = flagBuilder(hud.add("render-simple")).build();
 
         renderImportant = flagBuilder(hud.add("render-important")).build();
-        nbtPredicate = builder(hud.add("nbt-predicate"), PrimitiveList.<NbtCompound>parameter())
+        nbtPredicate = builder(hud.add("nbt-predicate"), PrimitiveList.<CompoundTag>parameter())
                 .defaultValue(new PrimitiveList<>(NBTTypes.NBT_COMPOUND_TYPE, List.of()))
                 .updateListener(s -> updatePredicate(s.list()))
                 .build();
@@ -89,12 +89,12 @@ public class ItemList extends IRender2DColoredModule {
                 .defaultValue(new EntrySet<>(
                         new Regex(
                                 "^(.*ton_skull|netherite.*|.*_star|.*_apple|.*potion|tot.*|end_c.*l|obsi.*|.*anchor|expe.*|mace|ely.*|.*shulker.*|trident)$"),
-                        Registries.ITEM))
+                        BuiltInRegistries.ITEM))
                 .build();
     }
 
-    List<Text> simpleItems = new ArrayList<>();
-    List<Text> importantItems = new ArrayList<>();
+    List<Component> simpleItems = new ArrayList<>();
+    List<Component> importantItems = new ArrayList<>();
 
     @Override
     public void onUpdate(Event<Void> event) {
@@ -105,21 +105,21 @@ public class ItemList extends IRender2DColoredModule {
         }
         if (enable.get()) {
             Map<ItemStackSample, Integer> itemMap = new HashMap<>();
-            for (var re : mc.world.getEntities()) {
+            for (var re : mc.level.entitiesForRendering()) {
                 if (re instanceof ItemEntity item) {
-                    ItemStack stack = item.getStack();
+                    ItemStack stack = item.getItem();
                     if (!stack.isEmpty()) {
                         itemMap.merge(ItemStackSample.of(stack), stack.getCount(), Integer::sum);
                     }
-                } else if (re instanceof ItemFrameEntity frame && collectItemFrame.get()) {
-                    ItemStack stack = frame.getHeldItemStack();
+                } else if (re instanceof ItemFrame frame && collectItemFrame.get()) {
+                    ItemStack stack = frame.getItem();
                     if (!stack.isEmpty()) {
                         itemMap.merge(ItemStackSample.of(stack), stack.getCount(), Integer::sum);
                     }
                 }
             }
             for (var re : itemMap.entrySet()) {
-                Text text = ChatUtils.builder()
+                Component text = ChatUtils.builder()
                         .withColorString("&f")
                         .appendText(
                                 VItem.getInstance().getFormattedName(re.getKey().sample()))

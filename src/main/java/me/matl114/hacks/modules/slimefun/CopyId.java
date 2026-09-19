@@ -14,14 +14,14 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.collections.Point;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 
 public class CopyId extends BaseModule {
     public final ModulePath slimefunSettings = makePath(Configs.SLIMEFUN_CONFIG, "slimefun-settings");
@@ -38,35 +38,35 @@ public class CopyId extends BaseModule {
             .build();
 
     public boolean copySfIdInHand() {
-        var client = MinecraftClient.getInstance();
-        var player = MinecraftClient.getInstance().player;
+        var client = Minecraft.getInstance();
+        var player = Minecraft.getInstance().player;
         if (player == null || client == null) return false;
         ItemStack heldItem = null;
-        if (client.currentScreen instanceof HandledScreen<?> s) {
+        if (client.gui.screen() instanceof AbstractContainerScreen<?> s) {
             Point mouseCoord = ScreenUtils.getMouseCoord(client);
             Slot slot = HandledScreenAccess.of(s).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {
-                heldItem = slot.getStack();
+                heldItem = slot.getItem();
             }
         } else {
-            heldItem = player.getStackInHand(Hand.MAIN_HAND);
+            heldItem = player.getItemInHand(InteractionHand.MAIN_HAND);
         }
         if (heldItem != null) {
             String sfid = getSfId(heldItem);
 
             if (sfid != null) {
-                client.keyboard.setClipboard(sfid);
-                Debug.chat(Text.literal("成功将Slimefun ID拷贝至你的剪切板和公共参数! 值: ")
-                        .formatted(Formatting.GREEN)
-                        .append(Text.literal(sfid).formatted(Formatting.WHITE)));
+                client.keyboardHandler.setClipboard(sfid);
+                Debug.chat(Component.literal("成功将Slimefun ID拷贝至你的剪切板和公共参数! 值: ")
+                        .withStyle(ChatFormatting.GREEN)
+                        .append(Component.literal(sfid).withStyle(ChatFormatting.WHITE)));
 
                 return true;
             } else {
-                String id = Registries.ITEM.getId(heldItem.getItem()).getPath().toUpperCase(Locale.ROOT);
-                client.keyboard.setClipboard(id);
-                Debug.chat(Text.literal("该物品不是Slimefun物品,拷贝原版ID!")
-                        .formatted(Formatting.GREEN)
-                        .append(Text.literal(id).formatted(Formatting.WHITE)));
+                String id = BuiltInRegistries.ITEM.getKey(heldItem.getItem()).getPath().toUpperCase(Locale.ROOT);
+                client.keyboardHandler.setClipboard(id);
+                Debug.chat(Component.literal("该物品不是Slimefun物品,拷贝原版ID!")
+                        .withStyle(ChatFormatting.GREEN)
+                        .append(Component.literal(id).withStyle(ChatFormatting.WHITE)));
                 return true;
             }
         }

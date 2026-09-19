@@ -3,24 +3,16 @@ package me.matl114.mixins.access;
 import me.matl114.accessors.access.PlayerInteractEntityC2SPacketAccess;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import org.spongepowered.asm.mixin.Final;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(PlayerInteractEntityC2SPacket.class)
+@Mixin(ServerboundInteractPacket.class)
 public abstract class PlayerInteractEntityC2SPacketMixin implements PlayerInteractEntityC2SPacketAccess {
-    @Shadow
-    @Final
-    public PlayerInteractEntityC2SPacket.InteractTypeHandler type;
-
-    @Shadow
-    @Final
-    public static PlayerInteractEntityC2SPacket.InteractTypeHandler ATTACK;
-
+    // 26.2 的 ServerboundInteractPacket 已改为扁平 record(entityId, hand, location, usingSecondaryAction)，
+    // 不再有 action 字段与 Action 内部类，攻击语义移至独立的 ServerboundAttackPacket。
     @Override
     @Mutable
     @Accessor("entityId")
@@ -33,16 +25,6 @@ public abstract class PlayerInteractEntityC2SPacketMixin implements PlayerIntera
 
     @Override
     @Mutable
-    @Accessor("type")
-    public abstract void setType(PlayerInteractEntityC2SPacket.InteractTypeHandler type);
-
-    @Override
-    @Mutable
-    @Accessor("playerSneaking")
+    @Accessor("usingSecondaryAction")
     public abstract void setPlayerSneaking(boolean playerSneaking);
-
-    @Override
-    public boolean isAttack() {
-        return this.type.getType() == ATTACK.getType();
-    }
 }

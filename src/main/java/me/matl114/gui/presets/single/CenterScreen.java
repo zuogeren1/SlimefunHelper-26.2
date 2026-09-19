@@ -3,13 +3,13 @@ package me.matl114.gui.presets.single;
 import me.matl114.gui.GenericScreen;
 import me.matl114.gui.WidgetUtils;
 import me.matl114.gui.basic.DrawableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class CenterScreen extends GenericScreen {
     DrawableWidget widget;
 
     public CenterScreen(DrawableWidget widget) {
-        super(Text.empty(), 0, 0);
+        super(Component.empty(), 0, 0);
         this.widget = widget;
     }
 

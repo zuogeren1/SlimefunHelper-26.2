@@ -1,11 +1,11 @@
 package me.matl114.hooks.access;
 
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public interface XaeroGuiMapAccess {
 
-    public RegistryKey<World> getRightClickDim();
+    public ResourceKey<Level> getRightClickDim();
 
     public int getRightClickX();
 

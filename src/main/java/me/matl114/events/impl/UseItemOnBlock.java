@@ -5,9 +5,9 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.phys.BlockHitResult;
 
 @Data
 @AllArgsConstructor
@@ -18,9 +18,9 @@ public class UseItemOnBlock {
     BlockHitResult hitResult;
 
     @Setter
-    ActionResult actionResult;
+    InteractionResult actionResult;
 
     boolean placeBlock;
 
-    final Hand hand;
+    final InteractionHand hand;
 }

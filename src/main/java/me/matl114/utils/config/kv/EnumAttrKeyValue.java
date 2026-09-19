@@ -22,8 +22,8 @@ import me.matl114.utils.ReflectUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.BaseAttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
 import org.apache.commons.lang3.function.Consumers;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 
@@ -81,15 +81,15 @@ public class EnumAttrKeyValue<T> extends BaseAttrKeyValue<T> {
     public static <T> CustomWidgetFactory<T> createFiniteLookupWidgetFactory(Map<String, T> map) {
         Preconditions.checkArgument(!map.isEmpty());
         Class<?> enumClass = map.values().iterator().next().getClass();
-        List<Pair<String, Supplier<Text>>> flattenMap;
+        List<Pair<String, Supplier<Component>>> flattenMap;
         if (Displayable.class.isAssignableFrom(enumClass)) {
             Map<String, Displayable> valueMap = (Map) map;
             flattenMap = valueMap.entrySet().stream()
-                    .map((entry) -> new Pair<>(entry.getKey(), (Supplier<Text>) entry.getValue()::getDisplay))
+                    .map((entry) -> new Pair<>(entry.getKey(), (Supplier<Component>) entry.getValue()::getDisplay))
                     .toList();
         } else {
             flattenMap = map.keySet().stream()
-                    .map(v -> new Pair<>(v, (Supplier<Text>) () -> Text.translatableWithFallback(v, v)))
+                    .map(v -> new Pair<>(v, (Supplier<Component>) () -> Component.translatableWithFallback(v, v)))
                     .toList();
         }
         return (s, x, y, dx, dy) -> {
@@ -99,16 +99,16 @@ public class EnumAttrKeyValue<T> extends BaseAttrKeyValue<T> {
 
     public DrawableWidget generateSwitchingButton(
             int x, int y, int dx, int dy, Consumer<EnumAttrKeyValue<T>> callback) {
-        List<Pair<String, Supplier<Text>>> flattenMap;
+        List<Pair<String, Supplier<Component>>> flattenMap;
         if (Displayable.class.isAssignableFrom(identifier)) {
             Map<String, Displayable> valueMap = (Map<String, Displayable>) (this).getValueMap();
             flattenMap = valueMap.entrySet().stream()
-                    .map((entry) -> new Pair<>(entry.getKey(), (Supplier<Text>) entry.getValue()::getDisplay))
+                    .map((entry) -> new Pair<>(entry.getKey(), (Supplier<Component>) entry.getValue()::getDisplay))
                     .toList();
         } else {
             flattenMap = ((EnumAttrKeyValue<T>) this)
                     .getValueMap().keySet().stream()
-                            .map(v -> new Pair<>(v, (Supplier<Text>) () -> Text.translatableWithFallback(v, v)))
+                            .map(v -> new Pair<>(v, (Supplier<Component>) () -> Component.translatableWithFallback(v, v)))
                             .toList();
         }
         return generateSwitchingButton(flattenMap, this, x, y, dx, dy, () -> {
@@ -117,7 +117,7 @@ public class EnumAttrKeyValue<T> extends BaseAttrKeyValue<T> {
     }
 
     public static DrawableWidget generateSwitchingButton(
-            List<Pair<String, Supplier<Text>>> flattenMap,
+            List<Pair<String, Supplier<Component>>> flattenMap,
             AttrKeyValue<?> ex,
             int x,
             int y,
@@ -169,7 +169,7 @@ public class EnumAttrKeyValue<T> extends BaseAttrKeyValue<T> {
                                         integer.set(index0);
                                         indexUpdater.run();
                                     }))
-                            .withTooltips(TooltipHandler.of(List.of(Text.translatable(ex.getKeyName()))))));
+                            .withTooltips(TooltipHandler.of(List.of(Component.translatable(ex.getKeyName()))))));
             if (needSwitch) {
                 MutableBoolean show = new MutableBoolean(false);
                 subScreen.addDrawableChild(ExecutableWidget.instance(dx - dy + 2, 2, dy - 4, dy - 4)
@@ -198,9 +198,9 @@ public class EnumAttrKeyValue<T> extends BaseAttrKeyValue<T> {
                                         (el, rb) -> {
                                             kvUpdater.run();
                                             if (integer.get() == finalI) {
-                                                return Colors.GREEN;
+                                                return CommonColors.GREEN;
                                             } else if (rb) {
-                                                return Colors.WHITE;
+                                                return CommonColors.WHITE;
                                             } else return null;
                                         })));
                         height += dy;
@@ -215,8 +215,8 @@ public class EnumAttrKeyValue<T> extends BaseAttrKeyValue<T> {
         } else {
             // no choice
             return ExecutableWidget.instance(x + 1, y + 1, dx - 2, dy - 2)
-                    .setElementHandler(new ButtonElement(TextProvider.of(Text.empty()), ButtonAction.empty())
-                            .withTooltips(TooltipHandler.of(List.of(Text.translatable(ex.getKeyName())))));
+                    .setElementHandler(new ButtonElement(TextProvider.of(Component.empty()), ButtonAction.empty())
+                            .withTooltips(TooltipHandler.of(List.of(Component.translatable(ex.getKeyName())))));
         }
     }
 }

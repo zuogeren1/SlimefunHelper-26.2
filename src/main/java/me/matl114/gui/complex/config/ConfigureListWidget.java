@@ -18,8 +18,8 @@ import me.matl114.utils.Debug;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.PropertyTracker;
 import me.matl114.utils.containers.ArgsMap;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
 
 public class ConfigureListWidget
         extends IndexedSubScreen<Pair<String, Map<String, ConfigureListWidget.Entry<?>>>, ListUnmodifiableWidget> {
@@ -60,7 +60,7 @@ public class ConfigureListWidget
     private static final Map<String, String> cachedConfigUserSelectIndex = new HashMap<>();
     public static final String FILTER_TEXT_WIDGET = "slimefunhelper:configure_list_widget/filter_text_widget";
     private ArgsMap argsMap;
-    private ContentDelegateWidget<TextFieldWidget> filterInputWidget;
+    private ContentDelegateWidget<EditBox> filterInputWidget;
     private boolean initialized = false;
     protected int blankDx;
     protected int inputDx;
@@ -92,7 +92,7 @@ public class ConfigureListWidget
     @Override
     protected ElementHandler createIndexHandler(Pair<String, Map<String, Entry<?>>> str) {
         return new ButtonElement(
-                        TextProvider.of(Text.translatable("config.index." + str.getFirst())),
+                        TextProvider.of(Component.translatable("config.index." + str.getFirst())),
                         ButtonAction.run(() -> this.setGlobal(str)))
                 .setInactiveId(ButtonElement.BUTTON)
                 .setActiveId(ButtonElement.BUTTON_HIGHLIGHT)
@@ -204,12 +204,12 @@ public class ConfigureListWidget
     }
 
     protected boolean applyFilter(Entry<?> keyValue) {
-        String filter = filterInputWidget.getDelegate().getText();
+        String filter = filterInputWidget.getDelegate().getValue();
         if (filter.isEmpty()) {
             return true;
         } else {
             return FilterService.nameMatch(
-                    Text.translatableWithFallback(
+                    Component.translatableWithFallback(
                                     keyValue.keyValue().getKeyName(),
                                     keyValue.keyValue().getKeyName())
                             .getString(),

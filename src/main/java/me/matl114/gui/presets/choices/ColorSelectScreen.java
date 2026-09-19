@@ -6,18 +6,18 @@ import me.matl114.gui.basic.*;
 import me.matl114.gui.complex.RawTextElement;
 import me.matl114.utils.ColorUtils;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 
 public class ColorSelectScreen extends ConfirmingBigScreen {
     ValueAccessor<TextColor> source;
 
     protected ColorSelectScreen(ValueAccessor<TextColor> color) {
-        super(Text.translatable("widget.gui.color-select-screen.title").formatted(Formatting.GREEN));
+        super(Component.translatable("widget.gui.color-select-screen.title").withStyle(ChatFormatting.GREEN));
         this.source = color;
         TextColor color1 = color.getValue();
-        Color color2 = new Color(color1.getRgb(), true);
+        Color color2 = new Color(color1.getValue(), true);
         this.rValue = color2.getRed();
         this.gValue = color2.getGreen();
         this.bValue = color2.getBlue();
@@ -74,7 +74,7 @@ public class ColorSelectScreen extends ConfirmingBigScreen {
                 .addToSub(subScreenWidget);
         ExecutableWidget.instance(370 - 60, 120, 120, 30)
                 .setElementHandler(new RawTextElement(
-                        (el) -> Text.literal("R: %d, G: %d, B: %d".formatted(rValue, gValue, bValue)),
+                        (el) -> Component.literal("R: %d, G: %d, B: %d".formatted(rValue, gValue, bValue)),
                         ColorUtils.getColorInt(0, 0, 0, 255),
                         0))
                 .addToSub(subScreenWidget);
@@ -84,21 +84,21 @@ public class ColorSelectScreen extends ConfirmingBigScreen {
     @Override
     protected boolean canConfirm(ElementHandler elementHandler) {
         return ColorUtils.getColorInt(rValue, gValue, bValue, 0)
-                != source.getValue().getRgb();
+                != source.getValue().getValue();
     }
 
     @Override
     protected void onConfirmButton() {
         int rgb = ColorUtils.getColorInt(rValue, gValue, bValue);
-        for (var format : Formatting.values()) {
-            if (format.isColor() && format.getColorValue() == rgb) {
-                TextColor color = TextColor.fromFormatting(format);
+        for (var format : ChatFormatting.values()) {
+            if ((format.ordinal() < 16) && TextColor.fromLegacyFormat(format).getValue() == rgb) {
+                TextColor color = TextColor.fromLegacyFormat(format);
                 source.setValue(color);
-                close();
+                onClose();
                 return;
             }
         }
         source.setValue(TextColor.fromRgb(rgb));
-        close();
+        onClose();
     }
 }

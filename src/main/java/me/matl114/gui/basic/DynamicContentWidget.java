@@ -3,12 +3,12 @@ package me.matl114.gui.basic;
 import java.util.function.Supplier;
 import lombok.Setter;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
 import org.jetbrains.annotations.Nullable;
 
-public class DynamicContentWidget<W extends Element & Drawable & Selectable> extends ContentDelegateWidget<W> {
+public class DynamicContentWidget<W extends GuiEventListener & Renderable & NarratableEntry> extends ContentDelegateWidget<W> {
     @Setter
     Supplier<W> contentSupplier;
 

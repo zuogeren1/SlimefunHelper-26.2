@@ -11,7 +11,7 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
 
 public class AutoClick extends BaseModule {
     public AutoClick() {
@@ -52,10 +52,10 @@ public class AutoClick extends BaseModule {
         if (enable.get()) {
             if (cooldown.run(cd.get())) {
                 if (onlyWhenKeyPause.get()) {
-                    if (enableLeft.get() && mc.options.attackKey.isPressed()) {
+                    if (enableLeft.get() && mc.options.keyAttack.isDown()) {
                         workLeft = true;
                     }
-                    if (enableRight.get() && mc.options.useKey.isPressed()) {
+                    if (enableRight.get() && mc.options.keyUse.isDown()) {
                         workRight = true;
                     }
                 } else {
@@ -63,29 +63,29 @@ public class AutoClick extends BaseModule {
                     workRight = enableRight.get();
                 }
                 if (workLeft) {
-                    ac(mc.options.attackKey);
+                    ac(mc.options.keyAttack);
                 }
                 if (workRight) {
-                    ac(mc.options.useKey);
+                    ac(mc.options.keyUse);
                 }
             }
         }
     }
 
-    private void ac(KeyBinding keyBinding) {
-        keyBinding.setPressed(true);
-        if (keyBinding.timesPressed <= 0) {
-            keyBinding.timesPressed = 1;
+    private void ac(KeyMapping keyBinding) {
+        keyBinding.setDown(true);
+        if (keyBinding.clickCount <= 0) {
+            keyBinding.clickCount = 1;
         }
     }
 
     public void onPostInputEvent(Event<Void> event) {
         if (workLeft) {
-            KeyBindAccess.of(mc.options.attackKey).resetKeyState();
+            KeyBindAccess.of(mc.options.keyAttack).resetKeyState();
             workLeft = false;
         }
         if (workRight) {
-            KeyBindAccess.of(mc.options.useKey).resetKeyState();
+            KeyBindAccess.of(mc.options.keyUse).resetKeyState();
             workRight = false;
         }
     }

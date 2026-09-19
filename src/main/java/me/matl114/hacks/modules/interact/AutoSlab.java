@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.interact;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -28,22 +29,21 @@ import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.SlabBlock;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.SpawnHelper;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.NaturalSpawner;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class AutoSlab extends BaseModule {
     public AutoSlab() {
@@ -85,7 +85,7 @@ public class AutoSlab extends BaseModule {
 
     public final NBTRef<EntrySet<Block>> blackList = builder(
                     autoPlate.add("black-list-item"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(ender_chest|chest)$"), Registries.BLOCK))
+            .defaultValue(new EntrySet<>(new Regex("^(ender_chest|chest)$"), BuiltInRegistries.BLOCK))
             .build();
 
     public final FlagRef useBlockRotate =
@@ -107,16 +107,16 @@ public class AutoSlab extends BaseModule {
     public final Set<Item> availableSlabs = new HashSet<>();
     public final Set<Block> canSpawnOnBlocks = new HashSet<>();
     public final Set<Block> availableBlocks = new HashSet<>();
-    public final RenderCollector<Box> boxCollector = RenderCollectors.createBoxCollector(true, false, false);
+    public final RenderCollector<AABB> boxCollector = RenderCollectors.createBoxCollector(true, false, false);
 
     public void onServerLeave(Event<Void> eventLeave) {
         availableBlocks.clear();
     }
 
     {
-        for (var re : Registries.BLOCK) {
+        for (var re : BuiltInRegistries.BLOCK) {
             try {
-                if (re.getDefaultState().allowsSpawning(null, null, EntityType.CREEPER)) {
+                if (re.defaultBlockState().isValidSpawn(null, null, EntityTypes.CREEPER)) {
                     canSpawnOnBlocks.add(re);
                 }
             } catch (Throwable e) {
@@ -146,18 +146,18 @@ public class AutoSlab extends BaseModule {
 
     public void initializeMap() {
         if (availableBlocks.isEmpty()) {
-            for (var re : Registries.BLOCK) {
+            for (var re : BuiltInRegistries.BLOCK) {
                 try {
                     if (!canSpawnOnBlocks.contains(re)) {
-                        BlockState state = re.getDefaultState();
+                        BlockState state = re.defaultBlockState();
                         try {
                             if (!MoonriseBlockStateBaseAccess.of(state).isConstantCollisionShapeEmpty()) {
                                 availableBlocks.add(re);
                             }
                         } catch (Throwable e) {
                         }
-                        if (!SpawnHelper.isClearForSpawn(
-                                null, null, state, state.getFluidState(), EntityType.CREEPER)) {
+                        if (!NaturalSpawner.isValidEmptySpawnBlock(
+                                null, null, state, state.getFluidState(), EntityTypes.CREEPER)) {
                             availableBlocks.add(re);
                         }
                     }
@@ -175,7 +175,7 @@ public class AutoSlab extends BaseModule {
                 initializeMap();
                 Block block = bl.getBlock();
                 if (availableBlocks.contains(block)) {
-                    if (!useBlockEntities.get() && block instanceof BlockWithEntity be) {
+                    if (!useBlockEntities.get() && block instanceof BaseEntityBlock be) {
                         return false;
                     }
                     if (blackList.get().test(block)) {
@@ -196,13 +196,13 @@ public class AutoSlab extends BaseModule {
 
     public void refreshBlocks() {
         fillBlockPoses.clear();
-        BlockPos pos = mc.player.getBlockPos();
+        BlockPos pos = mc.player.blockPosition();
         for (var re : blocksSeq) {
-            BlockPos testPos = pos.add(re);
-            BlockState testState = mc.world.getBlockState(testPos);
-            if (testState.isAir() || testState.isLiquid() || testState.isReplaceable()) {
-                if (WorldUtils.canEntitySpawnAt(mc.world, testPos, EntityType.CREEPER)) {
-                    boxCollector.submit(new Box(testPos), color.get().withAlpha(255));
+            BlockPos testPos = pos.offset(re);
+            BlockState testState = mc.level.getBlockState(testPos);
+            if (testState.isAir() || testState.liquid() || testState.canBeReplaced()) {
+                if (WorldUtils.canEntitySpawnAt(mc.level, testPos, EntityTypes.CREEPER)) {
+                    boxCollector.submit(new AABB(testPos), color.get().withAlpha(255));
                     fillBlockPoses.add(testPos);
                 }
             }
@@ -221,7 +221,7 @@ public class AutoSlab extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<MatrixStack> event) {
+    public void onRender3D(Event<PoseStack> event) {
         if (checkNull()) return;
         if (enable.get() && render.get()) {
             RenderUtils.startDrawVirtual(event.context);
@@ -243,20 +243,20 @@ public class AutoSlab extends BaseModule {
         for (var testPos : fillBlockPoses) {
             var entry = supplyItem();
             if (entry != null && entry.val().getItem() instanceof BlockItem bl) {
-                BlockState targetState = bl.getBlock().getDefaultState();
+                BlockState targetState = bl.getBlock().defaultBlockState();
                 FlagEntry<BlockHitResult> hitResult = InteractionTasks.createSpecificStateHitResult(
                         testPos, targetState, airplace.get(), !mode.get().isLegal());
                 if (InteractUtils.canInteractAndPlace(mc.player, hitResult)
                         && InteractExtra.INSTANCE.isWithinInteractRange(
-                                mc.player.getPos(), hitResult.val().getBlockPos(), range.get())
-                        && InteractUtils.getBlockPlacement(bl, mc.player, mc.world, hitResult.val()) != null) {
+                                mc.player.position(), hitResult.val().getBlockPos(), range.get())
+                        && InteractUtils.getBlockPlacement(bl, mc.player, mc.level, hitResult.val()) != null) {
                     Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
                     if (runnable == null) break;
                     stack.add(runnable);
                     if (useBlockRotate.get()) {
                         BlockRotate.INSTANCE.addTempStateSchematic(testPos, targetState);
                     }
-                    InteractionTasks.handlePlaceMode(mode.get(), hitResult.val(), Hand.MAIN_HAND, swingHand.get());
+                    InteractionTasks.handlePlaceMode(mode.get(), hitResult.val(), InteractionHand.MAIN_HAND, swingHand.get());
                     cnt += 1;
                     if (cnt >= multiply) {
                         break;

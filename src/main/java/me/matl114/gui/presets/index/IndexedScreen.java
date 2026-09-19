@@ -3,18 +3,18 @@ package me.matl114.gui.presets.index;
 import java.util.List;
 import me.matl114.gui.GenericScreen;
 import me.matl114.gui.basic.*;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.network.chat.Component;
 
 // todo: replace it with IndexedSubScreen
-public abstract class IndexedScreen<T, W extends Element & Drawable & Selectable> extends GenericScreen {
+public abstract class IndexedScreen<T, W extends GuiEventListener & Renderable & NarratableEntry> extends GenericScreen {
     protected final List<T> configList;
     protected IndexedSubScreen<T, W> subScreenDelegate;
 
     public IndexedScreen(List<T> list, int backgroundWidth, int backgroundHeight) {
-        super(Text.empty(), backgroundWidth, backgroundHeight);
+        super(Component.empty(), backgroundWidth, backgroundHeight);
         this.configList = list;
     }
 
@@ -72,7 +72,7 @@ public abstract class IndexedScreen<T, W extends Element & Drawable & Selectable
         super.init();
         saveSelected();
         createDelegate();
-        addDrawableChild(this.subScreenDelegate);
+        addRenderableWidget(this.subScreenDelegate);
     }
 
     public void resize(int width, int height) {
@@ -80,8 +80,8 @@ public abstract class IndexedScreen<T, W extends Element & Drawable & Selectable
         super.resize(width, height);
     }
 
-    public void close() {
-        super.close();
+    public void onClose() {
+        super.onClose();
         saveSelected();
     }
     //    @Override

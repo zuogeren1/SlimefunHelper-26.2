@@ -13,7 +13,7 @@ import me.matl114.gui.elements.IconElement;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.util.Colors;
+import net.minecraft.util.CommonColors;
 
 @Getter
 @Setter
@@ -76,7 +76,7 @@ public class ListMultiSelectWidget<W> extends ScrollableListWidget {
         renderHandler =
                 renderHandler.combineRender((element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
                     if (attrKeyValue.getOriginValue() == Boolean.TRUE) {
-                        RenderHandler.drawHighLightBox(context, 0, 0, this.dx, this.entryHeight, Colors.WHITE);
+                        RenderHandler.drawHighLightBox(context, 0, 0, this.dx, this.entryHeight, CommonColors.WHITE);
                     }
                 });
         InputHandler mouseHandler = InputHandler.run(() -> {

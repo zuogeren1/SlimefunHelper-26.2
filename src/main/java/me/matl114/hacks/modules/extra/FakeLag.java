@@ -12,8 +12,8 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.PacketFlow;
 
 public class FakeLag extends BaseModule {
     public FakeLag() {
@@ -29,7 +29,7 @@ public class FakeLag extends BaseModule {
                     root.addHotkey(),
                     new MultiKeyBind(),
                     root.addEnable(),
-                    () -> Text.literal("%dMS".formatted(this.delayMs.get())))
+                    () -> Component.literal("%dMS".formatted(this.delayMs.get())))
             .build();
 
     public final IntRef delayMs =
@@ -40,7 +40,7 @@ public class FakeLag extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(NetworkSide.CLIENTBOUND), this::onPacketInBound);
+                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onPacketInBound);
         flushTask = ScheduleService.launchAsyncRepeatTask(this::flushPacketEveryMs, 1, 1);
     }
 

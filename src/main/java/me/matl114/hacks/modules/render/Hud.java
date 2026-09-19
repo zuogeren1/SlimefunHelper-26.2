@@ -13,10 +13,10 @@ import me.matl114.managers.config.*;
 import me.matl114.utils.*;
 import me.matl114.versioned.SupportVersion;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 
 public class Hud extends IRender2DColoredModule {
     public final ModulePath hudRoot = makePath(Configs.RENDER_CONFIG, "in-game-hud");
@@ -117,19 +117,19 @@ public class Hud extends IRender2DColoredModule {
         // tps, fps, version
         SupportVersion currentVersion = ViaFabricPlusHooks.getInstance().getCurrentVersion();
         int latency = 0;
-        PlayerListEntry pl;
-        if ((pl = mc.getNetworkHandler().getPlayerListEntry(mc.player.getUuid())) != null) {
+        PlayerInfo pl;
+        if ((pl = mc.getConnection().getPlayerInfo(mc.player.getUUID())) != null) {
             latency = pl.getLatency();
         }
-        Text text = ChatUtils.stringToText("&aMCv" + currentVersion
+        Component text = ChatUtils.stringToText("&aMCv" + currentVersion
                 + (Objects.equals(currentVersion, SupportVersion.CURRENT) ? "" : "(Via)") + " Fps:"
-                + mc.getCurrentFps() + " " + latency + "ms");
+                + mc.getFps() + " " + latency + "ms");
         drawText(vdraw, text);
     }
 
     public void handleConnectionInfo(VDrawContext vdraw) {
         String serverName = "ip:%s, %s";
-        drawText(vdraw, serverName.formatted(CommonUtils.getServerName(), mc.player.getNameForScoreboard()));
+        drawText(vdraw, serverName.formatted(CommonUtils.getServerName(), mc.player.getScoreboardName()));
     }
 
     public void handlePosition(VDrawContext vdraw) {
@@ -149,7 +149,7 @@ public class Hud extends IRender2DColoredModule {
     }
 
     public void handleDirection(VDrawContext vdraw) {
-        float yaw = mc.player.getYaw();
+        float yaw = mc.player.getYRot();
         int xSgn = EntityUtils.yawToXSgn(yaw);
         int zSgn = EntityUtils.yawToZSgn(yaw);
         String directionName = MathUtils.getDirectionName(xSgn, zSgn);
@@ -162,7 +162,7 @@ public class Hud extends IRender2DColoredModule {
     public void handleRotation(VDrawContext vdraw) {
         String rotation = "P:%.2f, Y: %.2f";
         PlayerStateManager manager = PlayerStateManager.INSTANCE;
-        drawText(vdraw, rotation.formatted(manager.lastPitch, MathHelper.wrapDegrees(manager.lastYaw)));
+        drawText(vdraw, rotation.formatted(manager.lastPitch, Mth.wrapDegrees(manager.lastYaw)));
     }
 
     public void handleFallDistance(VDrawContext vdraw) {
@@ -193,14 +193,14 @@ public class Hud extends IRender2DColoredModule {
         if (useKmH.get()) {
             String speed = "H: Avg:%.2fKm/h, Kwn:%.2fKm/h";
             speedShow = speed.formatted(
-                    manager.lastAverageMovementSpeed.horizontalLength() * 72,
-                    manager.lastKnownMovementSpeed.horizontalLength() * 72);
+                    manager.lastAverageMovementSpeed.horizontalDistance() * 72,
+                    manager.lastKnownMovementSpeed.horizontalDistance() * 72);
 
         } else {
             String speed = "H: Avg:%.2fm/s, Kwn:%.2fm/s";
             speedShow = speed.formatted(
-                    manager.lastAverageMovementSpeed.horizontalLength() * 20,
-                    manager.lastKnownMovementSpeed.horizontalLength() * 20);
+                    manager.lastAverageMovementSpeed.horizontalDistance() * 20,
+                    manager.lastKnownMovementSpeed.horizontalDistance() * 20);
         }
         drawText(vdraw, speedShow);
     }
@@ -235,8 +235,8 @@ public class Hud extends IRender2DColoredModule {
         SPEED_VERTICAL;
 
         @Override
-        public Text getDisplay() {
-            return Text.literal(name());
+        public Component getDisplay() {
+            return Component.literal(name());
         }
     }
 

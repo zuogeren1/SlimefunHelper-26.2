@@ -5,7 +5,7 @@ import me.matl114.gui.basic.*;
 import me.matl114.gui.elements.ButtonElement;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class KeyValueInputWidget<T> extends SubScreenWidget {
     AttrKeyValue<T> keyValueHolder;
@@ -26,19 +26,19 @@ public class KeyValueInputWidget<T> extends SubScreenWidget {
         init();
     }
 
-    List<Text> cachedTooltips;
+    List<Component> cachedTooltips;
 
-    public KeyValueInputWidget<T> setTooltips(List<Text> tooltips) {
+    public KeyValueInputWidget<T> setTooltips(List<Component> tooltips) {
         this.cachedTooltips = tooltips;
         return this;
     }
 
-    public Text getTranslationName() {
+    public Component getTranslationName() {
         String key = getKeyName();
-        return Text.translatableWithFallback(key, key);
+        return Component.translatableWithFallback(key, key);
     }
 
-    public List<Text> getTooltips() {
+    public List<Component> getTooltips() {
         if (cachedTooltips == null) {
             cachedTooltips = ChatUtils.parseTooltipsTranslation(this.keyValueHolder.getKeyName() + ".tooltips", "暂无介绍");
         }

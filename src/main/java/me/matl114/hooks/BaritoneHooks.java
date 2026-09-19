@@ -29,16 +29,15 @@ import me.matl114.events.annotations.Modifiable;
 import me.matl114.events.channels.EventChannel;
 import me.matl114.hacks.utils.config.*;
 import me.matl114.hacks.utils.move.goal.*;
-import me.matl114.hacks.utils.move.goal.GoalNear;
 import me.matl114.hooks.impl.baritone.*;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.block.Block;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.Vec2;
 
 public abstract class BaritoneHooks implements IHooks {
 
@@ -61,7 +60,7 @@ public abstract class BaritoneHooks implements IHooks {
 
     public static List<BlockPos> currentNetherElytraPath = List.of();
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public abstract boolean handleCommand(String command);
 
@@ -89,7 +88,7 @@ public abstract class BaritoneHooks implements IHooks {
 
     public abstract void updateBaritoneLookTarget(float pitch, float yaw);
 
-    public abstract Vec2f getBaritoneCurrentMoveRot(ClientPlayerEntity player);
+    public abstract Vec2 getBaritoneCurrentMoveRot(LocalPlayer player);
 
     public abstract void setBaritoneCurrentGoal(IPathGoal goal);
 
@@ -114,7 +113,7 @@ public abstract class BaritoneHooks implements IHooks {
 
     @Getter
     @Modifiable
-    public static final EventChannel<Vec2f> moveRotEvent = new EventChannel<>();
+    public static final EventChannel<Vec2> moveRotEvent = new EventChannel<>();
 
     public abstract static class AbstractBaritoneVersion extends BaritoneHooks {
         final Settings settings;
@@ -123,7 +122,7 @@ public abstract class BaritoneHooks implements IHooks {
 
         public void onMoveRot(RotationMoveEvent event) {
             if (event.getType() == RotationMoveEvent.Type.MOTION_UPDATE && !moveRotEvent.isEmpty()) {
-                Vec2f vec2f = new Vec2f(event.getPitch(), event.getYaw());
+                Vec2 vec2f = new Vec2(event.getPitch(), event.getYaw());
                 var eventMe = new Event<>(vec2f, false, true);
                 moveRotEvent.handleValue(eventMe);
                 if (vec2f != eventMe.context) {
@@ -179,13 +178,13 @@ public abstract class BaritoneHooks implements IHooks {
                             if (type == Block.class) {
                                 Settings.Setting<List<Block>> blockValue = (Settings.Setting<List<Block>>) setting;
                                 ValueAccessor<EntrySet<Block>> accessor = ValueAccessor.of(
-                                        () -> new EntrySet<>(Registries.BLOCK, blockValue.value),
+                                        () -> new EntrySet<>(BuiltInRegistries.BLOCK, blockValue.value),
                                         (lst) -> blockValue.value = lst.list());
                                 settingsMap.put(string, accessor);
                             } else if (type == Item.class) {
                                 Settings.Setting<List<Item>> blockValue = (Settings.Setting<List<Item>>) setting;
                                 ValueAccessor<EntrySet<Item>> accessor = ValueAccessor.of(
-                                        () -> new EntrySet<>(Registries.ITEM, blockValue.value),
+                                        () -> new EntrySet<>(BuiltInRegistries.ITEM, blockValue.value),
                                         (lst) -> blockValue.value = lst.list());
                                 settingsMap.put(string, accessor);
                             } else {
@@ -204,25 +203,25 @@ public abstract class BaritoneHooks implements IHooks {
                                                             map.entrySet().stream()
                                                                     .collect(Collectors.toMap(
                                                                             s -> Holder.of(
-                                                                                    Registries.BLOCK, s.getKey()),
+                                                                                    BuiltInRegistries.BLOCK, s.getKey()),
                                                                             s -> new PrimitiveList<>(
                                                                                     NBTTypes.HOLDER_TYPE.cast(),
                                                                                     s.getValue().stream()
                                                                                             .map(sss -> Holder.of(
-                                                                                                    Registries.BLOCK,
+                                                                                                    BuiltInRegistries.BLOCK,
                                                                                                     sss))
                                                                                             .toList(),
-                                                                                    Holder.of(Registries.BLOCK, null)),
+                                                                                    Holder.of(BuiltInRegistries.BLOCK, null)),
                                                                             (k, v) -> v));
                                                     return new PrimitiveMap<>(
                                                             NBTTypes.HOLDER_TYPE.cast(),
                                                             NBTTypes.PRIMITIVE_LIST_TYPE.cast(),
                                                             map2,
-                                                            Holder.of(Registries.BLOCK, null),
+                                                            Holder.of(BuiltInRegistries.BLOCK, null),
                                                             new PrimitiveList<>(
                                                                     NBTTypes.HOLDER_TYPE.cast(),
                                                                     List.of(),
-                                                                    Holder.of(Registries.BLOCK, null)));
+                                                                    Holder.of(BuiltInRegistries.BLOCK, null)));
                                                 },
                                                 (v) -> {
                                                     Map<Holder<Block>, PrimitiveList<Holder<Block>>> map3 = v.map();
@@ -306,11 +305,11 @@ public abstract class BaritoneHooks implements IHooks {
         }
 
         @Override
-        public Vec2f getBaritoneCurrentMoveRot(ClientPlayerEntity player) {
+        public Vec2 getBaritoneCurrentMoveRot(LocalPlayer player) {
             RotationMoveEvent moveEvent =
-                    new RotationMoveEvent(RotationMoveEvent.Type.MOTION_UPDATE, player.getYaw(), player.getPitch());
+                    new RotationMoveEvent(RotationMoveEvent.Type.MOTION_UPDATE, player.getYRot(), player.getXRot());
             BaritoneAPI.getProvider().getPrimaryBaritone().getGameEventHandler().onPlayerRotationMove(moveEvent);
-            return new Vec2f(moveEvent.getPitch(), moveEvent.getYaw());
+            return new Vec2(moveEvent.getPitch(), moveEvent.getYaw());
         }
 
         @Override
@@ -378,19 +377,19 @@ public abstract class BaritoneHooks implements IHooks {
         public Goal convertGoal(IPathGoal goal) {
             return switch (goal) {
                 case GoalBlockPos pos -> new GoalBlock(pos.pos());
-                case GoalNear near -> new GoalNearManhattan(near.center(), near.radius());
+                case me.matl114.hacks.utils.move.goal.GoalNear near -> new GoalNearManhattan(near.center(), near.radius());
                 case GoalNearBlockPos near -> new GoalGetToBlock(near.pos());
                 case GoalList list -> new GoalComposite(
                         list.goals().stream().map(this::convertGoal).toArray(Goal[]::new));
                 case GoalFollow entity -> new GoalDynamicGoal(
-                        entity.entity()::getPos,
+                        entity.entity()::position,
                         0.3
                                 + (entity.entity()
                                                 .getDimensions(entity.entity().getPose())
                                                 .width()
                                         / 2));
                 case GoalDynamic dynamic -> new GoalDynamicGoal(dynamic.supplier(), dynamic.radius());
-                case GoalDirection direction -> new GoalYawDirection(mc.player.getBlockPos(), direction.yaw());
+                case GoalDirection direction -> new GoalYawDirection(mc.player.blockPosition(), direction.yaw());
             };
         }
 
@@ -497,8 +496,8 @@ public abstract class BaritoneHooks implements IHooks {
         public void updateBaritoneLookTarget(float pitch, float yaw) {}
 
         @Override
-        public Vec2f getBaritoneCurrentMoveRot(ClientPlayerEntity player) {
-            return new Vec2f(player.getPitch(), player.getYaw());
+        public Vec2 getBaritoneCurrentMoveRot(LocalPlayer player) {
+            return new Vec2(player.getXRot(), player.getYRot());
         }
 
         @Override

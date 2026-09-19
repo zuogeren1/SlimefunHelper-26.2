@@ -8,14 +8,14 @@ import me.matl114.events.Event;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.Vec3;
 
 public class LegalMovementManager {
     final List<MovementModifier> hacks = new ArrayList<>();
     List<MovementModifier> currentTickEnableHacks = new ArrayList<>();
-    public EntityMovementStatus<ClientPlayerEntity> playerStatus;
-    public EntityMovementStatus<ClientPlayerEntity> playerPostHackStatus;
+    public EntityMovementStatus<LocalPlayer> playerStatus;
+    public EntityMovementStatus<LocalPlayer> playerPostHackStatus;
     public Deque<Pair<Float, Float>> importantRotationStatePreserve;
 
     @Getter
@@ -65,7 +65,7 @@ public class LegalMovementManager {
             importantRotationStatePreserve = new ArrayDeque<>();
         }
         importantRotationStatePreserve.addLast(Pair.of(
-                hasPitch ? playerStatus.entity.getPitch() : null, hasYaw ? playerStatus.entity.getYaw() : null));
+                hasPitch ? playerStatus.entity.getXRot() : null, hasYaw ? playerStatus.entity.getYRot() : null));
     }
     // this should not be called
     protected void popImportantRotation(boolean apply) {
@@ -93,11 +93,11 @@ public class LegalMovementManager {
     }
 
     public boolean yawModified() {
-        ClientPlayerEntity player = playerStatus.entity;
+        LocalPlayer player = playerStatus.entity;
 
         // 获取安全的角度（处理NaN等异常情况）
-        float currentYaw = EntityUtils.getSafeYaw(player.getYaw(), playerStatus.yaw);
-        float previousYaw = EntityUtils.getSafeYaw(player.getYaw(), player.getYaw());
+        float currentYaw = EntityUtils.getSafeYaw(player.getYRot(), playerStatus.yaw);
+        float previousYaw = EntityUtils.getSafeYaw(player.getYRot(), player.getYRot());
 
         // 计算两个角度之间的最小差值（处理360度环绕）
         float diff = Math.abs(currentYaw - previousYaw);
@@ -109,11 +109,11 @@ public class LegalMovementManager {
 
     public boolean pitchModified() {
         return Math.abs(EntityUtils.getSafePitch(playerStatus.pitch)
-                        - EntityUtils.getSafePitch(playerStatus.entity.getPitch()))
+                        - EntityUtils.getSafePitch(playerStatus.entity.getXRot()))
                 > 2.0F;
     }
 
-    public void preProgress(ClientPlayerEntity args) {
+    public void preProgress(LocalPlayer args) {
         this.playerStatus = new EntityMovementStatus<>(args);
         this.currentTickEnableHacks = new ArrayList<>();
         this.importantRotationStatePreserve = null;
@@ -130,7 +130,7 @@ public class LegalMovementManager {
         this.playerPostHackStatus = new EntityMovementStatus<>(args);
     }
 
-    public void postInputTick(ClientPlayerEntity player) {
+    public void postInputTick(LocalPlayer player) {
         if (this.playerStatus == null) {
             // illegal status
             return;
@@ -142,7 +142,7 @@ public class LegalMovementManager {
         if (moveFix) {
             var input = PlayerInputUtils.of(player);
             input = PlayerInputUtils.tryCorrectMovementInput(
-                    input, movementManagerEvent.context.playerStatus.yaw, player.getYaw());
+                    input, movementManagerEvent.context.playerStatus.yaw, player.getYRot());
             // one cannot sprint if forward is not pressed
             if (input.forwardSpeed() < 1E-2 && (input.sprint() || player.isSprinting())) {
                 input.sprint(false);
@@ -152,7 +152,7 @@ public class LegalMovementManager {
         }
     }
 
-    public boolean preTravelTick(ClientPlayerEntity args, Event<Vec3d> movementInput) {
+    public boolean preTravelTick(LocalPlayer args, Event<Vec3> movementInput) {
         if (this.playerStatus == null) {
             return true;
         }
@@ -163,7 +163,7 @@ public class LegalMovementManager {
         return !movementManagerEvent.isCancelled();
     }
 
-    public void postTravelTick(ClientPlayerEntity args, Event<Vec3d> movementInput) {
+    public void postTravelTick(LocalPlayer args, Event<Vec3> movementInput) {
         if (this.playerStatus == null) {
             return;
         }
@@ -174,7 +174,7 @@ public class LegalMovementManager {
     }
 
     // invoke before the boat packets
-    public boolean preInputProgress(ClientPlayerEntity args) {
+    public boolean preInputProgress(LocalPlayer args) {
         if (this.playerStatus == null) {
             // illegal status
             return true;
@@ -186,7 +186,7 @@ public class LegalMovementManager {
         return !movementManagerEvent.isCancelled();
     }
     // invoke before the movement packets
-    public boolean preMovementProgress(ClientPlayerEntity args) {
+    public boolean preMovementProgress(LocalPlayer args) {
         if (this.playerStatus == null) {
             // illegal status
             return true;
@@ -198,7 +198,7 @@ public class LegalMovementManager {
         return !movementManagerEvent.isCancelled();
     }
     // after player tick
-    public void postProgress(ClientPlayerEntity args) {
+    public void postProgress(LocalPlayer args) {
         if (this.playerStatus == null) {
             // illegal status
             return;
@@ -267,9 +267,9 @@ public class LegalMovementManager {
 
         default void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {}
 
-        default void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {}
+        default void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {}
 
-        default void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {}
+        default void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {}
 
         default void applyBeforeInputPacketModify(Event<LegalMovementManager> movementManagerEvent) {}
 
@@ -328,11 +328,11 @@ public class LegalMovementManager {
             delegate.get().applyAfterInputTick(movementManagerEvent);
         }
 
-        public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {
+        public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {
             delegate.get().applyBeforeTravelTick(movementManagerEvent, moveEvent);
         }
 
-        public void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {
+        public void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {
             delegate.get().applyAfterTravelTick(movementManagerEvent, moveEvent);
         }
 
@@ -363,12 +363,12 @@ public class LegalMovementManager {
             this.priority = p;
         }
 
-        private ClientPlayerEntity current;
+        private LocalPlayer current;
         private final int priority;
         private final List<Supplier<MovementModifier>> factories = new ArrayList<>();
         private final List<MovementModifier> pipeline = new ArrayList<>();
 
-        public void resetForNewPlayer(ClientPlayerEntity currentEntity) {
+        public void resetForNewPlayer(LocalPlayer currentEntity) {
             pipeline.clear();
             current = currentEntity;
             for (var factory : factories) {
@@ -418,13 +418,13 @@ public class LegalMovementManager {
             }
         }
 
-        public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {
+        public void applyBeforeTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {
             for (var re : pipeline) {
                 re.applyBeforeTravelTick(movementManagerEvent, moveEvent);
             }
         }
 
-        public void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3d> moveEvent) {
+        public void applyAfterTravelTick(Event<LegalMovementManager> movementManagerEvent, Event<Vec3> moveEvent) {
             for (var re : pipeline) {
                 re.applyAfterTravelTick(movementManagerEvent, moveEvent);
             }

@@ -7,18 +7,22 @@ import me.matl114.versioned.api.VDrawContext;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.*;
-import net.minecraft.client.gui.navigation.GuiNavigation;
-import net.minecraft.client.gui.navigation.GuiNavigationPath;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.navigation.FocusNavigationEvent;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
 public abstract class DrawableWidget
-        implements Element, Drawable, net.minecraft.client.gui.widget.Widget, Selectable, Draggable {
+        implements GuiEventListener, Renderable, net.minecraft.client.gui.layouts.LayoutElement, NarratableEntry, Draggable {
     public DrawableWidget(int x, int y, int dx, int dy) {
         this.x = x;
         this.y = y;
@@ -129,7 +133,7 @@ public abstract class DrawableWidget
      * @param delta
      */
     @Override
-    public final void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public final void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         VDrawContext vd = VDrawContext.of(context);
         render0(vd, mouseX, mouseY, delta, false);
         vd.tryDraw();
@@ -290,26 +294,26 @@ public abstract class DrawableWidget
 
     // ------------------------------------- public functions left for -------------------------------------
 
-    public final void forEachChild(Consumer<ClickableWidget> consumer) {}
+    public final void visitWidgets(Consumer<AbstractWidget> consumer) {}
 
-    public Selectable.SelectionType getType() {
-        return this.selected ? Selectable.SelectionType.HOVERED : Selectable.SelectionType.NONE;
+    public NarratableEntry.NarrationPriority narrationPriority() {
+        return this.selected ? NarratableEntry.NarrationPriority.HOVERED : NarratableEntry.NarrationPriority.NONE;
     }
 
-    public final void appendNarrations(NarrationMessageBuilder builder) {}
+    public final void updateNarration(NarrationElementOutput builder) {}
 
     @Nullable
-    public final GuiNavigationPath getNavigationPath(GuiNavigation navigation) {
+    public final ComponentPath nextFocusPath(FocusNavigationEvent navigation) {
         return null;
     }
 
     @Nullable
-    public final GuiNavigationPath getFocusedPath() {
+    public final ComponentPath getCurrentFocusPath() {
         return null;
     }
 
-    public final ScreenRect getNavigationFocus() {
-        return ScreenRect.empty();
+    public final ScreenRectangle getRectangle() {
+        return ScreenRectangle.empty();
     }
 
     public boolean isDragging() {
@@ -326,34 +330,34 @@ public abstract class DrawableWidget
     public static int THREAD_SAFE_MODIFIER_CACHE = 0;
     public static boolean THREAD_SAFE_DOUBLE_CLICK = false;
 
-    public final boolean mouseClicked(Click click, boolean doubled) {
+    public final boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         THREAD_SAFE_MODIFIER_CACHE = click.modifiers();
         THREAD_SAFE_DOUBLE_CLICK = doubled;
         return this.mouseClicked(click.x(), click.y(), click.button());
     }
 
-    public final boolean mouseReleased(Click click) {
+    public final boolean mouseReleased(MouseButtonEvent click) {
         THREAD_SAFE_MODIFIER_CACHE = click.modifiers();
         return this.mouseReleased(click.x(), click.y(), click.button());
     }
 
-    public final boolean mouseDragged(Click click, double offsetX, double offsetY) {
+    public final boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
         THREAD_SAFE_MODIFIER_CACHE = click.modifiers();
         return this.mouseDragged(click.x(), click.y(), click.button(), offsetX, offsetY);
     }
 
-    public final boolean keyPressed(KeyInput input) {
+    public final boolean keyPressed(KeyEvent input) {
         THREAD_SAFE_MODIFIER_CACHE = input.modifiers();
         return this.keyPressed(input.key(), input.scancode(), input.modifiers());
     }
 
-    public final boolean keyReleased(KeyInput input) {
+    public final boolean keyReleased(KeyEvent input) {
         THREAD_SAFE_MODIFIER_CACHE = input.modifiers();
         return this.keyReleased(input.key(), input.scancode(), input.modifiers());
     }
 
-    public final boolean charTyped(CharInput input) {
-        THREAD_SAFE_MODIFIER_CACHE = input.modifiers();
-        return this.charTyped((char) input.codepoint(), input.modifiers());
+    public final boolean charTyped(CharacterEvent input) {
+        THREAD_SAFE_MODIFIER_CACHE = 0;
+        return this.charTyped((char) input.codepoint(), 0);
     }
 }

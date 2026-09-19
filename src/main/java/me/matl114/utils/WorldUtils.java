@@ -9,59 +9,66 @@ import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.attribute.AttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffectUtil;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.SectionPos;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.Uuids;
-import net.minecraft.util.math.*;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.SpawnHelper;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.waypoint.TrackedWaypoint;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.effect.MobEffectUtil;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.NaturalSpawner;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.waypoints.TrackedWaypoint;
 
 public class WorldUtils {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static final int UPDATE_BLOCK_NO_PHYSICS = 2 | 16 | 512;
 
-    public static boolean areWorldEquals(ClientWorld world1, ClientWorld world2) {
+    public static boolean areWorldEquals(ClientLevel world1, ClientLevel world2) {
         return world1 == world2
                 || (world1 != null
                         && world2 != null
                         && Objects.equals(
-                                world1.getRegistryKey().getValue(),
-                                world2.getRegistryKey().getValue()));
+                                world1.dimension().identifier(),
+                                world2.dimension().identifier()));
     }
 
     public static Stream<String> getPlayerListNames() {
-        return mc.getNetworkHandler().getPlayerList().stream()
-                .map(PlayerListEntry::getProfile)
+        return mc.getConnection().getOnlinePlayers().stream()
+                .map(PlayerInfo::getProfile)
                 .map(VRecord::getName);
     }
 
     public static Stream<String> getWaypointNames() {
 
         return getWaypointInternal()
-                .map(TrackedWaypoint::getSource)
+                .map(TrackedWaypoint::id)
                 .flatMap(s -> s.map(
                         uid -> {
-                            PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(uid);
+                            PlayerInfo entry = mc.getConnection().getPlayerInfo(uid);
                             if (entry != null) {
                                 return Stream.of(uid.toString(), VRecord.getName(entry.getProfile()));
                             } else {
@@ -69,7 +76,7 @@ public class WorldUtils {
                             }
                         },
                         name -> {
-                            PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(name);
+                            PlayerInfo entry = mc.getConnection().getPlayerInfo(name);
                             if (entry != null) {
                                 return Stream.of(name, VRecord.getName(entry.getProfile()));
                             } else {
@@ -80,7 +87,7 @@ public class WorldUtils {
 
     private static Stream<TrackedWaypoint> getWaypointInternal() {
         List<TrackedWaypoint> waypoints = new ArrayList<>();
-        mc.getNetworkHandler().getWaypointHandler().forEachWaypoint(mc.player, waypoints::add);
+        mc.getConnection().getWaypointManager().forEachWaypoint(mc.player, waypoints::add);
         return waypoints.stream();
     }
 
@@ -90,12 +97,12 @@ public class WorldUtils {
 
     private static Waypoint translate(TrackedWaypoint s) {
         ByteBuf buf = NetworkUtils.createBytebuf();
-        s.writeBuf(buf);
-        PacketByteBuf byteBuf = new PacketByteBuf(buf);
-        Either<UUID, String> either = byteBuf.readEither(Uuids.PACKET_CODEC, PacketByteBuf::readString);
-        net.minecraft.world.waypoint.Waypoint.Config config = (net.minecraft.world.waypoint.Waypoint.Config)
-                net.minecraft.world.waypoint.Waypoint.Config.PACKET_CODEC.decode(byteBuf);
-        var configNbt = (NbtCompound) net.minecraft.world.waypoint.Waypoint.Config.CODEC
+        s.write(buf);
+        FriendlyByteBuf byteBuf = new FriendlyByteBuf(buf);
+        Either<UUID, String> either = byteBuf.readEither(UUIDUtil.STREAM_CODEC, FriendlyByteBuf::readUtf);
+        net.minecraft.world.waypoints.Waypoint.Icon config = (net.minecraft.world.waypoints.Waypoint.Icon)
+                net.minecraft.world.waypoints.Waypoint.Icon.STREAM_CODEC.decode(byteBuf);
+        var configNbt = (CompoundTag) net.minecraft.world.waypoints.Waypoint.Icon.CODEC
                 .encodeStart(NbtOps.INSTANCE, config)
                 .getOrThrow();
         int varInt = byteBuf.readVarInt();
@@ -103,7 +110,7 @@ public class WorldUtils {
         WaypointData data =
                 switch (varInt) {
                     case 1 -> new WaypointData.Pos(
-                            new Vec3d(byteBuf.readVarInt(), byteBuf.readVarInt(), byteBuf.readVarInt()));
+                            new Vec3(byteBuf.readVarInt(), byteBuf.readVarInt(), byteBuf.readVarInt()));
                     case 2 -> new WaypointData.Chunk(new ChunkPos(byteBuf.readVarInt(), byteBuf.readVarInt()));
                     case 3 -> new WaypointData.Direction(byteBuf.readFloat());
                     default -> WaypointData.EMPTY;
@@ -112,17 +119,17 @@ public class WorldUtils {
         return new Waypoint(either, configNbt, data);
     }
 
-    public static Map<BlockPos, BlockState> scannChunk(Chunk chunk, BiPredicate<BlockPos, BlockState> predicate) {
+    public static Map<BlockPos, BlockState> scannChunk(ChunkAccess chunk, BiPredicate<BlockPos, BlockState> predicate) {
         ChunkPos chunkPos = chunk.getPos();
-        int minX = chunkPos.getStartX();
-        int minY = chunk.getBottomY();
-        int minZ = chunkPos.getStartZ();
-        int maxX = chunkPos.getEndX();
-        int section = chunk.getHighestNonEmptySection();
+        int minX = chunkPos.getMinBlockX();
+        int minY = chunk.getMinY();
+        int minZ = chunkPos.getMinBlockZ();
+        int maxX = chunkPos.getMaxBlockX();
+        int section = chunk.getHighestFilledSectionIndex();
         int maxY = section == -1
-                ? chunk.getBottomY()
-                : ChunkSectionPos.getBlockCoord(chunk.sectionIndexToCoord(section + 1));
-        int maxZ = chunkPos.getEndZ();
+                ? chunk.getMinY()
+                : SectionPos.sectionToBlockCoord(chunk.getSectionYFromSectionIndex(section + 1));
+        int maxZ = chunkPos.getMaxBlockZ();
         Map<BlockPos, BlockState> stateMap = new LinkedHashMap<>();
 
         for (int x = minX; x <= maxX; x++)
@@ -139,7 +146,7 @@ public class WorldUtils {
 
     public static Waypoint getWaypoint(String lookup) {
         String optionalUid;
-        PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(lookup);
+        PlayerInfo entry = mc.getConnection().getPlayerInfo(lookup);
         if (entry != null) {
             optionalUid = VRecord.getId(entry.getProfile()).toString();
         } else {
@@ -153,25 +160,25 @@ public class WorldUtils {
     }
 
     public static float getPlayerBlockBreakingSpeedAt(BlockState state) {
-        return getPlayerBlockBreakingSpeedWithCanMineMultiply(mc.player, state, mc.player.getMainHandStack());
+        return getPlayerBlockBreakingSpeedWithCanMineMultiply(mc.player, state, mc.player.getMainHandItem());
     }
 
     public static float getPlayerBlockBreakingSpeedWithCanMineMultiply(
-            PlayerEntity player, BlockState state, ItemStack stack) {
-        float f = stack.getMiningSpeedMultiplier(state);
+            Player player, BlockState state, ItemStack stack) {
+        float f = stack.getDestroySpeed(state);
         if (f > 1.0F) {
-            AttributeContainer attributeContainer =
+            AttributeMap attributeContainer =
                     AttributeUtils.getAttributeWith(player, Map.of(EquipmentSlot.MAINHAND, stack));
-            f += attributeContainer.getValue(EntityAttributes.MINING_EFFICIENCY);
+            f += attributeContainer.getValue(Attributes.MINING_EFFICIENCY);
         }
 
-        if (StatusEffectUtil.hasHaste(player)) {
-            f *= 1.0F + (float) (StatusEffectUtil.getHasteAmplifier(player) + 1) * 0.2F;
+        if (MobEffectUtil.hasDigSpeed(player)) {
+            f *= 1.0F + (float) (MobEffectUtil.getDigSpeedAmplification(player) + 1) * 0.2F;
         }
 
-        if (player.hasStatusEffect(StatusEffects.MINING_FATIGUE)) {
+        if (player.hasEffect(MobEffects.MINING_FATIGUE)) {
             float var10000;
-            switch (player.getStatusEffect(StatusEffects.MINING_FATIGUE).getAmplifier()) {
+            switch (player.getEffect(MobEffects.MINING_FATIGUE).getAmplifier()) {
                 case 0 -> var10000 = 0.3F;
                 case 1 -> var10000 = 0.09F;
                 case 2 -> var10000 = 0.0027F;
@@ -182,27 +189,27 @@ public class WorldUtils {
             f *= g;
         }
 
-        f *= (float) player.getAttributeValue(EntityAttributes.BLOCK_BREAK_SPEED);
-        if (player.isSubmergedIn(FluidTags.WATER)) {
-            f *= (float) player.getAttributeInstance(EntityAttributes.SUBMERGED_MINING_SPEED)
+        f *= (float) player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
+        if (player.isEyeInFluid(FluidTags.WATER)) {
+            f *= (float) player.getAttribute(Attributes.SUBMERGED_MINING_SPEED)
                     .getValue();
         }
 
-        if (!player.isOnGround()) {
+        if (!player.onGround()) {
             f /= 5.0F;
         }
         int i = canToolHarvest(state, stack) ? 30 : 100;
         return f / i;
     }
 
-    public static float calcBlockBreakingDelta(BlockState state, BlockView world, BlockPos pos) {
+    public static float calcBlockBreakingDelta(BlockState state, BlockGetter world, BlockPos pos) {
         var playerBreakSpeed = getPlayerBlockBreakingSpeedAt(state);
         return calcBlockBreakingDelta(state, world, pos, playerBreakSpeed);
     }
 
     public static float calcBlockBreakingDelta(
-            BlockState state, BlockView world, BlockPos pos, float playerBreakSpeed) {
-        float f = state.getHardness(world, pos);
+            BlockState state, BlockGetter world, BlockPos pos, float playerBreakSpeed) {
+        float f = state.getDestroySpeed(world, pos);
         if (f == -1.0F) {
             return 0.0F;
         } else {
@@ -211,18 +218,18 @@ public class WorldUtils {
     }
 
     private static boolean canToolHarvest(BlockState state, ItemStack stack) {
-        return !state.isToolRequired() || stack.isSuitableFor(state);
+        return !state.requiresCorrectToolForDrops() || stack.isCorrectToolForDrops(state);
     }
 
     public static boolean isServerChunkLoaded(BlockPos pos) {
         return isServerChunkLoaded(
-                ChunkSectionPos.getSectionCoord(pos.getX()), ChunkSectionPos.getSectionCoord(pos.getZ()));
+                SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ()));
     }
 
     public static boolean isServerPosLoaded(int blockPosX, int blockPosZ) {
 
         return isServerChunkLoaded(
-                ChunkSectionPos.getSectionCoord(blockPosX), ChunkSectionPos.getSectionCoord(blockPosZ));
+                SectionPos.blockToSectionCoord(blockPosX), SectionPos.blockToSectionCoord(blockPosZ));
     }
 
     public static boolean isServerChunkLoaded(int chunkX, int chunkZ) {
@@ -230,46 +237,46 @@ public class WorldUtils {
     }
 
     public static boolean isChunkLoaded(BlockPos pos) {
-        return isChunkLoaded(ChunkSectionPos.getSectionCoord(pos.getX()), ChunkSectionPos.getSectionCoord(pos.getZ()));
+        return isChunkLoaded(SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ()));
     }
 
     public static boolean isChunkLoaded(int chunkX, int chunkZ) {
-        return mc.world.getChunkManager().isChunkLoaded(chunkX, chunkZ);
+        return mc.level.getChunkSource().hasChunk(chunkX, chunkZ);
     }
 
-    public static boolean isInfiniteWater(World world, BlockPos pos) {
+    public static boolean isInfiniteWater(Level world, BlockPos pos) {
         int stillSourceCount = 0;
-        for (Direction direction : Direction.Type.HORIZONTAL) {
-            FluidState neighborFluid = world.getFluidState(pos.offset(direction));
-            if (neighborFluid.isOf(Fluids.WATER) && neighborFluid.isStill()) {
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            FluidState neighborFluid = world.getFluidState(pos.relative(direction));
+            if (neighborFluid.is(Fluids.WATER) && neighborFluid.isSource()) {
                 stillSourceCount++;
             }
         }
         if (stillSourceCount < 2) {
             return false;
         }
-        BlockPos downPos = pos.down();
+        BlockPos downPos = pos.below();
         BlockState downState = world.getBlockState(downPos);
         FluidState downFluid = downState.getFluidState();
-        return downState.isSolid() || (downFluid.isOf(Fluids.WATER) && downFluid.isStill());
+        return downState.isSolid() || (downFluid.is(Fluids.WATER) && downFluid.isSource());
     }
 
-    public static boolean canEntitySpawnAt(World world, BlockPos pos, EntityType<?> type) {
+    public static boolean canEntitySpawnAt(Level world, BlockPos pos, EntityType<?> type) {
         BlockState state = world.getBlockState(pos);
-        BlockState upState = world.getBlockState(pos.up());
-        BlockState downState = world.getBlockState(pos.down());
-        Vec3d spawnerCenter = pos.toBottomCenterPos();
-        return downState.allowsSpawning(world, pos.down(), type)
-                && world.isSpaceEmpty(type.getSpawnBox(spawnerCenter.x, spawnerCenter.y, spawnerCenter.z))
-                && SpawnHelper.isClearForSpawn(world, pos, state, state.getFluidState(), type)
-                && SpawnHelper.isClearForSpawn(world, pos.up(), upState, upState.getFluidState(), type);
+        BlockState upState = world.getBlockState(pos.above());
+        BlockState downState = world.getBlockState(pos.below());
+        Vec3 spawnerCenter = Vec3.atBottomCenterOf(pos);
+        return downState.isValidSpawn(world, pos.below(), type)
+                && world.noCollision(type.getSpawnAABB(spawnerCenter.x, spawnerCenter.y, spawnerCenter.z))
+                && NaturalSpawner.isValidEmptySpawnBlock(world, pos, state, state.getFluidState(), type)
+                && NaturalSpawner.isValidEmptySpawnBlock(world, pos.above(), upState, upState.getFluidState(), type);
     }
 
     @Getter
     @AllArgsConstructor
     public static class Waypoint {
         Either<UUID, String> source;
-        NbtCompound config;
+        CompoundTag config;
         WaypointData data;
 
         public String getDisplayName() {
@@ -281,7 +288,7 @@ public class WorldUtils {
             permits WaypointData.Pos, WaypointData.Chunk, WaypointData.Direction, WaypointData.Empty {
         public String getTypeName();
 
-        public record Pos(Vec3d pos) implements WaypointData {
+        public record Pos(Vec3 pos) implements WaypointData {
 
             @Override
             public String getTypeName() {

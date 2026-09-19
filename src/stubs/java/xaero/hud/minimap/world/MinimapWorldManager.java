@@ -1,7 +1,7 @@
 package xaero.hud.minimap.world;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import xaero.common.minimap.waypoints.Waypoint;
 import xaero.hud.minimap.world.container.MinimapWorldContainer;
 import xaero.hud.path.XaeroPath;

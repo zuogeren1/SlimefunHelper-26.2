@@ -26,25 +26,26 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class AutoSurround extends BaseModule implements LegalMovementManager.MovementModifier {
     static LegalMovementManager.DelegateMovementModifier instance;
@@ -115,7 +116,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
             flagBuilder(autoSurround.add("use-white-list")).build();
 
     public final NBTRef<EntrySet<Item>> whiteList = builder(autoSurround.add("white-list"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(Registries.ITEM, List.of(Items.OBSIDIAN)))
+            .defaultValue(new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.OBSIDIAN)))
             .build();
 
     public final FlagRef onlyBlastResistance = builder(autoSurround.add("only-blast-resistance"), Boolean.class)
@@ -137,7 +138,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
     @Override
     public void onEnableModule() {
         super.onEnableModule();
-        triggerCenterFix = autoCenter.get() && mc.player != null && mc.player.getPose() != EntityPose.SWIMMING;
+        triggerCenterFix = autoCenter.get() && mc.player != null && mc.player.getPose() != Pose.SWIMMING;
     }
 
     @Override
@@ -151,10 +152,10 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
 
     public void onInput(Event<Void> inputEvent) {
         if (enable.get()) {
-            boolean bl = mc.player.isSneaking();
+            boolean bl = mc.player.isShiftKeyDown();
             if (++delayTicks >= delay.get()) {
                 if (checkSurround()) {
-                    if (autoCenter.get() && mc.player.getPose() != EntityPose.SWIMMING) {
+                    if (autoCenter.get() && mc.player.getPose() != Pose.SWIMMING) {
                         triggerCenterFix = true;
                     }
                     delayTicks = 0;
@@ -166,7 +167,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                 needSneak = false;
                 if (autoSneak.get()) {
                     if (ViaFabricPlusHooks.isSupportInstaSneak()) {
-                        if (mc.player.isSneaking() != bl) {
+                        if (mc.player.isShiftKeyDown() != bl) {
                             PlayerInputUtils.of(mc.player)
                                     .sneak(bl)
                                     .sendPlayerSneakUpdatePacket()
@@ -198,8 +199,8 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
     public Set<BlockPos> getTargetingPos() {
         BlockPos vcPos = PlayerStateManager.INSTANCE.lastVelocityAffectingPos;
         lastSurround = vcPos;
-        Box playerBox = mc.player.getBoundingBox();
-        playerBox = playerBox.withMaxY(Math.max(
+        AABB playerBox = mc.player.getBoundingBox();
+        playerBox = playerBox.setMaxY(Math.max(
                 playerBox.minY
                         + InteractExtra.INSTANCE.getPotentialEyeHeights().max().orElse(0),
                 playerBox.maxY));
@@ -215,7 +216,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
             Direction dir = dd[direction];
             var directionTestPoses = new LinkedHashSet<BlockPos>();
             for (BlockPos occupiedPos : occupiedBasePoses) {
-                BlockPos expandedPos = occupiedPos.offset(dir);
+                BlockPos expandedPos = occupiedPos.relative(dir);
                 if (!occupiedBasePoses.contains(expandedPos)) {
                     directionTestPoses.add(expandedPos);
                 }
@@ -224,7 +225,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
             int coordYMax = dir == Direction.DOWN ? maxY - 2 : maxY;
             for (BlockPos testPos : directionTestPoses) {
                 for (int y = minY; y <= coordYMax; ++y) {
-                    BlockPos test = testPos.withY(y);
+                    BlockPos test = testPos.atY(y);
                     if (occupiedPoses.contains(test)) {
                         continue;
                     }
@@ -235,17 +236,17 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
         return result;
     }
 
-    private boolean canCubePlace(ClientPlayerEntity player, BlockPos pos, Set<EndCrystalEntity> pendingRemove) {
-        BlockState state = Blocks.OBSIDIAN.getDefaultState();
-        VoxelShape shape = state.getCollisionShape(mc.world, pos, ShapeContext.of(mc.player))
-                .offset(pos.getX(), pos.getY(), pos.getZ());
+    private boolean canCubePlace(LocalPlayer player, BlockPos pos, Set<EndCrystal> pendingRemove) {
+        BlockState state = Blocks.OBSIDIAN.defaultBlockState();
+        VoxelShape shape = state.getCollisionShape(mc.level, pos, CollisionContext.of(mc.player))
+                .move(pos.getX(), pos.getY(), pos.getZ());
 
         return !CollisionUtil.hasAnyIntersects(
-                mc.world, (entity) -> entity instanceof EndCrystalEntity end && pendingRemove.contains(end), shape);
+                mc.level, (entity) -> entity instanceof EndCrystal end && pendingRemove.contains(end), shape);
     }
 
     public boolean checkSurround() {
-        if (onlyGround.get() && !mc.player.isOnGround() && !CollisionUtil.isEntitySupported(mc.player, 1.5D)) {
+        if (onlyGround.get() && !mc.player.onGround() && !CollisionUtil.isEntitySupported(mc.player, 1.5D)) {
             return false;
         }
         if (onlyPlayerNear.get().isPresent()) {
@@ -264,7 +265,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
 
         int placeCnt = 0;
         Runnable invCallback = null;
-        Set<EndCrystalEntity> pendingRemoval = new HashSet<>();
+        Set<EndCrystal> pendingRemoval = new HashSet<>();
         boolean offhandOk = offhand.get();
         var resultPoses = getTargetingPos();
         Set<BlockPos> bbs = Set.of();
@@ -276,14 +277,14 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
         }
         Set<BlockPos> pendingMine = new HashSet<>();
         for (var test : resultPoses) {
-            BlockState state = mc.world.getBlockState(test);
-            if ((state.isAir() || state.isReplaceable())) {
+            BlockState state = mc.level.getBlockState(test);
+            if ((state.isAir() || state.canBeReplaced())) {
                 var hitResult = InteractionTasks.getPlaceSupportingResult(test, airplace.get(), !legal);
                 if (hitResult != null && hitResult.flag()) {
                     if (!needSneak
                             && autoSneak.get()
                             && ViaFabricPlusHooks.isSupportInstaSneak()
-                            && !mc.player.isSneaking()) {
+                            && !mc.player.isShiftKeyDown()) {
                         PlayerInputUtils.of(mc.player)
                                 .sneak(true)
                                 .sendPlayerSneakUpdatePacket()
@@ -294,11 +295,11 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                 boolean canPlace = InteractUtils.canInteractAndPlace(mc.player, hitResult);
                 if (canPlace) {
                     if (autoAttackCrystals.get()) {
-                        mc.world
-                                .getOtherEntities(
-                                        null, MathUtils.getBlockBox(test), (e) -> e instanceof EndCrystalEntity)
+                        mc.level
+                                .getEntities(
+                                        (Entity) null, MathUtils.getBlockBox(test), (e) -> e instanceof EndCrystal)
                                 .forEach(endCrystalEntity -> {
-                                    if (endCrystalEntity instanceof EndCrystalEntity endCrystal
+                                    if (endCrystalEntity instanceof EndCrystal endCrystal
                                             && !Attack.INSTANCE.attackEntity(endCrystalEntity)) {
                                         pendingRemoval.add(endCrystal);
                                     }
@@ -319,7 +320,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                         InteractionTasks.handlePlaceMode(
                                 mode.get(),
                                 hitResult.val(),
-                                offhandOk ? Hand.OFF_HAND : Hand.MAIN_HAND,
+                                offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
                                 swingHand.get());
                         placeCnt += 1;
                         if (placeCnt >= mul) {
@@ -333,7 +334,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
         }
         if (placeCnt < mul) {
             for (var test : pendingMine) {
-                BlockHitResult selfHitResult = RaycastUtils.createHitResult(test, mc.player.getEyePos());
+                BlockHitResult selfHitResult = RaycastUtils.createHitResult(test, mc.player.getEyePosition());
                 if (placeCnt == 0) {
                     var supply = supplyBlocks();
                     if (supply == null) {
@@ -346,7 +347,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                             : InvExtra.INSTANCE.swapInventoryIndexToHand(supply.index());
                 }
                 InteractionTasks.handlePlaceMode(
-                        mode.get(), selfHitResult, offhandOk ? Hand.OFF_HAND : Hand.MAIN_HAND, swingHand.get());
+                        mode.get(), selfHitResult, offhandOk ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, swingHand.get());
                 placeCnt += 1;
                 if (placeCnt >= mul) {
                     break;
@@ -368,12 +369,12 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                                 return null;
                             }
                         }
-                        if (onlyBlastResistance.get() && blockItem.getBlock().getBlastResistance() < 600) {
+                        if (onlyBlastResistance.get() && blockItem.getBlock().getExplosionResistance() < 600) {
                             return null;
                         }
-                        return (double) (blockItem.getBlock().getBlastResistance())
+                        return (double) (blockItem.getBlock().getExplosionResistance())
                                 + ((blockItem == Items.OBSIDIAN) ? 1E8 : 0)
-                                + (blockItem.getBlock() instanceof BlockWithEntity ? -1E8 : 0);
+                                + (blockItem.getBlock() instanceof BaseEntityBlock ? -1E8 : 0);
                     }
                     return null;
                 },
@@ -388,8 +389,8 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
 
-        if (triggerCenterFix && mc.player.isOnGround()) {
-            if (lastCenter == null || !MathUtils.isInBox(lastCenter.toCenterPos(), mc.player.getPos(), 1.0)) {
+        if (triggerCenterFix && mc.player.onGround()) {
+            if (lastCenter == null || !MathUtils.isInBox(Vec3.atCenterOf(lastCenter), mc.player.position(), 1.0)) {
                 lastCenter = lastSurround == null ? PlayerStateManager.INSTANCE.lastVelocityAffectingPos : lastSurround;
             }
             var blockPos = lastCenter;
@@ -401,7 +402,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                 PlayerInputUtils.Input inputUtils = PlayerInputUtils.of(mc.options);
                 if (!inputUtils.hasMovement() && !movementManagerEvent.context.hasImportantRotation()) {
                     rotateSuccess = true;
-                    Vec3d lookHorizontal = blockPos.toCenterPos().subtract(mc.player.getPos());
+                    Vec3 lookHorizontal = Vec3.atCenterOf(blockPos).subtract(mc.player.position());
                     PlayerStateManager.setPlayerYawSafe(
                             mc.player, EntityUtils.rotationToYaw(lookHorizontal.normalize()));
                     movementManagerEvent.context.markForResetRot();
@@ -415,7 +416,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
     // todo: try check block position, sneak-related
     @Override
     public void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {
-        if (triggerCenterFix && mc.player.isOnGround() && rotateSuccess) {
+        if (triggerCenterFix && mc.player.onGround() && rotateSuccess) {
             rotateSuccess = false;
             var input = PlayerInputUtils.of(mc.player);
             if (!input.hasWASDMovement()) {

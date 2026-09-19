@@ -24,21 +24,27 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class MineBot extends BaseModule {
     public MineBot() {
@@ -57,7 +63,7 @@ public class MineBot extends BaseModule {
 
     public final NBTRef<EntrySet<Block>> whiteListBlockRegex = builder(
                     mineBot.add("whitelist"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(cobblestone|stone|.*ore)$"), Registries.BLOCK))
+            .defaultValue(new EntrySet<>(new Regex("^(cobblestone|stone|.*ore)$"), BuiltInRegistries.BLOCK))
             .build();
 
     public final EnumRef<MineBotMode> mineBotMode = builder(mineBot.add("mine-mode"), MineBotMode.class)
@@ -104,9 +110,9 @@ public class MineBot extends BaseModule {
             .build();
 
     private boolean isMineable(BlockState state) {
-        if (state != null && !state.isAir() && !state.isLiquid()) {
+        if (state != null && !state.isAir() && !state.liquid()) {
             Block block = state.getBlock();
-            if (block.getHardness() >= 0.0F && whiteListBlockRegex.get().test(block)) {
+            if (block.defaultDestroyTime() >= 0.0F && whiteListBlockRegex.get().test(block)) {
                 return true;
             }
         }
@@ -115,7 +121,7 @@ public class MineBot extends BaseModule {
 
     public BlockPos lastMinePos = null;
 
-    public void onTick(Event<ClientPlayerEntity> player) {
+    public void onTick(Event<LocalPlayer> player) {
         if (isActive()) {
             onMineBotTick();
         }
@@ -129,7 +135,7 @@ public class MineBot extends BaseModule {
     }
 
     public void onMineBotTick() {
-        if (mc.player == null || mc.world == null || mc.interactionManager == null) {
+        if (mc.player == null || mc.level == null || mc.gameMode == null) {
             return;
         }
         switch (mineBotMode.get()) {
@@ -148,23 +154,23 @@ public class MineBot extends BaseModule {
     public static final int minDurLimit = 9;
 
     public boolean isDurabilityOk(ItemStack item) {
-        if (item.isEmpty()) return true;
+        if (item.count() == 0) return true;
         int durabilityLimit;
-        if (item.get(DataComponentTypes.UNBREAKABLE) != null) {
+        if (item.get(DataComponents.UNBREAKABLE) != null) {
             return true;
-        } else if (item.get(DataComponentTypes.MAX_DAMAGE) != null) {
-            RegistryEntry<Enchantment> unbreaking =
+        } else if (item.get(DataComponents.MAX_DAMAGE) != null) {
+            Holder<Enchantment> unbreaking =
                     RegistryUtils.getRegistryEntry(ItemStackUtils.registry(), Enchantments.UNBREAKING);
             int multiply = 1;
             if (unbreaking != null) {
-                multiply = EnchantmentHelper.getLevel(unbreaking, item) + 1;
+                multiply = EnchantmentHelper.getItemEnchantmentLevel(unbreaking, item) + 1;
             }
             durabilityLimit = (durMultiply * (2)) / multiply;
         } else {
             return true;
         }
         int max = Math.max(minDurLimit, durabilityLimit);
-        if (item.getDamage() > item.getMaxDamage() - max) {
+        if (item.getDamageValue() > item.getMaxDamage() - max) {
             return false;
         }
         return true;
@@ -175,7 +181,7 @@ public class MineBot extends BaseModule {
 
     public int onMineCommon(Supplier<BlockPos> posFinder) {
         int tryMine = 0;
-        Vec2f originPy = new Vec2f(mc.player.getPitch(), mc.player.getYaw());
+        Vec2 originPy = new Vec2(mc.player.getXRot(), mc.player.getYRot());
         do {
             if (!checkDistanceAndCondition(lastMinePos)) {
                 lastMinePos = posFinder.get();
@@ -188,9 +194,9 @@ public class MineBot extends BaseModule {
                     break;
                 }
             }
-            PlayerInteractionAccess.of(mc.interactionManager).setMiningCooldown(0);
+            PlayerInteractionAccess.of(mc.gameMode).setMiningCooldown(0);
 
-            BlockState mineState = mc.world.getBlockState(lastMinePos);
+            BlockState mineState = mc.level.getBlockState(lastMinePos);
             IndexEntry<ItemStack> bestStack = autoSwap.get()
                     ? InventoryUtils.findBestPlayerItem(
                             s -> {
@@ -216,48 +222,48 @@ public class MineBot extends BaseModule {
             float speed = MineExtra.INSTANCE.predictBlockBreakingSpeedAt(lastMinePos);
             tryMine += 1;
             // use real Direction
-            Vec3d shouldFacing = lastMinePos.toCenterPos().subtract(mc.player.getEyePos());
-            Direction dir = Direction.getFacing(shouldFacing).getOpposite();
+            Vec3 shouldFacing = Vec3.atCenterOf(lastMinePos).subtract(mc.player.getEyePosition());
+            Direction dir = Direction.getApproximateNearest(shouldFacing).getOpposite();
             switch (legalMode.get()) {
                 case SWING_HAND_AND_ROT -> {
-                    Vec3d rotate2f = mc.player.getRotationVector();
-                    Vec3d rotateXZ = new Vec3d(rotate2f.x, 0, rotate2f.z);
+                    Vec3 rotate2f = mc.player.getLookAngle();
+                    Vec3 rotateXZ = new Vec3(rotate2f.x, 0, rotate2f.z);
                     // out of the sight
-                    if (rotateXZ.dotProduct(shouldFacing) < 0) {
-                        PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYaw() + 180);
-                        mc.getNetworkHandler()
-                                .sendPacket(VPacket.newLookAndOnGround(
-                                        mc.player.getYaw(),
-                                        mc.player.getPitch(),
-                                        mc.player.isOnGround(),
+                    if (rotateXZ.dot(shouldFacing) < 0) {
+                        PlayerStateManager.setPlayerYawSafe(mc.player, mc.player.getYRot() + 180);
+                        mc.getConnection()
+                                .send(VPacket.newLookAndOnGround(
+                                        mc.player.getYRot(),
+                                        mc.player.getXRot(),
+                                        mc.player.onGround(),
                                         mc.player.horizontalCollision));
                     }
                 }
                 case SWING_HAND_AND_TARGET -> {
-                    Vec3d facing = shouldFacing.normalize();
-                    Vec2f pitchYaw = EntityUtils.rotationToPitchYaw(facing);
-                    if (Math.abs(EntityUtils.getSafeYawDiff(mc.player.getYaw(), pitchYaw.y)) > 30) {
-                        mc.player.setPitch(pitchYaw.x);
-                        mc.player.setYaw(pitchYaw.y);
-                        mc.getNetworkHandler()
-                                .sendPacket(VPacket.newLookAndOnGround(
-                                        mc.player.getYaw(),
-                                        mc.player.getPitch(),
-                                        mc.player.isOnGround(),
+                    Vec3 facing = shouldFacing.normalize();
+                    Vec2 pitchYaw = EntityUtils.rotationToPitchYaw(facing);
+                    if (Math.abs(EntityUtils.getSafeYawDiff(mc.player.getYRot(), pitchYaw.y)) > 30) {
+                        mc.player.setXRot(pitchYaw.x);
+                        mc.player.setYRot(pitchYaw.y);
+                        mc.getConnection()
+                                .send(VPacket.newLookAndOnGround(
+                                        mc.player.getYRot(),
+                                        mc.player.getXRot(),
+                                        mc.player.onGround(),
                                         mc.player.horizontalCollision));
                     }
                 }
             }
-            mc.interactionManager.updateBlockBreakingProgress(lastMinePos, dir);
+            mc.gameMode.continueDestroyBlock(lastMinePos, dir);
             // fake a swing packet , so that we can bypass some packet check
 
             if (legalMode.get().hasSwing()) {
-                mc.player.swingHand(Hand.MAIN_HAND);
+                mc.player.swing(InteractionHand.MAIN_HAND);
             }
 
             if (!MineExtra.INSTANCE.shouldTreatAsInstantBreak(speed)) {
                 //
-                var access = PlayerInteractionAccess.of(mc.interactionManager);
+                var access = PlayerInteractionAccess.of(mc.gameMode);
                 if (doubleBreak.get()
                         && Objects.equals(access.getCurrentMiningPos(), lastMinePos)
                         && access.isFailBreakEmpty()) {
@@ -267,10 +273,10 @@ public class MineBot extends BaseModule {
                 }
             }
 
-        } while (!mc.interactionManager.isBreakingBlock() && tryMine < maxInstaMine.get());
-        if (mc.player.getPitch() != originPy.x || mc.player.getYaw() != originPy.y) {
-            mc.player.setPitch(originPy.x);
-            mc.player.setYaw(originPy.y);
+        } while (!mc.gameMode.isDestroying() && tryMine < maxInstaMine.get());
+        if (mc.player.getXRot() != originPy.x || mc.player.getYRot() != originPy.y) {
+            mc.player.setXRot(originPy.x);
+            mc.player.setYRot(originPy.y);
             ClientPlayerAccess.of(mc.player).resyncRot();
         }
         if (tryMine == 0) {
@@ -302,13 +308,13 @@ public class MineBot extends BaseModule {
     }
 
     public int onMineCustomTool() {
-        if (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.BLOCK) {
-            BlockHitResult result = ((BlockHitResult) mc.crosshairTarget);
+        if (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK) {
+            BlockHitResult result = ((BlockHitResult) mc.hitResult);
             BlockPos pos = result.getBlockPos();
-            if (isMineable(mc.world.getBlockState(pos))) {
-                mc.interactionManager.sendSequencedPacket(mc.world, (sequence) -> {
-                    return new PlayerInteractItemC2SPacket(
-                            Hand.MAIN_HAND, sequence, mc.player.getYaw(), mc.player.getPitch());
+            if (isMineable(mc.level.getBlockState(pos))) {
+                mc.gameMode.startPrediction(mc.level, (sequence) -> {
+                    return new ServerboundUseItemPacket(
+                            InteractionHand.MAIN_HAND, sequence, mc.player.getYRot(), mc.player.getXRot());
                 });
             }
         }
@@ -337,23 +343,23 @@ public class MineBot extends BaseModule {
     }
 
     private boolean checkDistanceAndCondition(BlockPos newPos) {
-        var access = PlayerInteractionAccess.of(mc.interactionManager);
+        var access = PlayerInteractionAccess.of(mc.gameMode);
         // do not mine on double break
         if (Objects.equals(access.getCurrentFailBreakPos(), newPos)) {
             return false;
         }
-        if (MineTasks.distanceOutOfReach(newPos, mc.player.getEyePos())) {
+        if (MineTasks.distanceOutOfReach(newPos, mc.player.getEyePosition())) {
             return false;
         }
-        if (!isMineable(mc.world.getBlockState(newPos))) {
+        if (!isMineable(mc.level.getBlockState(newPos))) {
             return false;
         }
         return true;
     }
 
     private BlockPos findNextMinePosSpherical() {
-        BlockPos posStanding = mc.player.getSteppingPos();
-        BlockPos posCenter = posStanding.add(0, 1, 0);
+        BlockPos posStanding = mc.player.getOnPos();
+        BlockPos posCenter = posStanding.offset(0, 1, 0);
         int lowest = minY.get();
         int highest = maxY.get();
         for (var vec : InteractExtra.INSTANCE.getBlocksAround()) {
@@ -361,7 +367,7 @@ public class MineBot extends BaseModule {
             int y = vec.getY();
             int z = vec.getZ();
             if (y >= lowest && y <= highest) {
-                BlockPos newPose = posCenter.add(x, y, z);
+                BlockPos newPose = posCenter.offset(x, y, z);
                 if (checkDistanceAndCondition(newPose)) {
                     return newPose;
                 }
@@ -371,8 +377,8 @@ public class MineBot extends BaseModule {
     }
 
     private BlockPos findNextMinePosLayer(boolean up) {
-        BlockPos posStanding = mc.player.getSteppingPos();
-        BlockPos posCenter = posStanding.add(0, 1, 0);
+        BlockPos posStanding = mc.player.getOnPos();
+        BlockPos posCenter = posStanding.offset(0, 1, 0);
         int lowest = minY.get();
         int highest = maxY.get();
         IntList yLevelList = IntArrayList.toList(IntStream.range(lowest, highest));
@@ -383,7 +389,7 @@ public class MineBot extends BaseModule {
             for (var plate : InteractExtra.INSTANCE.getPlatesAround()) {
                 int x = plate.x;
                 int z = plate.y;
-                BlockPos newPose = posCenter.add(x, y, z);
+                BlockPos newPose = posCenter.offset(x, y, z);
                 if (checkDistanceAndCondition(newPose)) {
                     return newPose;
                 }
@@ -393,13 +399,13 @@ public class MineBot extends BaseModule {
     }
 
     private BlockPos findNextMinePosTunnel() {
-        BlockPos posStanding = mc.player.getSteppingPos();
-        BlockPos posCenter = posStanding.add(0, 1, 0);
+        BlockPos posStanding = mc.player.getOnPos();
+        BlockPos posCenter = posStanding.offset(0, 1, 0);
         int lowest = minY.get();
         int highest = maxY.get();
         // horizontal
-        Direction facingDirection = mc.player.getHorizontalFacing();
-        Direction facingDirectionCross = facingDirection.rotateYClockwise();
+        Direction facingDirection = mc.player.getDirection();
+        Direction facingDirectionCross = facingDirection.getClockWise();
         IntList searchingWidth = new IntArrayList();
         searchingWidth.add(0);
         for (var i = 1; i <= width.get(); ++i) {
@@ -408,11 +414,11 @@ public class MineBot extends BaseModule {
         }
         double reach = InteractExtra.INSTANCE.getBlockReachDistance();
         for (var k = 0; k <= reach; ++k) {
-            BlockPos currentCenter = posCenter.offset(facingDirection, k);
+            BlockPos currentCenter = posCenter.relative(facingDirection, k);
             for (var i = lowest; i < highest; ++i) {
-                BlockPos currentHeightCenter = currentCenter.add(0, i, 0);
+                BlockPos currentHeightCenter = currentCenter.offset(0, i, 0);
                 for (var j : searchingWidth) {
-                    BlockPos newPos = currentHeightCenter.offset(facingDirectionCross, j);
+                    BlockPos newPos = currentHeightCenter.relative(facingDirectionCross, j);
                     if (checkDistanceAndCondition(newPos)) {
                         return newPos;
                     }
@@ -423,8 +429,8 @@ public class MineBot extends BaseModule {
     }
 
     private BlockPos findNextMinePosSquare() {
-        BlockPos posStanding = mc.player.getSteppingPos();
-        BlockPos posCenter = posStanding.add(0, 1, 0);
+        BlockPos posStanding = mc.player.getOnPos();
+        BlockPos posCenter = posStanding.offset(0, 1, 0);
         int lowest = minY.get();
         int highest = maxY.get();
         // horizontal
@@ -432,7 +438,7 @@ public class MineBot extends BaseModule {
         for (var i = lowest; i < highest; ++i) {
             for (var j = -wid; j <= wid; ++j) {
                 for (int k = -wid; k <= wid; ++k) {
-                    BlockPos newPos = posCenter.add(j, i, k);
+                    BlockPos newPos = posCenter.offset(j, i, k);
                     if (checkDistanceAndCondition(newPos)) {
                         return newPos;
                     }
@@ -443,8 +449,8 @@ public class MineBot extends BaseModule {
     }
 
     private BlockPos findNextMinePosRandom() {
-        BlockPos posStanding = mc.player.getSteppingPos();
-        BlockPos posCenter = posStanding.add(0, 1, 0);
+        BlockPos posStanding = mc.player.getOnPos();
+        BlockPos posCenter = posStanding.offset(0, 1, 0);
         int lowest = minY.get();
         int highest = maxY.get();
         List<BlockPos> availablePos = new ArrayList<>();
@@ -453,7 +459,7 @@ public class MineBot extends BaseModule {
             int y = vec.getY();
             int z = vec.getZ();
             if (y >= lowest && y <= highest) {
-                BlockPos newPose = posCenter.add(x, y, z);
+                BlockPos newPose = posCenter.offset(x, y, z);
                 if (checkDistanceAndCondition(newPose)) {
                     availablePos.add(newPose);
                 }

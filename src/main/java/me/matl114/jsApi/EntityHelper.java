@@ -3,10 +3,11 @@ package me.matl114.jsApi;
 import java.util.Locale;
 import me.matl114.accessors.events.EntityAccess;
 import me.matl114.utils.ApiMethod;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EntityType;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.phys.Vec3;
 
 @ApiMethod
 public class EntityHelper {
@@ -22,20 +23,20 @@ public class EntityHelper {
         EntityAccess.of(entity).setDataFlag(flag, value);
     }
 
-    public static EntityPose getEntityPose(Entity entity) {
+    public static Pose getEntityPose(Entity entity) {
         return entity.getPose();
     }
 
     public static void setEntityPose(Entity entity, String pose) {
-        entity.setPose(EntityPose.valueOf(pose.toUpperCase(Locale.ROOT)));
+        entity.setPose(Pose.valueOf(pose.toUpperCase(Locale.ROOT)));
     }
 
-    public static Vec3d getEntityVelocity(Entity entity) {
-        return entity.getVelocity();
+    public static Vec3 getEntityVelocity(Entity entity) {
+        return entity.getDeltaMovement();
     }
 
-    public static void setEntityVelocity(Entity entity, Vec3d velocity) {
-        entity.setVelocity(velocity);
+    public static void setEntityVelocity(Entity entity, Vec3 velocity) {
+        entity.setDeltaMovement(velocity);
     }
 
     public static EntityType getEntityType(Entity entity) {
@@ -43,10 +44,10 @@ public class EntityHelper {
     }
 
     public static String getEntityTypeName(EntityType entityType) {
-        return EntityType.getId(entityType).toString();
+        return EntityType.getKey(entityType).toString();
     }
 
     public static EntityType getEntityTypeByName(String name) {
-        return EntityType.get(name).orElse(null);
+        return BuiltInRegistries.ENTITY_TYPE.getOptional(net.minecraft.resources.Identifier.parse(name)).orElse(null);
     }
 }

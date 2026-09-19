@@ -23,11 +23,10 @@ import me.matl114.managers.input.SimpleHotKey;
 import me.matl114.managers.input.SimpleInputManager;
 import me.matl114.utils.FileUtils;
 import me.matl114.utils.ReflectUtils;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.SimpleRegistry;
-import net.minecraft.registry.entry.RegistryEntryInfo;
-import net.minecraft.util.Identifier;
-import org.lwjgl.system.NonnullDefault;
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.core.RegistrationInfo;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -46,28 +45,28 @@ public class Config implements RefMap {
     @Getter
     private static final Set<Config> configs = new LinkedHashSet<>();
 
-    public static final SimpleRegistry<Config> REGISTRY = new SimpleRegistry<>(
-            RegistryKey.ofRegistry(Identifier.of("slimefunhelper", "configs")), Lifecycle.stable());
+    public static final MappedRegistry<Config> REGISTRY = new MappedRegistry<>(
+            ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("slimefunhelper", "configs")), Lifecycle.stable());
     private static final Set<Config> allConfigInternal = new LinkedHashSet<>();
 
     @Getter
-    RegistryKey<Config> registryKey;
+    ResourceKey<Config> registryKey;
 
     public void registerGlobal() {
         configs.add(this);
         if (registryKey == null) {
-            RegistryKey<Config> registryKey = RegistryKey.of(
-                    REGISTRY.getKey(),
-                    Identifier.of(
+            ResourceKey<Config> registryKey = ResourceKey.create(
+                    REGISTRY.key(),
+                    Identifier.fromNamespaceAndPath(
                             "slimefunhelper",
                             configName.toLowerCase(Locale.ROOT).replace(" ", "_")));
             this.registryKey = registryKey;
-            REGISTRY.add(this.registryKey, this, RegistryEntryInfo.DEFAULT);
+            REGISTRY.register(this.registryKey, this, RegistrationInfo.BUILT_IN);
         }
     }
 
     public String getTranslationKey() {
-        return "config.index." + this.registryKey.getValue().getPath();
+        return "config.index." + this.registryKey.identifier().getPath();
     }
 
     public static void reloadAll() {
@@ -189,7 +188,6 @@ public class Config implements RefMap {
         return this;
     }
 
-    @NonnullDefault
     private Ref getOrCreate(Ref defaultValue, @Nonnull String... path) {
         Ref result = this.ref.getOrCreate(defaultValue, path);
         if (result != null) {

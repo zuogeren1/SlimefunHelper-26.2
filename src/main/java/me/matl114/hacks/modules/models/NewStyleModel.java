@@ -9,15 +9,15 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.ResourceUtils;
-import net.minecraft.client.render.item.model.ItemModel;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.item.ItemModel;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 public class NewStyleModel extends BaseModule {
     public final ModulePath newStyleItem = makePath(Configs.MODEL_CONFIG, "new-style-item");
@@ -62,16 +62,16 @@ public class NewStyleModel extends BaseModule {
         if (event.context != null) return;
         ItemStack item = event.getArgs(0);
         if (enableEnchant.get()) {
-            ItemEnchantmentsComponent list = ItemStackUtils.getStoredEnchantment(item);
+            ItemEnchantments list = ItemStackUtils.getStoredEnchantment(item);
             if (list != null && !list.isEmpty()) {
-                var optional = list.getEnchantmentEntries().stream().findFirst();
+                var optional = list.entrySet().stream().findFirst();
                 if (optional.isPresent()) {
                     var entry = optional.get();
                     Enchantment enchantment = entry.getKey().value();
-                    Optional<RegistryKey<Enchantment>> identifier =
-                            entry.getKey().getKey();
+                    Optional<ResourceKey<Enchantment>> identifier =
+                            entry.getKey().unwrapKey();
                     if (enchantment != null && identifier.isPresent()) {
-                        Identifier identifier2 = identifier.get().getValue();
+                        Identifier identifier2 = identifier.get().identifier();
                         int maxValue = enchantment.getMaxLevel();
                         int level = entry.getIntValue();
                         if (level == 0) return;
@@ -116,10 +116,10 @@ public class NewStyleModel extends BaseModule {
     public void onRefreshCache(Event<ResourceManager> event) {
         cache.clear();
         cacheItem.clear();
-        for (Item item : Registries.ITEM) {
+        for (Item item : BuiltInRegistries.ITEM) {
             Identifier id = new Identifier(
                     NAMESPACE,
-                    PATH_OF_NEW_VERSION + "/" + Registries.ITEM.getId(item).getPath());
+                    PATH_OF_NEW_VERSION + "/" + BuiltInRegistries.ITEM.getKey(item).getPath());
             Optional<ItemModel> modelId = RenderListener.getModModel(id);
 
             if (modelId.isPresent()) {

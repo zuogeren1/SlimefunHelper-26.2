@@ -22,17 +22,18 @@ import me.matl114.utils.*;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.render.RenderCollector;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.block.BlockState;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 public class BlockFarm extends BaseModule {
     public BlockFarm() {
@@ -59,7 +60,7 @@ public class BlockFarm extends BaseModule {
             flagBuilder(root.add("white-list-enable")).build();
 
     public final NBTRef<EntrySet<Item>> whiteList = builder(root.add("white-list"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(Registries.ITEM, List.of(Items.ENDER_CHEST, Items.BOOKSHELF)))
+            .defaultValue(new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.ENDER_CHEST, Items.BOOKSHELF)))
             .build();
 
     public final FlagRef swingHand =
@@ -91,8 +92,8 @@ public class BlockFarm extends BaseModule {
                 BlockPos placePos = hitResult.getBlockPos();
                 BlockState currentState;
                 if (placePos != null
-                        && !(currentState = mc.world.getBlockState(placePos)).isAir()
-                        && !currentState.isLiquid()) {
+                        && !(currentState = mc.level.getBlockState(placePos)).isAir()
+                        && !currentState.liquid()) {
                     Item it = currentState.getBlock().asItem();
                     if (it instanceof BlockItem bl
                             && bl != Items.AIR
@@ -112,23 +113,23 @@ public class BlockFarm extends BaseModule {
         if (checkNull()) return;
         textRenderer.clear();
         if (enable.get() && currentPlacingItem != null) {
-            var access = PlayerInteractionAccess.of(mc.interactionManager);
+            var access = PlayerInteractionAccess.of(mc.gameMode);
             BlockPos pos = access.getCurrentMiningPos();
-            BlockState state = mc.world.getBlockState(pos);
+            BlockState state = mc.level.getBlockState(pos);
             if (state.getBlock() == currentPlacingItem.getBlock()) {
 
-                if (++timer >= delay.get() && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), pos)) {
+                if (++timer >= delay.get() && InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), pos)) {
                     timer = 0;
                     tickMineAndPlace(currentPlacingItem);
                 }
 
                 textRenderer.submit(
                         new RenderElements.Text(
-                                Text.literal("Farm: %s"
-                                        .formatted(Registries.ITEM
-                                                .getId(currentPlacingItem)
+                                Component.literal("Farm: %s"
+                                        .formatted(BuiltInRegistries.ITEM
+                                                .getKey(currentPlacingItem)
                                                 .getPath())),
-                                pos.toCenterPos().add(0, 0.6, 0),
+                                Vec3.atCenterOf(pos).add(0, 0.6, 0),
                                 0.66F),
                         -1);
             }
@@ -151,11 +152,11 @@ public class BlockFarm extends BaseModule {
     public void tickMineAndPlace(BlockItem blockItem) {
         int multiply = mul.get();
         Runnable callback = null;
-        var access = PlayerInteractionAccess.of(mc.interactionManager);
+        var access = PlayerInteractionAccess.of(mc.gameMode);
 
         for (var i = 0; i < multiply; ++i) {
             if (access.breakIfComplete()) {
-                if (mc.player.getStackInHand(Hand.MAIN_HAND).getItem() != blockItem) {
+                if (mc.player.getItemInHand(InteractionHand.MAIN_HAND).getItem() != blockItem) {
                     if (callback != null) {
                         callback.run();
                         callback = null;

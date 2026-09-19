@@ -22,11 +22,11 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec2;
 
 public class BaritoneFix extends BaseModule implements LegalMovementManager.MovementModifier {
     public static BaritoneFix INSTANCE;
@@ -130,14 +130,14 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
 
     private boolean canGlideEquipment() {
         ElytraExtra extra = ElytraExtra.INSTANCE;
-        ItemStack stack = mc.player.getEquippedStack(EquipmentSlot.CHEST);
+        ItemStack stack = mc.player.getItemBySlot(EquipmentSlot.CHEST);
         if (extra.isCurrentArmorGliding()) {
             return true;
         } else if (extra.enableUnbreakableElytra.get()) {
             return true;
         }
         return stack.getItem() == Items.ELYTRA
-                && stack.getMaxDamage() - stack.getDamage() >= durabilitySetting.getValue();
+                && stack.getMaxDamage() - stack.getDamageValue() >= durabilitySetting.getValue();
     }
 
     private boolean hasEnoughFirework() {
@@ -234,16 +234,16 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
         if (!lastAutoJumpExecutor.canRun(20) && mc.player.isFallFlying()) {
-            Box blockCheckBox = mc.player.getBoundingBox().stretch(0, -1, 0).expand(2, 0, 2);
-            Box checkHeadBox = mc.player.getBoundingBox().stretch(0, 1, 0);
-            if (CollisionUtil.isBoxCollided(mc.world, mc.player, blockCheckBox)
-                    && !CollisionUtil.isBoxCollided(mc.world, mc.player, checkHeadBox)) {
-                BaritoneHooks.getInstance().updateBaritoneLookTarget(-89.0F, mc.player.getYaw());
+            AABB blockCheckBox = mc.player.getBoundingBox().expandTowards(0, -1, 0).inflate(2, 0, 2);
+            AABB checkHeadBox = mc.player.getBoundingBox().expandTowards(0, 1, 0);
+            if (CollisionUtil.isBoxCollided(mc.level, mc.player, blockCheckBox)
+                    && !CollisionUtil.isBoxCollided(mc.level, mc.player, checkHeadBox)) {
+                BaritoneHooks.getInstance().updateBaritoneLookTarget(-89.0F, mc.player.getYRot());
             }
         }
     }
 
-    public void onBaritoneMoveRot(Event<Vec2f> vec2fEvent) {}
+    public void onBaritoneMoveRot(Event<Vec2> vec2fEvent) {}
 
     @Override
     public boolean postModify(Event<LegalMovementManager> movementManagerEvent, boolean enabledThisTick) {

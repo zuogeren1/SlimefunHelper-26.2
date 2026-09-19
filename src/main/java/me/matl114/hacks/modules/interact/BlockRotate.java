@@ -23,18 +23,56 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.EnumRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
-import net.minecraft.block.*;
-import net.minecraft.block.enums.BlockFace;
-import net.minecraft.block.enums.Orientation;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.*;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.FrontAndTop;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.AbstractFurnaceBlock;
+import net.minecraft.world.level.block.AnvilBlock;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.BeehiveBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.CalibratedSculkSensorBlock;
+import net.minecraft.world.level.block.CampfireBlock;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ChiseledBookShelfBlock;
+import net.minecraft.world.level.block.CopperGolemStatueBlock;
+import net.minecraft.world.level.block.CrafterBlock;
+import net.minecraft.world.level.block.DecoratedPotBlock;
+import net.minecraft.world.level.block.DiodeBlock;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.DriedGhastBlock;
+import net.minecraft.world.level.block.EnderChestBlock;
+import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.GlazedTerracottaBlock;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.LecternBlock;
+import net.minecraft.world.level.block.LoomBlock;
+import net.minecraft.world.level.block.ObserverBlock;
+import net.minecraft.world.level.block.ShelfBlock;
+import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.level.block.StonecutterBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.VaultBlock;
+import net.minecraft.world.level.block.piston.PistonBaseBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class BlockRotate extends BaseModule {
     public final ModulePath blockRotate = makePath(Configs.INTERACT_CONFIG, "block-rotate");
@@ -80,7 +118,7 @@ public class BlockRotate extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractBlockC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundUseItemOnPacket.class),
                 this::onPreSendInteractBlockRotate);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldChange);
@@ -93,13 +131,13 @@ public class BlockRotate extends BaseModule {
 
     final Map<BlockPos, TemporarySchematic> tempSchematics = new ConcurrentHashMap<>();
 
-    public void onWorldChange(Event<World> eventWorld) {
+    public void onWorldChange(Event<Level> eventWorld) {
         tempSchematics.clear();
     }
 
     int timer = 0;
 
-    public void onUpdate(Event<ClientPlayerEntity> eventUpdate) {
+    public void onUpdate(Event<LocalPlayer> eventUpdate) {
         if (timer++ > 20) {
             timer = 0;
             var iter = tempSchematics.entrySet().iterator();
@@ -123,20 +161,20 @@ public class BlockRotate extends BaseModule {
     }
 
     // can not bypass
-    public void onPreSendInteractBlockRotate(Event<PlayerInteractBlockC2SPacket> e) {
+    public void onPreSendInteractBlockRotate(Event<ServerboundUseItemOnPacket> e) {
         if (e.isCancelled()) return;
         if (enable.get() && enableBlockRotateModify()) {
             if (e.context instanceof PlayerInteractBlockC2SPacketAccess paccess) {
                 //
-                Vec2f currentPy = new Vec2f(PlayerStateManager.INSTANCE.lastPitch, PlayerStateManager.INSTANCE.lastYaw);
+                Vec2 currentPy = new Vec2(PlayerStateManager.INSTANCE.lastPitch, PlayerStateManager.INSTANCE.lastYaw);
                 PitchYawDeceive deceivePy = null;
-                Vec3d lookVec = null;
+                Vec3 lookVec = null;
                 if (paccess.hasUseContext()) {
                     if (paccess.getUseContext().blockPlace()) {
                         PlayerInteractBlockC2SPacketAccess.UseContext context = paccess.getUseContext();
                         Item blockItem = context.stack().getItem();
                         Event<PitchYawDeceive> yawDeceive = new Event<>(new PitchYawDeceive(), false, true);
-                        Event<Vec3d> playerLookAt = new Event<>(null, false, true);
+                        Event<Vec3> playerLookAt = new Event<>(null, false, true);
                         handlePlaceCorrectLitematica(blockItem, e.context, context, yawDeceive, playerLookAt);
                         handlePlaceCorrectTemperarySchematic(blockItem, e.context, context, yawDeceive);
 
@@ -148,8 +186,8 @@ public class BlockRotate extends BaseModule {
                         }
                     } else if (paccess.getUseContext().isAccepted()) {
                         BlockState oldState = paccess.getUseContext().oldState();
-                        BlockPos interactState = e.context.getBlockHitResult().getBlockPos();
-                        BlockState newState = mc.world.getBlockState(interactState);
+                        BlockPos interactState = e.context.getHitResult().getBlockPos();
+                        BlockState newState = mc.level.getBlockState(interactState);
                         if (oldState != newState) {
                             // handle yaw fix
                             Event<PitchYawDeceive> yawDeceive = new Event<>(new PitchYawDeceive(), false, true);
@@ -165,12 +203,12 @@ public class BlockRotate extends BaseModule {
                     if (bypassMode.get() == Configs.BypassMode.BYPASS_GRIM) {
                         // to ensure the rotate is successfully done
                         // use a wrong sequence id to ensure that this packet cancelled by grimac
-                        Listener.sendPacketNoEvents(new PlayerInteractBlockC2SPacket(
-                                Hand.OFF_HAND, e.context.getBlockHitResult(), e.context.getSequence() - 1));
+                        Listener.sendPacketNoEvents(new ServerboundUseItemOnPacket(
+                                InteractionHand.OFF_HAND, e.context.getHitResult(), e.context.getSequence() - 1));
                     }
-                    mc.getNetworkHandler()
-                            .sendPacket(new PlayerInteractItemC2SPacket(
-                                    Hand.MAIN_HAND,
+                    mc.getConnection()
+                            .send(new ServerboundUseItemPacket(
+                                    InteractionHand.MAIN_HAND,
                                     e.context.getSequence(),
                                     deceivePy.getYaw(currentPy.y),
                                     deceivePy.getPitch(currentPy.x)));
@@ -189,11 +227,11 @@ public class BlockRotate extends BaseModule {
                                                 .isLowerOrEqualTo(20, 8)))) {
                     if (ViaFabricPlusHooks.isSupportDupRot()) {
                         var packet =
-                                LegacySnapRotManager.INSTANCE.createSnapAt(lookVec.subtract(mc.player.getEyePos()));
+                                LegacySnapRotManager.INSTANCE.createSnapAt(lookVec.subtract(mc.player.getEyePosition()));
                         PacketManager.schedulePostSendPacket(e.context, packet);
                     } else {
                         InteractionTasks.addPostRotationCorrectTask(
-                                lookVec, mc.player.getEyePos(), Runnables.doNothing());
+                                lookVec, mc.player.getEyePosition(), Runnables.doNothing());
                     }
                 }
             }
@@ -202,19 +240,19 @@ public class BlockRotate extends BaseModule {
 
     public void handlePlaceCorrectTemperarySchematic(
             Item item,
-            PlayerInteractBlockC2SPacket packet,
+            ServerboundUseItemOnPacket packet,
             PlayerInteractBlockC2SPacketAccess.UseContext useContext,
             Event<PitchYawDeceive> yawDeceive) {
         if (enable3.get()) {
             // ?
-            BlockHitResult packetHitResult = packet.getBlockHitResult();
+            BlockHitResult packetHitResult = packet.getHitResult();
             BlockState litematicaState;
             BlockPos modifyingBlockPos = useContext.getPlaceBlockPos(packet.getHand(), packetHitResult);
             TemporarySchematic schematic = tempSchematics.remove(modifyingBlockPos);
             if (schematic == null || schematic.expire()) {
                 return;
             }
-            BlockState clientState = mc.world.getBlockState(modifyingBlockPos);
+            BlockState clientState = mc.level.getBlockState(modifyingBlockPos);
             litematicaState = schematic.targetState;
             // no need for fix
             if (clientState == litematicaState) {
@@ -231,7 +269,7 @@ public class BlockRotate extends BaseModule {
                 //                }
                 handleYawDeceive(litematicaState, yawDeceive.context);
                 if (clientTempFix.get()) {
-                    mc.world.setBlockState(modifyingBlockPos, litematicaState, WorldUtils.UPDATE_BLOCK_NO_PHYSICS);
+                    mc.level.setBlock(modifyingBlockPos, litematicaState, WorldUtils.UPDATE_BLOCK_NO_PHYSICS);
                 }
             }
         }
@@ -239,15 +277,15 @@ public class BlockRotate extends BaseModule {
 
     public void handlePlaceCorrectLitematica(
             Item item,
-            PlayerInteractBlockC2SPacket packet,
+            ServerboundUseItemOnPacket packet,
             PlayerInteractBlockC2SPacketAccess.UseContext useContext,
             Event<PitchYawDeceive> yawDeceive,
-            Event<Vec3d> look) {
+            Event<Vec3> look) {
 
         if (enable2.get() && LitematicaHooks.getInstance().isEnabled()) {
-            BlockHitResult packetHitResult = packet.getBlockHitResult();
+            BlockHitResult packetHitResult = packet.getHitResult();
             BlockState litematicaState;
-            World litematicaWorld = LitematicaHooks.getInstance().getSchematicWorld();
+            Level litematicaWorld = LitematicaHooks.getInstance().getSchematicWorld();
 
             BlockPos modifyingBlockPos = useContext.getPlaceBlockPos(packet.getHand(), packetHitResult);
             if (!LitematicaHooks.getInstance().isPositionWithinRange(modifyingBlockPos)) return;
@@ -262,13 +300,13 @@ public class BlockRotate extends BaseModule {
             if (newPacketHitResult != null) {
                 // wrong state, need correct
                 packetHitResult = newPacketHitResult;
-                BlockState clientState = mc.world.getBlockState(modifyingBlockPos);
+                BlockState clientState = mc.level.getBlockState(modifyingBlockPos);
                 if (litematicaState != clientState) {
                     BlockHitResult easyPlaceResult = LitematicaHooks.getInstance()
                             .getEasyPlaceClickedPosition(packetHitResult, litematicaState, clientState);
                     if (easyPlaceResult != null) {
                         HitResultAccess access = HitResultAccess.of(packetHitResult);
-                        access.setPos(easyPlaceResult.getPos());
+                        access.setPos(easyPlaceResult.getLocation());
                     }
                 }
                 if (legal.get()) {
@@ -278,7 +316,7 @@ public class BlockRotate extends BaseModule {
                             PlayerStateManager.INSTANCE.lastYaw,
                             packetHitResult.getBlockPos(),
                             InteractExtra.INSTANCE.getBlockReachDistance())) {
-                        look.context(packetHitResult.getBlockPos().toCenterPos());
+                        look.context(Vec3.atCenterOf(packetHitResult.getBlockPos()));
                     }
                 }
                 handleYawDeceive(litematicaState, yawDeceive.context);
@@ -289,7 +327,7 @@ public class BlockRotate extends BaseModule {
 
     public void handleInteractCorrectLitematica(BlockPos pos, BlockState newState, Event<PitchYawDeceive> yawDeceive) {
         if (enable2.get() && LitematicaHooks.getInstance().isEnabled()) {
-            World litematicaWorld = LitematicaHooks.getInstance().getSchematicWorld();
+            Level litematicaWorld = LitematicaHooks.getInstance().getSchematicWorld();
             if (!LitematicaHooks.getInstance().isPositionWithinRange(pos)) return;
             BlockState litematicaState = litematicaWorld.getBlockState(pos);
             if (litematicaState.getBlock() == newState.getBlock() && litematicaState != newState) {
@@ -302,10 +340,10 @@ public class BlockRotate extends BaseModule {
             Item item,
             BlockPos modifyingBlockPos,
             BlockState targetState,
-            PlayerInteractBlockC2SPacket packet,
+            ServerboundUseItemOnPacket packet,
             boolean forceCorrect) {
-        BlockHitResult packetHitResult = packet.getBlockHitResult();
-        BlockState clientState = mc.world.getBlockState(modifyingBlockPos);
+        BlockHitResult packetHitResult = packet.getHitResult();
+        BlockState clientState = mc.level.getBlockState(modifyingBlockPos);
         if (!targetState.isAir()
                 && targetState.getBlock().asItem() == item
                 && targetState.getBlock() == clientState.getBlock()) {
@@ -325,7 +363,7 @@ public class BlockRotate extends BaseModule {
     public BlockHitResult correctEasyPlaceHitResult(BlockHitResult hitResult, BlockState targetState) {
         BlockPos placingPos = InteractUtils.getCurrentPlacePos(mc.player, hitResult);
         var result = InteractionTasks.createSpecificStateHitResult(
-                hitResult.getSide().getOpposite(), placingPos, targetState, false, false);
+                hitResult.getDirection().getOpposite(), placingPos, targetState, false, false);
         return result == null ? hitResult : result.val();
     }
 
@@ -342,60 +380,60 @@ public class BlockRotate extends BaseModule {
 
     public static void handleYawDeceive(BlockState targetState, PitchYawDeceive deceive) {
         Block block = targetState.getBlock();
-        if (block instanceof WallMountedBlock lever) {
-            if (targetState.get(WallMountedBlock.FACE) == BlockFace.FLOOR
-                    || targetState.get(WallMountedBlock.FACE) == BlockFace.CEILING) {
-                Direction direction = targetState.get(WallMountedBlock.FACING);
+        if (block instanceof FaceAttachedHorizontalDirectionalBlock lever) {
+            if (targetState.getValue(FaceAttachedHorizontalDirectionalBlock.FACE) == AttachFace.FLOOR
+                    || targetState.getValue(FaceAttachedHorizontalDirectionalBlock.FACE) == AttachFace.CEILING) {
+                Direction direction = targetState.getValue(FaceAttachedHorizontalDirectionalBlock.FACING);
                 deceive.yaw = EntityUtils.directionToPitchYaw(direction).y;
                 return;
             }
         }
         if (block instanceof ObserverBlock ob) {
-            Vec2f pitchYaw = EntityUtils.directionToPitchYaw(targetState.get(ObserverBlock.FACING));
+            Vec2 pitchYaw = EntityUtils.directionToPitchYaw(targetState.getValue(ObserverBlock.FACING));
             deceive.pitch = pitchYaw.x;
             deceive.yaw = pitchYaw.y;
             return;
         }
-        if (block instanceof PistonBlock ps) {
-            Vec2f pitchYaw = EntityUtils.directionToPitchYaw(
-                    targetState.get(PistonBlock.FACING).getOpposite());
+        if (block instanceof PistonBaseBlock ps) {
+            Vec2 pitchYaw = EntityUtils.directionToPitchYaw(
+                    targetState.getValue(PistonBaseBlock.FACING).getOpposite());
             deceive.pitch = pitchYaw.x;
             deceive.yaw = pitchYaw.y;
             return;
         }
         if (block instanceof DispenserBlock disp) {
-            Vec2f pitchYaw = EntityUtils.directionToPitchYaw(
-                    targetState.get(DispenserBlock.FACING).getOpposite());
+            Vec2 pitchYaw = EntityUtils.directionToPitchYaw(
+                    targetState.getValue(DispenserBlock.FACING).getOpposite());
             deceive.pitch = pitchYaw.x;
             deceive.yaw = pitchYaw.y;
             return;
         }
         if (block instanceof BarrelBlock barrelBlock) {
-            Vec2f pitchYaw = EntityUtils.directionToPitchYaw(
-                    targetState.get(BarrelBlock.FACING).getOpposite());
+            Vec2 pitchYaw = EntityUtils.directionToPitchYaw(
+                    targetState.getValue(BarrelBlock.FACING).getOpposite());
             deceive.pitch = pitchYaw.x;
             deceive.yaw = pitchYaw.y;
             return;
         }
         if (block instanceof CrafterBlock crafterBlock) {
-            Orientation orientation = targetState.get(Properties.ORIENTATION);
-            Direction facing = orientation.getFacing();
-            Direction rotation = orientation.getRotation();
-            Vec2f pitchYaw;
+            FrontAndTop orientation = targetState.getValue(BlockStateProperties.ORIENTATION);
+            Direction facing = orientation.front();
+            Direction rotation = orientation.top();
+            Vec2 pitchYaw;
             switch (facing) {
                 case DOWN -> {
                     pitchYaw = EntityUtils.rotationToPitchYaw(
-                            Vec3d.of(rotation.getVector()).add(0, -4, 0).normalize());
+                            Vec3.atLowerCornerOf(rotation.getUnitVec3i()).add(0, -4, 0).normalize());
                 }
                 case UP -> {
                     pitchYaw = EntityUtils.rotationToPitchYaw(
-                            Vec3d.of(rotation.getOpposite().getVector())
+                            Vec3.atLowerCornerOf(rotation.getOpposite().getUnitVec3i())
                                     .add(0, 4, 0)
                                     .normalize());
                 }
                 default -> {
                     pitchYaw = EntityUtils.rotationToPitchYaw(
-                            Vec3d.of(facing.getOpposite().getVector()).normalize());
+                            Vec3.atLowerCornerOf(facing.getOpposite().getUnitVec3i()).normalize());
                 }
             }
             deceive.pitch = pitchYaw.x;
@@ -405,115 +443,115 @@ public class BlockRotate extends BaseModule {
 
         // 以下分支只修改 yaw，保持玩家当前 pitch，因此只赋值 deceive.yaw
         if (block instanceof AbstractFurnaceBlock) {
-            Direction facing = targetState.get(AbstractFurnaceBlock.FACING);
+            Direction facing = targetState.getValue(AbstractFurnaceBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
-        if (block instanceof ChiseledBookshelfBlock) {
-            Direction facing = targetState.get(HorizontalFacingBlock.FACING);
+        if (block instanceof ChiseledBookShelfBlock) {
+            Direction facing = targetState.getValue(HorizontalDirectionalBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof VaultBlock) {
-            Direction facing = targetState.get(VaultBlock.FACING);
+            Direction facing = targetState.getValue(VaultBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof LoomBlock) {
-            Direction facing = targetState.get(LoomBlock.FACING);
+            Direction facing = targetState.getValue(LoomBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof GlazedTerracottaBlock) {
-            Direction facing = targetState.get(GlazedTerracottaBlock.FACING);
+            Direction facing = targetState.getValue(GlazedTerracottaBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof BeehiveBlock) {
-            Direction facing = targetState.get(BeehiveBlock.FACING);
+            Direction facing = targetState.getValue(BeehiveBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
-        if (block instanceof AbstractRedstoneGateBlock) {
-            Direction facing = targetState.get(AbstractRedstoneGateBlock.FACING);
+        if (block instanceof DiodeBlock) {
+            Direction facing = targetState.getValue(DiodeBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof StonecutterBlock) {
-            Direction facing = targetState.get(StonecutterBlock.FACING);
+            Direction facing = targetState.getValue(StonecutterBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         // 以下方块不需要取反
         if (block instanceof FenceGateBlock) {
-            Direction facing = targetState.get(FenceGateBlock.FACING);
+            Direction facing = targetState.getValue(FenceGateBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing);
             return;
         }
         if (block instanceof DoorBlock) {
-            Direction facing = targetState.get(DoorBlock.FACING);
+            Direction facing = targetState.getValue(DoorBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing);
             return;
         }
         if (block instanceof CampfireBlock) {
-            Direction facing = targetState.get(CampfireBlock.FACING);
+            Direction facing = targetState.getValue(CampfireBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing);
             return;
         }
         if (block instanceof DecoratedPotBlock) {
-            Direction facing = targetState.get(Properties.HORIZONTAL_FACING);
+            Direction facing = targetState.getValue(BlockStateProperties.HORIZONTAL_FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing);
             return;
         }
-        if (block instanceof StairsBlock) {
-            Direction facing = targetState.get(StairsBlock.FACING);
+        if (block instanceof StairBlock) {
+            Direction facing = targetState.getValue(StairBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing);
             return;
         }
         if (block instanceof CalibratedSculkSensorBlock) {
-            Direction facing = targetState.get(CalibratedSculkSensorBlock.FACING);
+            Direction facing = targetState.getValue(CalibratedSculkSensorBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing);
             return;
         }
         // 需要取反的分支
         if (block instanceof EnderChestBlock) {
-            Direction facing = targetState.get(EnderChestBlock.FACING);
+            Direction facing = targetState.getValue(EnderChestBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof DriedGhastBlock) {
-            Direction facing = targetState.get(DriedGhastBlock.FACING);
+            Direction facing = targetState.getValue(DriedGhastBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof ShelfBlock) {
-            Direction facing = targetState.get(ShelfBlock.FACING);
+            Direction facing = targetState.getValue(ShelfBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof LecternBlock) {
-            Direction facing = targetState.get(LecternBlock.FACING);
+            Direction facing = targetState.getValue(LecternBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof CopperGolemStatueBlock) {
-            Direction facing = targetState.get(CopperGolemStatueBlock.FACING);
+            Direction facing = targetState.getValue(CopperGolemStatueBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
-        if (block instanceof TrapdoorBlock) {
-            Direction facing = targetState.get(TrapdoorBlock.FACING);
+        if (block instanceof TrapDoorBlock) {
+            Direction facing = targetState.getValue(TrapDoorBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof ChestBlock) {
-            Direction facing = targetState.get(ChestBlock.FACING);
+            Direction facing = targetState.getValue(ChestBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing.getOpposite());
             return;
         }
         if (block instanceof AnvilBlock) {
-            Direction facing = targetState.get(AnvilBlock.FACING);
-            Direction playerFacing = facing.rotateYCounterclockwise();
+            Direction facing = targetState.getValue(AnvilBlock.FACING);
+            Direction playerFacing = facing.getCounterClockWise();
             deceive.yaw = EntityUtils.rotationToYaw(playerFacing);
             return;
         }
@@ -522,7 +560,7 @@ public class BlockRotate extends BaseModule {
     public static void handleYawInteractDeceive(BlockState targetState, PitchYawDeceive deceive) {
         Block block = targetState.getBlock();
         if (block instanceof FenceGateBlock fenceGateBlock) {
-            Direction facing = targetState.get(FenceGateBlock.FACING);
+            Direction facing = targetState.getValue(FenceGateBlock.FACING);
             deceive.yaw = EntityUtils.rotationToYaw(facing);
             return;
         }

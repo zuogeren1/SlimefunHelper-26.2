@@ -4,16 +4,16 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import me.matl114.hacks.modules.render.NoRender;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.player.AbstractClientPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(AbstractClientPlayerEntity.class)
+@Mixin(AbstractClientPlayer.class)
 public abstract class AbstractClientPlayerEntityMixin {
     @ModifyExpressionValue(
-            method = "getFovMultiplier",
-            at = @At(value = "FIELD", target = "Lnet/minecraft/entity/player/PlayerAbilities;flying:Z"))
+            method = "getFieldOfViewModifier",
+            at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/player/Abilities;flying:Z"))
     private boolean onNoFlyFov(boolean original) {
         if (NoRender.INSTANCE.noFlyFov()) {
             return false;
@@ -22,12 +22,12 @@ public abstract class AbstractClientPlayerEntityMixin {
     }
 
     @ModifyExpressionValue(
-            method = "getFovMultiplier",
+            method = "getFieldOfViewModifier",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/AbstractClientPlayerEntity;getAttributeValue(Lnet/minecraft/registry/entry/RegistryEntry;)D"))
+                                    "Lnet/minecraft/client/player/AbstractClientPlayer;getAttributeValue(Lnet/minecraft/core/Holder;)D"))
     private double onNoSpeedFov(double original) {
         if (NoRender.INSTANCE.noSlowDownFov()) {
             original = Math.max(original, 0.1F);
@@ -39,11 +39,11 @@ public abstract class AbstractClientPlayerEntityMixin {
     }
 
     @ModifyExpressionValue(
-            method = "getFovMultiplier",
+            method = "getFieldOfViewModifier",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/AbstractClientPlayerEntity;isUsingItem()Z"))
+                            target = "Lnet/minecraft/client/player/AbstractClientPlayer;isUsingItem()Z"))
     private boolean onNoUseItemFov(boolean original) {
         if (NoRender.INSTANCE.noUseItemFov()) {
             return false;

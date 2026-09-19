@@ -1,5 +1,6 @@
 package me.matl114.events;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,26 +12,25 @@ import me.matl114.events.channels.EventChannel;
 import me.matl114.events.model.GuiModel;
 import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.ReportedException;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.render.item.model.ItemModel;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.crash.CrashException;
+import net.minecraft.client.renderer.item.ItemModel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.joml.Matrix4f;
 
 public class RenderListener {
     public static void init() {}
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     @Getter
     @Modifiable
@@ -62,8 +62,8 @@ public class RenderListener {
     }
 
     public static ItemModel getCustomModelOf(Identifier identifier) {
-        ItemModel model = mc.getBakedModelManager().getItemModel(identifier);
-        return model == mc.getBakedModelManager().missingModels.item() ? null : model;
+        ItemModel model = mc.getModelManager().getItemModel(identifier);
+        return model == mc.getModelManager().missingModels.item() ? null : model;
     }
 
     public static final String RESOURCE_SPECIAL_VARIANT = "fabric_resource";
@@ -88,7 +88,7 @@ public class RenderListener {
 
     @Getter
     @Cancelable
-    private static final EventChannel<MatrixStack> applyWorldBobView = new EventChannel<>();
+    private static final EventChannel<PoseStack> applyWorldBobView = new EventChannel<>();
 
     // 在屏幕之上渲染的
     @Getter
@@ -96,22 +96,22 @@ public class RenderListener {
     @ExtraArgs(
             value = {float.class},
             names = {"ticksDelta"})
-    private static final EventChannel<MatrixStack> render3DEvent = new EventChannel<>();
+    private static final EventChannel<PoseStack> render3DEvent = new EventChannel<>();
 
     @Getter
     @Broadcast
     @ExtraArgs(value = {float.class, boolean.class})
     private static final EventChannel<VDrawContext> render2DEvent = new EventChannel<>();
 
-    public static void renderWorldTasks(MatrixStack stack, float tickDelta) {
+    public static void renderWorldTasks(PoseStack stack, float tickDelta) {
         // GL11.glEnable(GL11.GL_LINE_SMOOTH);
 
         try {
             // This stack start with the position with RenderUtils.getCameraPose();
-            Event<MatrixStack> renderEvent = new Event<>(stack, false, false, tickDelta);
+            Event<PoseStack> renderEvent = new Event<>(stack, false, false, tickDelta);
 
             render3DEvent.handleValue(renderEvent);
-        } catch (ConcurrentModificationException | NullPointerException | CrashException e) {
+        } catch (ConcurrentModificationException | NullPointerException | ReportedException e) {
             Debug.info("Error while handling Render Event:", e.getMessage());
         } finally {
             // GL11.glDisable(GL11.GL_LINE_SMOOTH);
@@ -121,29 +121,29 @@ public class RenderListener {
     @Getter
     @Broadcast
     @ExtraArgs(
-            value = {HandledScreen.class, Slot.class},
+            value = {AbstractContainerScreen.class, Slot.class},
             names = {"renderer", "stack"})
-    private static final EventChannel<DrawContext> renderSlot = new EventChannel<>();
+    private static final EventChannel<GuiGraphicsExtractor> renderSlot = new EventChannel<>();
 
-    public static void renderSlotInScreen(DrawContext context, HandledScreen<?> renderer, Slot stack) {
+    public static void renderSlotInScreen(GuiGraphicsExtractor context, AbstractContainerScreen<?> renderer, Slot stack) {
         if (renderSlot.isEmpty()) return;
-        Event<DrawContext> contextEvent = new Event<>(context, false, false, renderer, stack);
+        Event<GuiGraphicsExtractor> contextEvent = new Event<>(context, false, false, renderer, stack);
         renderSlot.handleValue(contextEvent);
     }
 
     @Getter
     @Broadcast
     @ExtraArgs(
-            value = {HandledScreen.class, int.class, int.class, float.class},
+            value = {AbstractContainerScreen.class, int.class, int.class, float.class},
             names = {"renderer", "mouseX", "mouseY", "delta"})
-    private static final EventChannel<DrawContext> renderHandledScreen = new EventChannel<>();
+    private static final EventChannel<GuiGraphicsExtractor> renderHandledScreen = new EventChannel<>();
 
     public static void renderHandledScreen(
-            DrawContext context, HandledScreen<?> screen, int mouseX, int mouseY, float delta) {
+            GuiGraphicsExtractor context, AbstractContainerScreen<?> screen, int mouseX, int mouseY, float delta) {
         if (renderHandledScreen.isEmpty()) {
             return;
         }
-        Event<DrawContext> contextEvent = new Event<>(context, false, false, screen, mouseX, mouseY, delta);
+        Event<GuiGraphicsExtractor> contextEvent = new Event<>(context, false, false, screen, mouseX, mouseY, delta);
         renderHandledScreen.handleValue(contextEvent);
     }
 
@@ -177,7 +177,7 @@ public class RenderListener {
     @ExtraArgs(
             value = {ItemStack.class, boolean.class, boolean.class},
             names = {"itemStack", "advance", "creative"})
-    private static final EventChannel<List<Text>> tooltipShow = new EventChannel<>();
+    private static final EventChannel<List<Component>> tooltipShow = new EventChannel<>();
 
     @Getter
     @Cancelable

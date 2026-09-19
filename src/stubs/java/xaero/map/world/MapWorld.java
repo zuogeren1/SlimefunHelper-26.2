@@ -1,14 +1,14 @@
 package xaero.map.world;
 
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public class MapWorld {
-    public RegistryKey<World> getCurrentDimensionId() {
+    public ResourceKey<Level> getCurrentDimensionId() {
         return null;
     }
 
-    public RegistryKey<World> getFutureDimensionId() {
+    public ResourceKey<Level> getFutureDimensionId() {
         return null;
     }
 }

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.survival;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -19,20 +20,19 @@ import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.village.VillagerProfession;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.phys.Vec3;
 
 public class VillagerEsp extends BaseModule {
     public static VillagerEsp INSTANCE;
@@ -57,7 +57,7 @@ public class VillagerEsp extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> color = builder(villagerEsp.add("color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.AQUA))
+            .defaultValue(new WrapColor(ChatFormatting.AQUA))
             .build();
 
     private final RenderCollector<RenderElements.Text> textCollector = RenderCollectors.createTextCollector();
@@ -75,7 +75,7 @@ public class VillagerEsp extends BaseModule {
         textCollector.clear();
     }
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         textCollector.clear();
         if (checkNull() || !enable.get() || WorldManager.INSTANCE == null) {
             return;
@@ -83,19 +83,19 @@ public class VillagerEsp extends BaseModule {
 
         int textColor = color.get().withAlpha(255);
         float scale = (float) textScale.get();
-        for (Entity entity : mc.world.getEntities()) {
-            if (entity instanceof VillagerEntity villager && isTrackedLibrarian(villager)) {
-                Text displayText = buildTradeText(villager);
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity instanceof Villager villager && isTrackedLibrarian(villager)) {
+                Component displayText = buildTradeText(villager);
                 if (displayText == null) {
                     continue;
                 }
-                Vec3d textPos = villager.getPos().add(0.0D, villager.getHeight(), 0.0D);
+                Vec3 textPos = villager.position().add(0.0D, villager.getBbHeight(), 0.0D);
                 textCollector.submit(new RenderElements.Text(displayText, textPos, scale), textColor);
             }
         }
     }
 
-    public void onRender3D(Event<MatrixStack> event) {
+    public void onRender3D(Event<PoseStack> event) {
         if (!enable.get()) {
             return;
         }
@@ -107,20 +107,20 @@ public class VillagerEsp extends BaseModule {
         }
     }
 
-    private boolean isTrackedLibrarian(VillagerEntity villager) {
-        var profession = villager.getVillagerData().profession().getKey().orElse(null);
+    private boolean isTrackedLibrarian(Villager villager) {
+        var profession = villager.getVillagerData().profession().unwrapKey().orElse(null);
         return Objects.equals(profession, VillagerProfession.LIBRARIAN)
                 && WorldManager.INSTANCE.getVillagerTradeList(villager) != null;
     }
 
-    private Text buildTradeText(VillagerEntity villager) {
+    private Component buildTradeText(Villager villager) {
         List<WorldManager.TradeRecord> trades = WorldManager.INSTANCE.getVillagerTradeList(villager);
         if (trades == null || trades.isEmpty()) {
             return null;
         }
-        List<Text> lines = new ArrayList<>();
+        List<Component> lines = new ArrayList<>();
         for (WorldManager.TradeRecord trade : trades) {
-            Text tradeText = buildEnchantmentTradeText(trade);
+            Component tradeText = buildEnchantmentTradeText(trade);
             if (tradeText != null) {
                 lines.add(tradeText);
             }
@@ -128,32 +128,32 @@ public class VillagerEsp extends BaseModule {
         if (lines.isEmpty()) {
             return null;
         }
-        MutableText result = Text.empty().append(lines.get(0));
+        MutableComponent result = Component.empty().append(lines.get(0));
         for (int i = 1; i < lines.size(); i++) {
-            result = result.append(Text.literal("\n")).append(lines.get(i));
+            result = result.append(Component.literal("\n")).append(lines.get(i));
         }
         return result;
     }
 
-    private Text buildEnchantmentTradeText(WorldManager.TradeRecord trade) {
+    private Component buildEnchantmentTradeText(WorldManager.TradeRecord trade) {
         ItemStack result = trade.result();
-        if (!result.isOf(Items.ENCHANTED_BOOK) || !result.contains(DataComponentTypes.STORED_ENCHANTMENTS)) {
+        if (!result.is(Items.ENCHANTED_BOOK) || !result.has(DataComponents.STORED_ENCHANTMENTS)) {
             return null;
         }
-        var firstEnchantment = result.get(DataComponentTypes.STORED_ENCHANTMENTS).getEnchantmentEntries().stream()
+        var firstEnchantment = result.get(DataComponents.STORED_ENCHANTMENTS).entrySet().stream()
                 .findFirst()
                 .orElse(null);
         if (firstEnchantment == null) {
             return null;
         }
-        RegistryEntry<Enchantment> enchantment = firstEnchantment.getKey();
+        Holder<Enchantment> enchantment = firstEnchantment.getKey();
         int level = firstEnchantment.getIntValue();
         int price = Math.max(trade.buy1().getCount(), trade.buy2().getCount());
         return enchantment
                 .value()
                 .description()
                 .copy()
-                .append(Text.literal(String.valueOf(level)))
-                .append(Text.literal(" " + price));
+                .append(Component.literal(String.valueOf(level)))
+                .append(Component.literal(" " + price));
     }
 }

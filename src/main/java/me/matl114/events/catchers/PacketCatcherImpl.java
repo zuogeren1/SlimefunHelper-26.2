@@ -2,7 +2,7 @@ package me.matl114.events.catchers;
 
 import java.util.function.Predicate;
 import me.matl114.events.Event;
-import net.minecraft.network.packet.Packet;
+import net.minecraft.network.protocol.Packet;
 
 public class PacketCatcherImpl<T extends Packet<?>> extends AbstractTypedPacketCatcher<T> {
     Predicate<Event<T>> predicate;

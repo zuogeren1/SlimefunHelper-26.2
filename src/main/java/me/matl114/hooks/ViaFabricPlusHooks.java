@@ -163,7 +163,7 @@ public abstract class ViaFabricPlusHooks implements IHooks {
     public static interface ViaPacketWrapper {
         // the higher version is the target1111
         default ViaPacketWrapper writePacketType(
-                String protocolVersion, net.minecraft.network.packet.PacketType<?> packetType) {
+                String protocolVersion, net.minecraft.network.protocol.PacketType<?> packetType) {
             return writePacketType(protocolVersion, packetType.id().getPath().toUpperCase(Locale.ROOT));
         }
         // the higher version is the target1111

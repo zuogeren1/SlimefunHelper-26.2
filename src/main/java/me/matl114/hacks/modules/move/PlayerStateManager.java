@@ -7,7 +7,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import me.matl114.accessors.access.ClientPlayerAccess;
-import me.matl114.accessors.access.PlayerInteractEntityC2SPacketAccess;
 import me.matl114.accessors.access.PlayerMoveC2SPacketAccess;
 import me.matl114.accessors.interfaces.MetadataHolder;
 import me.matl114.events.CombatListener;
@@ -28,39 +27,76 @@ import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VPacket;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.*;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.*;
-import net.minecraft.entity.attribute.AttributeContainer;
-import net.minecraft.entity.attribute.DefaultAttributeRegistry;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.thrown.PotionEntity;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.consume.ApplyEffectsConsumeEffect;
-import net.minecraft.item.consume.ClearAllEffectsConsumeEffect;
-import net.minecraft.item.consume.RemoveEffectsConsumeEffect;
-import net.minecraft.network.packet.c2s.play.*;
-import net.minecraft.network.packet.s2c.play.*;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.TintedParticleEffect;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.*;
-import net.minecraft.world.World;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.particles.ColorParticleOption;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.*;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
+import net.minecraft.network.protocol.game.ClientboundUpdateMobEffectPacket;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundAttackPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.Mth;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.AreaEffectCloud;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PositionMoveRotation;
+import net.minecraft.world.entity.Relative;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
+import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.AbstractThrownPotion;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.Consumable;
+import net.minecraft.world.item.component.ConsumableListener;
+import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect;
+import net.minecraft.world.item.consume_effects.ClearAllStatusEffectsConsumeEffect;
+import net.minecraft.world.item.consume_effects.RemoveStatusEffectsConsumeEffect;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector2f;
@@ -78,12 +114,12 @@ public class PlayerStateManager extends BaseModule {
     public boolean lastOnGround;
     public boolean lastPlayerOnGround;
     public boolean lastSprint;
-    public Vec3d lastKnownMovementSpeed = Vec3d.ZERO;
-    public Vec3d lastKnownChangePosMovementSpeed = Vec3d.ZERO;
-    public Vec3d lastKnownRealMovementSpeed = Vec3d.ZERO;
-    public Vec3d lastKnownClientVelocity = Vec3d.ZERO;
-    public Vec3d lastAverageMovementSpeed = Vec3d.ZERO;
-    public Vec3d lastSetBackPosition = Vec3d.ZERO;
+    public Vec3 lastKnownMovementSpeed = Vec3.ZERO;
+    public Vec3 lastKnownChangePosMovementSpeed = Vec3.ZERO;
+    public Vec3 lastKnownRealMovementSpeed = Vec3.ZERO;
+    public Vec3 lastKnownClientVelocity = Vec3.ZERO;
+    public Vec3 lastAverageMovementSpeed = Vec3.ZERO;
+    public Vec3 lastSetBackPosition = Vec3.ZERO;
     public int lastAttackStrengthResetTick = 0;
     public boolean lastMovementContainsPosition = false;
     boolean lastTickHasMovement = false;
@@ -101,8 +137,8 @@ public class PlayerStateManager extends BaseModule {
     public boolean lastHasGroundSupport;
     public PlayerInputUtils.Input lastInput = PlayerInputUtils.EMPTY.clone();
     public boolean serverSideCanFly;
-    public Deque<Vec3d> last40Positions = new ArrayDeque<>();
-    public BlockPos lastVelocityAffectingPos = BlockPos.ORIGIN;
+    public Deque<Vec3> last40Positions = new ArrayDeque<>();
+    public BlockPos lastVelocityAffectingPos = BlockPos.ZERO;
     public Map<ItemStackSample, Integer> inventorySummary;
     public Map<ItemStackSample, Integer> inventoryTotalSummary;
     public int glidingTicks;
@@ -110,7 +146,7 @@ public class PlayerStateManager extends BaseModule {
 
     {
         for (int i = 0; i < MAX_SIZE; ++i) {
-            last40Positions.add(Vec3d.ZERO);
+            last40Positions.add(Vec3.ZERO);
         }
     }
 
@@ -123,21 +159,21 @@ public class PlayerStateManager extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onMove, Integer.MAX_VALUE);
+                Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onMove, Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntityVelocityUpdateS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundSetEntityMotionPacket.class),
                 this::onPostPlayerVelocityUpdate,
                 Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ExplosionS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundExplodePacket.class),
                 this::onPostPlayerExplosion,
                 Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInputC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundPlayerInputPacket.class),
                 this::onPlayerInput,
                 Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(PlayerPositionLookS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerPositionPacket.class),
                 this::onPostPlayerPositionLook,
                 Integer.MAX_VALUE);
         registerListener(Listener.getPlayerWebSlowPoint(), this::handleInWeb);
@@ -146,68 +182,68 @@ public class PlayerStateManager extends BaseModule {
         registerListener(
                 Listener.getClientPlayerSendMovementPoint(), this::onPrePlayerSendMovePacket, Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPoint().getChannel(EntityDamageS2CPacket.class),
+                Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class),
                 this::onEntityAttackEvent,
                 Integer.MAX_VALUE);
         registerListener(
-                Listener.getPacketPoint().getChannel(ClientCommandC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundPlayerCommandPacket.class),
                 this::onPlayerCommand,
                 Integer.MAX_VALUE);
         registerListener(Listener.getPlayerInitConfiguration(), this::onPlayerInitialize);
         registerListener(
-                Listener.getPacketPoint().getChannel(ClientTickEndC2SPacket.class), this::onTickEnd, Integer.MAX_VALUE);
+                Listener.getPacketPoint().getChannel(ServerboundClientTickEndPacket.class), this::onTickEnd, Integer.MAX_VALUE);
         registerListener(Listener.getPreGameTick(), this::updateOtherPlayers);
-        registerListener(Listener.getPacketPoint().getChannel(EntityStatusS2CPacket.class), this::onTotemPop);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onTotemPop);
         registerListener(Listener.getServerLeavePoint(), this::onLeave);
         registerListener(
-                Listener.getEntityRemoveListener().getChannel(EntityType.PLAYER), this::onOtherPlayerRemoveDeath);
+                Listener.getEntityRemoveListener().getChannel(EntityTypes.PLAYER), this::onOtherPlayerRemoveDeath);
         registerListener(Listener.getPostClickSlot(), this::onClickSlot);
-        registerListener(Listener.getPacketPoint().getChannel(InventoryS2CPacket.class), this::onInventoryUpdate);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundContainerSetContentPacket.class), this::onInventoryUpdate);
         registerListener(
-                Listener.getPacketPoint().getChannel(ScreenHandlerSlotUpdateS2CPacket.class),
+                Listener.getPacketPoint().getChannel(ClientboundContainerSetSlotPacket.class),
                 this::onInventorySlotUpdate);
         registerListener(
-                Listener.getPacketPoint().getChannel(CloseHandledScreenC2SPacket.class), this::onInventoryClose);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerRespawnS2CPacket.class), this::onRespawn);
+                Listener.getPacketPoint().getChannel(ServerboundContainerClosePacket.class), this::onInventoryClose);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundRespawnPacket.class), this::onRespawn);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityType.PLAYER), this::onEntityTrackedDataUpdate);
-        registerListener(Listener.getPacketPoint().getChannel(EntityStatusS2CPacket.class), this::onEntityConsume);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::onEntityTrackedDataUpdate);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityConsume);
         registerListener(
-                Listener.getEntityRemoveListener().getChannel(EntityType.SPLASH_POTION), this::onSplashedPotionHit);
+                Listener.getEntityRemoveListener().getChannel(EntityTypes.SPLASH_POTION), this::onSplashedPotionHit);
         registerListener(
-                Listener.getEntityRemoveListener().getChannel(EntityType.LINGERING_POTION), this::onLingerPotionHit);
+                Listener.getEntityRemoveListener().getChannel(EntityTypes.LINGERING_POTION), this::onLingerPotionHit);
         registerListener(
-                Listener.getEntityPreTickListener().getChannel(EntityType.AREA_EFFECT_CLOUD),
+                Listener.getEntityPreTickListener().getChannel(EntityTypes.AREA_EFFECT_CLOUD),
                 this::onAreaEffectCloudTick);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntityStatusEffectS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundUpdateMobEffectPacket.class),
                 this::onEntityEffect);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntityEquipmentUpdateS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundSetEquipmentPacket.class),
                 this::onEntityEquipmentUpdate);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(EntitySpawnS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundAddEntityPacket.class),
                 this::onPlayerEnterVisualRange);
         registerListener(Listener.getOtherPlayerExitPoint(), this::onPlayerLeave);
-        registerListener(Listener.getPacketPoint().getChannel(HandSwingC2SPacket.class), this::onSwingHand);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerInteractEntityC2SPacket.class), this::onAttack);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundSwingPacket.class), this::onSwingHand);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onAttack);
     }
 
-    public void onMove(Event<PlayerMoveC2SPacket> event) {
+    public void onMove(Event<ServerboundMovePlayerPacket> event) {
         if (event.isCancelled()) return;
-        PlayerMoveC2SPacket packet = event.context;
+        ServerboundMovePlayerPacket packet = event.context;
         if (PlayerMoveC2SPacketAccess.of(packet).getCause() != PlayerMoveC2SPacketAccess.Cause.TRIGGER_SIMULATION) {
-            lastMovementContainsPosition = packet.changesPosition();
+            lastMovementContainsPosition = packet.hasPosition();
 
             // will not be intercepted by antiCheat
-            Vec3d oldMove = new Vec3d(lastX, lastY, lastZ);
+            Vec3 oldMove = new Vec3(lastX, lastY, lastZ);
 
-            if (!packet.changesPosition()) {
+            if (!packet.hasPosition()) {
                 if (packet.isOnGround()) {
                     handleOnGroundFlag();
                 }
             } else {
-                Vec3d vec3d = new Vec3d(packet.getX(lastX), packet.getY(lastY), packet.getZ(lastZ));
+                Vec3 vec3d = new Vec3(packet.getX(lastX), packet.getY(lastY), packet.getZ(lastZ));
                 if (!containsInvalidValues(vec3d.x, vec3d.y, vec3d.z)) {
                     handleMove(vec3d, packet.isOnGround());
                 }
@@ -216,17 +252,17 @@ public class PlayerStateManager extends BaseModule {
             if (PlayerMoveC2SPacketAccess.of(packet).getCause() != PlayerMoveC2SPacketAccess.Cause.SET_BACK) {
                 lastPlayerOnGround = lastOnGround;
             }
-            if (packet.changesLook()) {
-                lastPitch = packet.getPitch(lastPitch);
-                lastYaw = packet.getYaw(lastYaw);
+            if (packet.hasRotation()) {
+                lastPitch = packet.getXRot(lastPitch);
+                lastYaw = packet.getYRot(lastYaw);
             }
-            lastKnownMovementSpeed = new Vec3d(lastX - oldMove.x, lastY - oldMove.y, lastZ - oldMove.z);
-            if (lastKnownMovementSpeed.lengthSquared() > 1E-7) {
+            lastKnownMovementSpeed = new Vec3(lastX - oldMove.x, lastY - oldMove.y, lastZ - oldMove.z);
+            if (lastKnownMovementSpeed.lengthSqr() > 1E-7) {
                 lastKnownChangePosMovementSpeed = lastKnownMovementSpeed;
             }
             if (PlayerMoveC2SPacketAccess.of(packet).getCause() != PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP) {
                 if (PlayerMoveC2SPacketAccess.of(packet).getCause() == PlayerMoveC2SPacketAccess.Cause.SET_BACK) {
-                    lastKnownRealMovementSpeed = Vec3d.ZERO;
+                    lastKnownRealMovementSpeed = Vec3.ZERO;
                 } else {
                     lastKnownRealMovementSpeed = lastKnownMovementSpeed;
                     lastKnownClientVelocity = lastKnownRealMovementSpeed;
@@ -234,9 +270,9 @@ public class PlayerStateManager extends BaseModule {
             }
             lastTickHasMovement = true;
         } else {
-            if (packet.changesLook()) {
-                lastPitch = packet.getPitch(lastPitch);
-                lastYaw = packet.getYaw(lastYaw);
+            if (packet.hasRotation()) {
+                lastPitch = packet.getXRot(lastPitch);
+                lastYaw = packet.getYRot(lastYaw);
             }
         }
         // update input here , low version
@@ -245,69 +281,69 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onPostPlayerPositionLook(Event<PlayerPositionLookS2CPacket> eventPositionLook) {
+    public void onPostPlayerPositionLook(Event<ClientboundPlayerPositionPacket> eventPositionLook) {
         if (checkNull()) return;
-        if (mc.player.hasVehicle()) {
+        if (mc.player.isPassenger()) {
             return;
         }
         // only when vanilla teleport
         // grim teleport will send a EntityVelocityUpdateS2C to sync the clientVelocity
-        if (eventPositionLook.context.teleportId() >= 0) {
+        if (eventPositionLook.context.id() >= 0) {
             if (!ViaFabricPlusHooks.isSupportEndTick()) {
                 var relativesSet = eventPositionLook.context.relatives();
-                double lastClientVX = relativesSet.contains(PositionFlag.X) ? lastKnownClientVelocity.x : 0;
-                double lastClientVY = relativesSet.contains(PositionFlag.Y) ? lastKnownClientVelocity.y : 0;
-                double lastClientVZ = relativesSet.contains(PositionFlag.Z) ? lastKnownClientVelocity.z : 0;
-                lastKnownClientVelocity = new Vec3d(lastClientVX, lastClientVY, lastClientVZ);
+                double lastClientVX = relativesSet.contains(Relative.X) ? lastKnownClientVelocity.x : 0;
+                double lastClientVY = relativesSet.contains(Relative.Y) ? lastKnownClientVelocity.y : 0;
+                double lastClientVZ = relativesSet.contains(Relative.Z) ? lastKnownClientVelocity.z : 0;
+                lastKnownClientVelocity = new Vec3(lastClientVX, lastClientVY, lastClientVZ);
             } else {
                 var relativesSet = eventPositionLook.context.relatives();
-                EntityPosition position = eventPositionLook.context.change();
-                Vec3d deltaMovement = position.deltaMovement();
-                double lastClientVX = relativesSet.contains(PositionFlag.DELTA_X)
+                PositionMoveRotation position = eventPositionLook.context.change();
+                Vec3 deltaMovement = position.deltaMovement();
+                double lastClientVX = relativesSet.contains(Relative.DELTA_X)
                         ? lastKnownClientVelocity.x + deltaMovement.x
                         : deltaMovement.x;
-                double lastClientVY = relativesSet.contains(PositionFlag.DELTA_Y)
+                double lastClientVY = relativesSet.contains(Relative.DELTA_Y)
                         ? lastKnownClientVelocity.y + deltaMovement.y
                         : deltaMovement.y;
-                double lastClientVZ = relativesSet.contains(PositionFlag.DELTA_Z)
+                double lastClientVZ = relativesSet.contains(Relative.DELTA_Z)
                         ? lastKnownClientVelocity.z + deltaMovement.z
                         : deltaMovement.z;
-                lastKnownClientVelocity = new Vec3d(lastClientVX, lastClientVY, lastClientVZ);
+                lastKnownClientVelocity = new Vec3(lastClientVX, lastClientVY, lastClientVZ);
             }
         }
     }
 
-    public void onPostPlayerVelocityUpdate(Event<EntityVelocityUpdateS2CPacket> eventVC) {
+    public void onPostPlayerVelocityUpdate(Event<ClientboundSetEntityMotionPacket> eventVC) {
         if (checkNull()) return;
-        if (eventVC.context.getEntityId() != mc.player.getId()) return;
-        Vec3d velocity = VPacket.getVelocity(eventVC.context);
+        if (eventVC.context.id() != mc.player.getId()) return;
+        Vec3 velocity = VPacket.getVelocity(eventVC.context);
         ACTasks.addPostTransactionAction(s -> lastKnownClientVelocity = velocity);
     }
 
-    public void onPostPlayerExplosion(Event<ExplosionS2CPacket> eventBoom) {
+    public void onPostPlayerExplosion(Event<ClientboundExplodePacket> eventBoom) {
         if (checkNull()) return;
         var exp = eventBoom.context;
         if (exp.playerKnockback().isPresent()) {
-            Vec3d knockBack = exp.playerKnockback().get();
+            Vec3 knockBack = exp.playerKnockback().get();
             ACTasks.addPostTransactionAction(s -> lastKnownClientVelocity = lastKnownClientVelocity.add(knockBack));
         }
     }
 
-    public void onPlayerInput(Event<PlayerInputC2SPacket> eventInput) {
+    public void onPlayerInput(Event<ServerboundPlayerInputPacket> eventInput) {
         if (eventInput.isCancelled()) return;
         if (ViaFabricPlusHooks.isSupportEndTick()) {
             lastInput = PlayerInputUtils.of(eventInput.context);
         }
     }
 
-    public void onPrePlayerSendMovePacket(Event<ClientPlayerEntity> eventPre) {
+    public void onPrePlayerSendMovePacket(Event<LocalPlayer> eventPre) {
         // force resync
         if (isRotationDifferent()) {
             ClientPlayerAccess.of(mc.player).setLastRot(lastPitch, lastYaw);
         }
     }
 
-    public void onPlayerInitialize(Event<ClientPlayerEntity> event) {
+    public void onPlayerInitialize(Event<LocalPlayer> event) {
         onPlayerReset();
     }
 
@@ -316,28 +352,28 @@ public class PlayerStateManager extends BaseModule {
     }
 
     public boolean checkRegionFluid(TagKey<Fluid> tag) {
-        if (mc.player.isRegionUnloaded()) {
+        if (mc.player.touchingUnloadedChunk()) {
             return false;
         } else {
-            Box box = mc.player.getBoundingBox().contract(0.001);
-            int i = MathHelper.floor(box.minX);
-            int j = MathHelper.ceil(box.maxX);
-            int k = MathHelper.floor(box.minY);
-            int l = MathHelper.ceil(box.maxY);
-            int m = MathHelper.floor(box.minZ);
-            int n = MathHelper.ceil(box.maxZ);
+            AABB box = mc.player.getBoundingBox().deflate(0.001);
+            int i = Mth.floor(box.minX);
+            int j = Mth.ceil(box.maxX);
+            int k = Mth.floor(box.minY);
+            int l = Mth.ceil(box.maxY);
+            int m = Mth.floor(box.minZ);
+            int n = Mth.ceil(box.maxZ);
             double d = 0.0;
 
             boolean bl2 = false;
-            BlockPos.Mutable mutable = new BlockPos.Mutable();
+            BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
             find_liquid:
             for (int p = i; p < j; ++p) {
                 for (int q = k; q < l; ++q) {
                     for (int r = m; r < n; ++r) {
                         mutable.set(p, q, r);
-                        FluidState fluidState = mc.world.getFluidState(mutable);
-                        if (fluidState.isIn(tag)) {
-                            double e = (double) ((float) q + fluidState.getHeight(mc.world, mutable));
+                        FluidState fluidState = mc.level.getFluidState(mutable);
+                        if (fluidState.is(tag)) {
+                            double e = (double) ((float) q + fluidState.getHeight(mc.level, mutable));
                             if (e >= box.minY) {
                                 bl2 = true;
                                 break find_liquid;
@@ -352,7 +388,7 @@ public class PlayerStateManager extends BaseModule {
 
     public void handleY(double y, boolean onGround) {
         // handle water
-        if (!mc.player.isTouchingWater()) {
+        if (!mc.player.isInWater()) {
             if ((lastInWater = checkRegionFluid(FluidTags.WATER))) {
                 fallDistance = 0.0;
             }
@@ -360,7 +396,7 @@ public class PlayerStateManager extends BaseModule {
             fallDistance = 0.0;
         }
         if (lastY > y) {
-            if (!mc.player.isTouchingWater()) {
+            if (!mc.player.isInWater()) {
                 fallDistance += lastY - y;
             }
         }
@@ -396,21 +432,21 @@ public class PlayerStateManager extends BaseModule {
         fallDistance = 0.0;
     }
 
-    public void handleMove(Vec3d pos, boolean onGround) {
-        handleY(pos.getY(), onGround);
-        lastY = pos.getY();
-        lastX = pos.getX();
-        lastZ = pos.getZ();
+    public void handleMove(Vec3 pos, boolean onGround) {
+        handleY(pos.y(), onGround);
+        lastY = pos.y();
+        lastX = pos.x();
+        lastZ = pos.z();
         lastOnGround = onGround;
     }
 
-    public void handleInWeb(Event<Vec3d> vec3dEvent) {
+    public void handleInWeb(Event<Vec3> vec3dEvent) {
         fallDistance = 0.0;
         lastInWeb = true;
         inWeb = true;
     }
 
-    public void handleInFluid(Event<Vec3d> vec3dEvent) {
+    public void handleInFluid(Event<Vec3> vec3dEvent) {
         TagKey<Fluid> fluidTag = vec3dEvent.getArgs(0);
         if (Objects.equals(FluidTags.WATER, fluidTag)) {
             realInWater = true;
@@ -422,17 +458,17 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onPreGameTick(Event<ClientPlayerEntity> event) {
+    public void onPreGameTick(Event<LocalPlayer> event) {
         handleTick();
     }
 
     private BlockPos calculateVelocityAffectingPos() {
-        BlockPos pos = mc.player.getVelocityAffectingPos();
-        BlockState state = mc.world.getBlockState(pos);
-        if (!state.isAir() && !state.isLiquid()) {
+        BlockPos pos = mc.player.getBlockPosBelowThatAffectsMyMovement();
+        BlockState state = mc.level.getBlockState(pos);
+        if (!state.isAir() && !state.liquid()) {
             return pos;
         }
-        Box box = mc.player.getBoundingBox();
+        AABB box = mc.player.getBoundingBox();
         int minX = (int) Math.floor(box.minX);
         int maxX = (int) Math.floor(box.maxX - 1e-7); // 避免边界溢出，实际遍历时用 <= 处理
         int minZ = (int) Math.floor(box.minZ);
@@ -443,8 +479,8 @@ public class PlayerStateManager extends BaseModule {
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 BlockPos candidate = new BlockPos(x, y, z);
-                BlockState candidateState = mc.world.getBlockState(candidate);
-                if (!candidateState.isAir() && !candidateState.isLiquid()) {
+                BlockState candidateState = mc.level.getBlockState(candidate);
+                if (!candidateState.isAir() && !candidateState.liquid()) {
                     hasBlock = true;
                     break search;
                 }
@@ -453,8 +489,8 @@ public class PlayerStateManager extends BaseModule {
         if (!hasBlock) {
             return pos;
         }
-        Box velocityTest = box.offset(0, 0.500001F, 0);
-        List<BlockPos> blockPoses = CollisionUtil.getIntersectingBlockPositions(mc.world, velocityTest, false);
+        AABB velocityTest = box.move(0, 0.500001F, 0);
+        List<BlockPos> blockPoses = CollisionUtil.getIntersectingBlockPositions(mc.level, velocityTest, false);
         for (var re : blockPoses) {
             if (pos.getY() == re.getY()) {
                 return re;
@@ -464,8 +500,8 @@ public class PlayerStateManager extends BaseModule {
     }
 
     private Stream<ItemStack> streamInvContent(ItemStack stack) {
-        var cp = stack.get(DataComponentTypes.CONTAINER);
-        return cp == null ? Stream.empty() : cp.stream();
+        var cp = stack.get(DataComponents.CONTAINER);
+        return cp == null ? Stream.empty() : cp.nonEmptyItemCopyStream();
     }
 
     private Stream<ItemStack> streamItems(ItemStack stack) {
@@ -478,27 +514,27 @@ public class PlayerStateManager extends BaseModule {
         // base flag ticks;
         lastInLava = mc.player.isInLava();
         lastInWater = checkRegionFluid(FluidTags.WATER);
-        lastClimbing = mc.player.isClimbing();
+        lastClimbing = mc.player.onClimbable();
         lastInWeb = inWeb;
         inWeb = false;
         lastWaterPush = realInWater;
         realInWater = false;
         // fix error fluid state caused by reverting
-        if (!lastInWater && mc.player.isTouchingWater()) {
-            mc.player.touchingWater = false;
+        if (!lastInWater && mc.player.isInWater()) {
+            mc.player.wasTouchingWater = false;
         }
         lastLavaPush = realInLava;
         realInLava = false;
         lastInWall = MovTasks.isCollidingWithEnvironment(mc.player);
-        Box box = mc.player.getBoundingBox();
+        AABB box = mc.player.getBoundingBox();
         lastUnderBlock = MovTasks.isCollidingWithEnvironment(
-                mc.player, box.withMinY(box.maxY).withMaxY(box.maxY + 0.42));
+                mc.player, box.setMinY(box.maxY).setMaxY(box.maxY + 0.42));
         lastHasGroundSupport = CollisionUtil.isEntitySupported(mc.player, 1E-3);
         lastVelocityAffectingPos = calculateVelocityAffectingPos();
         if (++cooldownInvSummary > 10 || inventorySummary == null || inventoryTotalSummary == null) {
             cooldownInvSummary = 0;
             LinkedHashMap<ItemStackSample, Integer> map0 = new LinkedHashMap<>();
-            mc.player.getInventory().getMainStacks().stream()
+            mc.player.getInventory().getNonEquipmentItems().stream()
                     .filter(v -> !v.isEmpty())
                     .forEach(s -> map0.merge(ItemStackSample.of(s), s.getCount(), Integer::sum));
             inventorySummary = map0;
@@ -513,14 +549,14 @@ public class PlayerStateManager extends BaseModule {
             inventoryTotalSummary = map1;
         }
         // push vec3d
-        Vec3d nowPos = new Vec3d(lastX, lastY, lastZ);
+        Vec3 nowPos = new Vec3(lastX, lastY, lastZ);
         last40Positions.addLast(nowPos);
-        Vec3d last1MinPos = null;
+        Vec3 last1MinPos = null;
         while (last40Positions.size() > MAX_SIZE) {
             last1MinPos = last40Positions.removeFirst();
         }
         if (last1MinPos != null) {
-            lastAverageMovementSpeed = nowPos.subtract(last1MinPos).multiply(1D / MAX_SIZE);
+            lastAverageMovementSpeed = nowPos.subtract(last1MinPos).scale(1D / MAX_SIZE);
         }
 
         // falldistance tick
@@ -530,11 +566,11 @@ public class PlayerStateManager extends BaseModule {
         if (lastInWater) {
             fallDistance = 0.0;
         }
-        if (mc.player.hasVehicle()) {
+        if (mc.player.isPassenger()) {
             fallDistance = 0.0;
         }
-        if (mc.player.hasStatusEffect(StatusEffects.SLOW_FALLING)
-                || mc.player.hasStatusEffect(StatusEffects.LEVITATION)) {
+        if (mc.player.hasEffect(MobEffects.SLOW_FALLING)
+                || mc.player.hasEffect(MobEffects.LEVITATION)) {
             fallDistance = 0.0;
         }
         if (lastClimbing) {
@@ -547,26 +583,26 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onEntityAttackEvent(Event<EntityDamageS2CPacket> eventS2C) {
+    public void onEntityAttackEvent(Event<ClientboundDamageEventPacket> eventS2C) {
         if (mc.player != null && eventS2C.context.sourceCauseId() == mc.player.getId()) {
             // me attack them
-            var source = eventS2C.context.sourceType().getKey().orElse(null);
+            var source = eventS2C.context.sourceType().unwrapKey().orElse(null);
             if (DamageUtils.isType(source, "mace_smash")) {
                 // we trigger a mace smash
                 handleMaceSmash();
             }
         }
         if (mc.player != null && eventS2C.context.entityId() == mc.player.getId()) {
-            var source = eventS2C.context.sourceType().getKey().orElse(null);
+            var source = eventS2C.context.sourceType().unwrapKey().orElse(null);
             if (DamageUtils.isType(source, "ender_pearl")) {
                 handlePearlTeleport();
             }
         }
     }
 
-    public void onPlayerCommand(Event<ClientCommandC2SPacket> event) {
+    public void onPlayerCommand(Event<ServerboundPlayerCommandPacket> event) {
         if (event.isCancelled()) return;
-        switch (event.context.getMode()) {
+        switch (event.context.getAction()) {
             case START_SPRINTING -> {
                 lastSprint = true;
             }
@@ -576,13 +612,13 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onSwingHand(Event<HandSwingC2SPacket> event) {
+    public void onSwingHand(Event<ServerboundSwingPacket> event) {
         lastAttackStrengthResetTick = Tasks.getTick();
     }
 
-    public void onAttack(Event<PlayerInteractEntityC2SPacket> event) {
-        if (PlayerInteractEntityC2SPacketAccess.of(event.context).isAttack()
-                && mc.world.getEntityById(event.context.entityId) instanceof LivingEntity living) {
+    public void onAttack(Event<ServerboundAttackPacket> event) {
+        // 26.2: 攻击语义由 ServerboundAttackPacket 承载
+        if (mc.level.getEntity(event.context.entityId()) instanceof LivingEntity living) {
             lastAttackStrengthResetTick = Tasks.getTick();
         }
     }
@@ -597,15 +633,15 @@ public class PlayerStateManager extends BaseModule {
         cooldownInvSummary = 100;
     }
 
-    public void onInventoryUpdate(Event<InventoryS2CPacket> event) {
+    public void onInventoryUpdate(Event<ClientboundContainerSetContentPacket> event) {
         cooldownInvSummary = 100;
     }
 
-    public void onInventorySlotUpdate(Event<ScreenHandlerSlotUpdateS2CPacket> event) {
+    public void onInventorySlotUpdate(Event<ClientboundContainerSetSlotPacket> event) {
         cooldownInvSummary = 100;
     }
 
-    public void onInventoryClose(Event<CloseHandledScreenC2SPacket> event) {
+    public void onInventoryClose(Event<ServerboundContainerClosePacket> event) {
         cooldownInvSummary = 100;
     }
 
@@ -616,12 +652,12 @@ public class PlayerStateManager extends BaseModule {
     public void onPlayerReset() {
         startFallingY = Double.MIN_VALUE;
         fallDistance = 0;
-        lastKnownMovementSpeed = new Vec3d(0, 0, 0);
-        lastAverageMovementSpeed = new Vec3d(0, 0, 0);
-        lastSetBackPosition = new Vec3d(0, 0, 0);
+        lastKnownMovementSpeed = new Vec3(0, 0, 0);
+        lastAverageMovementSpeed = new Vec3(0, 0, 0);
+        lastSetBackPosition = new Vec3(0, 0, 0);
         last40Positions.clear();
         for (int i = 0; i < MAX_SIZE; ++i) {
-            last40Positions.add(Vec3d.ZERO);
+            last40Positions.add(Vec3.ZERO);
         }
         lastX = 0.0D;
         lastY = 0.0D;
@@ -632,16 +668,16 @@ public class PlayerStateManager extends BaseModule {
         lastYaw = 0.0F;
         lastSprint = false;
         lastInput = PlayerInputUtils.EMPTY.clone();
-        lastVelocityAffectingPos = BlockPos.ORIGIN;
+        lastVelocityAffectingPos = BlockPos.ZERO;
         inventoryTotalSummary = null;
         inventorySummary = null;
         glidingTicks = 0;
     }
 
-    public void onTickEnd(Event<ClientTickEndC2SPacket> tickEndPacket) {
+    public void onTickEnd(Event<ServerboundClientTickEndPacket> tickEndPacket) {
         if (tickEndPacket.isCancelled()) return;
         if (!lastTickHasMovement) {
-            lastKnownMovementSpeed = Vec3d.ZERO;
+            lastKnownMovementSpeed = Vec3.ZERO;
             lastMovementContainsPosition = false;
         } else {
             lastKnownChangePosMovementSpeed = lastKnownMovementSpeed;
@@ -651,39 +687,39 @@ public class PlayerStateManager extends BaseModule {
 
     // api methods
 
-    public Vec3d getLastPosition() {
-        return new Vec3d(lastX, lastY, lastZ);
+    public Vec3 getLastPosition() {
+        return new Vec3(lastX, lastY, lastZ);
     }
 
     public boolean isRotationDifferent() {
-        return EntityUtils.isRotationDifferent(lastPitch, mc.player.getPitch(), lastYaw, mc.player.getYaw());
+        return EntityUtils.isRotationDifferent(lastPitch, mc.player.getXRot(), lastYaw, mc.player.getYRot());
     }
 
     public boolean isRotationDifferent(float pitch, float yaw) {
         return EntityUtils.isRotationDifferent(lastPitch, pitch, lastYaw, yaw);
     }
 
-    public Vec3d getLastRotationVector() {
+    public Vec3 getLastRotationVector() {
         return EntityUtils.pitchYawToRotation(lastPitch, lastYaw);
     }
 
-    public void restoreLastRotation(PlayerEntity player) {
-        if (isRotationDifferent(player.getPitch(), player.getYaw())) {
-            mc.player.setPitch(lastPitch);
-            mc.player.setYaw(lastYaw);
+    public void restoreLastRotation(Player player) {
+        if (isRotationDifferent(player.getXRot(), player.getYRot())) {
+            mc.player.setXRot(lastPitch);
+            mc.player.setYRot(lastYaw);
         }
     }
 
-    public static void setPlayerYawSafe(PlayerEntity player, float yaw) {
+    public static void setPlayerYawSafe(Player player, float yaw) {
         float newYaw = EntityUtils.getSafeYaw(INSTANCE.lastYaw, yaw);
-        player.setYaw(newYaw);
+        player.setYRot(newYaw);
     }
 
-    public static void setPlayerYawSafe(PlayerEntity entity, Vec2f vec2f) {
+    public static void setPlayerYawSafe(Player entity, Vec2 vec2f) {
         setPlayerYawSafe(entity, (float) Math.toDegrees(Math.atan2(-vec2f.x, vec2f.y)));
     }
 
-    public static void setPlayerRotationSafe(PlayerEntity entity, Vec3d vec) {
+    public static void setPlayerRotationSafe(Player entity, Vec3 vec) {
         vec = vec.normalize();
         EntityUtils.setEntityPitchSafe(entity, (float) Math.toDegrees(Math.asin(-vec.y)));
 
@@ -694,11 +730,11 @@ public class PlayerStateManager extends BaseModule {
     public void sendSprintStatus(boolean sprint) {
         if (sprint != lastSprint) {
             if (sprint) {
-                mc.getNetworkHandler()
-                        .sendPacket(new ClientCommandC2SPacket(mc.player, ClientCommandC2SPacket.Mode.START_SPRINTING));
+                mc.getConnection()
+                        .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.START_SPRINTING));
             } else {
-                mc.getNetworkHandler()
-                        .sendPacket(new ClientCommandC2SPacket(mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
+                mc.getConnection()
+                        .send(new ServerboundPlayerCommandPacket(mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
             }
             ClientPlayerAccess.of(mc.player).setLastSprintFlag(sprint);
         }
@@ -709,19 +745,19 @@ public class PlayerStateManager extends BaseModule {
     public static final EquipmentSlot[] ARMOR =
             new EquipmentSlot[] {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
-    private PlayerStatus getOrCreateStatus(PlayerEntity pl) {
+    private PlayerStatus getOrCreateStatus(Player pl) {
         MetaData data = ((MetadataHolder) pl).getMetadata();
         return data.getOrPut(this, KEY_RENDER_CONTROL, PlayerStatus::new);
     }
 
-    private PlayerStatus getPlayerStatus0(PlayerEntity entity) {
+    private PlayerStatus getPlayerStatus0(Player entity) {
         if (entity instanceof MetadataHolder holder && !holder.isMetaEmpty()) {
             return holder.getMetadata().get(this, KEY_RENDER_CONTROL);
         }
         return null;
     }
 
-    public PlayerStatus getPlayerStatus(PlayerEntity entity) {
+    public PlayerStatus getPlayerStatus(Player entity) {
         var re = getPlayerStatus0(entity);
         if (re != null && re.lastUpdate < Tasks.getTick() - 10) {
             re = null;
@@ -731,13 +767,13 @@ public class PlayerStateManager extends BaseModule {
 
     private final Map<UUID, Integer> popMap = new ConcurrentHashMap<>();
 
-    public int getPlayerPopCount(PlayerEntity entity) {
-        var re = popMap.get(entity.getUuid());
+    public int getPlayerPopCount(Player entity) {
+        var re = popMap.get(entity.getUUID());
         return re == null ? 0 : re;
     }
 
-    public void updateOtherPlayers(Event<ClientPlayerEntity> eventUpdate) {
-        for (var player : mc.world.getPlayers()) {
+    public void updateOtherPlayers(Event<LocalPlayer> eventUpdate) {
+        for (var player : mc.level.players()) {
             if (player instanceof MetadataHolder metadataHolder) {
                 PlayerStatus status = getOrCreateStatus(player);
                 status.tickUpdate(player);
@@ -745,35 +781,35 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onTotemPop(Event<EntityStatusS2CPacket> event) {
+    public void onTotemPop(Event<ClientboundEntityEventPacket> event) {
         if (checkNull()) return;
-        EntityStatusS2CPacket packet = event.context;
-        if (packet.getEntity(mc.world) instanceof PlayerEntity player) {
-            if (packet.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING) {
-                UUID uid = player.getUuid();
+        ClientboundEntityEventPacket packet = event.context;
+        if (packet.getEntity(mc.level) instanceof Player player) {
+            if (packet.getEventId() == EntityEvent.PROTECTED_FROM_DEATH) {
+                UUID uid = player.getUUID();
                 int val = popMap.merge(uid, 1, Integer::sum);
                 CombatListener.getPlayerPopTotem().broadcast(new CombatPlayer(player, val));
             }
-            if (packet.getStatus() == EntityStatuses.PLAY_DEATH_SOUND_OR_ADD_PROJECTILE_HIT_PARTICLES) {
+            if (packet.getEventId() == EntityEvent.DEATH) {
                 onDeath(player);
             }
         }
     }
 
-    private void onDeath(PlayerEntity entity) {
-        Integer popCount = popMap.remove(entity.getUuid());
+    private void onDeath(Player entity) {
+        Integer popCount = popMap.remove(entity.getUUID());
         CombatListener.getPlayerDeathInfo().broadcast(new CombatPlayer(entity, popCount == null ? 0 : popCount));
     }
 
-    public void onRespawn(Event<PlayerRespawnS2CPacket> eventRespawn) {
+    public void onRespawn(Event<ClientboundRespawnPacket> eventRespawn) {
         if (checkNull()) return;
-        if (eventRespawn.context.flag() < 3 && mc.player.getHealth() <= 0) {
+        if (eventRespawn.context.dataToKeep() < 3 && mc.player.getHealth() <= 0) {
             onDeath(mc.player);
         }
     }
 
     public void onOtherPlayerRemoveDeath(Event<Entity> eventRemoval) {
-        if (eventRemoval.context instanceof PlayerEntity pl && pl != mc.player) {
+        if (eventRemoval.context instanceof Player pl && pl != mc.player) {
             CombatListener.getPlayerLeaveVisualRange().broadcast(new CombatPlayer(pl, getPlayerPopCount(pl)));
             if (pl.getHealth() <= 0) {
                 onDeath(pl);
@@ -781,13 +817,13 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onPlayerEnterVisualRange(Event<EntitySpawnS2CPacket> event) {
-        if (event.context.getEntityType() == EntityType.PLAYER) {
-            UUID uid = event.context.getUuid();
+    public void onPlayerEnterVisualRange(Event<ClientboundAddEntityPacket> event) {
+        if (event.context.getType() == EntityTypes.PLAYER) {
+            UUID uid = event.context.getUUID();
             Tasks.scheduleDelayedPre(
                     () -> {
-                        Entity player = mc.world.getEntityLookup().get(uid);
-                        if (player instanceof PlayerEntity pl) {
+                        Entity player = mc.level.getEntities().get(uid);
+                        if (player instanceof Player pl) {
                             CombatListener.getPlayerEnterVisualRange()
                                     .broadcast(new CombatPlayer(pl, getPlayerPopCount(pl)));
                         }
@@ -801,31 +837,31 @@ public class PlayerStateManager extends BaseModule {
         onPlayerReset();
     }
 
-    public void onPlayerLeave(Event<PlayerListEntry> eventRemove) {
+    public void onPlayerLeave(Event<PlayerInfo> eventRemove) {
         popMap.remove(VRecord.getId(eventRemove.context.getProfile()));
     }
 
-    private static final Int2ObjectOpenHashMap<RegistryEntry<StatusEffect>> colorToRegistry =
+    private static final Int2ObjectOpenHashMap<Holder<MobEffect>> colorToRegistry =
             new Int2ObjectOpenHashMap<>();
 
     static {
-        for (var re : Registries.STATUS_EFFECT) {
-            var entry = Registries.STATUS_EFFECT.getEntry(re);
+        for (var re : BuiltInRegistries.MOB_EFFECT) {
+            var entry = BuiltInRegistries.MOB_EFFECT.wrapAsHolder(re);
             var color = re.getColor();
             colorToRegistry.put(color, entry);
         }
     }
 
-    public void onEntityTrackedDataUpdate(Event<DataTracker.SerializedEntry<?>> eventDataUpdate) {
-        if (eventDataUpdate.getArgs(0) instanceof PlayerEntity pl) {
+    public void onEntityTrackedDataUpdate(Event<SynchedEntityData.DataValue<?>> eventDataUpdate) {
+        if (eventDataUpdate.getArgs(0) instanceof Player pl) {
             if (eventDataUpdate.context.id() == VDataFlag.ID_POTION_SWIRLS
                     && eventDataUpdate.context.value() instanceof List<?> lst) {
                 // update visible effect list
-                List<ParticleEffect> particles = (List<ParticleEffect>) lst;
+                List<ParticleOptions> particles = (List<ParticleOptions>) lst;
                 PlayerStatus status = getOrCreateStatus(pl);
-                Set<RegistryEntry<StatusEffect>> keys = new HashSet<>(status.visibleStatusEffects.keySet());
+                Set<Holder<MobEffect>> keys = new HashSet<>(status.visibleStatusEffects.keySet());
                 for (var ptc : particles) {
-                    if (ptc instanceof TintedParticleEffect tinted) {
+                    if (ptc instanceof ColorParticleOption tinted) {
                         int colorValue = ColorUtils.withAlphaInt(tinted.color, 0);
                         var effect = colorToRegistry.get(colorValue);
                         if (effect != null) {
@@ -849,34 +885,34 @@ public class PlayerStateManager extends BaseModule {
                 if (!useItem && pl.isUsingItem()) {
                     // cancel use metadata
                     ItemStack lastUsing = status.lastUsing;
-                    Hand lastHand = status.lastUsingHand;
+                    InteractionHand lastHand = status.lastUsingHand;
                     if (lastUsing != null && lastHand != null && !lastUsing.isEmpty()) {
                         Tasks.scheduleDelayed(
                                 () -> {
-                                    ItemStack handItem = pl.getStackInHand(lastHand);
+                                    ItemStack handItem = pl.getItemInHand(lastHand);
                                     if ((lastUsing.getCount() > 1
-                                                    && ItemStack.areItemsAndComponentsEqual(lastUsing, handItem))
+                                                    && ItemStack.isSameItemSameComponents(lastUsing, handItem))
                                             || (lastUsing.getCount() <= 1
                                                     && handItem.getItem() != lastUsing.getItem())) {
                                         // mark as consuming
                                         ItemStack consumedUsing = lastUsing;
-                                        ConsumableComponent componentEat =
-                                                consumedUsing.get(DataComponentTypes.CONSUMABLE);
+                                        Consumable componentEat =
+                                                consumedUsing.get(DataComponents.CONSUMABLE);
                                         if (componentEat != null) {
                                             consumedUsing
-                                                    .streamAll(Consumable.class)
+                                                    .getAllOfType(ConsumableListener.class)
                                                     .forEach(s -> {
-                                                        if (s instanceof PotionContentsComponent foodComponent) {
+                                                        if (s instanceof PotionContents foodComponent) {
                                                             float scale = (Float) consumedUsing.getOrDefault(
-                                                                    DataComponentTypes.POTION_DURATION_SCALE, 1.0F);
+                                                                    DataComponents.POTION_DURATION_SCALE, 1.0F);
                                                             foodComponent.forEachEffect(
                                                                     (instance) -> {
-                                                                        if (!(instance.getEffectType()
+                                                                        if (!(instance.getEffect()
                                                                                         .value())
-                                                                                .isInstant()) {
+                                                                                .isInstantaneous()) {
                                                                             status.visibleStatusEffects
                                                                                     .computeIfAbsent(
-                                                                                            instance.getEffectType(),
+                                                                                            instance.getEffect(),
                                                                                             EffectTracker::new)
                                                                                     .refresh(instance);
                                                                         }
@@ -887,14 +923,14 @@ public class PlayerStateManager extends BaseModule {
                                                     });
                                             if (!componentEat.onConsumeEffects().isEmpty()) {
                                                 for (var effect : componentEat.onConsumeEffects()) {
-                                                    if (effect instanceof ApplyEffectsConsumeEffect apply) {
+                                                    if (effect instanceof ApplyStatusEffectsConsumeEffect apply) {
                                                         apply.effects().forEach(s -> status.visibleStatusEffects
-                                                                .computeIfAbsent(s.getEffectType(), EffectTracker::new)
+                                                                .computeIfAbsent(s.getEffect(), EffectTracker::new)
                                                                 .refresh(s));
-                                                    } else if (effect instanceof ClearAllEffectsConsumeEffect clear) {
+                                                    } else if (effect instanceof ClearAllStatusEffectsConsumeEffect clear) {
                                                         // it will be cleared by tracked data update
                                                         // status.visibleStatusEffects.clear();
-                                                    } else if (effect instanceof RemoveEffectsConsumeEffect remove) {
+                                                    } else if (effect instanceof RemoveStatusEffectsConsumeEffect remove) {
                                                         // it will be cleared by tracked data update
                                                     }
                                                 }
@@ -909,34 +945,34 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onEntityEffect(Event<EntityStatusEffectS2CPacket> event) {
+    public void onEntityEffect(Event<ClientboundUpdateMobEffectPacket> event) {
         if (checkNull()) return;
-        if (mc.world.getEntityById(event.context.getEntityId()) instanceof PlayerEntity pl) {
+        if (mc.level.getEntity(event.context.getEntityId()) instanceof Player pl) {
             PlayerStatus status = getOrCreateStatus(pl);
-            for (var re : pl.getStatusEffects()) {
+            for (var re : pl.getActiveEffects()) {
                 status.visibleStatusEffects
-                        .computeIfAbsent(re.getEffectType(), EffectTracker::new)
+                        .computeIfAbsent(re.getEffect(), EffectTracker::new)
                         .refresh(re);
             }
         }
     }
 
-    private static final List<StatusEffectInstance> TOTEM_EFFECTS = List.of(
-            new StatusEffectInstance(StatusEffects.REGENERATION, 900, 1),
-            new StatusEffectInstance(StatusEffects.ABSORPTION, 100, 1),
-            new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 800, 0));
+    private static final List<MobEffectInstance> TOTEM_EFFECTS = List.of(
+            new MobEffectInstance(MobEffects.REGENERATION, 900, 1),
+            new MobEffectInstance(MobEffects.ABSORPTION, 100, 1),
+            new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
 
-    public void onEntityConsume(Event<EntityStatusS2CPacket> eventEntityStatusS2CPacket) {
+    public void onEntityConsume(Event<ClientboundEntityEventPacket> eventEntityStatusS2CPacket) {
         if (checkNull()) return;
-        EntityStatusS2CPacket packet = eventEntityStatusS2CPacket.context;
-        if (packet.getEntity(mc.world) instanceof PlayerEntity player) {
+        ClientboundEntityEventPacket packet = eventEntityStatusS2CPacket.context;
+        if (packet.getEntity(mc.level) instanceof Player player) {
             // shimt
-            if (packet.getStatus() == EntityStatuses.USE_TOTEM_OF_UNDYING) {
+            if (packet.getEventId() == EntityEvent.PROTECTED_FROM_DEATH) {
                 // experience
                 PlayerStatus status = getOrCreateStatus(player);
                 for (var effect : TOTEM_EFFECTS) {
                     status.visibleStatusEffects
-                            .computeIfAbsent(effect.getEffectType(), EffectTracker::new)
+                            .computeIfAbsent(effect.getEffect(), EffectTracker::new)
                             .refresh(effect);
                 }
             }
@@ -944,54 +980,54 @@ public class PlayerStateManager extends BaseModule {
     }
 
     public static float getToleranceMargin(Entity entity) {
-        return Math.max(0.0F, Math.min(0.3F, (float) (entity.age - 2) / 20.0F));
+        return Math.max(0.0F, Math.min(0.3F, (float) (entity.tickCount - 2) / 20.0F));
     }
 
-    public void onSplashedPotionHit(Event<PotionEntity> eventPotionEntity) {
+    public void onSplashedPotionHit(Event<AbstractThrownPotion> eventPotionEntity) {
         if (checkNull()) return;
         Entity.RemovalReason reason = eventPotionEntity.getArgs(0);
         if (reason.shouldDestroy()) {
-            PotionEntity potionEntity = eventPotionEntity.context;
-            ItemStack stack = potionEntity.getStack();
+            AbstractThrownPotion potionEntity = eventPotionEntity.context;
+            ItemStack stack = potionEntity.getItem();
             if (stack.isEmpty()) return;
-            PotionContentsComponent potionContentsComponent = stack.get(DataComponentTypes.POTION_CONTENTS);
+            PotionContents potionContentsComponent = stack.get(DataComponents.POTION_CONTENTS);
             if (potionContentsComponent == null
-                    || Objects.equals(potionContentsComponent, PotionContentsComponent.DEFAULT)) {
+                    || Objects.equals(potionContentsComponent, PotionContents.EMPTY)) {
                 return;
             }
-            float durationScale = stack.getOrDefault(DataComponentTypes.POTION_DURATION_SCALE, 1.0f);
-            Box boundingBox = potionEntity.getBoundingBox();
-            boundingBox = boundingBox.expand(4, 2, 4);
-            List<PlayerEntity> players = mc.world.getNonSpectatingEntities(PlayerEntity.class, boundingBox);
+            float durationScale = stack.getOrDefault(DataComponents.POTION_DURATION_SCALE, 1.0f);
+            AABB boundingBox = potionEntity.getBoundingBox();
+            boundingBox = boundingBox.inflate(4, 2, 4);
+            List<Player> players = mc.level.getEntitiesOfClass(Player.class, boundingBox);
             if (!players.isEmpty()) {
                 float g = getToleranceMargin(potionEntity);
-                for (PlayerEntity player : players) {
-                    if (player.isDead()) continue;
+                for (Player player : players) {
+                    if (player.isDeadOrDying()) continue;
                     double distanceSq = MathUtils.squaredMagnitude(
-                            boundingBox, player.getBoundingBox().expand(g));
+                            boundingBox, player.getBoundingBox().inflate(g));
                     if (distanceSq >= 16.0) continue;
                     double actualDistance = Math.sqrt(distanceSq);
                     double attenuation = 1.0 - actualDistance / 4.0;
-                    for (StatusEffectInstance effectInstance : potionContentsComponent.getEffects()) {
-                        RegistryEntry<StatusEffect> effectType = effectInstance.getEffectType();
-                        StatusEffect effect = effectType.value();
+                    for (MobEffectInstance effectInstance : potionContentsComponent.getAllEffects()) {
+                        Holder<MobEffect> effectType = effectInstance.getEffect();
+                        MobEffect effect = effectType.value();
 
-                        if (!effect.isInstant()) {
+                        if (!effect.isInstantaneous()) {
                             // 持续效果：持续时间随衰减因子和 durationScale 缩放
                             int originalDuration = effectInstance.getDuration(); // 假设有此方法，原代码通过 mapDuration 获取
                             int newDuration = (int) (attenuation * originalDuration * durationScale + 0.5);
                             // 避免施加过短的效果（小于 1 秒）
                             if (newDuration < 20) continue;
 
-                            StatusEffectInstance newInstance = new StatusEffectInstance(
+                            MobEffectInstance newInstance = new MobEffectInstance(
                                     effectType,
                                     newDuration,
                                     effectInstance.getAmplifier(),
                                     effectInstance.isAmbient(),
-                                    effectInstance.shouldShowParticles());
+                                    effectInstance.isVisible());
                             getOrCreateStatus(player)
                                     .visibleStatusEffects
-                                    .computeIfAbsent(newInstance.getEffectType(), EffectTracker::new)
+                                    .computeIfAbsent(newInstance.getEffect(), EffectTracker::new)
                                     .refresh(newInstance);
                         }
                     }
@@ -1003,28 +1039,28 @@ public class PlayerStateManager extends BaseModule {
     private static final String AREA_EFFECT_CLOUD_POTION_CONTENT =
             "slimefunhelper:player_manager/tracking_linger_potion_type";
 
-    public void onLingerPotionHit(Event<PotionEntity> eventLinger) {
+    public void onLingerPotionHit(Event<AbstractThrownPotion> eventLinger) {
         if (checkNull()) return;
         Entity.RemovalReason reason = eventLinger.getArgs(0);
         if (reason.shouldDestroy()) {
-            PotionEntity potionEntity = eventLinger.context;
-            ItemStack stack = potionEntity.getStack();
+            AbstractThrownPotion potionEntity = eventLinger.context;
+            ItemStack stack = potionEntity.getItem();
             if (stack.isEmpty()) return;
-            PotionContentsComponent potionContentsComponent = stack.get(DataComponentTypes.POTION_CONTENTS);
+            PotionContents potionContentsComponent = stack.get(DataComponents.POTION_CONTENTS);
             if (potionContentsComponent == null
-                    || Objects.equals(potionContentsComponent, PotionContentsComponent.DEFAULT)) {
+                    || Objects.equals(potionContentsComponent, PotionContents.EMPTY)) {
                 return;
             }
-            float durationScale = stack.getOrDefault(DataComponentTypes.POTION_DURATION_SCALE, 1.0f);
-            Vec3d pos = potionEntity.getPos();
+            float durationScale = stack.getOrDefault(DataComponents.POTION_DURATION_SCALE, 1.0f);
+            Vec3 pos = potionEntity.position();
             int startTick = Tasks.getTick();
-            Box detectBox = new Box(pos.add(-0.2, -0.2, -0.2), pos.add(0.2, 0.2, 0.2));
+            AABB detectBox = new AABB(pos.add(-0.2, -0.2, -0.2), pos.add(0.2, 0.2, 0.2));
             Tasks.scheduleRepeated(
                     () -> {
                         if (checkNull()) return true;
                         if (Tasks.getTick() > startTick + 20) return true;
-                        List<AreaEffectCloudEntity> near =
-                                mc.world.getNonSpectatingEntities(AreaEffectCloudEntity.class, detectBox);
+                        List<AreaEffectCloud> near =
+                                mc.level.getEntitiesOfClass(AreaEffectCloud.class, detectBox);
                         if (near.isEmpty()) return false;
                         for (var en : near) {
                             if (en instanceof MetadataHolder holder) {
@@ -1042,7 +1078,7 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onAreaEffectCloudTick(Event<AreaEffectCloudEntity> eventCloud) {
+    public void onAreaEffectCloudTick(Event<AreaEffectCloud> eventCloud) {
         if (checkNull()) return;
         if (Tasks.getTick() % 5 != 0) return;
         var cloud = eventCloud.context;
@@ -1053,33 +1089,33 @@ public class PlayerStateManager extends BaseModule {
     /**
      * 核心更新逻辑（每 5 刻执行一次）
      */
-    private void performCloudUpdate(AreaEffectCloudEntity cloud, float currentRadius) {
+    private void performCloudUpdate(AreaEffectCloud cloud, float currentRadius) {
         // 1. 清理过期记录（reapplicationDelay 默认 20 刻）
         // 无药水效果则跳过
         if (cloud instanceof MetadataHolder holder && !holder.isMetaEmpty()) {
             MetaData data = holder.getMetadata();
-            Pair<PotionContentsComponent, Float> pairData = data.get(this, AREA_EFFECT_CLOUD_POTION_CONTENT);
+            Pair<PotionContents, Float> pairData = data.get(this, AREA_EFFECT_CLOUD_POTION_CONTENT);
             if (pairData != null) {
-                List<PlayerEntity> targets =
-                        mc.world.getNonSpectatingEntities(PlayerEntity.class, cloud.getBoundingBox());
+                List<Player> targets =
+                        mc.level.getEntitiesOfClass(Player.class, cloud.getBoundingBox());
                 if (targets.isEmpty()) return;
-                List<StatusEffectInstance> effectList = new ArrayList<>();
+                List<MobEffectInstance> effectList = new ArrayList<>();
                 pairData.getFirst().forEachEffect(effectList::add, pairData.getSecond());
-                for (PlayerEntity target : targets) {
+                for (Player target : targets) {
                     // 冷却检查
-                    if (target.isDead()) continue;
+                    if (target.isDeadOrDying()) continue;
                     // 水平距离检查
                     double dx = target.getX() - cloud.getX();
                     double dz = target.getZ() - cloud.getZ();
                     if (dx * dx + dz * dz > currentRadius * currentRadius) continue;
 
                     // 施加每个效果
-                    for (StatusEffectInstance effect : effectList) {
-                        StatusEffect statusEffect = effect.getEffectType().value();
-                        if (!statusEffect.isInstant()) {
+                    for (MobEffectInstance effect : effectList) {
+                        MobEffect statusEffect = effect.getEffect().value();
+                        if (!statusEffect.isInstantaneous()) {
                             getOrCreateStatus(target)
                                     .visibleStatusEffects
-                                    .computeIfAbsent(effect.getEffectType(), EffectTracker::new)
+                                    .computeIfAbsent(effect.getEffect(), EffectTracker::new)
                                     .refresh(effect);
                         }
                     }
@@ -1088,10 +1124,10 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    private void onEntityEquipmentUpdate(Event<EntityEquipmentUpdateS2CPacket> eventUpdate) {
+    private void onEntityEquipmentUpdate(Event<ClientboundSetEquipmentPacket> eventUpdate) {
         if (checkNull()) return;
-        if (mc.world.getEntityById(eventUpdate.context.getEntityId()) instanceof PlayerEntity pl) {
-            for (var re : eventUpdate.context.getEquipmentList()) {
+        if (mc.level.getEntity(eventUpdate.context.getEntity()) instanceof Player pl) {
+            for (var re : eventUpdate.context.getSlots()) {
                 if (!re.getSecond().isEmpty()) {
                     // shit we should remove damage difference
                     ItemStack cleanItem = ItemStackUtils.getCleanedItem(re.getSecond(), 1, true, false, true);
@@ -1104,29 +1140,29 @@ public class PlayerStateManager extends BaseModule {
     public static class PlayerStatus {
 
         public int lastUpdate;
-        public AttributeContainer attributeSnapShot = null;
+        public AttributeMap attributeSnapShot = null;
         // public int popCount;
         public int protection;
         public int blastProtection;
         public ItemStack lastUsing;
-        public Hand lastUsingHand;
+        public InteractionHand lastUsingHand;
         public boolean lastInBlock;
         public boolean lastUnderBlock;
-        public final Map<RegistryEntry<StatusEffect>, EffectTracker> visibleStatusEffects = new ConcurrentHashMap<>();
+        public final Map<Holder<MobEffect>, EffectTracker> visibleStatusEffects = new ConcurrentHashMap<>();
         public final Set<ItemStackSample> trackedInventoryItems = new HashSet<>();
         // todo: add more shit
-        public void tickUpdate(PlayerEntity player) {
-            AttributeContainer container = new AttributeContainer(
-                    DefaultAttributeRegistry.get((EntityType<? extends LivingEntity>) player.getType()));
-            container.setFrom(player.getAttributes());
+        public void tickUpdate(Player player) {
+            AttributeMap container = new AttributeMap(
+                    DefaultAttributes.getSupplier((EntityType<? extends LivingEntity>) player.getType()));
+            container.assignAllValues(player.getAttributes());
             this.attributeSnapShot = container;
             int protection = 0;
             int blastProtection = 0;
             for (var re : ARMOR) {
-                ItemStack stack = player.getEquippedStack(re);
+                ItemStack stack = player.getItemBySlot(re);
                 if (stack.isEmpty()) continue;
                 ;
-                ItemEnchantmentsComponent itemEnchant = stack.get(DataComponentTypes.ENCHANTMENTS);
+                ItemEnchantments itemEnchant = stack.get(DataComponents.ENCHANTMENTS);
                 if (itemEnchant.isEmpty()) continue;
                 ;
                 int level = ItemStackUtils.getEnchantmentLevel(itemEnchant, Enchantments.PROTECTION);
@@ -1137,16 +1173,16 @@ public class PlayerStateManager extends BaseModule {
             this.protection = protection;
             this.blastProtection = blastProtection;
             if (player.isUsingItem()) {
-                lastUsing = player.getActiveItem().copy();
-                lastUsingHand = player.getActiveHand();
+                lastUsing = player.getUseItem().copy();
+                lastUsingHand = player.getUsedItemHand();
             } else {
                 lastUsing = null;
                 lastUsingHand = null;
             }
             lastInBlock = MovTasks.isCollidingWithEnvironment(player);
-            Box box = mc.player.getBoundingBox();
+            AABB box = mc.player.getBoundingBox();
             lastUnderBlock = MovTasks.isCollidingWithEnvironment(
-                    player, box.withMinY(box.maxY).withMaxY(box.maxY + 0.42));
+                    player, box.setMinY(box.maxY).setMaxY(box.maxY + 0.42));
             this.lastUpdate = Tasks.getTick();
         }
     }
@@ -1155,19 +1191,19 @@ public class PlayerStateManager extends BaseModule {
         int startTick = 0;
         int duration = 0;
         public boolean visible;
-        final StatusEffect effectInstance;
+        final MobEffect effectInstance;
 
-        public EffectTracker(RegistryEntry<StatusEffect> effectRegistryEntry) {
+        public EffectTracker(Holder<MobEffect> effectRegistryEntry) {
             effectInstance = effectRegistryEntry.value();
         }
 
-        public EffectTracker(StatusEffectInstance effectInstance) {
-            this.effectInstance = effectInstance.getEffectType().value();
+        public EffectTracker(MobEffectInstance effectInstance) {
+            this.effectInstance = effectInstance.getEffect().value();
             this.startTick = Tasks.getTick();
             this.duration = effectInstance.getDuration();
         }
 
-        public void refresh(StatusEffectInstance effectInstance) {
+        public void refresh(MobEffectInstance effectInstance) {
             int startTick = Tasks.getTick();
             int duration = effectInstance.getDuration();
             if (startTick + duration > this.startTick + this.duration) {
@@ -1196,7 +1232,7 @@ public class PlayerStateManager extends BaseModule {
 
         @Nullable
         @Override
-        public PlayerEntity getExecutor() {
+        public Player getExecutor() {
             return mc.player;
         }
 
@@ -1213,7 +1249,7 @@ public class PlayerStateManager extends BaseModule {
         }
 
         @Override
-        public void sendMessage(Text message) {
+        public void sendMessage(Component message) {
             if (mc.player != null) {
                 Debug.sendPlayer(message);
             }
@@ -1232,8 +1268,8 @@ public class PlayerStateManager extends BaseModule {
 
         @NotNull
         @Override
-        public World getExecuteWorld() {
-            return mc.world;
+        public Level getExecuteWorld() {
+            return mc.level;
         }
     }
 }

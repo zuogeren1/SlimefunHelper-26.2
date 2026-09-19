@@ -9,54 +9,179 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ShulkerBoxBlockEntity;
-import net.minecraft.block.entity.Spawner;
-import net.minecraft.block.enums.ChestType;
-import net.minecraft.block.enums.SlabType;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ChargedProjectilesComponent;
-import net.minecraft.component.type.ConsumableComponent;
-import net.minecraft.component.type.EquippableComponent;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.*;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.entity.decoration.LeashKnotEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.PiglinActivity;
-import net.minecraft.entity.mob.PiglinEntity;
-import net.minecraft.entity.mob.ShulkerEntity;
-import net.minecraft.entity.passive.*;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.*;
-import net.minecraft.item.*;
-import net.minecraft.potion.Potions;
-import net.minecraft.recipe.RecipePropertySet;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.animal.*;
+import net.minecraft.world.entity.vehicle.*;
+import net.minecraft.world.item.*;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
 import net.minecraft.world.attribute.EnvironmentAttributes;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Leashable;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Shearable;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.Bucketable;
+import net.minecraft.world.entity.animal.allay.Allay;
+import net.minecraft.world.entity.animal.armadillo.Armadillo;
+import net.minecraft.world.entity.animal.camel.Camel;
+import net.minecraft.world.entity.animal.cow.AbstractCow;
+import net.minecraft.world.entity.animal.cow.MushroomCow;
+import net.minecraft.world.entity.animal.dolphin.Dolphin;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.animal.feline.Cat;
+import net.minecraft.world.entity.animal.feline.Ocelot;
+import net.minecraft.world.entity.animal.frog.Tadpole;
+import net.minecraft.world.entity.animal.goat.Goat;
+import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.animal.parrot.Parrot;
+import net.minecraft.world.entity.animal.pig.Pig;
+import net.minecraft.world.entity.animal.wolf.Wolf;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.decoration.LeashFenceKnotEntity;
+import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.entity.monster.Strider;
+import net.minecraft.world.entity.monster.piglin.Piglin;
+import net.minecraft.world.entity.monster.piglin.PiglinArmPose;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.wanderingtrader.WanderingTrader;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.ContainerEntity;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.vehicle.minecart.Minecart;
+import net.minecraft.world.entity.vehicle.minecart.MinecartCommandBlock;
+import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
+import net.minecraft.world.item.ArmorStandItem;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BoatItem;
+import net.minecraft.world.item.BoneMealItem;
+import net.minecraft.world.item.BottleItem;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.BucketItem;
+import net.minecraft.world.item.BundleItem;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.EmptyMapItem;
+import net.minecraft.world.item.EndCrystalItem;
+import net.minecraft.world.item.EnderEyeItem;
+import net.minecraft.world.item.FireChargeItem;
+import net.minecraft.world.item.FireworkRocketItem;
+import net.minecraft.world.item.FishingRodItem;
+import net.minecraft.world.item.FlintAndSteelItem;
+import net.minecraft.world.item.FoodOnAStickItem;
+import net.minecraft.world.item.HoneycombItem;
+import net.minecraft.world.item.InstrumentItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.KnowledgeBookItem;
+import net.minecraft.world.item.LeadItem;
+import net.minecraft.world.item.MinecartItem;
+import net.minecraft.world.item.PlaceOnWaterBlockItem;
+import net.minecraft.world.item.PotionItem;
+import net.minecraft.world.item.ProjectileItem;
+import net.minecraft.world.item.ShovelItem;
+import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.SpyglassItem;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.item.WritableBookItem;
+import net.minecraft.world.item.WrittenBookItem;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.Potions;
+import net.minecraft.world.item.component.ChargedProjectiles;
+import net.minecraft.world.item.component.Consumable;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.crafting.RecipePropertySet;
+import net.minecraft.world.item.equipment.Equippable;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Spawner;
+import net.minecraft.world.level.block.AbstractCauldronBlock;
+import net.minecraft.world.level.block.AbstractFurnaceBlock;
+import net.minecraft.world.level.block.AnvilBlock;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.BaseFireBlock;
+import net.minecraft.world.level.block.BeaconBlock;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.BeehiveBlock;
+import net.minecraft.world.level.block.BellBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.BrewingStandBlock;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.CakeBlock;
+import net.minecraft.world.level.block.CampfireBlock;
+import net.minecraft.world.level.block.CandleBlock;
+import net.minecraft.world.level.block.CandleCakeBlock;
+import net.minecraft.world.level.block.CartographyTableBlock;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ComparatorBlock;
+import net.minecraft.world.level.block.ComposterBlock;
+import net.minecraft.world.level.block.CrafterBlock;
+import net.minecraft.world.level.block.CraftingTableBlock;
+import net.minecraft.world.level.block.DecoratedPotBlock;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.DragonEggBlock;
+import net.minecraft.world.level.block.EnderChestBlock;
+import net.minecraft.world.level.block.FenceBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.FlowerBedBlock;
+import net.minecraft.world.level.block.FlowerPotBlock;
+import net.minecraft.world.level.block.GameMasterBlock;
+import net.minecraft.world.level.block.GrindstoneBlock;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.JukeboxBlock;
+import net.minecraft.world.level.block.LeafLitterBlock;
+import net.minecraft.world.level.block.LecternBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.LightBlock;
+import net.minecraft.world.level.block.LoomBlock;
+import net.minecraft.world.level.block.NoteBlock;
+import net.minecraft.world.level.block.PumpkinBlock;
+import net.minecraft.world.level.block.RedStoneOreBlock;
+import net.minecraft.world.level.block.RepeaterBlock;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.SeaPickleBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.SmithingTableBlock;
+import net.minecraft.world.level.block.SnowLayerBlock;
+import net.minecraft.world.level.block.StonecutterBlock;
+import net.minecraft.world.level.block.SuspiciousEffectHolder;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
 public class InteractUtils {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     private static final Predicate<ItemStack> ALWAYS_TRUE = stack -> true;
 
     @Nullable
     public static BlockState getBlockPlacement(
-            Block block, PlayerEntity player, World world, BlockHitResult blockHitResult) {
+            Block block, Player player, Level world, BlockHitResult blockHitResult) {
         Item blockItem = block.asItem();
         return blockItem instanceof BlockItem blockItem1
                 ? getBlockPlacement(blockItem1, player, world, blockHitResult)
@@ -65,123 +190,123 @@ public class InteractUtils {
 
     @Nullable
     public static BlockState getBlockPlacement(
-            BlockItem blockItem, PlayerEntity player, World world, BlockHitResult blockHitResult) {
-        ItemPlacementContext placement =
-                new ItemPlacementContext(player, Hand.MAIN_HAND, new ItemStack(blockItem), blockHitResult);
-        placement = blockItem.getPlacementContext(placement);
+            BlockItem blockItem, Player player, Level world, BlockHitResult blockHitResult) {
+        BlockPlaceContext placement =
+                new BlockPlaceContext(player, InteractionHand.MAIN_HAND, new ItemStack(blockItem), blockHitResult);
+        placement = blockItem.updatePlacementContext(placement);
         return blockItem.getPlacementState(placement);
     }
 
     @Nullable
     public static BlockState getBlockPlacement(
-            PlayerEntity player, Hand hand, ItemStack stack, BlockHitResult hitResult) {
+            Player player, InteractionHand hand, ItemStack stack, BlockHitResult hitResult) {
         return stack.getItem() instanceof BlockItem blockItem
-                ? blockItem.getPlacementState(new ItemPlacementContext(player, hand, stack, hitResult))
+                ? blockItem.getPlacementState(new BlockPlaceContext(player, hand, stack, hitResult))
                 : null;
     }
     // should equals getBlockPlacement(STONE) != null
-    public static boolean canCubePlace(PlayerEntity player, BlockPos pos) {
+    public static boolean canCubePlace(Player player, BlockPos pos) {
         // cube
-        World world = player.getEntityWorld();
-        BlockState state = Blocks.STONE.getDefaultState();
-        return state.canPlaceAt(world, pos) && world.canPlace(state, pos, ShapeContext.ofPlacement(player));
+        Level world = player.level();
+        BlockState state = Blocks.STONE.defaultBlockState();
+        return state.canSurvive(world, pos) && world.isUnobstructed(state, pos, CollisionContext.placementContext(player));
     }
     // should equals getBlockPlacement(state.getBlock) != null
-    public static boolean canBlockPlace(PlayerEntity player, BlockPos pos, BlockState state) {
-        World world = player.getEntityWorld();
-        return state.canPlaceAt(world, pos) && world.canPlace(state, pos, ShapeContext.ofPlacement(player));
+    public static boolean canBlockPlace(Player player, BlockPos pos, BlockState state) {
+        Level world = player.level();
+        return state.canSurvive(world, pos) && world.isUnobstructed(state, pos, CollisionContext.placementContext(player));
     }
 
-    public static BlockPos getCurrentPlacePos(PlayerEntity player, BlockHitResult blockHitResult) {
-        ItemPlacementContext placement =
-                new ItemPlacementContext(player, Hand.MAIN_HAND, new ItemStack(Blocks.STONE), blockHitResult);
-        return placement.getBlockPos();
+    public static BlockPos getCurrentPlacePos(Player player, BlockHitResult blockHitResult) {
+        BlockPlaceContext placement =
+                new BlockPlaceContext(player, InteractionHand.MAIN_HAND, new ItemStack(Blocks.STONE), blockHitResult);
+        return placement.getClickedPos();
     }
 
-    public static boolean canCubePlace(PlayerEntity player, BlockHitResult state) {
+    public static boolean canCubePlace(Player player, BlockHitResult state) {
         BlockPos pos = getCurrentPlacePos(player, state);
         return canCubePlace(player, pos);
     }
 
-    public static ActionResult simulateInteract(EntityHitResult entityHitResult) {
-        ActionResult actionResult = mc.interactionManager.interactEntityAtLocation(
-                mc.player, entityHitResult.getEntity(), entityHitResult, Hand.MAIN_HAND);
-        if (!actionResult.isAccepted()) {
-            actionResult = mc.interactionManager.interactEntity(mc.player, entityHitResult.getEntity(), Hand.MAIN_HAND);
+    public static InteractionResult simulateInteract(EntityHitResult entityHitResult) {
+        InteractionResult actionResult = mc.gameMode.interact(
+                mc.player, entityHitResult.getEntity(), entityHitResult, InteractionHand.MAIN_HAND);
+        if (!actionResult.consumesAction()) {
+            actionResult = mc.gameMode.interact(mc.player, entityHitResult.getEntity(), entityHitResult, InteractionHand.MAIN_HAND);
         }
 
-        if (actionResult instanceof ActionResult.Success) {
-            ActionResult.Success success = (ActionResult.Success) actionResult;
-            if (success.swingSource() == ActionResult.SwingSource.CLIENT) {
-                mc.player.swingHand(Hand.MAIN_HAND);
+        if (actionResult instanceof InteractionResult.Success) {
+            InteractionResult.Success success = (InteractionResult.Success) actionResult;
+            if (success.swingSource() == InteractionResult.SwingSource.CLIENT) {
+                mc.player.swing(InteractionHand.MAIN_HAND);
             }
         }
         return actionResult;
     }
 
-    public static void swingHandIfSuccess(ActionResult actionResult3, Hand hand) {
-        if (actionResult3 instanceof ActionResult.Success) {
-            ActionResult.Success success3 = (ActionResult.Success) actionResult3;
-            if (success3.swingSource() == ActionResult.SwingSource.CLIENT) {
-                mc.player.swingHand(hand);
+    public static void swingHandIfSuccess(InteractionResult actionResult3, InteractionHand hand) {
+        if (actionResult3 instanceof InteractionResult.Success) {
+            InteractionResult.Success success3 = (InteractionResult.Success) actionResult3;
+            if (success3.swingSource() == InteractionResult.SwingSource.CLIENT) {
+                mc.player.swing(hand);
             }
         }
     }
 
     public static boolean canHoldUse(ItemStack stack) {
-        return stack.contains(DataComponentTypes.CONSUMABLE)
-                || stack.contains(DataComponentTypes.BLOCKS_ATTACKS)
+        return stack.has(DataComponents.CONSUMABLE)
+                || stack.has(DataComponents.BLOCKS_ATTACKS)
                 || VItem.getInstance().isSpear(stack)
-                || stack.getMaxUseTime(mc.player) > 0;
+                || stack.getUseDuration(mc.player) > 0;
     }
 
     public static Set<Block> STATE_MAY_INTERACT = null;
 
-    public static boolean canShulkerOpen(World world, BlockPos pos, BlockState state) {
+    public static boolean canShulkerOpen(Level world, BlockPos pos, BlockState state) {
         BlockEntity blockEntity = world.getBlockEntity(pos);
         if (blockEntity instanceof ShulkerBoxBlockEntity shulkerBoxBlockEntity) {
-            if (shulkerBoxBlockEntity.getAnimationStage() != ShulkerBoxBlockEntity.AnimationStage.CLOSED) {
+            if (shulkerBoxBlockEntity.getAnimationStatus() != ShulkerBoxBlockEntity.AnimationStatus.CLOSED) {
                 return true;
             }
         }
-        Box box = ShulkerEntity.calculateBoundingBox(
-                        1.0F, state.get(ShulkerBoxBlock.FACING), 0.0F, 0.5F, pos.toBottomCenterPos())
-                .contract(1.0E-6);
-        return world.isSpaceEmpty(box);
+        AABB box = Shulker.getProgressDeltaAabb(
+                        1.0F, state.getValue(ShulkerBoxBlock.FACING), 0.0F, 0.5F, Vec3.atBottomCenterOf(pos))
+                .deflate(1.0E-6);
+        return world.noCollision(box);
     }
 
-    public static boolean canEnderChestOpen(World world, BlockPos pos) {
-        return !world.getBlockState(pos.up()).isSolidBlock(world, pos.up());
+    public static boolean canEnderChestOpen(Level world, BlockPos pos) {
+        return !world.getBlockState(pos.above()).isRedstoneConductor(world, pos.above());
     }
 
-    public static boolean canChestOpen(World world, BlockPos pos, BlockState state) {
+    public static boolean canChestOpen(Level world, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof ChestBlock)) {
             return false;
         }
-        if (ChestBlock.isChestBlocked(world, pos)) {
+        if (ChestBlock.isChestBlockedAt(world, pos)) {
             return false;
         }
-        if (state.contains(ChestBlock.CHEST_TYPE) && state.get(ChestBlock.CHEST_TYPE) != ChestType.SINGLE) {
-            BlockPos otherPos = pos.offset(ChestBlock.getFacing(state));
-            if (ChestBlock.isChestBlocked(world, otherPos)) {
+        if (state.hasProperty(ChestBlock.TYPE) && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
+            BlockPos otherPos = pos.relative(ChestBlock.getConnectedDirection(state));
+            if (ChestBlock.isChestBlockedAt(world, otherPos)) {
                 return false;
             }
         }
         return true;
     }
 
-    public static boolean canRespawnAnchorExplode(World world) {
-        String worldName = world.getRegistryKey().getValue().toString();
+    public static boolean canRespawnAnchorExplode(Level world) {
+        String worldName = world.dimension().identifier().toString();
         if (Objects.equals(worldName, "minecraft:overworld") || Objects.equals(worldName, "minecraft:the_end")) {
             return true;
         }
-        if (!world.getDimension().hasCeiling()) {
+        if (!world.dimensionType().hasCeiling()) {
             return true;
         }
-        if (world.getDimension().attributes().containsKey(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS_GAMEPLAY)
-                && world.getDimension()
+        if (world.dimensionType().attributes().contains(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS)
+                && world.dimensionType()
                                 .attributes()
-                                .getEntry(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS_GAMEPLAY)
+                                .get(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS)
                                 .argument()
                         instanceof Boolean bl
                 && bl) {
@@ -192,32 +317,32 @@ public class InteractUtils {
     }
 
     private static boolean isInteractableRespawnAnchor(BlockState state, ItemStack stack) {
-        int charges = state.get(RespawnAnchorBlock.CHARGES);
-        if (charges == 0 && !stack.isOf(Items.GLOWSTONE)) {
+        int charges = state.getValue(RespawnAnchorBlock.CHARGE);
+        if (charges == 0 && !stack.is(Items.GLOWSTONE)) {
             return false;
         }
         return true;
     }
 
-    private static boolean canFenceConsume(World world, BlockPos pos, @Nullable PlayerEntity player) {
+    private static boolean canFenceConsume(Level world, BlockPos pos, @Nullable Player player) {
         if (player == null) {
             return false;
         }
-        boolean hasLead = player.getMainHandStack().getItem() instanceof LeadItem
-                || player.getOffHandStack().getItem() instanceof LeadItem;
+        boolean hasLead = player.getMainHandItem().getItem() instanceof LeadItem
+                || player.getOffhandItem().getItem() instanceof LeadItem;
         if (!hasLead) {
             return false;
         }
-        List<Leashable> leashables = Leashable.collectLeashablesAround(
-                world, Vec3d.ofCenter(pos), entity -> entity.getLeashHolder() == player);
+        List<Leashable> leashables = Leashable.leashableInArea(
+                world, Vec3.atCenterOf(pos), entity -> entity.getLeashHolder() == player);
         return !leashables.isEmpty();
     }
 
-    public static boolean canBlockOpenScreen(World world, BlockState state, BlockPos pos) {
-        return state.createScreenHandlerFactory(world, pos) != null;
+    public static boolean canBlockOpenScreen(Level world, BlockState state, BlockPos pos) {
+        return state.getMenuProvider(world, pos) != null;
     }
 
-    public static boolean canOpenScreen(World world, PlayerEntity player, BlockPos pos, BlockState state) {
+    public static boolean canOpenScreen(Level world, Player player, BlockPos pos, BlockState state) {
         Block block = state.getBlock();
         if (block instanceof ChestBlock) {
             return canChestOpen(world, pos, state);
@@ -229,13 +354,13 @@ public class InteractUtils {
             return canEnderChestOpen(world, pos);
         }
         if (block instanceof LecternBlock) {
-            return state.contains(LecternBlock.HAS_BOOK) && state.get(LecternBlock.HAS_BOOK);
+            return state.hasProperty(LecternBlock.HAS_BOOK) && state.getValue(LecternBlock.HAS_BOOK);
         }
-        NamedScreenHandlerFactory factory = state.createScreenHandlerFactory(world, pos);
+        MenuProvider factory = state.getMenuProvider(world, pos);
         return factory != null;
     }
 
-    public static boolean isInteractAcceptable(World world, PlayerEntity player, BlockPos pos, BlockState state) {
+    public static boolean isInteractAcceptable(Level world, Player player, BlockPos pos, BlockState state) {
         return isInteractAcceptable(world, player, pos, state, ItemStack.EMPTY);
     }
 
@@ -251,46 +376,46 @@ public class InteractUtils {
     }
 
     public static boolean isInteractAcceptable(
-            World world, PlayerEntity player, BlockPos pos, BlockState state, ItemStack interactStack) {
+            Level world, Player player, BlockPos pos, BlockState state, ItemStack interactStack) {
         Block block = state.getBlock();
         if (block instanceof RespawnAnchorBlock) {
             return isInteractableRespawnAnchor(state, interactStack);
         }
         if (block instanceof LecternBlock) {
-            return state.contains(LecternBlock.HAS_BOOK) && state.get(LecternBlock.HAS_BOOK);
+            return state.hasProperty(LecternBlock.HAS_BOOK) && state.getValue(LecternBlock.HAS_BOOK);
         }
         if (block instanceof FenceBlock) {
             return canFenceConsume(world, pos, player);
         }
         if (block instanceof JukeboxBlock) {
-            return state.contains(JukeboxBlock.HAS_RECORD) && state.get(JukeboxBlock.HAS_RECORD);
+            return state.hasProperty(JukeboxBlock.HAS_RECORD) && state.getValue(JukeboxBlock.HAS_RECORD);
         }
-        if ((block instanceof CakeBlock || block instanceof CandleCakeBlock) && !player.canConsume(false)) {
+        if ((block instanceof CakeBlock || block instanceof CandleCakeBlock) && !player.canEat(false)) {
             return false;
         }
         if (block instanceof PumpkinBlock pumpkinBlock) {
-            return interactStack.isOf(Items.SHEARS);
+            return interactStack.is(Items.SHEARS);
         }
         if (block instanceof ComposterBlock composterBlock) {
-            return (state.contains(ComposterBlock.LEVEL) && state.get(ComposterBlock.LEVEL) == 8)
-                    || ComposterBlock.ITEM_TO_LEVEL_INCREASE_CHANCE.containsKey(interactStack.getItem());
+            return (state.hasProperty(ComposterBlock.LEVEL) && state.getValue(ComposterBlock.LEVEL) == 8)
+                    || ComposterBlock.COMPOSTABLES.containsKey(interactStack.getItem());
         }
         if (block instanceof BeehiveBlock beehive) {
-            return state.contains(BeehiveBlock.HONEY_LEVEL)
-                    && state.get(BeehiveBlock.HONEY_LEVEL) >= 5
-                    && (interactStack.isOf(Items.SHEARS) || interactStack.isOf(Items.GLASS_BOTTLE));
+            return state.hasProperty(BeehiveBlock.HONEY_LEVEL)
+                    && state.getValue(BeehiveBlock.HONEY_LEVEL) >= 5
+                    && (interactStack.is(Items.SHEARS) || interactStack.is(Items.GLASS_BOTTLE));
         }
         if (block instanceof CampfireBlock campfireBlock) {
-            return world.getRecipeManager()
-                    .getPropertySet(RecipePropertySet.CAMPFIRE_INPUT)
-                    .canUse(interactStack);
+            return world.recipeAccess()
+                    .propertySet(RecipePropertySet.CAMPFIRE_INPUT)
+                    .test(interactStack);
         }
         if (block instanceof AbstractCauldronBlock cauldronBlock) {
-            return cauldronBlock.behaviorMap.map().containsKey(interactStack.getItem());
+            return cauldronBlock.interactions.items.containsKey(interactStack.getItem());
         }
         Item item = interactStack.getItem();
         // 矿车放铁轨
-        if (item instanceof MinecartItem && state.isIn(BlockTags.RAILS)) {
+        if (item instanceof MinecartItem && state.is(BlockTags.RAILS)) {
             return true;
         }
         // 盔甲架
@@ -298,7 +423,7 @@ public class InteractUtils {
             return true;
         }
         // 末地水晶
-        if (item instanceof EndCrystalItem && (state.isOf(Blocks.OBSIDIAN) || state.isOf(Blocks.BEDROCK))) {
+        if (item instanceof EndCrystalItem && (state.is(Blocks.OBSIDIAN) || state.is(Blocks.BEDROCK))) {
             return true;
         }
         if (item instanceof SpawnEggItem) {
@@ -307,31 +432,31 @@ public class InteractUtils {
         }
         // 打火石 / 火焰弹
         if (item instanceof FlintAndSteelItem || item instanceof FireChargeItem) {
-            if (CampfireBlock.canBeLit(state) || CandleBlock.canBeLit(state) || CandleCakeBlock.canBeLit(state)) {
+            if (CampfireBlock.canLight(state) || CandleBlock.canLight(state) || CandleCakeBlock.canLight(state)) {
                 return true;
             }
-            BlockPos firePos = pos.offset(Direction.UP);
-            if (AbstractFireBlock.canPlaceAt(world, firePos, player.getHorizontalFacing())) {
+            BlockPos firePos = pos.relative(Direction.UP);
+            if (BaseFireBlock.canBePlacedAt(world, firePos, player.getDirection())) {
                 return true;
             }
         }
         // 骨粉
         if (item instanceof BoneMealItem) {
             Block varBoneMealBlock = state.getBlock();
-            if (varBoneMealBlock instanceof Fertilizable fertilizable
-                    && fertilizable.isFertilizable(world, pos, state)) {
+            if (varBoneMealBlock instanceof BonemealableBlock fertilizable
+                    && fertilizable.isValidBonemealTarget(world, pos, state)) {
                 return true;
             }
-            BlockPos sidePos = pos.up();
-            if (state.isSideSolidFullSquare(world, pos, Direction.UP)
-                    && world.getBlockState(sidePos).isOf(Blocks.WATER)
-                    && world.getFluidState(sidePos).getLevel() == 8) {
+            BlockPos sidePos = pos.above();
+            if (state.isFaceSturdy(world, pos, Direction.UP)
+                    && world.getBlockState(sidePos).is(Blocks.WATER)
+                    && world.getFluidState(sidePos).getAmount() == 8) {
                 return true;
             }
         }
         // 铲子拍平 / 熄灭营火
         if (item instanceof ShovelItem) {
-            if (shovelBlocks.contains(block) && world.getBlockState(pos.up()).isAir()) {
+            if (shovelBlocks.contains(block) && world.getBlockState(pos.above()).isAir()) {
                 return true;
             }
             //            if (block instanceof CampfireBlock && state.get(CampfireBlock.LIT)) {
@@ -339,25 +464,25 @@ public class InteractUtils {
             //            }
         }
         // 蜂蜜脾上蜡
-        if (item instanceof HoneycombItem && HoneycombItem.getWaxedState(state).isPresent()) {
+        if (item instanceof HoneycombItem && HoneycombItem.getWaxed(state).isPresent()) {
             return true;
         }
         // 水瓶变泥
         if (item instanceof PotionItem) {
-            PotionContentsComponent potionContents =
-                    interactStack.getOrDefault(DataComponentTypes.POTION_CONTENTS, PotionContentsComponent.DEFAULT);
-            if (potionContents.matches(Potions.WATER) && state.isIn(BlockTags.CONVERTABLE_TO_MUD)) {
+            PotionContents potionContents =
+                    interactStack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
+            if (potionContents.is(Potions.WATER) && state.is(BlockTags.CONVERTABLE_TO_MUD)) {
                 return true;
             }
         }
 
         if (STATE_MAY_INTERACT == null) {
             HashSet<Block> result = new HashSet<>();
-            for (Block entry : Registries.BLOCK) {
-                if (entry instanceof OperatorBlock
-                        || entry instanceof AbstractSignBlock
+            for (Block entry : BuiltInRegistries.BLOCK) {
+                if (entry instanceof GameMasterBlock
+                        || entry instanceof SignBlock
                         || entry instanceof DoorBlock
-                        || entry instanceof TrapdoorBlock
+                        || entry instanceof TrapDoorBlock
                         || entry instanceof FenceGateBlock
                         || entry instanceof BedBlock
                         || entry instanceof CakeBlock
@@ -368,7 +493,7 @@ public class InteractUtils {
                         || entry instanceof BellBlock
                         || entry instanceof LeverBlock
                         || entry instanceof ButtonBlock
-                        || entry instanceof RedstoneOreBlock
+                        || entry instanceof RedStoneOreBlock
                         || entry instanceof NoteBlock
                         || entry instanceof LightBlock
                         || entry instanceof DragonEggBlock
@@ -405,7 +530,7 @@ public class InteractUtils {
     }
 
     public static boolean isInteractAcceptable(
-            World world, PlayerEntity player, Entity entity, ItemStack interactStack) {
+            Level world, Player player, Entity entity, ItemStack interactStack) {
         if (world == null || player == null || entity == null) {
             return false;
         }
@@ -426,186 +551,186 @@ public class InteractUtils {
     }
 
     private static boolean isGenericAcceptedInteractItem(Entity entity, ItemStack stack) {
-        if (stack.isOf(Items.NAME_TAG) && entity instanceof LivingEntity) {
+        if (stack.is(Items.NAME_TAG) && entity instanceof LivingEntity) {
             return true;
         }
-        if (stack.getItem() instanceof SpawnEggItem && entity instanceof MobEntity) {
+        if (stack.getItem() instanceof SpawnEggItem && entity instanceof Mob) {
             return true;
         }
-        if (stack.isOf(Items.LEAD) && entity instanceof Leashable && !(entity instanceof LeashKnotEntity)) {
+        if (stack.is(Items.LEAD) && entity instanceof Leashable && !(entity instanceof LeashFenceKnotEntity)) {
             return true;
         }
-        if (stack.isOf(Items.SADDLE)
+        if (stack.is(Items.SADDLE)
                 && entity instanceof LivingEntity livingEntity
-                && livingEntity.canEquip(stack, EquipmentSlot.SADDLE)) {
+                && livingEntity.isEquippableInSlot(stack, EquipmentSlot.SADDLE)) {
             return true;
         }
-        if (stack.isOf(Items.WATER_BUCKET) && entity instanceof Bucketable) {
+        if (stack.is(Items.WATER_BUCKET) && entity instanceof Bucketable) {
             return true;
         }
-        if (stack.isOf(Items.SHEARS) && entity instanceof Shearable shearable && shearable.isShearable()) {
+        if (stack.is(Items.SHEARS) && entity instanceof Shearable shearable && shearable.readyForShearing()) {
             return true;
         }
-        if (entity instanceof AnimalEntity animal && animal.isBreedingItem(stack)) {
+        if (entity instanceof Animal animal && animal.isFood(stack)) {
             return true;
         }
-        if (entity instanceof MooshroomEntity mooshroom) {
-            if (!mooshroom.isBaby() && stack.isOf(Items.BOWL)) {
+        if (entity instanceof MushroomCow mooshroom) {
+            if (!mooshroom.isBaby() && stack.is(Items.BOWL)) {
                 return true;
             }
-            return mooshroom.getVariant() == MooshroomEntity.Variant.BROWN
-                    && SuspiciousStewIngredient.of(stack.getItem()) != null;
+            return mooshroom.getVariant() == MushroomCow.Variant.BROWN
+                    && SuspiciousEffectHolder.tryGet(stack.getItem()) != null;
         }
-        if (entity instanceof AbstractCowEntity cow) {
-            return stack.isOf(Items.BUCKET) && !cow.isBaby();
+        if (entity instanceof AbstractCow cow) {
+            return stack.is(Items.BUCKET) && !cow.isBaby();
         }
-        if (entity instanceof GoatEntity goat) {
-            return stack.isOf(Items.BUCKET) && !goat.isBaby();
+        if (entity instanceof Goat goat) {
+            return stack.is(Items.BUCKET) && !goat.isBaby();
         }
 
-        if (entity instanceof IronGolemEntity ironGolem) {
-            return stack.isOf(Items.IRON_INGOT) && ironGolem.getHealth() < ironGolem.getMaxHealth();
+        if (entity instanceof IronGolem ironGolem) {
+            return stack.is(Items.IRON_INGOT) && ironGolem.getHealth() < ironGolem.getMaxHealth();
         }
-        if (entity instanceof ArmadilloEntity armadillo) {
-            return stack.isOf(Items.BRUSH) && !armadillo.isBaby();
+        if (entity instanceof Armadillo armadillo) {
+            return stack.is(Items.BRUSH) && !armadillo.isBaby();
         }
-        if (entity instanceof DolphinEntity) {
-            return stack.isIn(ItemTags.FISHES);
+        if (entity instanceof Dolphin) {
+            return stack.is(ItemTags.FISHES);
         }
-        if (entity instanceof TadpoleEntity) {
-            return stack.isIn(ItemTags.FROG_FOOD) || stack.isOf(Items.WATER_BUCKET);
+        if (entity instanceof Tadpole) {
+            return stack.is(ItemTags.FROG_FOOD) || stack.is(Items.WATER_BUCKET);
         }
-        if (entity instanceof ParrotEntity) {
-            return stack.isIn(ItemTags.PARROT_FOOD) || stack.isIn(ItemTags.PARROT_POISONOUS_FOOD);
+        if (entity instanceof Parrot) {
+            return stack.is(ItemTags.PARROT_FOOD) || stack.is(ItemTags.PARROT_POISONOUS_FOOD);
         }
         return false;
     }
 
-    private static boolean isVehicleEntityInteractAcceptable(PlayerEntity player, Entity entity, ItemStack stack) {
-        if (entity instanceof VehicleInventory) {
+    private static boolean isVehicleEntityInteractAcceptable(Player player, Entity entity, ItemStack stack) {
+        if (entity instanceof ContainerEntity) {
             return true;
         }
-        if (entity instanceof FurnaceMinecartEntity) {
+        if (entity instanceof MinecartFurnace) {
             return true;
         }
-        if (entity instanceof CommandBlockMinecartEntity) {
-            return player.isCreativeLevelTwoOp();
+        if (entity instanceof MinecartCommandBlock) {
+            return player.canUseGameMasterBlocks();
         }
-        if (entity instanceof MinecartEntity minecart) {
-            return !player.shouldCancelInteraction() && !minecart.hasPassengers();
+        if (entity instanceof Minecart minecart) {
+            return !player.isSecondaryUseActive() && !minecart.isVehicle();
         }
-        if (entity instanceof AbstractBoatEntity) {
-            return !player.shouldCancelInteraction();
+        if (entity instanceof AbstractBoat) {
+            return !player.isSecondaryUseActive();
         }
         return false;
     }
 
-    private static boolean isSpecialEntityInteractAcceptable(PlayerEntity player, Entity entity, ItemStack stack) {
-        if (entity instanceof ArmorStandEntity armorStand) {
+    private static boolean isSpecialEntityInteractAcceptable(Player player, Entity entity, ItemStack stack) {
+        if (entity instanceof ArmorStand armorStand) {
             return !armorStand.isMarker();
         }
-        if (entity instanceof ItemFrameEntity itemFrame) {
+        if (entity instanceof ItemFrame itemFrame) {
             if (itemFrame.isRemoved()) {
                 return false;
             }
-            return !itemFrame.getHeldItemStack().isEmpty() || !stack.isEmpty();
+            return !itemFrame.getItem().isEmpty() || !stack.isEmpty();
         }
-        if (entity instanceof LeashKnotEntity) {
+        if (entity instanceof LeashFenceKnotEntity) {
             return true;
         }
-        if (entity instanceof AllayEntity allay) {
-            if (allay.isDancing() && stack.isIn(ItemTags.DUPLICATES_ALLAYS) && allay.canDuplicate()) {
+        if (entity instanceof Allay allay) {
+            if (allay.isDancing() && stack.is(ItemTags.DUPLICATES_ALLAYS) && allay.canDuplicate()) {
                 return true;
             }
-            if (!allay.isHoldingItem() && !stack.isEmpty()) {
+            if (!allay.hasItemInHand() && !stack.isEmpty()) {
                 return true;
             }
-            return allay.isHoldingItem() && stack.isEmpty();
+            return allay.hasItemInHand() && stack.isEmpty();
         }
-        if (entity instanceof CamelEntity camel) {
+        if (entity instanceof Camel camel) {
             if (camel.isBaby()) {
-                return camel.isBreedingItem(stack);
+                return camel.isFood(stack);
             }
             return true;
         }
-        if (entity instanceof AbstractHorseEntity horse) {
+        if (entity instanceof AbstractHorse horse) {
             if (horse.isBaby()) {
-                return horse.isBreedingItem(stack);
+                return horse.isFood(stack);
             }
             return true;
         }
-        if (entity instanceof PigEntity pig) {
-            if (pig.hasSaddleEquipped() && !pig.hasPassengers() && !player.shouldCancelInteraction()) {
+        if (entity instanceof Pig pig) {
+            if (pig.isSaddled() && !pig.isVehicle() && !player.isSecondaryUseActive()) {
                 return true;
             }
         }
-        if (entity instanceof StriderEntity strider) {
-            if (strider.hasSaddleEquipped() && !strider.hasPassengers() && !player.shouldCancelInteraction()) {
+        if (entity instanceof Strider strider) {
+            if (strider.isSaddled() && !strider.isVehicle() && !player.isSecondaryUseActive()) {
                 return true;
             }
         }
-        if (entity instanceof VillagerEntity villager) {
-            return !villager.hasCustomer() && !villager.isSleeping();
+        if (entity instanceof Villager villager) {
+            return !villager.isTrading() && !villager.isSleeping();
         }
-        if (entity instanceof WanderingTraderEntity trader) {
-            return !trader.hasCustomer() && !trader.isBaby();
+        if (entity instanceof WanderingTrader trader) {
+            return !trader.isTrading() && !trader.isBaby();
         }
-        if (entity instanceof WolfEntity wolf) {
-            if (wolf.isTamed()) {
-                if (wolf.isBreedingItem(stack) && wolf.getHealth() < wolf.getMaxHealth()) {
+        if (entity instanceof Wolf wolf) {
+            if (wolf.isTame()) {
+                if (wolf.isFood(stack) && wolf.getHealth() < wolf.getMaxHealth()) {
                     return true;
                 }
-                if (wolf.isOwner(player)) {
-                    if (stack.getItem() instanceof DyeItem dyeItem && dyeItem.getColor() != wolf.getCollarColor()) {
+                if (wolf.isOwnedBy(player)) {
+                    if (stack.getItem() instanceof DyeItem dyeItem && stack.get(net.minecraft.core.component.DataComponents.DYE) != wolf.getCollarColor()) {
                         return true;
                     }
-                    if (stack.isOf(Items.WOLF_ARMOR) && !wolf.isBaby() && !wolf.isWearingBodyArmor()) {
+                    if (stack.is(Items.WOLF_ARMOR) && !wolf.isBaby() && !wolf.isWearingBodyArmor()) {
                         return true;
                     }
                     if (wolf.isInSittingPose()
                             && wolf.isWearingBodyArmor()
-                            && wolf.getBodyArmor().isDamaged()
-                            && wolf.getBodyArmor().canRepairWith(stack)) {
+                            && wolf.getBodyArmorItem().isDamaged()
+                            && wolf.getBodyArmorItem().isValidRepairItem(stack)) {
                         return true;
                     }
                     return true;
                 }
                 return false;
             }
-            return stack.isOf(Items.BONE) && !wolf.hasAngerTime();
+            return stack.is(Items.BONE) && !wolf.isAngry();
         }
-        if (entity instanceof CatEntity cat) {
-            if (!cat.isTamed()) {
-                return cat.isBreedingItem(stack);
+        if (entity instanceof Cat cat) {
+            if (!cat.isTame()) {
+                return cat.isFood(stack);
             }
-            if (cat.isOwner(player)) {
-                if (stack.getItem() instanceof DyeItem dyeItem && dyeItem.getColor() != cat.getCollarColor()) {
+            if (cat.isOwnedBy(player)) {
+                if (stack.getItem() instanceof DyeItem dyeItem && stack.get(net.minecraft.core.component.DataComponents.DYE) != cat.getCollarColor()) {
                     return true;
                 }
-                if (cat.isBreedingItem(stack) && cat.getHealth() < cat.getMaxHealth()) {
+                if (cat.isFood(stack) && cat.getHealth() < cat.getMaxHealth()) {
                     return true;
                 }
                 return true;
             }
             return false;
         }
-        if (entity instanceof OcelotEntity ocelot) {
-            return !ocelot.isTrusting() && ocelot.isBreedingItem(stack);
+        if (entity instanceof Ocelot ocelot) {
+            return !ocelot.isTrusting() && ocelot.isFood(stack);
         }
-        if (entity instanceof ParrotEntity parrot) {
-            if (!parrot.isTamed()) {
-                return stack.isIn(ItemTags.PARROT_FOOD) || stack.isIn(ItemTags.PARROT_POISONOUS_FOOD);
+        if (entity instanceof Parrot parrot) {
+            if (!parrot.isTame()) {
+                return stack.is(ItemTags.PARROT_FOOD) || stack.is(ItemTags.PARROT_POISONOUS_FOOD);
             }
-            return parrot.isOwner(player);
+            return parrot.isOwnedBy(player);
         }
-        if (entity instanceof PiglinEntity piglin) {
-            return piglin.getActivity() != PiglinActivity.ADMIRING_ITEM;
+        if (entity instanceof Piglin piglin) {
+            return piglin.getArmPose() != PiglinArmPose.ADMIRING_ITEM;
         }
         return false;
     }
 
     public static boolean isInteractAtAcceptable(
-            World world, PlayerEntity player, Entity entity, Vec3d hitPos, ItemStack interactStack) {
+            Level world, Player player, Entity entity, Vec3 hitPos, ItemStack interactStack) {
         if (world == null || player == null || entity == null || hitPos == null) {
             return false;
         }
@@ -613,33 +738,33 @@ public class InteractUtils {
             return false;
         }
         ItemStack stack = interactStack == null ? ItemStack.EMPTY : interactStack;
-        if (entity instanceof ArmorStandEntity armorStand) {
+        if (entity instanceof ArmorStand armorStand) {
             if (armorStand.isMarker()) {
                 return false;
             }
-            if (stack.isOf(Items.NAME_TAG)) {
+            if (stack.is(Items.NAME_TAG)) {
                 return false;
             }
             if (stack.isEmpty()) {
                 EquipmentSlot hitSlot = getArmorStandHitSlot(armorStand, hitPos);
                 if (canArmorStandUseSlot(armorStand, hitSlot)
-                        && !armorStand.getEquippedStack(hitSlot).isEmpty()) {
+                        && !armorStand.getItemBySlot(hitSlot).isEmpty()) {
                     return true;
                 }
                 EquipmentSlot preferredSlot = EquipmentSlot.MAINHAND;
                 if (canArmorStandUseSlot(armorStand, preferredSlot)
-                        && !armorStand.getEquippedStack(preferredSlot).isEmpty()) {
+                        && !armorStand.getItemBySlot(preferredSlot).isEmpty()) {
                     return true;
                 }
                 EquipmentSlot offhandSlot = EquipmentSlot.OFFHAND;
                 return canArmorStandUseSlot(armorStand, offhandSlot)
-                        && !armorStand.getEquippedStack(offhandSlot).isEmpty();
+                        && !armorStand.getItemBySlot(offhandSlot).isEmpty();
             }
-            EquipmentSlot slot = armorStand.getPreferredEquipmentSlot(stack);
+            EquipmentSlot slot = armorStand.getEquipmentSlotForItem(stack);
             if (!canArmorStandUseSlot(armorStand, slot)) {
                 return false;
             }
-            if (slot.getType() == EquipmentSlot.Type.HAND && !armorStand.shouldShowArms()) {
+            if (slot.getType() == EquipmentSlot.Type.HAND && !armorStand.showArms()) {
                 return false;
             }
             return true;
@@ -647,59 +772,59 @@ public class InteractUtils {
         return false;
     }
 
-    public static boolean isInteractAcceptable(World world, PlayerEntity player, ItemStack interactStack) {
+    public static boolean isInteractAcceptable(Level world, Player player, ItemStack interactStack) {
         if (world == null || player == null || interactStack == null || interactStack.isEmpty()) {
             return false;
         }
-        if (!interactStack.isItemEnabled(world.getEnabledFeatures())) {
+        if (!interactStack.isItemEnabled(world.enabledFeatures())) {
             return false;
         }
-        if (player.getItemCooldownManager().isCoolingDown(interactStack)) {
+        if (player.getCooldowns().isOnCooldown(interactStack)) {
             return false;
         }
 
-        ConsumableComponent consumableComponent = interactStack.get(DataComponentTypes.CONSUMABLE);
+        Consumable consumableComponent = interactStack.get(DataComponents.CONSUMABLE);
         if (consumableComponent != null) {
             return consumableComponent.canConsume(player, interactStack);
         }
 
-        EquippableComponent equippableComponent = interactStack.get(DataComponentTypes.EQUIPPABLE);
+        Equippable equippableComponent = interactStack.get(DataComponents.EQUIPPABLE);
         if (equippableComponent != null && equippableComponent.swappable()) {
-            if (!player.canUseSlot(equippableComponent.slot()) || !equippableComponent.allows(player.getType())) {
+            if (!player.canUseSlot(equippableComponent.slot()) || !equippableComponent.canBeEquippedBy(player.getType().builtInRegistryHolder())) {
                 return false;
             }
-            ItemStack equippedStack = player.getEquippedStack(equippableComponent.slot());
-            return !ItemStack.areItemsAndComponentsEqual(interactStack, equippedStack);
+            ItemStack equippedStack = player.getItemBySlot(equippableComponent.slot());
+            return !ItemStack.isSameItemSameComponents(interactStack, equippedStack);
         }
 
-        if (interactStack.contains(DataComponentTypes.BLOCKS_ATTACKS)
-                || interactStack.contains(DataComponentTypes.KINETIC_WEAPON)
+        if (interactStack.has(DataComponents.BLOCKS_ATTACKS)
+                || interactStack.has(DataComponents.KINETIC_WEAPON)
                 || VItem.getInstance().isSpear(interactStack)) {
             return true;
         }
 
         Item item = interactStack.getItem();
         if (item instanceof BowItem) {
-            return player.isInCreativeMode()
-                    || !player.getProjectileType(interactStack).isEmpty();
+            return player.hasInfiniteMaterials()
+                    || !player.getProjectile(interactStack).isEmpty();
         }
         if (item instanceof CrossbowItem) {
-            ChargedProjectilesComponent chargedProjectilesComponent =
-                    interactStack.get(DataComponentTypes.CHARGED_PROJECTILES);
+            ChargedProjectiles chargedProjectilesComponent =
+                    interactStack.get(DataComponents.CHARGED_PROJECTILES);
             return chargedProjectilesComponent != null && !chargedProjectilesComponent.isEmpty()
-                    || !player.getProjectileType(interactStack).isEmpty();
+                    || !player.getProjectile(interactStack).isEmpty();
         }
         if (item instanceof TridentItem) {
             return true;
         }
-        if (item instanceof GoatHornItem) {
-            return interactStack.contains(DataComponentTypes.INSTRUMENT);
+        if (item instanceof InstrumentItem) {
+            return interactStack.has(DataComponents.INSTRUMENT);
         }
         if (item instanceof FireworkRocketItem) {
             return player.isFallFlying();
         }
-        if (item instanceof OnAStickItem) {
-            return player.hasVehicle();
+        if (item instanceof FoodOnAStickItem) {
+            return player.isPassenger();
         }
 
         return item instanceof SpyglassItem
@@ -707,10 +832,10 @@ public class InteractUtils {
                 || item instanceof FishingRodItem
                 || item instanceof BucketItem
                 || item instanceof BoatItem
-                || item instanceof PlaceableOnWaterItem
+                || item instanceof PlaceOnWaterBlockItem
                 || item instanceof SpawnEggItem
                 || item instanceof EmptyMapItem
-                || item instanceof GlassBottleItem
+                || item instanceof BottleItem
                 || item instanceof WrittenBookItem
                 || item instanceof WritableBookItem
                 || item instanceof KnowledgeBookItem
@@ -718,41 +843,41 @@ public class InteractUtils {
                 || item instanceof ProjectileItem;
     }
 
-    private static EquipmentSlot getArmorStandHitSlot(ArmorStandEntity armorStand, Vec3d hitPos) {
+    private static EquipmentSlot getArmorStandHitSlot(ArmorStand armorStand, Vec3 hitPos) {
         EquipmentSlot slot = EquipmentSlot.MAINHAND;
         boolean small = armorStand.isSmall();
-        double y = hitPos.y / (armorStand.getScale() * armorStand.getScaleFactor());
+        double y = hitPos.y / (armorStand.getScale() * armorStand.getAgeScale());
         if (y >= 0.1
                 && y < 0.1 + (small ? 0.8 : 0.45)
-                && !armorStand.getEquippedStack(EquipmentSlot.FEET).isEmpty()) {
+                && !armorStand.getItemBySlot(EquipmentSlot.FEET).isEmpty()) {
             slot = EquipmentSlot.FEET;
         } else if (y >= 0.9 + (small ? 0.3 : 0.0)
                 && y < 0.9 + (small ? 1.0 : 0.7)
-                && !armorStand.getEquippedStack(EquipmentSlot.CHEST).isEmpty()) {
+                && !armorStand.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) {
             slot = EquipmentSlot.CHEST;
         } else if (y >= 0.4
                 && y < 0.4 + (small ? 1.0 : 0.8)
-                && !armorStand.getEquippedStack(EquipmentSlot.LEGS).isEmpty()) {
+                && !armorStand.getItemBySlot(EquipmentSlot.LEGS).isEmpty()) {
             slot = EquipmentSlot.LEGS;
-        } else if (y >= 1.6 && !armorStand.getEquippedStack(EquipmentSlot.HEAD).isEmpty()) {
+        } else if (y >= 1.6 && !armorStand.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
             slot = EquipmentSlot.HEAD;
-        } else if (armorStand.getEquippedStack(EquipmentSlot.MAINHAND).isEmpty()
-                && !armorStand.getEquippedStack(EquipmentSlot.OFFHAND).isEmpty()) {
+        } else if (armorStand.getItemBySlot(EquipmentSlot.MAINHAND).isEmpty()
+                && !armorStand.getItemBySlot(EquipmentSlot.OFFHAND).isEmpty()) {
             slot = EquipmentSlot.OFFHAND;
         }
         return slot;
     }
 
-    private static boolean canArmorStandUseSlot(ArmorStandEntity armorStand, EquipmentSlot slot) {
+    private static boolean canArmorStandUseSlot(ArmorStand armorStand, EquipmentSlot slot) {
         return slot != EquipmentSlot.BODY && slot != EquipmentSlot.SADDLE && armorStand.canUseSlot(slot);
     }
 
-    public static boolean canInteractAndPlace(PlayerEntity player, FlagEntry<BlockHitResult> sneak) {
-        return sneak != null && (player.shouldCancelInteraction() || !sneak.flag());
+    public static boolean canInteractAndPlace(Player player, FlagEntry<BlockHitResult> sneak) {
+        return sneak != null && (player.isSecondaryUseActive() || !sneak.flag());
     }
 
-    public static boolean canInteractAndPlace(PlayerEntity player, boolean flag) {
-        return player.shouldCancelInteraction() || !flag;
+    public static boolean canInteractAndPlace(Player player, boolean flag) {
+        return player.isSecondaryUseActive() || !flag;
     }
 
     public static boolean canBeReplaceTo(BlockState fromState, BlockState toState) {
@@ -777,103 +902,103 @@ public class InteractUtils {
 
         if (fromBlock == targetBlock) {
             if (fromBlock instanceof SlabBlock
-                    && fromState.get(SlabBlock.TYPE) != SlabType.DOUBLE
-                    && toState.get(SlabBlock.TYPE) == SlabType.DOUBLE) {
-                result.add(Pair.of(fromState.with(SlabBlock.TYPE, SlabType.DOUBLE), isItem(fromBlock.asItem())));
+                    && fromState.getValue(SlabBlock.TYPE) != SlabType.DOUBLE
+                    && toState.getValue(SlabBlock.TYPE) == SlabType.DOUBLE) {
+                result.add(Pair.of(fromState.setValue(SlabBlock.TYPE, SlabType.DOUBLE), isItem(fromBlock.asItem())));
             }
             int layers;
-            if (fromBlock instanceof SnowBlock
-                    && (layers = fromState.get(SnowBlock.LAYERS)) < 8
-                    && toState.get(SnowBlock.LAYERS) > layers) {
-                result.add(Pair.of(fromState.with(SnowBlock.LAYERS, layers + 1), isItem(fromBlock.asItem())));
+            if (fromBlock instanceof SnowLayerBlock
+                    && (layers = fromState.getValue(SnowLayerBlock.LAYERS)) < 8
+                    && toState.getValue(SnowLayerBlock.LAYERS) > layers) {
+                result.add(Pair.of(fromState.setValue(SnowLayerBlock.LAYERS, layers + 1), isItem(fromBlock.asItem())));
             }
             if (fromBlock instanceof CandleBlock
-                    && (layers = fromState.get(CandleBlock.CANDLES)) < 4
-                    && toState.get(CandleBlock.CANDLES) > layers) {
-                result.add(Pair.of(fromState.with(CandleBlock.CANDLES, layers + 1), isItem(fromBlock.asItem())));
+                    && (layers = fromState.getValue(CandleBlock.CANDLES)) < 4
+                    && toState.getValue(CandleBlock.CANDLES) > layers) {
+                result.add(Pair.of(fromState.setValue(CandleBlock.CANDLES, layers + 1), isItem(fromBlock.asItem())));
             }
             if (fromBlock instanceof SeaPickleBlock
-                    && (layers = fromState.get(SeaPickleBlock.PICKLES)) < 4
-                    && toState.get(SeaPickleBlock.PICKLES) > layers) {
-                result.add(Pair.of(fromState.with(SeaPickleBlock.PICKLES, layers + 1), isItem(fromBlock.asItem())));
+                    && (layers = fromState.getValue(SeaPickleBlock.PICKLES)) < 4
+                    && toState.getValue(SeaPickleBlock.PICKLES) > layers) {
+                result.add(Pair.of(fromState.setValue(SeaPickleBlock.PICKLES, layers + 1), isItem(fromBlock.asItem())));
             }
-            if (fromBlock instanceof FlowerbedBlock
-                    && (layers = fromState.get(FlowerbedBlock.FLOWER_AMOUNT)) < 4
-                    && toState.get(FlowerbedBlock.FLOWER_AMOUNT) > layers) {
+            if (fromBlock instanceof FlowerBedBlock
+                    && (layers = fromState.getValue(FlowerBedBlock.AMOUNT)) < 4
+                    && toState.getValue(FlowerBedBlock.AMOUNT) > layers) {
                 result.add(
-                        Pair.of(fromState.with(FlowerbedBlock.FLOWER_AMOUNT, layers + 1), isItem(fromBlock.asItem())));
+                        Pair.of(fromState.setValue(FlowerBedBlock.AMOUNT, layers + 1), isItem(fromBlock.asItem())));
             }
             if (fromBlock instanceof LeafLitterBlock
-                    && fromState.get(LeafLitterBlock.SEGMENT_AMOUNT) < 4
-                    && toState.equals(fromState.with(
-                            LeafLitterBlock.SEGMENT_AMOUNT, fromState.get(LeafLitterBlock.SEGMENT_AMOUNT) + 1))) {
+                    && fromState.getValue(LeafLitterBlock.AMOUNT) < 4
+                    && toState.equals(fromState.setValue(
+                            LeafLitterBlock.AMOUNT, fromState.getValue(LeafLitterBlock.AMOUNT) + 1))) {
                 result.add(Pair.of(toState, isItem(fromBlock.asItem())));
             }
             if (fromBlock instanceof RepeaterBlock
-                    && !toState.get(RepeaterBlock.DELAY).equals(fromState.get(RepeaterBlock.DELAY))) {
+                    && !toState.getValue(RepeaterBlock.DELAY).equals(fromState.getValue(RepeaterBlock.DELAY))) {
                 result.add(Pair.of(fromState.cycle(RepeaterBlock.DELAY), ALWAYS_TRUE));
             }
             if (fromBlock instanceof ComparatorBlock
-                    && toState.get(ComparatorBlock.MODE) != fromState.get(ComparatorBlock.MODE)) {
+                    && toState.getValue(ComparatorBlock.MODE) != fromState.getValue(ComparatorBlock.MODE)) {
                 result.add(Pair.of(fromState.cycle(ComparatorBlock.MODE), ALWAYS_TRUE));
             }
-            if (fromBlock instanceof DoorBlock && toState.get(DoorBlock.OPEN) != fromState.get(DoorBlock.OPEN)) {
+            if (fromBlock instanceof DoorBlock && toState.getValue(DoorBlock.OPEN) != fromState.getValue(DoorBlock.OPEN)) {
                 result.add(Pair.of(fromState.cycle(DoorBlock.OPEN), ALWAYS_TRUE));
             }
-            if (fromBlock instanceof TrapdoorBlock
-                    && toState.get(TrapdoorBlock.OPEN) != fromState.get(TrapdoorBlock.OPEN)) {
-                result.add(Pair.of(fromState.cycle(TrapdoorBlock.OPEN), ALWAYS_TRUE));
+            if (fromBlock instanceof TrapDoorBlock
+                    && toState.getValue(TrapDoorBlock.OPEN) != fromState.getValue(TrapDoorBlock.OPEN)) {
+                result.add(Pair.of(fromState.cycle(TrapDoorBlock.OPEN), ALWAYS_TRUE));
             }
             if (fromBlock instanceof FenceGateBlock
-                    && toState.get(FenceGateBlock.OPEN) != fromState.get(FenceGateBlock.OPEN)) {
+                    && toState.getValue(FenceGateBlock.OPEN) != fromState.getValue(FenceGateBlock.OPEN)) {
                 result.add(Pair.of(fromState.cycle(FenceGateBlock.OPEN), ALWAYS_TRUE));
             }
             if (fromBlock instanceof LeverBlock
-                    && toState.get(LeverBlock.POWERED) != fromState.get(LeverBlock.POWERED)) {
+                    && toState.getValue(LeverBlock.POWERED) != fromState.getValue(LeverBlock.POWERED)) {
                 result.add(Pair.of(fromState.cycle(LeverBlock.POWERED), ALWAYS_TRUE));
             }
             if (fromBlock instanceof ButtonBlock
-                    && !fromState.get(ButtonBlock.POWERED)
-                    && toState.equals(fromState.with(ButtonBlock.POWERED, true))) {
+                    && !fromState.getValue(ButtonBlock.POWERED)
+                    && toState.equals(fromState.setValue(ButtonBlock.POWERED, true))) {
                 result.add(Pair.of(toState, ALWAYS_TRUE));
             }
-            if (fromBlock instanceof NoteBlock && toState.get(NoteBlock.NOTE) != fromState.get(NoteBlock.NOTE)) {
+            if (fromBlock instanceof NoteBlock && toState.getValue(NoteBlock.NOTE) != fromState.getValue(NoteBlock.NOTE)) {
                 result.add(Pair.of(fromState.cycle(NoteBlock.NOTE), ALWAYS_TRUE));
             }
             if (fromBlock instanceof CandleBlock
-                    && fromState.get(CandleBlock.LIT)
-                    && toState.equals(fromState.with(CandleBlock.LIT, false))) {
+                    && fromState.getValue(CandleBlock.LIT)
+                    && toState.equals(fromState.setValue(CandleBlock.LIT, false))) {
                 result.add(Pair.of(toState, ItemStack::isEmpty));
             }
             if (fromBlock instanceof CandleBlock
-                    && !fromState.get(CandleBlock.LIT)
-                    && !fromState.get(CandleBlock.WATERLOGGED)
-                    && toState.equals(fromState.with(CandleBlock.LIT, true))) {
+                    && !fromState.getValue(CandleBlock.LIT)
+                    && !fromState.getValue(CandleBlock.WATERLOGGED)
+                    && toState.equals(fromState.setValue(CandleBlock.LIT, true))) {
                 result.add(Pair.of(toState, isAnyOf(Items.FLINT_AND_STEEL, Items.FIRE_CHARGE)));
             }
             if (fromBlock instanceof RespawnAnchorBlock
-                    && fromState.get(RespawnAnchorBlock.CHARGES) < 4
-                    && toState.get(RespawnAnchorBlock.CHARGES) > fromState.get(RespawnAnchorBlock.CHARGES)) {
+                    && fromState.getValue(RespawnAnchorBlock.CHARGE) < 4
+                    && toState.getValue(RespawnAnchorBlock.CHARGE) > fromState.getValue(RespawnAnchorBlock.CHARGE)) {
                 result.add(Pair.of(
-                        fromState.with(RespawnAnchorBlock.CHARGES, fromState.get(RespawnAnchorBlock.CHARGES) + 1),
+                        fromState.setValue(RespawnAnchorBlock.CHARGE, fromState.getValue(RespawnAnchorBlock.CHARGE) + 1),
                         isItem(Items.GLOWSTONE)));
             }
             if (fromBlock instanceof CakeBlock
-                    && fromState.get(CakeBlock.BITES) < 6
-                    && toState.equals(fromState.with(CakeBlock.BITES, fromState.get(CakeBlock.BITES) + 1))) {
+                    && fromState.getValue(CakeBlock.BITES) < 6
+                    && toState.equals(fromState.setValue(CakeBlock.BITES, fromState.getValue(CakeBlock.BITES) + 1))) {
                 result.add(Pair.of(toState, ALWAYS_TRUE));
             }
             if (fromBlock instanceof FlowerPotBlock fromPot
                     && targetBlock instanceof FlowerPotBlock targetPot
-                    && fromPot.getContent() != Blocks.AIR
-                    && targetPot.getContent() == Blocks.AIR) {
+                    && fromPot.getPotted() != Blocks.AIR
+                    && targetPot.getPotted() == Blocks.AIR) {
                 result.add(Pair.of(toState, ItemStack::isEmpty));
             }
         }
 
         if (fromBlock instanceof CakeBlock
                 && targetBlock instanceof CandleCakeBlock
-                && fromState.get(CakeBlock.BITES) == 0) {
+                && fromState.getValue(CakeBlock.BITES) == 0) {
             Item candleItem = getRequiredCandleItem(targetBlock);
             if (candleItem != null) {
                 result.add(Pair.of(toState, isItem(candleItem)));
@@ -881,14 +1006,14 @@ public class InteractUtils {
         }
         if (fromBlock instanceof CandleCakeBlock
                 && targetBlock instanceof CakeBlock
-                && toState.get(CakeBlock.BITES) == 1) {
+                && toState.getValue(CakeBlock.BITES) == 1) {
             result.add(Pair.of(toState, ALWAYS_TRUE));
         }
         if (fromBlock instanceof FlowerPotBlock fromPot
                 && targetBlock instanceof FlowerPotBlock targetPot
-                && fromPot.getContent() == Blocks.AIR
-                && targetPot.getContent() != Blocks.AIR) {
-            Block content = targetPot.getContent();
+                && fromPot.getPotted() == Blocks.AIR
+                && targetPot.getPotted() != Blocks.AIR) {
+            Block content = targetPot.getPotted();
             result.add(Pair.of(
                     toState,
                     stack -> stack != null && stack.getItem() instanceof BlockItem item && item.getBlock() == content));
@@ -900,7 +1025,7 @@ public class InteractUtils {
     }
 
     private static Predicate<ItemStack> isItem(Item item) {
-        return stack -> stack != null && stack.isOf(item);
+        return stack -> stack != null && stack.is(item);
     }
 
     private static Predicate<ItemStack> isAnyOf(Item... items) {
@@ -909,7 +1034,7 @@ public class InteractUtils {
                 return false;
             }
             for (Item item : items) {
-                if (stack.isOf(item)) {
+                if (stack.is(item)) {
                     return true;
                 }
             }
@@ -918,12 +1043,12 @@ public class InteractUtils {
     }
 
     private static Item getRequiredCandleItem(Block candleCakeBlock) {
-        var blockId = Registries.BLOCK.getId(candleCakeBlock);
+        var blockId = BuiltInRegistries.BLOCK.getKey(candleCakeBlock);
         String path = blockId.getPath();
         if (!path.endsWith("_cake")) {
             return null;
         }
-        Item item = Registries.ITEM.get(blockId.withPath(path.substring(0, path.length() - 5)));
+        Item item = BuiltInRegistries.ITEM.getValue(blockId.withPath(path.substring(0, path.length() - 5)));
         return item == Items.AIR ? null : item;
     }
 }

@@ -6,13 +6,13 @@ import lombok.experimental.Accessors;
 import me.matl114.gui.McWidgetHelpers;
 import me.matl114.gui.basic.ContentDelegateWidget;
 import me.matl114.utils.config.BaseAttrKeyValue;
-import net.minecraft.client.gui.widget.EditBoxWidget;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.visitor.NbtOrderedStringFormatter;
+import net.minecraft.client.gui.components.MultiLineEditBox;
+import net.minecraft.nbt.SnbtPrinterTagVisitor;
+import net.minecraft.nbt.Tag;
 
 @Accessors(chain = true)
-public class NbtAttrKeyValue<W> extends BaseAttrKeyValue<NbtElement> {
-    protected final Function<NbtElement, W> nbtParser;
+public class NbtAttrKeyValue<W> extends BaseAttrKeyValue<Tag> {
+    protected final Function<Tag, W> nbtParser;
 
     public NbtAttrKeyValue<W> setEnableNull(boolean val) {
         this.enableNull = val;
@@ -21,7 +21,7 @@ public class NbtAttrKeyValue<W> extends BaseAttrKeyValue<NbtElement> {
 
     protected boolean enableNull = false;
 
-    public NbtAttrKeyValue(String key, NbtElement value, Function<NbtElement, W> function) {
+    public NbtAttrKeyValue(String key, Tag value, Function<Tag, W> function) {
         super(key, value == null ? null : value.copy(), AttrKeyValues.NBT_FACTORY);
         this.nbtParser = function;
         addValidator(s -> {
@@ -33,7 +33,7 @@ public class NbtAttrKeyValue<W> extends BaseAttrKeyValue<NbtElement> {
         });
     }
 
-    private boolean extraParse(NbtElement element) {
+    private boolean extraParse(Tag element) {
         try {
             nbtParser.apply(element);
             return true;
@@ -45,15 +45,15 @@ public class NbtAttrKeyValue<W> extends BaseAttrKeyValue<NbtElement> {
     public void applyFormatting(Consumer<String> callback) {
         if (validate) {
             try {
-                valueChange(null, new NbtOrderedStringFormatter().apply(this.getOriginValue()));
+                valueChange(null, new SnbtPrinterTagVisitor().visit(this.getOriginValue()));
                 callback.accept(this.getValue());
             } catch (Throwable e) {
             }
         }
     }
 
-    public ContentDelegateWidget<EditBoxWidget> generateEditBox(int x, int y, int dx, int dy) {
-        //            EditBoxWidget widget = new EditBoxWidget(MinecraftClient.getInstance().textRenderer, x,y,
+    public ContentDelegateWidget<MultiLineEditBox> generateEditBox(int x, int y, int dx, int dy) {
+        //            EditBoxWidget widget = new EditBoxWidget(Minecraft.getInstance().textRenderer, x,y,
         // dx,dy, Text.empty(), Text.empty());
         //            widget.setText(this.value);
         //            widget.setChangeListener((val)->valueChange(null, val));

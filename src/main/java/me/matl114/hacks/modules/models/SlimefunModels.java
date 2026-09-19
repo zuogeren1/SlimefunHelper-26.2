@@ -15,15 +15,15 @@ import me.matl114.managers.config.ListRef;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.client.render.item.model.ItemModel;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.CustomModelDataComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourcePack;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.item.ItemModel;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackResources;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomModelData;
 import org.yaml.snakeyaml.Yaml;
 
 public class SlimefunModels extends BaseModule {
@@ -74,7 +74,7 @@ public class SlimefunModels extends BaseModule {
 
         if (enableModel.get()) {
             ItemStack stack = event.getArgs(0);
-            NbtCompound nbt = ItemStackUtils.getCustomDataReadOnly(stack);
+            CompoundTag nbt = ItemStackUtils.getCustomDataReadOnly(stack);
             try {
                 String id = ItemStackUtils.getSfId(nbt);
                 if (id != null) {
@@ -99,17 +99,17 @@ public class SlimefunModels extends BaseModule {
             if (!stack.isEmpty()) {
                 String id = ItemStackUtils.getSfId(stack);
                 if (id != null && customModelDatas.containsKey(id)) {
-                    CustomModelDataComponent val = customModelDatas.get(id);
+                    CustomModelData val = customModelDatas.get(id);
 
                     ItemStack stackCopy = stack.copy();
-                    ItemStackUtils.setOrRemoveChange(stackCopy, DataComponentTypes.CUSTOM_MODEL_DATA, val);
+                    ItemStackUtils.setOrRemoveChange(stackCopy, DataComponents.CUSTOM_MODEL_DATA, val);
                     event.context(stackCopy);
                 }
             }
         }
     }
 
-    private final Map<String, CustomModelDataComponent> customModelDatas = new HashMap<>();
+    private final Map<String, CustomModelData> customModelDatas = new HashMap<>();
     private final Map<String, Identifier> customItemModels = new HashMap<>();
     private static final String OUR_NAMESPACE = "slimefunhelper";
 
@@ -148,13 +148,13 @@ public class SlimefunModels extends BaseModule {
         customItemModels.clear();
         modelCache.clear();
         Collection<Identifier> id = new LinkedHashSet<>();
-        List<ResourcePack> packs = resourceManager.streamResourcePacks().toList();
+        List<PackResources> packs = resourceManager.listPacks().toList();
         List<String> modelPathPattern = autoModelPattern.get();
         String pattern = modelPathPattern.stream().map(i -> "(" + i + ")").collect(Collectors.joining("|"));
         var predicate = Pattern.compile(pattern).asMatchPredicate();
-        for (ResourcePack pack : packs) {
+        for (PackResources pack : packs) {
 
-            String name = pack.getId();
+            String name = pack.packId();
             if (name.equals("minecraft")
                     || name.equals("realms")
                     || name.startsWith("fabric-")
@@ -163,7 +163,7 @@ public class SlimefunModels extends BaseModule {
                 continue;
             }
             if (name.equals(OUR_NAMESPACE)) {
-                pack.findResources(ResourceType.CLIENT_RESOURCES, "slimefunhelper", "models/slimefunitem", (i, j) -> {
+                pack.listResources(PackType.CLIENT_RESOURCES, "slimefunhelper", "models/slimefunitem", (i, j) -> {
                     String realNamespace = i.getNamespace();
                     if (!i.getPath().endsWith(".json")) return;
                     String realPath = i.getPath().replaceFirst("^models/", "").replaceAll(".json$", "");
@@ -176,11 +176,11 @@ public class SlimefunModels extends BaseModule {
                     id.add(fullPathId);
                 });
             } else {
-                Set<String> namespacess = pack.getNamespaces(ResourceType.CLIENT_RESOURCES);
+                Set<String> namespacess = pack.getNamespaces(PackType.CLIENT_RESOURCES);
 
                 for (String namespace : namespacess) {
                     // Debug.info("in namespace ",namespace);
-                    pack.findResources(ResourceType.CLIENT_RESOURCES, namespace, "models", (i, j) -> {
+                    pack.listResources(PackType.CLIENT_RESOURCES, namespace, "models", (i, j) -> {
                         /// Debug.info("finding resource ",i,j);
                         String realNamespace = i.getNamespace();
                         if (!i.getPath().endsWith(".json")) return;

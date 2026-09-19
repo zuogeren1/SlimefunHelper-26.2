@@ -3,12 +3,12 @@ package me.matl114.mixins.events;
 import me.matl114.accessors.events.ChatHudLineAccess;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.hud.ChatHudLine;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ChatHudLine.class)
+@Mixin(GuiMessage.class)
 public abstract class ChatHudLineEvents implements ChatHudLineAccess {
     @Unique
     private String uniqueMessageId;

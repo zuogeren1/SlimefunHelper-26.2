@@ -2,56 +2,67 @@ package me.matl114.mixins.events;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.vertex.PoseStack;
 import me.matl114.events.Event;
 import me.matl114.events.RenderListener;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.Frustum;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.render.entity.EntityRenderManager;
-import net.minecraft.client.util.ObjectAllocator;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
+import me.matl114.versioned.impl.Render_v1_21_11;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
+import net.minecraft.world.entity.Entity;
 import org.joml.Matrix4f;
-import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(WorldRenderer.class)
+@Mixin(LevelRenderer.class)
 public abstract class WorldRendererEvents {
-    @Inject(at = @At("RETURN"), method = "render")
-    public void renderMore(
-            ObjectAllocator allocator,
-            RenderTickCounter tickCounter,
-            boolean renderBlockOutline,
-            Camera camera,
-            Matrix4f positionMatrix,
-            Matrix4f basicProjectionMatrix,
-            Matrix4f projectionMatrix,
-            GpuBufferSlice fogBuffer,
-            Vector4f fogColor,
-            boolean renderSky,
+    /**
+     * 26.2 的世界渲染改为两阶段：先 {@code submitFeatures(...)} 把所有内容提交进
+     * {@link SubmitNodeCollector}，随后 {@code prepareFrame(...)} 统一排序渲染。
+     *
+     * <p>因此自定义几何的注入点从旧的 {@code renderLevel} RETURN 改到 {@code submitFeatures}
+     * 的 RETURN —— 此时 vanilla 内容已提交完毕，我们追加的几何会与之一起参与排序与渲染，
+     * 深度与遮挡关系保持正确。
+     */
+    @Inject(method = "submitFeatures", at = @At("RETURN"))
+    private void onAfterSubmitFeatures(
+            LevelRenderState levelRenderState,
+            SubmitNodeCollector submitNodeCollector,
+            boolean renderOutline,
             CallbackInfo ci) {
-        RenderListener.setWorldModelViewMatrix(new Matrix4f(positionMatrix));
-        RenderListener.setWorldBasicProjectionMatrix(new Matrix4f(basicProjectionMatrix));
-        RenderListener.setWorldProjectionMatrix(new Matrix4f(projectionMatrix));
-        MatrixStack matrixStack = new MatrixStack();
-        matrixStack.multiplyPositionMatrix(positionMatrix);
-        RenderListener.renderWorldTasks(matrixStack, tickCounter.getTickProgress(false));
+        CameraRenderState cameraState = levelRenderState.cameraRenderState;
+        RenderListener.setWorldModelViewMatrix(new Matrix4f(cameraState.viewRotationMatrix));
+        RenderListener.setWorldProjectionMatrix(new Matrix4f(cameraState.projectionMatrix));
+
+        PoseStack matrixStack = new PoseStack();
+        matrixStack.mulPose(cameraState.viewRotationMatrix);
+
+        Render_v1_21_11.beginSubmit(submitNodeCollector, matrixStack);
+        try {
+            DeltaTracker tracker = Minecraft.getInstance().getDeltaTracker();
+            float tickDelta = tracker == null ? 0.0F : tracker.getGameTimeDeltaPartialTick(false);
+            RenderListener.renderWorldTasks(matrixStack, tickDelta);
+        } finally {
+            Render_v1_21_11.endSubmit();
+        }
     }
 
     @WrapOperation(
-            method = "fillEntityRenderStates",
+            method = "extractVisibleEntities",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/render/entity/EntityRenderManager;shouldRender(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/render/Frustum;DDD)Z"))
+                                    "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;shouldRender(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/culling/Frustum;DDD)Z"))
     public boolean onEntityRenderEvent(
-            EntityRenderManager instance,
+            EntityRenderDispatcher instance,
             Entity entity,
             Frustum frustum,
             double x,
@@ -65,19 +76,4 @@ public abstract class WorldRendererEvents {
         }
         return original.call(instance, entity, frustum, x, y, z);
     }
-    // this mixin clash with sodium mixin
-
-    //    @WrapOperation(method = "fillBlockEntityRenderStates", at = @At(value = "INVOKE", target =
-    // "Lnet/minecraft/client/render/block/entity/BlockEntityRenderManager;getRenderState(Lnet/minecraft/block/entity/BlockEntity;FLnet/minecraft/client/render/command/ModelCommandRenderer$CrumblingOverlayCommand;)Lnet/minecraft/client/render/block/entity/state/BlockEntityRenderState;", ordinal = 0))
-    //    public BlockEntityRenderState onBlockEntityRenderState(BlockEntityRenderManager instance, BlockEntity
-    // blockEntity, float tickProgress, ModelCommandRenderer.CrumblingOverlayCommand crumblingOverlay,
-    // Operation<BlockEntityRenderState> original){
-    //        Event<BlockEntity> event = new Event<>(blockEntity, true, false);
-    //        RenderListener.getBlockEntityRenderListener().handleValue(event);
-    //        if(event.isCancelled()){
-    //            return null;
-    //        }else {
-    //            return original.call(instance, blockEntity, tickProgress, crumblingOverlay);
-    //        }
-    //    }
 }

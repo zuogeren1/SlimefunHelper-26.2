@@ -1,6 +1,6 @@
 package me.matl114.bukkit;
 
-import net.minecraft.item.Item;
+import net.minecraft.world.item.Item;
 
 public class BukkitItemFactory {
     public BukkitItemFactory() {}

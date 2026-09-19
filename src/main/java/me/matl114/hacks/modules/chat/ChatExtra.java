@@ -25,14 +25,14 @@ import me.matl114.managers.config.StringRef;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.AnvilScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.StringHelper;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.StringUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -96,7 +96,7 @@ public class ChatExtra extends BaseModule {
         registerListener(
                 Listener.getPostInitializeScreen().getChannel(ChatScreen.class), this::onChatScreenInitialized);
         registerListener(
-                Listener.getPostInitializeScreen().getChannel(HandledScreen.class), this::onChatScreenInitialized);
+                Listener.getPostInitializeScreen().getChannel(AbstractContainerScreen.class), this::onChatScreenInitialized);
         registerListener(Listener.getPostCloseScreen().getChannel(ChatScreen.class), this::onChatScreenClose);
         registerListener(Listener.getChatSend(), this::onChatPasswordEncrypt, -999);
         registerListener(Listener.getChatSend(), this::onStringReplace, Integer.MAX_VALUE - 10);
@@ -140,7 +140,7 @@ public class ChatExtra extends BaseModule {
             sent = StringUtils.normalizeSpace(sent);
         }
         if (!noChathudInputLimit.get()) {
-            sent = StringHelper.truncateChat(sent);
+            sent = StringUtil.trimChatMessage(sent);
         }
         return sent;
     }
@@ -170,7 +170,7 @@ public class ChatExtra extends BaseModule {
                 chatField.setMaxLength(32768);
 
             } else if (screenEvent.context() instanceof AnvilScreen anvilScreen) {
-                if (anvilScreen.getFocused() instanceof TextFieldWidget widget) {
+                if (anvilScreen.getFocused() instanceof EditBox widget) {
                     widget.setMaxLength(32768);
                 }
             }
@@ -180,11 +180,11 @@ public class ChatExtra extends BaseModule {
     public void onChatScreenClose(Event<ChatScreen> chatScreenSave) {
         var chat = chatScreenSave.context();
         if (addToHistoryWhenClose.get()) {
-            String chatInput = ChatScreenAccess.of(chat).getInputWidget().getText();
+            String chatInput = ChatScreenAccess.of(chat).getInputWidget().getValue();
             // ignore two default input
             if (!chatInput.isEmpty() && !Objects.equals("/", chatInput)) {
-                if (mc.inGameHud != null) {
-                    mc.inGameHud.getChatHud().addToMessageHistory(chatInput);
+                if (mc.gui != null) {
+                    mc.gui.hud.chat.addRecentChat(chatInput);
                 }
             }
         }
@@ -213,28 +213,28 @@ public class ChatExtra extends BaseModule {
         return false;
     }
 
-    private TextFieldWidget sampleWidget;
+    private EditBox sampleWidget;
 
-    public boolean onChatObfRender(TextFieldWidget widget, DrawContext context, int x, int y, float partialTicks) {
-        String text = widget.getText();
+    public boolean onChatObfRender(EditBox widget, GuiGraphicsExtractor context, int x, int y, float partialTicks) {
+        String text = widget.getValue();
         var matcher = regexLogin.get().pattern().matcher(text);
         if (matcher.find() && matcher.groupCount() > 0) {
             String result = matcher.group(1) + " <password-hidden>";
             if (sampleWidget == null) {
-                sampleWidget = new TextFieldWidget(mc.textRenderer, 0, 0, 0, 0, Text.empty());
+                sampleWidget = new EditBox(mc.font, 0, 0, 0, 0, Component.empty());
                 {
-                    sampleWidget.setDrawsBackground(false);
-                    sampleWidget.setFocusUnlocked(false);
+                    sampleWidget.setBordered(false);
+                    sampleWidget.setCanLoseFocus(false);
                 }
             }
-            TextFieldWidget newWidget = sampleWidget;
+            EditBox newWidget = sampleWidget;
             newWidget.setX(widget.getX());
             newWidget.setY(widget.getY());
             newWidget.setWidth(widget.getWidth());
             newWidget.setHeight(widget.getHeight());
-            newWidget.setText(result);
-            newWidget.setCursorToEnd(false);
-            newWidget.render(context, x, y, partialTicks);
+            newWidget.setValue(result);
+            newWidget.moveCursorToEnd(false);
+            newWidget.extractRenderState(context, x, y, partialTicks);
             return true;
         } else {
             return false;
@@ -245,7 +245,7 @@ public class ChatExtra extends BaseModule {
         if (mc.player != null && encryptPass.get() && !ScreenUtils.hasCtrlDown()) {
             String command = commandChat.context();
             if (regexLogin.get().test(command)) {
-                String playerName = mc.player.getNameForScoreboard();
+                String playerName = mc.player.getScoreboardName();
                 String[] splits = command.split(" ");
                 for (var i = 1; i < splits.length; i++) {
                     if (!splits[i].startsWith("plain:")) {

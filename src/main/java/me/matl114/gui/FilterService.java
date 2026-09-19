@@ -14,10 +14,10 @@ import me.matl114.gui.elements.IconElement;
 import me.matl114.hacks.utils.recipes.RecipeEntry;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.CommonColors;
+import net.minecraft.world.item.ItemStack;
 
 public class FilterService {
     public static BiPredicate<String, RecipeEntry> RECIPE_FILTER = (str, i) -> {
@@ -26,12 +26,12 @@ public class FilterService {
             String str1 = str.substring(1);
             return i.id().toLowerCase(Locale.ROOT).contains(str1.toLowerCase(Locale.ROOT));
         } else {
-            return nameMatch(i.output().getName().getString().replaceAll("§.", ""), str);
+            return nameMatch(i.output().getHoverName().getString().replaceAll("§.", ""), str);
         }
     };
     public static BiPredicate<String, ItemStack> ITEM_FILTER = (str, i) -> {
         if (str == null || str.isEmpty()) return true;
-        return nameMatch(i.getName().getString().replaceAll("§.", ""), str);
+        return nameMatch(i.getHoverName().getString().replaceAll("§.", ""), str);
     };
 
     public static Filter<String> RTYPE_ID_FILTER = (str, i, bl) -> {
@@ -84,13 +84,13 @@ public class FilterService {
                 },
                 accessor.getValue());
         var textFieldCleanerBackground = DisplayWidget.instance(0, 0, dy, dy)
-                .setRenderHandler(new ButtonElement(TextProvider.of(Text.empty()), ButtonAction.empty())
+                .setRenderHandler(new ButtonElement(TextProvider.of(Component.empty()), ButtonAction.empty())
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.filter-service.reset-filter.tooltips", ""))));
         var textFieldCleaner = ExecutableWidget.instance(0, 0, dy, dy)
                 .setElementHandler(IconElement.fixedGui(RESET_FILTER_TEXTURE, ButtonAction.run(() -> {
                             if (textField.getDelegate() != null) {
-                                textField.getDelegate().setText("");
+                                textField.getDelegate().setValue("");
                             }
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -134,13 +134,13 @@ public class FilterService {
                 },
                 accessor.getValue());
         var textFieldCleanerBackground = DisplayWidget.instance(0, 0, dy, dy)
-                .setRenderHandler(new ButtonElement(TextProvider.of(Text.empty()), ButtonAction.empty())
+                .setRenderHandler(new ButtonElement(TextProvider.of(Component.empty()), ButtonAction.empty())
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.filter-service.reset-filter.tooltips", ""))));
         var textFieldCleaner = ExecutableWidget.instance(0, 0, dy, dy)
                 .setElementHandler(IconElement.fixedGui(RESET_FILTER_TEXTURE, ButtonAction.run(() -> {
                             if (textField.getDelegate() != null) {
-                                textField.getDelegate().setText("");
+                                textField.getDelegate().setValue("");
                             }
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -148,9 +148,9 @@ public class FilterService {
         var toggleRegex = ExecutableWidget.instance(dx - dy, 0, dy, dy)
                 .setElementHandler(new ButtonElement(
                                 el -> {
-                                    var text = Text.literal("(.*)");
+                                    var text = Component.literal("(.*)");
                                     if (useRegex.getValue()) {
-                                        text = text.withColor(Colors.GREEN);
+                                        text = text.withColor(CommonColors.GREEN);
                                     }
                                     return text;
                                 },

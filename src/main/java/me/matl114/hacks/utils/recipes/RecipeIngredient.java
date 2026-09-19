@@ -1,6 +1,6 @@
 package me.matl114.hacks.utils.recipes;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public record RecipeIngredient(ItemStack[] matchingStack) {
     public RecipeIngredient(ItemStack s) {
@@ -20,7 +20,7 @@ public record RecipeIngredient(ItemStack[] matchingStack) {
             return itemStack.isEmpty();
         } else {
             for (ItemStack itemStack2 : this.matchingStack()) {
-                if (itemStack2.isOf(itemStack.getItem())) {
+                if (itemStack2.is(itemStack.getItem())) {
                     return true;
                 }
             }

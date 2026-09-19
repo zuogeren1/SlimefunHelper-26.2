@@ -6,34 +6,33 @@ import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.hooks.ViaProtocols;
 import me.matl114.utils.EntityUtils;
 import me.matl114.versioned.SupportVersion;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.network.packet.PlayPackets;
-import net.minecraft.network.packet.c2s.play.PlayerInputC2SPacket;
-import net.minecraft.util.PlayerInput;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.GamePacketTypes;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 
 public class PlayerInputUtils {
-    public static Input of(ClientPlayerEntity player) {
-        return new Input(player.input.playerInput);
+    public static Input of(LocalPlayer player) {
+        return new Input(player.input.keyPresses);
     }
 
-    public static Input of(PlayerInput input) {
+    public static Input of(net.minecraft.world.entity.player.Input input) {
         return new Input(input);
     }
 
-    public static Input of(GameOptions options) {
+    public static Input of(Options options) {
         return new Input(
-                options.forwardKey.isPressed(),
-                options.backKey.isPressed(),
-                options.leftKey.isPressed(),
-                options.rightKey.isPressed(),
-                options.jumpKey.isPressed(),
-                options.sneakKey.isPressed(),
-                options.sprintKey.isPressed());
+                options.keyUp.isDown(),
+                options.keyDown.isDown(),
+                options.keyLeft.isDown(),
+                options.keyRight.isDown(),
+                options.keyJump.isDown(),
+                options.keyShift.isDown(),
+                options.keySprint.isDown());
     }
 
-    public static Input of(PlayerInputC2SPacket packet) {
+    public static Input of(ServerboundPlayerInputPacket packet) {
         return of(packet.input());
     }
 
@@ -99,14 +98,14 @@ public class PlayerInputUtils {
         boolean sneak;
         boolean sprint;
 
-        public Input(PlayerInput input) {
+        public Input(net.minecraft.world.entity.player.Input input) {
             this(
                     input.forward(),
                     input.backward(),
                     input.left(),
                     input.right(),
                     input.jump(),
-                    input.sneak(),
+                    input.shift(),
                     input.sprint());
         }
 
@@ -114,17 +113,17 @@ public class PlayerInputUtils {
             this(forward, backward, left, right, false, false, false);
         }
 
-        public PlayerInput toPlayerInput() {
-            return new PlayerInput(
+        public net.minecraft.world.entity.player.Input toPlayerInput() {
+            return new net.minecraft.world.entity.player.Input(
                     this.forward, this.backward, this.left, this.right, this.jump, this.sneak, this.sprint);
         }
 
-        public PlayerInputC2SPacket toPlayerInputPacket() {
-            return new PlayerInputC2SPacket(toPlayerInput());
+        public ServerboundPlayerInputPacket toPlayerInputPacket() {
+            return new ServerboundPlayerInputPacket(toPlayerInput());
         }
 
         public Input sendPlayerInputPacket() {
-            MinecraftClient.getInstance().getNetworkHandler().sendPacket(toPlayerInputPacket());
+            Minecraft.getInstance().getConnection().send(toPlayerInputPacket());
             return this;
         }
 
@@ -134,7 +133,7 @@ public class PlayerInputUtils {
                 // 1.21.1 ride packet
                 ViaFabricPlusHooks.ViaPacketWrapper wrapper =
                         ViaFabricPlusHooks.getInstance().createViaPacket();
-                wrapper.writePacketType(ViaProtocols.V1_20_3_TO_1_20_5, PlayPackets.PLAYER_INPUT);
+                wrapper.writePacketType(ViaProtocols.V1_20_3_TO_1_20_5, GamePacketTypes.SERVERBOUND_PLAYER_INPUT);
                 wrapper.write("FLOAT", sidewaysSpeed() * 0.98F);
                 wrapper.write("FLOAT", forwardSpeed() * 0.98F);
                 byte b = 0;
@@ -161,8 +160,8 @@ public class PlayerInputUtils {
                 // send sneak packet
                 ViaFabricPlusHooks.ViaPacketWrapper wrapper =
                         ViaFabricPlusHooks.getInstance().createViaPacket();
-                wrapper.writePacketType(ViaProtocols.V1_21_4_TO_1_21_5, PlayPackets.PLAYER_COMMAND);
-                wrapper.write("VAR_INT", MinecraftClient.getInstance().player.getId());
+                wrapper.writePacketType(ViaProtocols.V1_21_4_TO_1_21_5, GamePacketTypes.SERVERBOUND_PLAYER_COMMAND);
+                wrapper.write("VAR_INT", Minecraft.getInstance().player.getId());
                 wrapper.write("VAR_INT", this.sneak ? 0 : 1);
                 wrapper.write("VAR_INT", 0);
                 // todo why doesn't work
@@ -184,24 +183,24 @@ public class PlayerInputUtils {
             return this.jump == this.sneak ? 0 : (this.jump ? 1 : -1);
         }
 
-        public Input applyInput(ClientPlayerEntity input) {
+        public Input applyInput(LocalPlayer input) {
             applyInput(input.input);
             return this;
         }
 
-        protected Input applyInput(net.minecraft.client.input.Input input) {
-            input.playerInput = toPlayerInput();
+        protected Input applyInput(net.minecraft.client.player.ClientInput input) {
+            input.keyPresses = toPlayerInput();
             return this;
         }
 
-        public Input applyInput(GameOptions options) {
-            options.forwardKey.setPressed(forward);
-            options.backKey.setPressed(backward);
-            options.leftKey.setPressed(left);
-            options.rightKey.setPressed(right);
-            options.jumpKey.setPressed(jump);
-            options.sneakKey.setPressed(sneak);
-            options.sprintKey.setPressed(sprint);
+        public Input applyInput(Options options) {
+            options.keyUp.setDown(forward);
+            options.keyDown.setDown(backward);
+            options.keyLeft.setDown(left);
+            options.keyRight.setDown(right);
+            options.keyJump.setDown(jump);
+            options.keyShift.setDown(sneak);
+            options.keySprint.setDown(sprint);
             return this;
         }
 

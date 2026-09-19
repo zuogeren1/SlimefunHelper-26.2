@@ -29,20 +29,19 @@ import me.matl114.utils.commands.commandGroup.SubCommand;
 import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.SimpleCommandArgs;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.option.TextureFilteringMode;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.fog.FogRenderer;
-import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.TextureFilteringMethod;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 
 public class SleepMode extends BaseModule {
     public static SleepMode INSTANCE;
@@ -78,7 +77,7 @@ public class SleepMode extends BaseModule {
         registerListener(Listener.getPreSetScreen(), this::interceptSetScreen, Integer.MIN_VALUE);
         registerCommandBootstrap(this::onSleepCommandBootstrap);
         registerListener(
-                Listener.getPacketPoint().getChannel(ChunkDataS2CPacket.class), this::onChunkData, Integer.MIN_VALUE);
+                Listener.getPacketPoint().getChannel(ClientboundLevelChunkWithLightPacket.class), this::onChunkData, Integer.MIN_VALUE);
         registerListener(Listener.getHotKeyTriggeredListener(), this::interceptHotKey, Integer.MIN_VALUE);
     }
 
@@ -156,7 +155,7 @@ public class SleepMode extends BaseModule {
 
     public boolean wakeUpScreen() {
         if (setScreenSleeping(0)) {
-            if (mc.player != null) Debug.chat(Text.literal("睡眠状态结束, 欢迎回来!").formatted(Formatting.GREEN));
+            if (mc.player != null) Debug.chat(Component.literal("睡眠状态结束, 欢迎回来!").withStyle(ChatFormatting.GREEN));
             return true;
         } else return false;
     }
@@ -170,7 +169,7 @@ public class SleepMode extends BaseModule {
 
             if (s != 0) {
                 sleepingLevel = s;
-                setUpSleepingScreen(sleep == null ? getDefaultDisplayText() : Text.literal(sleep));
+                setUpSleepingScreen(sleep == null ? getDefaultDisplayText() : Component.literal(sleep));
             } else {
                 // sleeping = false;
                 sleepingLevel = s;
@@ -180,8 +179,8 @@ public class SleepMode extends BaseModule {
                 //                }
                 sleepingScreenInstance = null;
                 currentRenderingSleeping = null;
-                if (mc.currentScreen == null) {
-                    mc.setScreen(null);
+                if (mc.gui.screen() == null) {
+                    mc.gui.setScreen(null);
                 }
             }
             return true;
@@ -197,9 +196,9 @@ public class SleepMode extends BaseModule {
     }
 
     private class SleepingChatScreen extends ChatScreen implements SleepOverlay {
-        Text displayMessage;
+        Component displayMessage;
 
-        public SleepingChatScreen(String originalChatText, Text displayMessage) {
+        public SleepingChatScreen(String originalChatText, Component displayMessage) {
             super(originalChatText, false);
             this.displayMessage = displayMessage;
         }
@@ -214,28 +213,28 @@ public class SleepMode extends BaseModule {
         }
 
         @Override
-        public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            super.render(context, mouseX, mouseY, delta);
+        public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+            super.extractRenderState(context, mouseX, mouseY, delta);
             //            Debug.info(mouseX, mouseY, mc.inGameHud.getChatHud().getTextStyleAt(mouseX, mouseY));
             shouldFreshSleepScreen = true;
         }
 
-        public boolean keyPressed(KeyInput input) {
+        public boolean keyPressed(KeyEvent input) {
             // fix: SleepingScreen may be wrongly set on currentScreen
-            if (sleepingScreenInstance == this && input.isEnter()) {
+            if (sleepingScreenInstance == this && input.isConfirmation()) {
                 // intercept send, else left for super
-                this.sendMessage(this.chatField.getText(), true);
-                this.chatField.setText("");
+                this.handleChatInput(this.input.getValue(), true);
+                this.input.setValue("");
                 ChatScreenAccess.of(this).resetMessageHistoryIndex();
                 return true;
             } else return super.keyPressed(input);
         }
 
         @Override
-        public void close() {
+        public void onClose() {
             // do not close till sleeping is over or game exit
             if (sleepingScreenInstance != this) {
-                super.close();
+                super.onClose();
             }
             //            if(mc.currentScreen == this){
             //                super.close();
@@ -248,9 +247,9 @@ public class SleepMode extends BaseModule {
     }
 
     private class SleepingScreen extends Screen implements SafeSleepingScreen {
-        Text displayMessage;
+        Component displayMessage;
 
-        protected SleepingScreen(Text title, Text displayMessage) {
+        protected SleepingScreen(Component title, Component displayMessage) {
             super(title);
             this.displayMessage = displayMessage;
         }
@@ -280,12 +279,12 @@ public class SleepMode extends BaseModule {
             }
         }
 
-        public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {}
+        public void renderBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {}
     }
 
     private class GameExitWhileSleepingScreen extends Screen implements SafeSleepingScreen {
         protected GameExitWhileSleepingScreen() {
-            super(Text.empty());
+            super(Component.empty());
         }
 
         @Override
@@ -293,14 +292,14 @@ public class SleepMode extends BaseModule {
             super.init();
             sleepingScreenInstance = this;
             DisplayWidget.instance(40, 20, this.width - 80, this.height / 3 - 40)
-                    .setRenderHandler(LabelElement.instance(Text.literal("您的游戏在待机中退出,目前已停止刷新")))
+                    .setRenderHandler(LabelElement.instance(Component.literal("您的游戏在待机中退出,目前已停止刷新")))
                     .addTo(this);
             DisplayWidget.instance(40, this.height / 3 + 20, this.width - 80, this.height / 3 - 40)
-                    .setRenderHandler(LabelElement.instance(Text.literal("按 " + getWakeupButton() + " 键退出休眠模式")))
+                    .setRenderHandler(LabelElement.instance(Component.literal("按 " + getWakeupButton() + " 键退出休眠模式")))
                     .addTo(this);
             ExecutableWidget.instance(40, (this.height * 2) / 3 + 20, this.width - 80, this.height / 3 - 40)
                     .setElementHandler(
-                            new ButtonElement(TextProvider.of(Text.literal("点击下方按钮以刷新屏幕")), ButtonAction.run(() -> {
+                            new ButtonElement(TextProvider.of(Component.literal("点击下方按钮以刷新屏幕")), ButtonAction.run(() -> {
                                 if (isScreenSleeping()) {
                                     if (ClientUtils.isPlayerOnline()) {
                                         sleepingScreenInstance = null;
@@ -314,26 +313,26 @@ public class SleepMode extends BaseModule {
             shouldFreshSleepScreen = true;
         }
 
-        public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {}
+        public void renderBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {}
     }
 
-    private Text getDefaultDisplayText() {
-        return Text.literal("按 " + getWakeupButton() + " 键退出休眠模式");
+    private Component getDefaultDisplayText() {
+        return Component.literal("按 " + getWakeupButton() + " 键退出休眠模式");
     }
 
     private static interface SafeSleepingScreen extends SleepOverlay {
         // screen which implement this can keep even when player exit game, which means it does not need mc.player or
-        // mc.world or sth
+        // mc.level or sth
     }
     //
-    public void setUpSleepingScreen(Text display) {
+    public void setUpSleepingScreen(Component display) {
         if (sleepingScreenInstance == null) {
             switch (sleepingLevel) {
                 case 1:
                     sleepingScreenInstance = new SleepingChatScreen("", display);
                     break;
                 default:
-                    sleepingScreenInstance = new SleepingScreen(Text.empty(), display);
+                    sleepingScreenInstance = new SleepingScreen(Component.empty(), display);
                     break;
             }
         }
@@ -341,21 +340,21 @@ public class SleepMode extends BaseModule {
 
     private void setCurrentRenderingSleeping(Screen screen) {
         if (screen != null) {
-            mc.mouse.unlockCursor();
-            KeyBinding.unpressAll();
+            mc.mouseHandler.releaseMouse();
+            KeyMapping.releaseAll();
             currentRenderingSleeping = screen;
             currentRenderingSleeping.init(
-                    mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+                    mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
 
         } else {
             currentRenderingSleeping = null;
             // reset cursor and keybinds
-            if (mc.currentScreen != null) {
-                mc.mouse.unlockCursor();
-                KeyBinding.unpressAll();
+            if (mc.gui.screen() != null) {
+                mc.mouseHandler.releaseMouse();
+                KeyMapping.releaseAll();
             } else {
-                mc.mouse.lockCursor();
-                mc.getSoundManager().resumeAll();
+                mc.mouseHandler.grabMouse();
+                mc.getSoundManager().resume();
             }
         }
     }
@@ -380,8 +379,8 @@ public class SleepMode extends BaseModule {
             // clear current  view
             RenderSystem.getDevice()
                     .createCommandEncoder()
-                    .clearDepthTexture(mc.getFramebuffer().getDepthAttachment(), 1.0);
-            mc.gameRenderer.guiState.clear();
+                    .clearDepthTexture(mc.gameRenderer.mainRenderTarget().getDepthTexture(), 1.0);
+            mc.gameRenderer.gameRenderState.guiRenderState.reset();
             //            mc.getFramebuffer().clear(true);
             //            mc.getFramebuffer().endRead();
             //            mc.getFramebuffer().beginWrite(true);
@@ -398,7 +397,7 @@ public class SleepMode extends BaseModule {
         }
     }
 
-    public boolean sleepingRenderTick(GameRenderer gameRenderer, RenderTickCounter tickCounter) {
+    public boolean sleepingRenderTick(GameRenderer gameRenderer, DeltaTracker tickCounter) {
 
         if (ensureSleepingScreen()) {
             if (currentRenderingSleeping != null) {
@@ -406,38 +405,35 @@ public class SleepMode extends BaseModule {
                 if (shouldFreshSleepScreen) {
                     shouldFreshSleepScreen = false;
                     mc.gameRenderer
-                            .getGlobalSettings()
-                            .set(
-                                    mc.getWindow().getFramebufferWidth(),
-                                    mc.getWindow().getFramebufferHeight(),
-                                    (Double) mc.options.getGlintStrength().getValue(),
-                                    mc.world == null ? 0L : mc.world.getTime(),
+                            .globalSettingsUniform
+                            .update(
+                                    mc.getWindow().getWidth(),
+                                    mc.getWindow().getHeight(),
+                                    (Double) mc.options.glintStrength().get(),
+                                    mc.level == null ? 0L : mc.level.getGameTime(),
                                     tickCounter,
-                                    mc.options.getMenuBackgroundBlurrinessValue(),
-                                    mc.gameRenderer.getCamera(),
-                                    mc.options.getTextureFiltering().getValue() == TextureFilteringMode.RGSS);
+                                    mc.options.getMenuBackgroundBlurriness(),
+                                    mc.gameRenderer.mainCamera().position(),
+                                    mc.options.textureFiltering().get() == TextureFilteringMethod.RGSS);
 
-                    int i = (int) (mc.mouse.getX()
-                            * (double) mc.getWindow().getScaledWidth()
-                            / (double) mc.getWindow().getWidth());
-                    int j = (int) (mc.mouse.getY()
-                            * (double) mc.getWindow().getScaledHeight()
-                            / (double) mc.getWindow().getHeight());
+                    int i = (int) (mc.mouseHandler.xpos()
+                            * (double) mc.getWindow().getGuiScaledWidth()
+                            / (double) mc.getWindow().getScreenWidth());
+                    int j = (int) (mc.mouseHandler.ypos()
+                            * (double) mc.getWindow().getGuiScaledHeight()
+                            / (double) mc.getWindow().getScreenHeight());
 
                     RenderSystem.getDevice()
                             .createCommandEncoder()
-                            .clearDepthTexture(mc.getFramebuffer().getDepthAttachment(), 1.0);
-                    mc.gameRenderer.guiState.clear();
-                    DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, i, j);
+                            .clearDepthTexture(mc.gameRenderer.mainRenderTarget().getDepthTexture(), 1.0);
+                    mc.gameRenderer.gameRenderState.guiRenderState.reset();
+                    GuiGraphicsExtractor drawContext = new GuiGraphicsExtractor(mc, mc.gameRenderer.gameRenderState.guiRenderState, i, j);
 
-                    currentRenderingSleeping.renderWithTooltip(drawContext, i, j, tickCounter.getDynamicDeltaTicks());
-                    mc.gameRenderer.guiRenderer.render(
-                            mc.gameRenderer.fogRenderer.getFogBuffer(FogRenderer.FogType.NONE));
-                    mc.gameRenderer.guiRenderer.incrementFrame();
-                    drawContext.applyCursorTo(mc.getWindow());
-                    mc.gameRenderer.getEntityRenderCommandQueue().onNextFrame();
-                    mc.gameRenderer.getEntityRenderDispatcher().endLayeredCustoms();
-                    mc.gameRenderer.pool.decrementLifespan();
+                    currentRenderingSleeping.extractRenderState(drawContext, i, j, tickCounter.getGameTimeDeltaTicks());
+                    // 26.2: GuiRenderer.render() 无参，且 incrementFrameNumber() 已移除
+                    mc.gameRenderer.guiRenderer.render();
+                    drawContext.applyCursor(mc.getWindow());
+                    mc.gameRenderer.resourcePool.endFrame();
                 }
             } else {
                 setUpSleepingScreen(getDefaultDisplayText());
@@ -499,7 +495,7 @@ public class SleepMode extends BaseModule {
         if (isScreenSleeping()) {
             event.cancel();
             if (sleepingScreenInstance != null) {
-                sleepingScreenInstance.charTyped(new CharInput(event.context.chr(), event.context.codepoint()));
+                sleepingScreenInstance.charTyped(new CharacterEvent(event.context.chr()));
             }
         }
     }
@@ -518,7 +514,7 @@ public class SleepMode extends BaseModule {
             event.cancel();
             if (sleepingScreenInstance != null) {
                 sleepingScreenInstance.mouseDragged(
-                        new Click(event.context.mouseX(), event.context.mouseY(), event.context.mouse().activeButton),
+                        new MouseButtonEvent(event.context.mouseX(), event.context.mouseY(), event.context.mouse().activeButton),
                         event.context.deltaX(),
                         event.context.deltaY());
             }
@@ -535,7 +531,7 @@ public class SleepMode extends BaseModule {
         if (setScreen.context instanceof SleepOverlay) {
             setScreen.cancel();
             //
-            mc.setScreen(null);
+            mc.gui.setScreen(null);
         }
     }
 
@@ -545,11 +541,11 @@ public class SleepMode extends BaseModule {
         }
     }
 
-    public void onChunkData(Event<ChunkDataS2CPacket> dataS2CPacket) {
+    public void onChunkData(Event<ClientboundLevelChunkWithLightPacket> dataS2CPacket) {
         if (!runnerOptimizeStart) return;
         checkOptimizeState();
         if (checkNull()) return;
-        if (runnerOptimizeStart && mc.player.getY() > mc.world.getBottomY() + mc.world.getHeight()) {
+        if (runnerOptimizeStart && mc.player.getY() > mc.level.getMinY() + mc.level.getHeight()) {
             dataS2CPacket.cancel();
         }
     }

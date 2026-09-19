@@ -3,6 +3,7 @@ package me.matl114.mixins.hack;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.platform.Window;
 import me.matl114.accessors.access.ClientAccess;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.hacks.InteractionTasks;
@@ -12,18 +13,18 @@ import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.modules.render.RenderExtra;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.*;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.Window;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.client.gui.screens.inventory.*;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.HitResult;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,57 +34,57 @@ import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public abstract class ClientMixin implements Cloneable, ClientAccess {
 
     @Shadow
     @Nullable
-    public ClientPlayerEntity player;
+    public LocalPlayer player;
 
     @Shadow
     @Nullable
-    public ClientPlayerInteractionManager interactionManager;
+    public MultiPlayerGameMode gameMode;
 
     @Shadow
     @Nullable
-    public HitResult crosshairTarget;
+    public HitResult hitResult;
 
     @Shadow
-    private int itemUseCooldown;
+    private int rightClickDelay;
 
     @Shadow
-    static MinecraftClient instance;
+    static Minecraft instance;
 
     @Final
     @Shadow
-    public GameOptions options;
+    public Options options;
 
     @Unique
     public void setItemUseCooldown(int cooldown) {
-        this.itemUseCooldown = cooldown;
+        this.rightClickDelay = cooldown;
     }
 
     @Unique
     public int getItemUseCooldown() {
-        return this.itemUseCooldown;
+        return this.rightClickDelay;
     }
 
     @ModifyArg(
-            method = "handleInputEvents",
+            method = "handleKeybinds",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V",
+                                    "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
                             ordinal = 1))
     public Screen onRedirectInventoryKeyPress(Screen screen) {
         if (InvExtra.INSTANCE.enableKeepInv.get()) {
-            ClientPlayerEntity player = MinecraftClient.getInstance().player;
+            LocalPlayer player = Minecraft.getInstance().player;
             if (player != null
                     && ClientPlayerAccess.of(player).getKeepedInvHandler() != null
                     && ClientPlayerAccess.of(player).getKeepedInv() != null) {
-                HandledScreen screen1 = ClientPlayerAccess.of(player).getKeepedInv();
-                player.currentScreenHandler = ClientPlayerAccess.of(player).getKeepedInvHandler();
+                AbstractContainerScreen screen1 = ClientPlayerAccess.of(player).getKeepedInv();
+                player.containerMenu = ClientPlayerAccess.of(player).getKeepedInvHandler();
                 ClientPlayerAccess.of(player).clearKeepedInventory(false);
                 return screen1;
             }
@@ -92,8 +93,8 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
     }
 
     @ModifyExpressionValue(
-            method = "doAttack",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;isRiding()Z"))
+            method = "startAttack",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isHandsBusy()Z"))
     public boolean onEnableRidingAttack(boolean original) {
 
         if (CombatExtra.INSTANCE.rideAttack.get()) {
@@ -106,9 +107,9 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
     boolean lastUse = false;
 
     @WrapOperation(
-            method = "handleInputEvents",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/option/KeyBinding;isPressed()Z", ordinal = 2))
-    public boolean onHoldUse(KeyBinding instance, Operation<Boolean> original) {
+            method = "handleKeybinds",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/KeyMapping;isDown()Z", ordinal = 2))
+    public boolean onHoldUse(KeyMapping instance, Operation<Boolean> original) {
         boolean pressed = original.call(instance);
         if (InteractionTasks.getInteractExtra().holdUse.get()) {
             // hold use logic
@@ -119,7 +120,7 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
                     return true;
                 }
                 // if toggle off in the first few ticks , it is seen as original
-                if (player.getItemUseTime()
+                if (player.getTicksUsingItem()
                         < InteractionTasks.getInteractExtra().holdUseStartTick.get()) {
                     return pressed;
                 }
@@ -132,37 +133,37 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
 
     // for attack when using shield
     @WrapOperation(
-            method = "handleInputEvents",
+            method = "handleKeybinds",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/ClientPlayerEntity;isUsingItem()Z",
+                            target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z",
                             ordinal = 0))
-    public boolean onAllowingPlayerAttackWhenUseItem(ClientPlayerEntity instance, Operation<Boolean> original) {
+    public boolean onAllowingPlayerAttackWhenUseItem(LocalPlayer instance, Operation<Boolean> original) {
         boolean flag = original.call(instance);
         if (flag && CombatExtra.INSTANCE.useAttack.get()) {
             // do attack logic
             boolean bl3 = false;
             // still do attack first
-            while (options.attackKey.wasPressed()) {
-                bl3 |= this.doAttack();
+            while (options.keyAttack.consumeClick()) {
+                bl3 |= this.startAttack();
             }
             // escape pickItemKey
-            while (options.pickItemKey.wasPressed()) {
-                this.doItemPick();
+            while (options.keyPickItem.consumeClick()) {
+                this.pickBlock();
             }
         }
         return flag;
     }
 
     @WrapOperation(
-            method = "handleBlockBreaking",
+            method = "continueAttack",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/ClientPlayerEntity;isUsingItem()Z",
+                            target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z",
                             ordinal = 0))
-    public boolean onAllowingPlayerBreakingWhenUseItem(ClientPlayerEntity instance, Operation<Boolean> original) {
+    public boolean onAllowingPlayerBreakingWhenUseItem(LocalPlayer instance, Operation<Boolean> original) {
         if (CombatExtra.INSTANCE.useAttack.get()) {
             return false;
         } else {
@@ -171,15 +172,15 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
     }
 
     //    @Redirect(method = "doItemUse", at = @At(value = "FIELD", target =
-    // "Lnet/minecraft/client/MinecraftClient;itemUseCooldown:I"))
-    //    public void onRewriteItemCooldown1(MinecraftClient instance, int value){
+    // "Lnet/minecraft/client/Minecraft;itemUseCooldown:I"))
+    //    public void onRewriteItemCooldown1(Minecraft instance, int value){
     //
     //    }
 
     @WrapOperation(
-            method = "doItemUse",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;isRiding()Z"))
-    public boolean onAllowRidingUse(ClientPlayerEntity instance, Operation<Boolean> original) {
+            method = "startUseItem",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isHandsBusy()Z"))
+    public boolean onAllowRidingUse(LocalPlayer instance, Operation<Boolean> original) {
         if (InteractExtra.INSTANCE.rideUse.get()) {
             return false;
         }
@@ -187,36 +188,36 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
     }
 
     @Shadow
-    protected abstract void handleBlockBreaking(boolean b);
+    protected abstract void continueAttack(boolean b);
 
     @Shadow
-    protected abstract void doItemPick();
+    protected abstract void pickBlock();
 
     @Shadow
-    protected abstract boolean doAttack();
+    protected abstract boolean startAttack();
 
     @Shadow
     @Nullable
-    public Screen currentScreen;
+    public Screen screen;
 
     @Shadow
-    public int attackCooldown;
+    public int missTime;
 
     @Unique
     public void setAttackCooldown(int cooldown) {
-        attackCooldown = cooldown;
+        missTime = cooldown;
     }
 
     @Unique
     public int getAttackCooldown() {
-        return attackCooldown;
+        return missTime;
     }
 
     @Shadow
     public abstract Window getWindow();
 
     @Shadow
-    protected abstract void doItemUse();
+    protected abstract void startUseItem();
 
     @Override
     public ClientAccess clone() {
@@ -228,7 +229,7 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
         }
     }
 
-    @Inject(method = "hasReducedDebugInfo", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "showOnlyReducedInfo", at = @At("HEAD"), cancellable = true)
     private void onEnhanceDebug(CallbackInfoReturnable<Boolean> cir) {
         if (RenderExtra.INSTANCE.enhancedDebugHud.get()) {
             cir.setReturnValue(false);
@@ -237,27 +238,27 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
 
     @Unique
     public void simulateRightClick() {
-        doItemUse();
+        startUseItem();
     }
 
     @Unique
     public void simulateLeftClick() {
-        doAttack();
+        startAttack();
     }
 
     @Unique
-    public ActionResult simulateUseItem(Hand hand) {
-        ItemStack itemStack = player.getStackInHand(hand);
+    public InteractionResult simulateUseItem(InteractionHand hand) {
+        ItemStack itemStack = player.getItemInHand(hand);
         if (!itemStack.isEmpty()) {
-            ActionResult actionResult3 = this.interactionManager.interactItem(this.player, hand);
-            if (actionResult3 instanceof ActionResult.Success) {
-                ActionResult.Success success3 = (ActionResult.Success) actionResult3;
-                if (success3.swingSource() == ActionResult.SwingSource.CLIENT) {
-                    this.player.swingHand(hand);
+            InteractionResult actionResult3 = this.gameMode.useItem(this.player, hand);
+            if (actionResult3 instanceof InteractionResult.Success) {
+                InteractionResult.Success success3 = (InteractionResult.Success) actionResult3;
+                if (success3.swingSource() == InteractionResult.SwingSource.CLIENT) {
+                    this.player.swing(hand);
                 }
             }
             return actionResult3;
         }
-        return ActionResult.FAIL;
+        return InteractionResult.FAIL;
     }
 }

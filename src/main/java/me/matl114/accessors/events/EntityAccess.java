@@ -1,8 +1,8 @@
 package me.matl114.accessors.events;
 
 import me.matl114.accessors.interfaces.MetadataHolder;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 
 public interface EntityAccess<T extends Entity> extends MetadataHolder {
     public void setDataFlag(int flag, boolean val);
@@ -14,6 +14,6 @@ public interface EntityAccess<T extends Entity> extends MetadataHolder {
     }
 
     default boolean checkClientPlayer() {
-        return this == MinecraftClient.getInstance().player;
+        return this == Minecraft.getInstance().player;
     }
 }

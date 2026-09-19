@@ -13,8 +13,8 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.Vec3;
 
 public class SearchControl extends BaseModule {
     public final ModulePath travellingControl = makePath(Configs.SURVIVAL_CONFIG, "travelling-control");
@@ -107,7 +107,7 @@ public class SearchControl extends BaseModule {
         return this::tickLookRect;
     }
 
-    public void onPreTick(Event<ClientPlayerEntity> event) {
+    public void onPreTick(Event<LocalPlayer> event) {
         if (enable.get()) {
             if (currentLookControl == null) {
                 refreshControl();
@@ -119,7 +119,7 @@ public class SearchControl extends BaseModule {
                 if (onlyWhenFly.get() && !mc.player.isFallFlying()) {
                     return;
                 }
-                if (mc.player.getPos().squaredDistanceTo(centerPos.get().to().toCenterPos())
+                if (mc.player.position().distanceToSqr(Vec3.atCenterOf(centerPos.get().to()))
                         < MathUtils.s2(maxDist.get())) {
                     currentLookControl.run();
                 } else {
@@ -132,9 +132,9 @@ public class SearchControl extends BaseModule {
     }
 
     public void tickLookRect() {
-        Vec3d current = mc.player.getPos();
-        Vec3d center = centerPos.get().to().toCenterPos();
-        Vec3d relativeCoord = current.subtract(center);
+        Vec3 current = mc.player.position();
+        Vec3 center = Vec3.atCenterOf(centerPos.get().to());
+        Vec3 relativeCoord = current.subtract(center);
         double xzdp = relativeCoord.z - relativeCoord.x; // 修正后
         double xzdn = relativeCoord.x + relativeCoord.z;
         float targetYaw;
@@ -161,7 +161,7 @@ public class SearchControl extends BaseModule {
                 targetYaw = 90.0F; // 西
             }
         }
-        mc.player.setYaw(targetYaw);
+        mc.player.setYRot(targetYaw);
     }
 
     public Runnable createLookCircle() {
@@ -169,21 +169,21 @@ public class SearchControl extends BaseModule {
     }
 
     public void tickLookCircle() {
-        Vec3d current = mc.player.getPos();
-        Vec3d center = centerPos.get().to().toCenterPos();
-        Vec3d relativeCoord = current.subtract(center);
+        Vec3 current = mc.player.position();
+        Vec3 center = Vec3.atCenterOf(centerPos.get().to());
+        Vec3 relativeCoord = current.subtract(center);
         double range = rangeCircle.get();
-        Vec3d center1 = new Vec3d(0, 0, range / 2);
-        Vec3d center2 = new Vec3d(0, 0, -range / 2);
-        Vec3d selectedCenter;
+        Vec3 center1 = new Vec3(0, 0, range / 2);
+        Vec3 center2 = new Vec3(0, 0, -range / 2);
+        Vec3 selectedCenter;
         if (relativeCoord.x > 0) {
             selectedCenter = center1;
         } else {
             selectedCenter = center2;
         }
-        Vec3d deltaR = relativeCoord.subtract(selectedCenter);
+        Vec3 deltaR = relativeCoord.subtract(selectedCenter);
         float yaw = EntityUtils.rotationToYaw(deltaR.normalize());
-        float cos = (float) ((mc.player.getVelocity().horizontalLength()) / (2 * deltaR.horizontalLength()));
+        float cos = (float) ((mc.player.getDeltaMovement().horizontalDistance()) / (2 * deltaR.horizontalDistance()));
         float yawControl = yaw + 90F - cos;
         PlayerStateManager.setPlayerYawSafe(mc.player, yawControl);
     }
@@ -193,19 +193,19 @@ public class SearchControl extends BaseModule {
     }
 
     public void tickLookSpiral() {
-        Vec3d current = mc.player.getPos();
-        Vec3d center = centerPos.get().to().toCenterPos();
-        Vec3d relativeCoord = current.subtract(center);
+        Vec3 current = mc.player.position();
+        Vec3 center = Vec3.atCenterOf(centerPos.get().to());
+        Vec3 relativeCoord = current.subtract(center);
         double P = rangeSpiral.get();
         double b = P / (2 * Math.PI);
-        double r = relativeCoord.horizontalLength();
+        double r = relativeCoord.horizontalDistance();
 
         float yawRadial = EntityUtils.rotationToYaw(relativeCoord.normalize());
 
         double phiRad = Math.atan2(r, b);
         float phiDeg = (float) Math.toDegrees(phiRad);
 
-        float cos = (float) ((mc.player.getVelocity().horizontalLength()) / (2 * relativeCoord.horizontalLength()));
+        float cos = (float) ((mc.player.getDeltaMovement().horizontalDistance()) / (2 * relativeCoord.horizontalDistance()));
         float yawControl = yawRadial + phiDeg - cos;
 
         PlayerStateManager.setPlayerYawSafe(mc.player, yawControl);

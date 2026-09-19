@@ -20,14 +20,14 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.AttributeUtils;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.attribute.AttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class AttackAura extends BaseModule {
     public final ModulePath attBot = makePath(Configs.COMBAT_CONFIG, "att-bot");
@@ -100,13 +100,13 @@ public class AttackAura extends BaseModule {
     public boolean checkEating() {
         return doNotAttackWhenEat.get()
                 && mc.player.isUsingItem()
-                && VItem.getInstance().isEatable(mc.player.getActiveItem());
+                && VItem.getInstance().isEatable(mc.player.getUseItem());
     }
 
     public boolean checkSpear() {
         return doNotAttackWhenSpear.get()
                 && mc.player.isUsingItem()
-                && VItem.getInstance().isSpear(mc.player.getActiveItem());
+                && VItem.getInstance().isSpear(mc.player.getUseItem());
     }
 
     public boolean checkUsing() {
@@ -121,19 +121,19 @@ public class AttackAura extends BaseModule {
         int strength = Tasks.getTick() - lastTime;
         IndexEntry<ItemStack> currentWeapon = Attack.selectBestWeapon(settings, entity);
         if (settings.maceSwap()
-                && currentWeapon.val().isOf(Items.MACE)
+                && currentWeapon.val().is(Items.MACE)
                 && PlayerStateManager.INSTANCE.fallDistance > 1.5) {
             return lastArua + 10 <= Tasks.getTick();
         }
-        AttributeContainer swapContainer =
+        AttributeMap swapContainer =
                 AttributeUtils.getAttributeWith(mc.player, Map.of(EquipmentSlot.MAINHAND, currentWeapon.val()));
-        double attackSpeed = swapContainer.getValue(EntityAttributes.ATTACK_SPEED);
+        double attackSpeed = swapContainer.getValue(Attributes.ATTACK_SPEED);
         float perTick = (float) (1.0 / attackSpeed * 20.0);
-        float progress = (float) MathHelper.clamp(((float) strength + 0.5) / perTick, 0.0F, 1.0F);
+        float progress = (float) Mth.clamp(((float) strength + 0.5) / perTick, 0.0F, 1.0F);
         return progress >= cooldownProgress.get();
     }
 
-    public void onTick(Event<ClientPlayerEntity> tickEvent) {
+    public void onTick(Event<LocalPlayer> tickEvent) {
         if (mc.player == null) return;
         if (enable.get()) {
             Attack attack = CombatTasks.getAttack();

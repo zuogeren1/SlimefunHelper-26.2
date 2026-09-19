@@ -1,9 +1,9 @@
 package me.matl114.gui.basic;
 
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
 
-public interface Draggable extends Element {
+public interface Draggable extends GuiEventListener {
 
     public boolean isDragging();
 

@@ -88,20 +88,20 @@ public class Zoom extends BaseModule {
 
     public void tickFov(Event<Float> eventFov) {
         if (enable.get()) {
-            if (holdUse.get().isAllPressed() && mc.currentScreen == null) {
+            if (holdUse.get().isAllPressed() && mc.gui.screen() == null) {
                 if (currentScale == null) {
                     currentScale = defaultZoom.get();
                 }
                 if (defaultMouseSensitivity == null) {
-                    defaultMouseSensitivity = mc.options.getMouseSensitivity().getValue();
+                    defaultMouseSensitivity = mc.options.sensitivity().get();
                 }
-                mc.options.getMouseSensitivity().setValue(defaultMouseSensitivity / currentScale);
+                mc.options.sensitivity().set(defaultMouseSensitivity / currentScale);
                 tryRegisterScrollListener();
                 eventFov.context((float) (eventFov.context() / currentScale));
             } else {
                 currentScale = null;
                 if (defaultMouseSensitivity != null) {
-                    mc.options.getMouseSensitivity().setValue(defaultMouseSensitivity);
+                    mc.options.sensitivity().set(defaultMouseSensitivity);
                     defaultMouseSensitivity = null;
                 }
                 if (overrideCommonZoom.get().isPresent()) {
@@ -112,7 +112,7 @@ public class Zoom extends BaseModule {
             }
         } else {
             if (defaultMouseSensitivity != null) {
-                mc.options.getMouseSensitivity().setValue(defaultMouseSensitivity);
+                mc.options.sensitivity().set(defaultMouseSensitivity);
                 defaultMouseSensitivity = null;
             }
         }

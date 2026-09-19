@@ -34,13 +34,13 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.commands.commandGroup.AbstractMainCommand;
 import me.matl114.utils.config.AttrKeyValue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
 
 public abstract class BaseModule implements ModuleListProvider {
-    protected static final MinecraftClient mc = MinecraftClient.getInstance();
+    protected static final Minecraft mc = Minecraft.getInstance();
 
     @Getter
     protected String name;
@@ -130,18 +130,18 @@ public abstract class BaseModule implements ModuleListProvider {
             new StringFormat(List.of("module_name", "message"), "&c[{module_name}] &f{message}", true);
 
     public void logI18N(String translationKey, Object... objects) {
-        log(Text.translatable(translationKey, objects));
+        log(Component.translatable(translationKey, objects));
     }
 
     public void logI18NSub(String subModule, String translationKey, Object... objects) {
-        logSub(subModule, Text.translatable(translationKey, objects));
+        logSub(subModule, Component.translatable(translationKey, objects));
     }
 
     public void log(String string) {
         Debug.chat(logFormat.formatText(getName(), string));
     }
 
-    public void log(Text text) {
+    public void log(Component text) {
         Debug.chat(logFormat.formatText(getName(), text));
     }
 
@@ -149,7 +149,7 @@ public abstract class BaseModule implements ModuleListProvider {
         Debug.chat(logFormat.formatText(subModule, string));
     }
 
-    public void logSub(String subModule, Text text) {
+    public void logSub(String subModule, Component text) {
         Debug.chat(logFormat.formatText(subModule, text));
     }
 
@@ -181,7 +181,7 @@ public abstract class BaseModule implements ModuleListProvider {
     }
 
     public static boolean checkNull() {
-        return mc.player == null || mc.world == null;
+        return mc.player == null || mc.level == null;
     }
     // module enable and disable
     // note that it might be called outside the game, so you have check basic vars
@@ -382,7 +382,7 @@ public abstract class BaseModule implements ModuleListProvider {
     }
 
     public WrapperSettingBuilder<MultiKeyBind> moduleEntry(
-            ModulePath hotkeyPath, MultiKeyBind defaultValue, ModulePath togglePath, Supplier<Text> descriptor) {
+            ModulePath hotkeyPath, MultiKeyBind defaultValue, ModulePath togglePath, Supplier<Component> descriptor) {
         return moduleEntry(hotkeyPath.getConfig(), hotkeyPath.toPath(), defaultValue, togglePath.toPath(), descriptor);
     }
 
@@ -400,7 +400,7 @@ public abstract class BaseModule implements ModuleListProvider {
             String[] hotkeyPath,
             MultiKeyBind defaultValue,
             String[] togglePath,
-            Supplier<Text> descriptor) {
+            Supplier<Component> descriptor) {
         return new WrapperModuleSettingBuilder(
                         config.asRef(),
                         config,
@@ -466,7 +466,7 @@ public abstract class BaseModule implements ModuleListProvider {
     protected static final int indexWidth = 140;
     protected static final int blankWidth = 10;
 
-    public DrawableWidget createRefKeyLabel(Supplier<Text> text, Supplier<List<Text>> tooltips, int dx, int dy) {
+    public DrawableWidget createRefKeyLabel(Supplier<Component> text, Supplier<List<Component>> tooltips, int dx, int dy) {
         return ExecutableWidget.instance(0, 0, dx, dy)
                 .setElementHandler(new ColorLabelTextElement(
                                 el -> text.get(),
@@ -478,7 +478,7 @@ public abstract class BaseModule implements ModuleListProvider {
     public DrawableWidget createTitleLabel(String translationKey, int x, int y, int dx, int dy) {
         return DisplayWidget.instance(x, y, dx, dy)
                 .setRenderHandler(new ColorLabelTextElement(
-                                TextProvider.of(Text.translatable(translationKey)),
+                                TextProvider.of(Component.translatable(translationKey)),
                                 () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
                                 () -> ClickGui.INSTANCE.moduleListColor.get().withAlpha(255))
                         .withTooltips(TooltipHandler.of(
@@ -488,7 +488,7 @@ public abstract class BaseModule implements ModuleListProvider {
     public DrawableWidget createExecuteButton(
             String translationKey, ButtonAction action, int x, int y, int dx, int dy) {
         return ExecutableWidget.instance(x, y, dx, dy)
-                .setElementHandler(new ButtonElement(TextProvider.of(Text.translatable(translationKey)), action)
+                .setElementHandler(new ButtonElement(TextProvider.of(Component.translatable(translationKey)), action)
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation(translationKey + ".tooltips", ""))));
     }
@@ -503,23 +503,23 @@ public abstract class BaseModule implements ModuleListProvider {
         };
     }
 
-    public static Text getModuleMeta(Enum<?> enumReff) {
+    public static Component getModuleMeta(Enum<?> enumReff) {
         ConfigEnum configEnum = (ConfigEnum) enumReff;
-        return Text.translatable("module-meta." + configEnum.getConfigEnumType().replace("_", "-") + "."
+        return Component.translatable("module-meta." + configEnum.getConfigEnumType().replace("_", "-") + "."
                 + enumReff.name().toLowerCase(Locale.ROOT));
     }
 
-    public static Supplier<Text> moduleMeta(Supplier<EnumRef<?>> enumReff) {
-        return new Supplier<Text>() {
+    public static Supplier<Component> moduleMeta(Supplier<EnumRef<?>> enumReff) {
+        return new Supplier<Component>() {
             String suffix;
 
             @Override
-            public Text get() {
+            public Component get() {
                 if (suffix == null) {
                     ConfigEnum configEnum = enumReff.get().get();
                     suffix = "module-meta." + configEnum.getConfigEnumType().replace("_", "-") + ".";
                 }
-                return Text.translatable(
+                return Component.translatable(
                         suffix + enumReff.get().get().cast().name().toLowerCase(Locale.ROOT));
             }
         };

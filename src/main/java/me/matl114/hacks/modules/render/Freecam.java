@@ -23,12 +23,12 @@ import me.matl114.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.collections.FPoint;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class Freecam extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath freecam = makePath(Configs.RENDER_CONFIG, "freecam");
@@ -71,7 +71,7 @@ public class Freecam extends BaseModule implements LegalMovementManager.Movement
         registerListener(Listener.getTeleportationConfirm(), this::onPosResync);
         registerListener(Listener.getPostGameTick(), this::onTick);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractEntityC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class),
                 this::onStopInteractWithSelf);
         registerListener(Listener.getPlayerChangeLook(), this::onPlayerChangeLook);
         registerListener(Listener.getMouseScroll(), this::onScrollSpeedAdjust);
@@ -98,7 +98,7 @@ public class Freecam extends BaseModule implements LegalMovementManager.Movement
         removeCamera();
     }
 
-    public void onWorldSwitch(Event<World> event) {
+    public void onWorldSwitch(Event<Level> event) {
         if (enable.get()) {
             Tasks.scheduleDelayed(this::initializeCamera, 1);
         }
@@ -107,11 +107,11 @@ public class Freecam extends BaseModule implements LegalMovementManager.Movement
     public void initializeCamera() {
         removeCamera();
         if (mc.player == null) return;
-        camera = new CameraEntity(mc.world, mc.player, GameMode.SPECTATOR, true);
+        camera = new CameraEntity(mc.level, mc.player, GameType.SPECTATOR, true);
         currentSpeed = speed.get();
-        displayEntity = new CameraEntity(mc.world, mc.player, GameMode.CREATIVE, false);
-        mc.world.addEntity(camera);
-        mc.world.addEntity(displayEntity);
+        displayEntity = new CameraEntity(mc.level, mc.player, GameType.CREATIVE, false);
+        mc.level.addEntity(camera);
+        mc.level.addEntity(displayEntity);
         mc.setCameraEntity(camera);
     }
 
@@ -131,23 +131,23 @@ public class Freecam extends BaseModule implements LegalMovementManager.Movement
         displayEntity = null;
     }
 
-    public void onTick(Event<ClientPlayerEntity> event) {
-        if (camera == null || mc.world == null) return;
+    public void onTick(Event<LocalPlayer> event) {
+        if (camera == null || mc.level == null) return;
         // nop
-        // mc.world.tickEntity(camera);
+        // mc.level.tickEntity(camera);
     }
 
     public void onPosResync(Event<Teleportation> resync) {
         if (camera == null) return;
         Teleportation info = resync.context();
-        Vec3d vec3d = info.vec3d();
+        Vec3 vec3d = info.vec3d();
         // may be a tp
-        if (camera.getPos().squaredDistanceTo(vec3d) > MathUtils.s2(100)) {
-            camera.setPosition(vec3d);
+        if (camera.position().distanceToSqr(vec3d) > MathUtils.s2(100)) {
+            camera.setPos(vec3d);
         }
     }
 
-    public void onStopInteractWithSelf(Event<PlayerInteractEntityC2SPacket> packet) {
+    public void onStopInteractWithSelf(Event<ServerboundInteractPacket> packet) {
         if (camera != null) {
             var p = packet.context();
             if (displayEntity != null && p.entityId == displayEntity.getId()) {
@@ -163,7 +163,7 @@ public class Freecam extends BaseModule implements LegalMovementManager.Movement
 
     public void onPlayerChangeLook(Event<FPoint> event) {
         if (camera == null) return;
-        camera.changeLookDirection(event.context.x, event.context.y);
+        camera.turn(event.context.x, event.context.y);
         event.cancel();
     }
 
@@ -180,16 +180,16 @@ public class Freecam extends BaseModule implements LegalMovementManager.Movement
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
         if (camera == null) return;
-        ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+        LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
         PlayerInputUtils.Input i0 = PlayerInputUtils.of(mc.options);
         cachedInput = i0;
-        Vec3d movement = new Vec3d(i0.sidewaysSpeed(), i0.upwardSpeed(), i0.forwardSpeed());
-        Vec3d vec3d = EntityUtils.movementInputToVelocity(movement, (float) currentSpeed, camera.getYaw());
-        camera.setVelocity(vec3d);
+        Vec3 movement = new Vec3(i0.sidewaysSpeed(), i0.upwardSpeed(), i0.forwardSpeed());
+        Vec3 vec3d = EntityUtils.movementInputToVelocity(movement, (float) currentSpeed, camera.getYRot());
+        camera.setDeltaMovement(vec3d);
         // reset player input, keep sneak for interacting
         // apply sneak
         PlayerInputUtils.EMPTY.applyInput(mc.options);
-        player.setSneaking(i0.sneak());
+        player.setShiftKeyDown(i0.sneak());
     }
 
     @Override

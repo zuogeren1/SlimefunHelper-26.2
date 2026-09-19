@@ -15,19 +15,19 @@ import me.matl114.managers.Tasks;
 import me.matl114.utils.entity.PlayerInputUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.recipebook.ClientRecipeBook;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerInputC2SPacket;
-import net.minecraft.stat.StatHandler;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.ClientRecipeBook;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.stats.StatsCounter;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -39,49 +39,49 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientPlayerEntity.class)
-public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntity implements ClientPlayerEntityAccess {
+@Mixin(LocalPlayer.class)
+public abstract class ClientPlayerEntityEvents extends AbstractClientPlayer implements ClientPlayerEntityAccess {
     @Shadow
-    private PlayerInput lastPlayerInput;
+    private Input lastSentInput;
 
     @Unique
     private boolean resyncLastInput = false;
 
     @Shadow
-    private double lastXClient;
+    private double xLast;
 
     @Shadow
-    private double lastZClient;
+    private double zLast;
 
     @Shadow
-    private double lastYClient;
+    private double yLast;
 
     @Shadow
-    private float lastPitchClient;
+    private float xRotLast;
 
     @Shadow
-    private float lastYawClient;
+    private float yRotLast;
 
     @Shadow
-    public Input input;
+    public ClientInput input;
 
     @Shadow
     @Final
-    public ClientPlayNetworkHandler networkHandler;
+    public ClientPacketListener connection;
 
     @Shadow
-    private boolean lastSprinting;
+    private boolean wasSprinting;
 
     @Shadow
     private boolean lastOnGround;
 
     @Shadow
-    public abstract void init();
+    public abstract void resetPos();
 
     @Shadow
-    private int ticksSinceLastPositionPacketSent;
+    private int positionReminder;
 
-    public ClientPlayerEntityEvents(ClientWorld world, GameProfile profile) {
+    public ClientPlayerEntityEvents(ClientLevel world, GameProfile profile) {
         super(world, profile);
     }
 
@@ -96,18 +96,18 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
     @Override
     @Unique
     public void setLastSprintFlag(boolean lastSprint) {
-        this.lastSprinting = lastSprint;
+        this.wasSprinting = lastSprint;
     }
 
     public void setLastSneakFlag(boolean lastSprint) {
-        this.lastPlayerInput = new PlayerInput(
-                this.lastPlayerInput.forward(),
-                this.lastPlayerInput.backward(),
-                this.lastPlayerInput.left(),
-                this.lastPlayerInput.right(),
-                this.lastPlayerInput.jump(),
+        this.lastSentInput = new Input(
+                this.lastSentInput.forward(),
+                this.lastSentInput.backward(),
+                this.lastSentInput.left(),
+                this.lastSentInput.right(),
+                this.lastSentInput.jump(),
                 lastSprint,
-                this.lastPlayerInput.sprint());
+                this.lastSentInput.sprint());
     }
 
     @Unique
@@ -116,15 +116,15 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
         this.lastOnGround = lastOnGround;
     }
 
-    public void setLastPos(Vec3d vec3d) {
-        this.lastXClient = vec3d.x;
-        this.lastZClient = vec3d.z;
-        this.lastYClient = vec3d.y;
+    public void setLastPos(Vec3 vec3d) {
+        this.xLast = vec3d.x;
+        this.zLast = vec3d.z;
+        this.yLast = vec3d.y;
     }
 
     public void setLastRot(float pitch, float yaw) {
-        this.lastPitchClient = pitch;
-        this.lastYawClient = yaw;
+        this.xRotLast = pitch;
+        this.yRotLast = yaw;
     }
 
     public void resyncInput() {
@@ -133,43 +133,43 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
 
     @Unique
     public void resyncMovementPacket() {
-        this.ticksSinceLastPositionPacketSent = 100;
+        this.positionReminder = 100;
     }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void onClientPlayerInitConfiguration(
-            MinecraftClient client,
-            ClientWorld world,
-            ClientPlayNetworkHandler networkHandler,
-            StatHandler stats,
+            Minecraft client,
+            ClientLevel world,
+            ClientPacketListener networkHandler,
+            StatsCounter stats,
             ClientRecipeBook recipeBook,
-            PlayerInput lastPlayerInput,
+            Input lastPlayerInput,
             boolean lastSprinting,
             CallbackInfo ci) {
         this.movementManager = new LegalMovementManager();
     }
 
     @Unique
-    private static Vec2f compatMovementVectorWithViaFabric(Vec2f vec2f) {
+    private static Vec2 compatMovementVectorWithViaFabric(Vec2 vec2f) {
         // shit,
-        return ViaFabricPlusHooks.getInstance().getCurrentVersion().isLowerOrEqualTo(21, 4) ? vec2f : vec2f.normalize();
+        return ViaFabricPlusHooks.getInstance().getCurrentVersion().isLowerOrEqualTo(21, 4) ? vec2f : vec2f.normalized();
     }
 
     @Inject(
-            method = "tickMovement",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/input/Input;tick()V", shift = At.Shift.AFTER))
+            method = "aiStep",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER))
     public void onPostInputTick(CallbackInfo ci) {
         if (!checkClientPlayer()) return;
-        PlayerInput currentInput = this.input.playerInput;
+        Input currentInput = this.input.keyPresses;
         if (!Listener.getPlayerKeyboardInputTick().isEmpty()) {
             Listener.getPlayerKeyboardInputTick().handleValue(new Event<>(this.input, false, false));
         }
-        getLegalMovementManager().postInputTick((ClientPlayerEntity) (AbstractClientPlayerEntity) this);
+        getLegalMovementManager().postInputTick((LocalPlayer) (AbstractClientPlayer) this);
         // changed, update movementVector
-        if (!Objects.equals(currentInput, this.input.playerInput)) {
-            PlayerInputUtils.Input i0 = new PlayerInputUtils.Input(this.input.playerInput);
-            this.input.movementVector =
-                    compatMovementVectorWithViaFabric(new Vec2f(i0.sidewaysSpeed(), i0.forwardSpeed()));
+        if (!Objects.equals(currentInput, this.input.keyPresses)) {
+            PlayerInputUtils.Input i0 = new PlayerInputUtils.Input(this.input.keyPresses);
+            this.input.moveVector =
+                    compatMovementVectorWithViaFabric(new Vec2(i0.sidewaysSpeed(), i0.forwardSpeed()));
         }
     }
 
@@ -178,11 +178,11 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/AbstractClientPlayerEntity;tick()V",
+                            target = "Lnet/minecraft/client/player/AbstractClientPlayer;tick()V",
                             shift = At.Shift.BEFORE))
     public void prePlayerTick(CallbackInfo ci) {
         if (!checkClientPlayer()) return;
-        this.movementManager.preProgress((ClientPlayerEntity) (AbstractClientPlayerEntity) this);
+        this.movementManager.preProgress((LocalPlayer) (AbstractClientPlayer) this);
     }
 
     @Unique
@@ -193,20 +193,20 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/AbstractClientPlayerEntity;tick()V",
+                            target = "Lnet/minecraft/client/player/AbstractClientPlayer;tick()V",
                             shift = At.Shift.AFTER),
             order = 100)
     public void onAfterTick(CallbackInfo ci) {
         if (!checkClientPlayer()) return;
-        Event<ClientPlayerEntity> event = new Event<>((ClientPlayerEntity) (AbstractClientPlayerEntity) this, true);
+        Event<LocalPlayer> event = new Event<>((LocalPlayer) (AbstractClientPlayer) this, true);
         Listener.getClientPlayerSendMovementPoint().handleValue(event);
-        if (hasVehicle()) {
-            if (!this.movementManager.preInputProgress((ClientPlayerEntity) (AbstractClientPlayerEntity) this)
+        if (isPassenger()) {
+            if (!this.movementManager.preInputProgress((LocalPlayer) (AbstractClientPlayer) this)
                     || event.isCancelled()) {
                 lastCancelTick = Tasks.getTick();
             }
         } else {
-            if (!this.movementManager.preMovementProgress((ClientPlayerEntity) (AbstractClientPlayerEntity) this)
+            if (!this.movementManager.preMovementProgress((LocalPlayer) (AbstractClientPlayer) this)
                     || event.isCancelled()) {
                 lastCancelTick = Tasks.getTick();
             }
@@ -215,7 +215,7 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
 
     @ModifyExpressionValue(
             method = "tick",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;hasVehicle()Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isPassenger()Z"))
     private boolean onTick(boolean original) {
         if (Tasks.getTick() == lastCancelTick) {
             // redirect to sendMovementPackets to eat shit
@@ -225,8 +225,8 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
     }
 
     @ModifyExpressionValue(
-            method = "sendMovementPackets",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;isCamera()Z"))
+            method = "sendPosition",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isControlledCamera()Z"))
     private boolean onCancelSendMovementBehaviour(boolean original) {
         if (Tasks.getTick() == lastCancelTick) {
             lastCancelTick = 0;
@@ -237,8 +237,8 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
 
     @WrapOperation(
             method = "tick",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/PlayerInput;equals(Ljava/lang/Object;)Z"))
-    private boolean onPlayerInputPackets(PlayerInput instance, Object object, Operation<Boolean> original) {
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Input;equals(Ljava/lang/Object;)Z"))
+    private boolean onPlayerInputPackets(Input instance, Object object, Operation<Boolean> original) {
         if (resyncLastInput) {
             resyncLastInput = false;
             return false;
@@ -248,32 +248,32 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
 
     @Unique
     public void onPlayerInputPackets() {
-        if (!this.lastPlayerInput.equals(this.input.playerInput) || resyncLastInput) {
+        if (!this.lastSentInput.equals(this.input.keyPresses) || resyncLastInput) {
             resyncLastInput = false;
-            this.networkHandler.sendPacket(new PlayerInputC2SPacket(this.input.playerInput));
-            this.lastPlayerInput = this.input.playerInput;
+            this.connection.send(new ServerboundPlayerInputPacket(this.input.keyPresses));
+            this.lastSentInput = this.input.keyPresses;
         }
     }
 
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Ljava/util/List;iterator()Ljava/util/Iterator;"))
     public void postwrapperPlayerMovementSentTick(CallbackInfo ci) {
         if (!checkClientPlayer()) return;
-        onPostPlayerMovementTick((ClientPlayerEntity) (Object) this);
+        onPostPlayerMovementTick((LocalPlayer) (Object) this);
     }
 
     @Unique
-    private void onPostPlayerMovementTick(ClientPlayerEntity player) {
+    private void onPostPlayerMovementTick(LocalPlayer player) {
         Listener.getClientPlayerPostSendMovementPoint().broadcast(player);
         movementManager.postProgress(player);
     }
 
     @Override
-    public boolean checkGliding() {
-        if (!checkClientPlayer()) return super.checkGliding();
+    public boolean tryToStartFallFlying() {
+        if (!checkClientPlayer()) return super.tryToStartFallFlying();
         boolean fallflying = this.isFallFlying();
         boolean shouldSwitch = false;
         if (!fallflying) {
-            shouldSwitch = this.canGlide() && !this.isTouchingWater();
+            shouldSwitch = this.canGlide() && !this.isInWater();
         }
         Event<Boolean> switchGliding = new Event<>(shouldSwitch, true, true, fallflying);
         Listener.getPlayerSwitchFallFlying().handleValue(switchGliding);
@@ -285,14 +285,14 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
         }
         if (!fallflying) {
             if (switchFlag) {
-                startGliding();
+                startFallFlying();
                 return true;
             } else {
                 return false;
             }
         } else {
             if (switchFlag) {
-                stopGliding();
+                stopFallFlying();
                 return true;
             } else {
                 return false;
@@ -301,12 +301,12 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
     }
 
     @ModifyArg(
-            method = "sendMovementPackets",
+            method = "sendPosition",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayNetworkHandler;sendPacket(Lnet/minecraft/network/packet/Packet;)V"))
+                                    "Lnet/minecraft/client/multiplayer/ClientPacketListener;sendPacket(Lnet/minecraft/network/protocol/Packet;)V"))
     private Packet onSendMovementPackets(Packet par1) {
         if (par1 instanceof PlayerMoveC2SPacketAccess acc) {
             acc.setCause(PlayerMoveC2SPacketAccess.Cause.PLAYER_MOVEMENT);
@@ -314,7 +314,7 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
         return par1;
     }
 
-    @Inject(method = "dropSelectedItem", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "drop(Z)Z", at = @At("HEAD"), cancellable = true)
     private void onDropSelected(boolean entireStack, CallbackInfoReturnable<Boolean> cir) {
         if (checkClientPlayer()) {
             if (!Listener.getPlayerDropSelectedItem().fireEvent(entireStack)) {
@@ -323,7 +323,7 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayerEntit
         }
     }
 
-    @Inject(method = "closeHandledScreen", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "closeContainer", at = @At("HEAD"), cancellable = true)
     private void onCloseHandledScreen(CallbackInfo ci) {
         if (checkClientPlayer()) {
             if (!Listener.getPlayerCloseHandledScreen().fireEvent(null)) {

@@ -4,15 +4,15 @@ import me.matl114.accessors.interfaces.TileInventory;
 import me.matl114.utils.world.ContainerPosition;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.Block;
-import net.minecraft.client.gui.screen.ingame.Generic3x3ContainerScreen;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.gui.screens.inventory.DispenserScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Block;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Environment(EnvType.CLIENT)
-@Mixin(Generic3x3ContainerScreen.class)
+@Mixin(DispenserScreen.class)
 public abstract class DispenserCraftScreenHandlerMixin implements TileInventory.Handler {
     @Unique
     private BlockPos pos;
@@ -31,10 +31,10 @@ public abstract class DispenserCraftScreenHandlerMixin implements TileInventory.
     }
 
     @Unique
-    private ClientWorld world;
+    private ClientLevel world;
 
     @Unique
-    public ClientWorld getWorld() {
+    public ClientLevel getWorld() {
         return this.world;
     }
 

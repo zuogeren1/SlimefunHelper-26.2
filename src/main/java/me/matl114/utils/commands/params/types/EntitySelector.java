@@ -3,8 +3,8 @@ package me.matl114.utils.commands.params.types;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import me.matl114.utils.commands.params.api.CommandExecution;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public interface EntitySelector {
     List<Entity> resolve(CommandExecution execution);
@@ -27,8 +27,8 @@ public interface EntitySelector {
                 .orElse(null);
     }
 
-    default Vec3d pos(CommandExecution execution) {
+    default Vec3 pos(CommandExecution execution) {
         Entity entity = random(execution);
-        return entity == null ? null : entity.getPos();
+        return entity == null ? null : entity.position();
     }
 }

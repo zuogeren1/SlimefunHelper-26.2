@@ -13,12 +13,12 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.client.sound.AbstractSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.registry.Registries;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.resources.sounds.AbstractSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 
 public class NoSound extends BaseModule {
     public NoSound() {
@@ -41,15 +41,15 @@ public class NoSound extends BaseModule {
     public final NBTRef<EntrySet<SoundEvent>> noSounds = builder(
                     root.add("no-sounds"), EntrySet.<SoundEvent>parameter())
             .defaultValue(new EntrySet<>(
-                    Registries.SOUND_EVENT,
+                    BuiltInRegistries.SOUND_EVENT,
                     Set.of(
-                            SoundEvents.ITEM_ARMOR_EQUIP_NETHERITE.value(),
-                            SoundEvents.ITEM_ARMOR_EQUIP_DIAMOND.value())))
+                            SoundEvents.ARMOR_EQUIP_NETHERITE.value(),
+                            SoundEvents.ARMOR_EQUIP_DIAMOND.value())))
             .build();
 
     public final NBTRef<EntryPrimitiveMap<SoundEvent, Double>> soundVolumeOverride = builder(
                     root.add("volume-override"), EntryPrimitiveMap.<SoundEvent, Double>parameter())
-            .defaultValue(new EntryPrimitiveMap<>(Registries.SOUND_EVENT, NBTTypes.DOUBLE_TYPE, Map.of()))
+            .defaultValue(new EntryPrimitiveMap<>(BuiltInRegistries.SOUND_EVENT, NBTTypes.DOUBLE_TYPE, Map.of()))
             .build();
 
     @Override
@@ -77,17 +77,17 @@ public class NoSound extends BaseModule {
         if (checkNull() || !enable.get()) {
             return false;
         }
-        Identifier id = soundInstance.getId();
+        Identifier id = soundInstance.getIdentifier();
         if (id == null) {
             return false;
         }
-        SoundEvent soundEvent = Registries.SOUND_EVENT.get(id);
+        SoundEvent soundEvent = BuiltInRegistries.SOUND_EVENT.getValue(id);
         return soundEvent != null && noSounds.get().set().contains(soundEvent);
     }
 
     public void modifyVolume(SoundInstance instance) {
-        Identifier id = instance.getId();
-        SoundEvent soundEvent = Registries.SOUND_EVENT.get(id);
+        Identifier id = instance.getIdentifier();
+        SoundEvent soundEvent = BuiltInRegistries.SOUND_EVENT.getValue(id);
         if (soundEvent != null && instance instanceof AbstractSoundInstance instance1) {
             Double volume = soundVolumeOverride.get().getEntryValue(soundEvent);
             if (volume != null) {

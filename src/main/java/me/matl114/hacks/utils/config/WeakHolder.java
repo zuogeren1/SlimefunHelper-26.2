@@ -10,12 +10,12 @@ import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.RegistryAttrKeyValue;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.enchantment.Enchantments;
 
 @With
 public record WeakHolder<T>(Identifier registry, Identifier location) implements NBTParsable<WeakHolder<T>> {
@@ -25,21 +25,21 @@ public record WeakHolder<T>(Identifier registry, Identifier location) implements
         return (Class) WeakHolder.class;
     }
 
-    public WeakHolder(RegistryKey<T> registryKey) {
-        this(registryKey.getRegistry(), registryKey.getValue());
+    public WeakHolder(ResourceKey<T> registryKey) {
+        this(registryKey.registry(), registryKey.identifier());
     }
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     public static NBTType<WeakHolder> TYPE = new NBTType<>(
             "weakholder",
             Codec.STRING.comapFlatMap(WeakHolder::parse, WeakHolder::asString),
             (w, x, y, dx, dy) -> {
                 Identifier registry = w.getOriginValue().registry();
-                var handler = mc.getNetworkHandler();
+                var handler = mc.getConnection();
                 Optional<Registry<Object>> optionalLookup;
-                if (handler != null && handler.getRegistryManager() != null) {
-                    var registryLookup = handler.getRegistryManager();
-                    optionalLookup = registryLookup.getOptional(RegistryKey.ofRegistry(registry));
+                if (handler != null && handler.registryAccess() != null) {
+                    var registryLookup = handler.registryAccess();
+                    optionalLookup = registryLookup.lookup(ResourceKey.createRegistryKey(registry));
                 } else {
                     optionalLookup = Optional.empty();
                 }
@@ -80,11 +80,11 @@ public record WeakHolder<T>(Identifier registry, Identifier location) implements
         return TYPE.cast();
     }
 
-    public RegistryKey<T> toRegistryKey() {
-        return RegistryKey.of(RegistryKey.ofRegistry(registry), location);
+    public ResourceKey<T> toRegistryKey() {
+        return ResourceKey.create(ResourceKey.createRegistryKey(registry), location);
     }
 
-    public Optional<RegistryEntry<T>> getEntry() {
-        return ItemStackUtils.registry().getOptionalEntry(toRegistryKey()).map(s -> s);
+    public Optional<Holder<T>> getEntry() {
+        return ItemStackUtils.registry().get(toRegistryKey()).map(s -> s);
     }
 }

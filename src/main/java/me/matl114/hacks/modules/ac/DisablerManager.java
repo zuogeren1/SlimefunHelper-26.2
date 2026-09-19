@@ -18,17 +18,17 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.NetworkUtils;
-import net.minecraft.network.packet.c2s.common.CommonPongC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.common.ServerboundPongPacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class DisablerManager extends BaseModule {
     public static DisablerManager INSTANCE;
@@ -79,29 +79,29 @@ public class DisablerManager extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getServerLeavePoint(), this::onDisconnect);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerRespawnS2CPacket.class), this::onRespawn);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundRespawnPacket.class), this::onRespawn);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetReload);
         registerListener(Listener.getPostTick(), this::onTick);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractBlockC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundUseItemOnPacket.class),
                 this::onPlace,
                 Integer.MAX_VALUE - 1);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class),
+                Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class),
                 this::onBreakAction,
                 Integer.MAX_VALUE - 1);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onFlying);
-        registerListener(Listener.getPacketPoint().getChannel(CommonPongC2SPacket.class), this::onPingPong);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onFlying);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPongPacket.class), this::onPingPong);
     }
 
-    public void onRespawn(Event<PlayerRespawnS2CPacket> respawn) {
+    public void onRespawn(Event<ClientboundRespawnPacket> respawn) {
         if (!grimSelfCheckDisabler) {
             grimSelfCheckDisabler = true;
         }
     }
 
     Direction lastDirection;
-    Vec3d lastCursor;
+    Vec3 lastCursor;
     BlockPos lastPos;
     boolean hasPlaceThisTick;
 
@@ -159,12 +159,12 @@ public class DisablerManager extends BaseModule {
                 // see GrimAC handleQueuedPlaces()
                 if (hasAnyPlaceActionGrimQueue) {
                     if (ViaFabricPlusHooks.isSupportDupRot()) {
-                        LegacySnapRotManager.INSTANCE.snapAt(mc.player.getPitch(), mc.player.getYaw(), true);
+                        LegacySnapRotManager.INSTANCE.snapAt(mc.player.getXRot(), mc.player.getYRot(), true);
                     } else {
                         int selected = InventoryUtils.getSelectedSlot();
                         int next = selected == 8 ? 7 : 8;
-                        Listener.sendPacketNoEvents(new UpdateSelectedSlotC2SPacket(next));
-                        Listener.sendPacketNoEvents(new UpdateSelectedSlotC2SPacket(selected));
+                        Listener.sendPacketNoEvents(new ServerboundSetCarriedItemPacket(next));
+                        Listener.sendPacketNoEvents(new ServerboundSetCarriedItemPacket(selected));
                     }
                 }
                 hasAnyPlaceActionGrimQueue = false;
@@ -181,11 +181,11 @@ public class DisablerManager extends BaseModule {
         return false;
     }
 
-    public void onPlace(Event<PlayerInteractBlockC2SPacket> blockPlace) {
+    public void onPlace(Event<ServerboundUseItemOnPacket> blockPlace) {
         if (blockPlace.isCancelled()) return;
-        BlockHitResult hitResult = blockPlace.context.getBlockHitResult();
-        Direction direction = hitResult.getSide();
-        Vec3d cursor = hitResult.getPos();
+        BlockHitResult hitResult = blockPlace.context.getHitResult();
+        Direction direction = hitResult.getDirection();
+        Vec3 cursor = hitResult.getLocation();
         BlockPos blockPos = hitResult.getBlockPos();
         if (enable.get() && hasAnyPlaceActionGrimQueue && autoFlushPlaceQueue.get()) {
             flushACPlaceQueue0();
@@ -199,10 +199,10 @@ public class DisablerManager extends BaseModule {
             if (direction != lastDirection
                     || !Objects.equals(cursor, lastCursor)
                     || !Objects.equals(blockPos, lastPos)) {
-                PlayerInteractBlockC2SPacket pkt = blockPlace.context;
+                ServerboundUseItemOnPacket pkt = blockPlace.context;
                 PacketManager.schedulePostCallback(pkt, () -> {
-                    Listener.sendPacketNoEvents(new PlayerInteractBlockC2SPacket(
-                            pkt.getHand(), pkt.getBlockHitResult(), NetworkUtils.generateNextSequence()));
+                    Listener.sendPacketNoEvents(new ServerboundUseItemOnPacket(
+                            pkt.getHand(), pkt.getHitResult(), NetworkUtils.generateNextSequence()));
                 });
             }
         }
@@ -211,7 +211,7 @@ public class DisablerManager extends BaseModule {
         lastPos = blockPos;
     }
 
-    public void onBreakAction(Event<PlayerActionC2SPacket> eventBreak) {
+    public void onBreakAction(Event<ServerboundPlayerActionPacket> eventBreak) {
         if (eventBreak.isCancelled()) return;
         switch (eventBreak.context.getAction()) {
             case START_DESTROY_BLOCK, STOP_DESTROY_BLOCK -> {}
@@ -226,12 +226,12 @@ public class DisablerManager extends BaseModule {
     }
 
     // see GrimAC handleQueuedPlaces
-    public void onFlying(Event<PlayerMoveC2SPacket> playerMoveC2SPacket) {
+    public void onFlying(Event<ServerboundMovePlayerPacket> playerMoveC2SPacket) {
         hasAnyPlaceActionGrimQueue = false;
     }
 
-    public void onPingPong(Event<CommonPongC2SPacket> eventTransaction) {
-        int id = eventTransaction.context.getParameter();
+    public void onPingPong(Event<ServerboundPongPacket> eventTransaction) {
+        int id = eventTransaction.context.getId();
         if (id == (short) id) {
             // grimTransaction
             hasAnyPlaceActionGrimQueue = false;
@@ -267,8 +267,8 @@ public class DisablerManager extends BaseModule {
         }
 
         @Override
-        public Text getDisplay() {
-            return Text.literal(this.name());
+        public Component getDisplay() {
+            return Component.literal(this.name());
         }
     }
 }

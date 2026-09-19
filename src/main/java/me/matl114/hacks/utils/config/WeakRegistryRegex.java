@@ -23,21 +23,21 @@ import me.matl114.utils.RegistryUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.block.Block;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 
 @Getter
 @Accessors(fluent = true)
 public class WeakRegistryRegex<T> implements NBTParsable<WeakRegistryRegex<T>>, Predicate<T> {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static final Class<WeakRegistryRegex<EntityType<?>>> ENTITY_TYPE = (Class) WeakRegistryRegex.class;
     public static final Class<WeakRegistryRegex<Item>> ITEM_TYPE = (Class) WeakRegistryRegex.class;
@@ -54,7 +54,7 @@ public class WeakRegistryRegex<T> implements NBTParsable<WeakRegistryRegex<T>>, 
                             Identifier.CODEC.fieldOf("registry").forGetter(WeakRegistryRegex::registry))
                     .apply(instance, WeakRegistryRegex::new)),
             WeakRegistryRegex::createTextEditWidget,
-            new WeakRegistryRegex(Regex.EMPTY, RegistryKeys.ITEM.getValue()));
+            new WeakRegistryRegex(Regex.EMPTY, Registries.ITEM.identifier()));
 
     protected final Identifier registry;
     protected final Regex parent;
@@ -72,12 +72,12 @@ public class WeakRegistryRegex<T> implements NBTParsable<WeakRegistryRegex<T>>, 
 
     @SuppressWarnings("unchecked")
     public Optional<Registry<T>> resolveRegistry() {
-        var handler = mc.getNetworkHandler();
-        if (handler == null || handler.getRegistryManager() == null) {
+        var handler = mc.getConnection();
+        if (handler == null || handler.registryAccess() == null) {
             return Optional.empty();
         }
         return (Optional<Registry<T>>)
-                (Optional) handler.getRegistryManager().getOptional(RegistryKey.ofRegistry(registry));
+                (Optional) handler.registryAccess().lookup(ResourceKey.createRegistryKey(registry));
     }
 
     public Set<T> getFilterValue() {
@@ -96,7 +96,7 @@ public class WeakRegistryRegex<T> implements NBTParsable<WeakRegistryRegex<T>>, 
         return getFilterValue().contains(val);
     }
 
-    public boolean test(RegistryEntry<T> val) {
+    public boolean test(Holder<T> val) {
         return getFilterValue().contains(val.value());
     }
 
@@ -199,7 +199,7 @@ public class WeakRegistryRegex<T> implements NBTParsable<WeakRegistryRegex<T>>, 
         return Optional.empty();
     }
 
-    public List<Text> getRules() {
+    public List<Component> getRules() {
         return ChatUtils.parseTooltipsTranslation("widget.nbt-parsable.registry-regex.rules.tooltips", "");
     }
 }

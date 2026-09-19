@@ -3,8 +3,8 @@ package me.matl114.gui.elements;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.complex.BoxElement;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.OrderedText;
-import net.minecraft.util.Colors;
+import net.minecraft.util.CommonColors;
+import net.minecraft.util.FormattedCharSequence;
 
 public class ColorBoxElement extends BoxElement {
     private final TextProvider text;
@@ -39,12 +39,12 @@ public class ColorBoxElement extends BoxElement {
             float delta,
             float alpha,
             boolean shouldHighlight) {
-        OrderedText text1 = text.getLabel(element);
+        FormattedCharSequence text1 = text.getLabel(element);
         context.fill(0, 0, element.getTextureWidth(), element.getTextureHeight(), 0, colorSampler.getColorInt());
         if (text1 != null) {
             RenderHandler.drawScaledText0(
                     context,
-                    mc.textRenderer,
+                    mc.font,
                     text1,
                     0,
                     0,
@@ -54,7 +54,7 @@ public class ColorBoxElement extends BoxElement {
                     0);
         }
         Integer color = (highLightProvider == null)
-                ? (shouldHighlight ? Integer.valueOf(Colors.WHITE) : null)
+                ? (shouldHighlight ? Integer.valueOf(CommonColors.WHITE) : null)
                 : highLightProvider.provideTextColor(element, shouldHighlight);
         if (color != null) {
             RenderHandler.drawHighlightFrame(

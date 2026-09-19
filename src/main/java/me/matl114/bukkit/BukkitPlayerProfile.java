@@ -22,9 +22,9 @@ import lombok.Getter;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VRecord;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.item.ItemStack;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ResolvableProfile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -146,14 +146,14 @@ public class BukkitPlayerProfile implements ConfigurationSerializable {
     }
 
     public void addGameProfile(ItemStack stack) {
-        ItemStackUtils.setOrRemoveChange(stack, DataComponentTypes.PROFILE, createGameProfile());
+        ItemStackUtils.setOrRemoveChange(stack, DataComponents.PROFILE, createGameProfile());
     }
 
     public PropertyMap createPropertyMap() {
         return VRecord.createProperty(this.properties);
     }
 
-    public ProfileComponent createGameProfile() {
+    public ResolvableProfile createGameProfile() {
         PropertyMap map = VRecord.createProperty(this.properties);
         return VRecord.staticProfile(uniqueId, name == null ? "" : name, map);
     }

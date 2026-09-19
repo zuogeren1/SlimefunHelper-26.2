@@ -31,7 +31,7 @@ import me.matl114.managers.file.FileStorage;
 import me.matl114.utils.CodecUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.collections.MutableRecord;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -78,8 +78,8 @@ public class ConnectionProxy extends BaseModule {
                                 (el -> {
                                     var currentSelected = proxyList.getSelected();
                                     if (currentSelected != null) {
-                                        return Text.translatable("widget.connection-proxy.proxy-list-editor")
-                                                .append(Text.literal(currentSelected.name()
+                                        return Component.translatable("widget.connection-proxy.proxy-list-editor")
+                                                .append(Component.literal(currentSelected.name()
                                                         + "(%s:%s:%d)"
                                                                 .formatted(
                                                                         currentSelected
@@ -88,7 +88,7 @@ public class ConnectionProxy extends BaseModule {
                                                                         currentSelected.address(),
                                                                         currentSelected.port())));
                                     } else {
-                                        return Text.translatable("widget.connection-proxy.proxy-list-editor")
+                                        return Component.translatable("widget.connection-proxy.proxy-list-editor")
                                                 .append("None");
                                     }
                                 }),
@@ -111,7 +111,7 @@ public class ConnectionProxy extends BaseModule {
                 220);
         ListModifyWidget listSelect = new ListModifyWidget(controller, 0, 0, 320, 260);
         ConfirmingWidgetScreen confirmScreen = new ConfirmingWidgetScreen(
-                Text.translatable("widget.connection-proxy.proxy-list-editor.title"), listSelect, () -> true, () -> {
+                Component.translatable("widget.connection-proxy.proxy-list-editor.title"), listSelect, () -> true, () -> {
                     List<ProxyEntry> newProxies = currentList.stream()
                             .map(s -> s.toRecord(ProxyEntry.class))
                             .toList();
@@ -146,7 +146,7 @@ public class ConnectionProxy extends BaseModule {
                 .setElementHandler(new MultiLineTextElement(
                         (el) -> {
                             ProxyEntry entry = argsMap.toRecord(ProxyEntry.class);
-                            return Text.literal("%s\n(%s:%s:%d)"
+                            return Component.literal("%s\n(%s:%s:%d)"
                                     .formatted(entry.name(), entry.type().name(), entry.address(), entry.port()));
                         },
                         ClickGui.INSTANCE.configColor.get().withAlpha(255),
@@ -155,10 +155,10 @@ public class ConnectionProxy extends BaseModule {
 
         ExecutableWidget.instance(155, 0, 60, 20)
                 .setElementHandler(new ButtonElement(
-                        TextProvider.of(Text.translatable("widget.connection-proxy.open-editor")),
+                        TextProvider.of(Component.translatable("widget.connection-proxy.open-editor")),
                         ButtonAction.run(() -> {
                             var re = WidgetUtils.createMutableRecordEditScreen(
-                                    Text.translatable("widget.connection-proxy.open-editor.title"),
+                                    Component.translatable("widget.connection-proxy.open-editor.title"),
                                     List::of,
                                     argsMap,
                                     s -> "widget.connection-proxy." + s,
@@ -259,8 +259,8 @@ public class ConnectionProxy extends BaseModule {
         @ApiStatus.Experimental
         HTTPS;
 
-        public Text getDisplay() {
-            return Text.literal(name().toLowerCase(Locale.ROOT));
+        public Component getDisplay() {
+            return Component.literal(name().toLowerCase(Locale.ROOT));
         }
     }
 }

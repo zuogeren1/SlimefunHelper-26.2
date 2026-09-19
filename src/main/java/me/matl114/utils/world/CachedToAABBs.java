@@ -1,19 +1,19 @@
 package me.matl114.utils.world;
 
-import net.minecraft.util.math.Box;
+import net.minecraft.world.phys.AABB;
 
-public record CachedToAABBs(java.util.List<Box> aabbs, boolean isOffset, double offX, double offY, double offZ) {
+public record CachedToAABBs(java.util.List<AABB> aabbs, boolean isOffset, double offX, double offY, double offZ) {
 
     public CachedToAABBs removeOffset() {
-        final java.util.List<net.minecraft.util.math.Box> toOffset = this.aabbs;
+        final java.util.List<net.minecraft.world.phys.AABB> toOffset = this.aabbs;
         final double offX = this.offX;
         final double offY = this.offY;
         final double offZ = this.offZ;
 
-        final java.util.List<net.minecraft.util.math.Box> ret = new java.util.ArrayList<>(toOffset.size());
+        final java.util.List<net.minecraft.world.phys.AABB> ret = new java.util.ArrayList<>(toOffset.size());
 
         for (int i = 0, len = toOffset.size(); i < len; ++i) {
-            ret.add(toOffset.get(i).offset(offX, offY, offZ));
+            ret.add(toOffset.get(i).move(offX, offY, offZ));
         }
 
         return new CachedToAABBs(ret, false, 0.0, 0.0, 0.0);

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.interact;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -23,18 +24,17 @@ import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3i;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class AutoPlate extends BaseModule {
     public AutoPlate() {
@@ -109,21 +109,21 @@ public class AutoPlate extends BaseModule {
 
     final List<BlockPos> placeList = new ArrayList<>();
     Optional<BlockState> placeState = Optional.empty();
-    final RenderCollector<Box> drawOutlines = RenderCollectors.createBoxCollector(true, false, false);
+    final RenderCollector<AABB> drawOutlines = RenderCollectors.createBoxCollector(true, false, false);
 
     public void refreshState() {
         drawOutlines.clear();
         placeList.clear();
         placeState = Optional.empty();
-        Box playerBox = mc.player.getBoundingBox().expand(expandRange.get(), 0, expandRange.get());
-        Box checkBox = new Box(
+        AABB playerBox = mc.player.getBoundingBox().inflate(expandRange.get(), 0, expandRange.get());
+        AABB checkBox = new AABB(
                 playerBox.minX,
                 playerBox.minY - expandRange.get(),
                 playerBox.minZ,
                 playerBox.maxX,
                 playerBox.maxY,
                 playerBox.maxZ);
-        List<BlockPos> collisions = CollisionUtil.getIntersectingBlockPositions(mc.world, checkBox, false);
+        List<BlockPos> collisions = CollisionUtil.getIntersectingBlockPositions(mc.level, checkBox, false);
         if (collisions.isEmpty()) {
             return;
         }
@@ -134,18 +134,18 @@ public class AutoPlate extends BaseModule {
                         .mapToObj(j -> new BlockPos(
                                 s.getX() + mc.player.getBlockX(), maxY - j, s.getZ() + mc.player.getBlockZ())))
                 .toList());
-        placeList.forEach(s -> drawOutlines.submit(new Box(s), color.get().withAlpha(255)));
+        placeList.forEach(s -> drawOutlines.submit(new AABB(s), color.get().withAlpha(255)));
 
         if (copyState.get()) {
             List<BlockPos> filteredPos =
                     collisions.stream().filter(s -> s.getY() == maxY).toList();
             placeState = filteredPos.stream()
                     .filter(s -> {
-                        BlockState state = mc.world.getBlockState(s);
-                        return !state.isAir() && !state.isLiquid();
+                        BlockState state = mc.level.getBlockState(s);
+                        return !state.isAir() && !state.liquid();
                     })
-                    .min(Comparator.comparingDouble(s -> s.getSquaredDistance(mc.player.getPos())))
-                    .map(mc.world::getBlockState);
+                    .min(Comparator.comparingDouble(s -> s.distToCenterSqr(mc.player.position())))
+                    .map(mc.level::getBlockState);
         }
     }
 
@@ -184,8 +184,8 @@ public class AutoPlate extends BaseModule {
         List<Runnable> stack = new ArrayList<>(multiply);
 
         for (var bp : placeList) {
-            BlockState clientState = mc.world.getBlockState(bp);
-            if (!clientState.isAir() && !clientState.isLiquid() && !clientState.isReplaceable()) {
+            BlockState clientState = mc.level.getBlockState(bp);
+            if (!clientState.isAir() && !clientState.liquid() && !clientState.canBeReplaced()) {
                 continue;
             }
             int supplyBlock;
@@ -203,7 +203,7 @@ public class AutoPlate extends BaseModule {
                 }
                 if (entry.val().getItem() instanceof BlockItem bl) {
                     supplyBlock = entry.index();
-                    state = bl.getBlock().getDefaultState();
+                    state = bl.getBlock().defaultBlockState();
                 } else {
                     break;
                 }
@@ -213,8 +213,8 @@ public class AutoPlate extends BaseModule {
                     bp, state, airplace.get(), !mode.get().isLegal());
             if (InteractUtils.canInteractAndPlace(mc.player, blockHitResult)
                     && InteractExtra.INSTANCE.isWithinInteractRange(
-                            mc.player.getPos(), blockHitResult.val().getBlockPos(), range.get())
-                    && InteractUtils.getBlockPlacement(state.getBlock(), mc.player, mc.world, blockHitResult.val())
+                            mc.player.position(), blockHitResult.val().getBlockPos(), range.get())
+                    && InteractUtils.getBlockPlacement(state.getBlock(), mc.player, mc.level, blockHitResult.val())
                             != null) {
                 Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(supplyBlock);
                 if (runnable == null) break;
@@ -222,8 +222,8 @@ public class AutoPlate extends BaseModule {
                 if (useBlockRotate.get()) {
                     BlockRotate.INSTANCE.addTempStateSchematic(bp, state);
                 }
-                InteractionTasks.handlePlaceMode(mode.get(), blockHitResult.val(), Hand.MAIN_HAND, swingHand.get());
-                mc.world.setBlockState(bp, state, WorldUtils.UPDATE_BLOCK_NO_PHYSICS);
+                InteractionTasks.handlePlaceMode(mode.get(), blockHitResult.val(), InteractionHand.MAIN_HAND, swingHand.get());
+                mc.level.setBlock(bp, state, WorldUtils.UPDATE_BLOCK_NO_PHYSICS);
                 cnt += 1;
                 if (cnt >= multiply) {
                     break;
@@ -238,7 +238,7 @@ public class AutoPlate extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<MatrixStack> eventVDraw) {
+    public void onRender3D(Event<PoseStack> eventVDraw) {
         if (enable.get() && render.get()) {
             RenderUtils.startDrawVirtual(eventVDraw.context);
             try {

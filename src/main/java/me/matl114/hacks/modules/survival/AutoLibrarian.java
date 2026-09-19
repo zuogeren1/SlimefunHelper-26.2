@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.survival;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.util.*;
 import java.util.function.Consumer;
@@ -29,36 +30,41 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.*;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.MerchantScreen;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.EnchantmentTags;
-import net.minecraft.screen.MerchantScreenHandler;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.village.TradedItem;
-import net.minecraft.village.VillagerData;
-import net.minecraft.village.VillagerProfession;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MerchantScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerData;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.MerchantMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
 public class AutoLibrarian extends BaseModule {
 
@@ -77,7 +83,7 @@ public class AutoLibrarian extends BaseModule {
     public final NBTRef<WeakEntryPrimitiveMap<Enchantment, Integer>> enchantments = builder(
                     root.add("enchantments"), WeakEntryPrimitiveMap.<Enchantment, Integer>parameter())
             .defaultValue(new WeakEntryPrimitiveMap<>(
-                    RegistryKeys.ENCHANTMENT, NBTTypes.INT_TYPE, Map.of(Enchantments.MENDING.getValue(), 1)))
+                    Registries.ENCHANTMENT, NBTTypes.INT_TYPE, Map.of(Enchantments.MENDING.identifier(), 1)))
             .build();
 
     public final FlagRef onlyMaxLeve =
@@ -87,7 +93,7 @@ public class AutoLibrarian extends BaseModule {
 
     public final NBTRef<EntrySet<Block>> workstationPredicate = builder(
                     root.add("work-station-down-block"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(Registries.BLOCK, List.of(Blocks.MAGMA_BLOCK, Blocks.OAK_FENCE)))
+            .defaultValue(new EntrySet<>(BuiltInRegistries.BLOCK, List.of(Blocks.MAGMA_BLOCK, Blocks.OAK_FENCE)))
             .build();
 
     public final FlagRef autoLockTrade =
@@ -104,7 +110,7 @@ public class AutoLibrarian extends BaseModule {
     public final FlagRef render = flagBuilder(root.add("render")).build();
 
     public final NBTRef<WrapColor> renderColor = builder(root.add("render-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.GREEN)))
+            .defaultValue(new WrapColor((ChatFormatting.GREEN)))
             .build();
 
     @Override
@@ -121,7 +127,7 @@ public class AutoLibrarian extends BaseModule {
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
         acceptor.accept(createTitleLabel("widget.interact.interact-all.use-argument", 0, dblank, dx, dy));
-        if (mc.getNetworkHandler() != null) {
+        if (mc.getConnection() != null) {
             acceptor.accept(createExecuteButton(
                     "widget.auto-librarian.set-min-price",
                     ButtonAction.run(this::setLowestPriceForAllEnchantments),
@@ -140,7 +146,7 @@ public class AutoLibrarian extends BaseModule {
     }
 
     public void setLowestPriceForAllEnchantments() {
-        var handler = mc.getNetworkHandler();
+        var handler = mc.getConnection();
         if (handler == null) return;
         Map<Identifier, Integer> map = enchantments.get().idMap();
         Map<Identifier, Integer> map2 = new LinkedHashMap<>();
@@ -148,46 +154,46 @@ public class AutoLibrarian extends BaseModule {
             if (Objects.equals(WeakHolder.DEFAULT_KEY, re.getKey())) {
                 map2.put(re.getKey(), re.getValue());
             } else {
-                RegistryKey<Enchantment> registryKey = RegistryKey.of(RegistryKeys.ENCHANTMENT, re.getKey());
-                RegistryEntry<Enchantment> entry =
-                        RegistryUtils.getRegistryEntry(handler.getRegistryManager(), registryKey);
+                ResourceKey<Enchantment> registryKey = ResourceKey.create(Registries.ENCHANTMENT, re.getKey());
+                Holder<Enchantment> entry =
+                        RegistryUtils.getRegistryEntry(handler.registryAccess(), registryKey);
                 if (entry == null) {
                     map2.put(re.getKey(), re.getValue());
                 } else {
                     Enchantment ench = entry.value();
                     int minLevel = 2 + 3 * ench.getMaxLevel();
-                    if (entry.isIn(EnchantmentTags.DOUBLE_TRADE_PRICE)) {
+                    if (entry.is(EnchantmentTags.DOUBLE_TRADE_PRICE)) {
                         minLevel *= 2;
                     }
                     map2.put(re.getKey(), minLevel);
                 }
             }
         }
-        enchantments.set(new WeakEntryPrimitiveMap<>(RegistryKeys.ENCHANTMENT, NBTTypes.INT_TYPE, map2));
+        enchantments.set(new WeakEntryPrimitiveMap<>(Registries.ENCHANTMENT, NBTTypes.INT_TYPE, map2));
     }
 
     public void setAllEnchantments() {
-        var handler = mc.getNetworkHandler();
+        var handler = mc.getConnection();
         if (handler == null) return;
         Map<Identifier, Integer> map = enchantments.get().idMap();
         Map<Identifier, Integer> map2 = new LinkedHashMap<>(map);
         Registry<Enchantment> enchantment =
-                RegistryUtils.getRegistry(handler.getRegistryManager(), RegistryKeys.ENCHANTMENT);
-        for (var re : enchantment.getEntrySet()) {
-            Identifier id = re.getKey().getValue();
+                RegistryUtils.getRegistry(handler.registryAccess(), Registries.ENCHANTMENT);
+        for (var re : enchantment.entrySet()) {
+            Identifier id = re.getKey().identifier();
             if (!map2.containsKey(id)) {
                 var ench = re.getValue();
                 int minLevel = 2 + 3 * ench.getMaxLevel();
-                if (enchantment.getEntry(ench).isIn(EnchantmentTags.DOUBLE_TRADE_PRICE)) {
+                if (enchantment.wrapAsHolder(ench).is(EnchantmentTags.DOUBLE_TRADE_PRICE)) {
                     minLevel *= 2;
                 }
                 map2.put(id, minLevel);
             }
         }
-        enchantments.set(new WeakEntryPrimitiveMap<>(RegistryKeys.ENCHANTMENT, NBTTypes.INT_TYPE, map2));
+        enchantments.set(new WeakEntryPrimitiveMap<>(Registries.ENCHANTMENT, NBTTypes.INT_TYPE, map2));
     }
 
-    VillagerEntity targetVillager;
+    Villager targetVillager;
     BlockPos targetWorkStationBase;
 
     @Override
@@ -204,10 +210,10 @@ public class AutoLibrarian extends BaseModule {
         pathingSchedular.disable();
     }
 
-    private boolean isLowLevelOrNoProfessionVillager(VillagerEntity villager) {
+    private boolean isLowLevelOrNoProfessionVillager(Villager villager) {
         VillagerData villagerData = villager.getVillagerData();
         if (villagerData != null) {
-            var profession = villagerData.profession().getKey().orElse(null);
+            var profession = villagerData.profession().unwrapKey().orElse(null);
             if (Objects.equals(profession, VillagerProfession.NONE)) {
                 return true;
             }
@@ -221,20 +227,20 @@ public class AutoLibrarian extends BaseModule {
         }
     }
 
-    public boolean isRefreshTradeVillager(VillagerEntity villagerEntity) {
+    public boolean isRefreshTradeVillager(Villager villagerEntity) {
         // check on ground
         return EntityUtils.isEntityValid(villagerEntity)
-                && villagerEntity.isOnGround()
-                && !villagerEntity.isTouchingWater()
+                && villagerEntity.onGround()
+                && !villagerEntity.isInWater()
                 && isLowLevelOrNoProfessionVillager(villagerEntity)
                 && locateWorkStation(villagerEntity) != null;
     }
 
-    private BlockPos locateWorkStation(VillagerEntity villager) {
-        BlockPos pos = villager.getSteppingPos();
+    private BlockPos locateWorkStation(Villager villager) {
+        BlockPos pos = villager.getOnPos();
         for (var re : MathUtils.HORIZONTALS) {
-            BlockPos pos2 = pos.offset(re);
-            BlockState state = mc.world.getBlockState(pos2);
+            BlockPos pos2 = pos.relative(re);
+            BlockState state = mc.level.getBlockState(pos2);
             if (workstationPredicate.get().test(state.getBlock())) {
                 return pos2;
             }
@@ -247,14 +253,14 @@ public class AutoLibrarian extends BaseModule {
             targetWorkStationBase = locateWorkStation(targetVillager);
             return;
         }
-        List<VillagerEntity> allVillagersInWorkSpace = mc.world.getEntitiesByType(
-                EntityType.VILLAGER, mc.player.getBoundingBox().expand(100, 100, 100), this::isRefreshTradeVillager);
+        List<Villager> allVillagersInWorkSpace = mc.level.getEntities(
+                EntityTypes.VILLAGER, mc.player.getBoundingBox().inflate(100, 100, 100), this::isRefreshTradeVillager);
         if (allVillagersInWorkSpace.isEmpty()) {
             clearTarget();
             return;
         }
         targetVillager = allVillagersInWorkSpace.stream()
-                .min(Comparator.comparingDouble(s -> s.getPos().squaredDistanceTo(mc.player.getPos())))
+                .min(Comparator.comparingDouble(s -> s.position().distanceToSqr(mc.player.position())))
                 .orElseThrow();
         targetWorkStationBase = locateWorkStation(targetVillager);
         return;
@@ -272,18 +278,18 @@ public class AutoLibrarian extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> event) {
+    public void onRender(Event<PoseStack> event) {
         if (enable.get() && render.get()) {
             if (targetVillager != null && targetWorkStationBase != null) {
                 float partialTicks = event.getArgs(0);
                 RenderUtils.startDrawVirtual(event.context);
                 try {
-                    RenderCollector<Box> collector = RenderCollectors.createBoxCollector(true, false, false);
+                    RenderCollector<AABB> collector = RenderCollectors.createBoxCollector(true, false, false);
                     collector.submit(
                             RenderUtils.getLerpedBox(targetVillager, partialTicks),
                             renderColor.get().withAlpha(255));
                     collector.submit(
-                            new Box(targetWorkStationBase.add(0, 1, 0)),
+                            new AABB(targetWorkStationBase.offset(0, 1, 0)),
                             renderColor.get().withAlpha(255));
                     collector.render3D(event.context);
                 } finally {
@@ -309,37 +315,37 @@ public class AutoLibrarian extends BaseModule {
         if (!(isRefreshTradeVillager(targetVillager))) {
             clearTarget();
             // end
-            if (mc.currentScreen instanceof MerchantScreen merchant) {
-                merchant.close();
+            if (mc.gui.screen() instanceof MerchantScreen merchant) {
+                merchant.onClose();
             }
             return;
         }
-        if (!TargetSelector.INSTANCE.isWithinAttackRange(mc.player.getPos(), targetVillager)) {
+        if (!TargetSelector.INSTANCE.isWithinAttackRange(mc.player.position(), targetVillager)) {
             return;
         }
         if (pathingSchedular.isPathing()) {
             return;
         }
-        PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.interactionManager);
-        BlockPos targetWorkspace = targetWorkStationBase.add(0, 1, 0);
-        BlockState currentState = mc.world.getBlockState(targetWorkspace);
+        PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.gameMode);
+        BlockPos targetWorkspace = targetWorkStationBase.offset(0, 1, 0);
+        BlockState currentState = mc.level.getBlockState(targetWorkspace);
         VillagerData data = targetVillager.getVillagerData();
-        RegistryKey<VillagerProfession> professionRegistryKey =
-                data.profession().getKey().orElse(null);
-        if (currentState.isAir() || currentState.isLiquid() || currentState.isReplaceable()) {
+        ResourceKey<VillagerProfession> professionRegistryKey =
+                data.profession().unwrapKey().orElse(null);
+        if (currentState.isAir() || currentState.liquid() || currentState.canBeReplaced()) {
             hasOpened = false;
             if (Objects.equals(professionRegistryKey, VillagerProfession.NONE)) {
                 IndexEntry<ItemStack> findStack =
-                        InventoryUtils.findPlayerItem(s -> s.isOf(Items.LECTERN), true, false);
+                        InventoryUtils.findPlayerItem(s -> s.is(Items.LECTERN), true, false);
                 if (findStack != null) {
                     noLecternNotify = false;
                     Runnable callback = InvExtra.INSTANCE.swapInventoryIndexToHand(findStack.index());
                     if (callback != null) {
                         Direction direction = MathUtils.getHorizontalFacing(
-                                targetWorkspace.toCenterPos().subtract(targetVillager.getPos()));
+                                Vec3.atCenterOf(targetWorkspace).subtract(targetVillager.position()));
                         Interact.INSTANCE.placeBlockStrict(
                                 targetWorkspace,
-                                Blocks.LECTERN.getDefaultState().with(HorizontalFacingBlock.FACING, direction));
+                                Blocks.LECTERN.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, direction));
                         callback.run();
                         return;
                     }
@@ -360,10 +366,10 @@ public class AutoLibrarian extends BaseModule {
         // refresh a trade
         if (Objects.equals(professionRegistryKey, VillagerProfession.LIBRARIAN)) {
             // we pretend that this is the screen
-            if (mc.currentScreen instanceof MerchantScreen merchantScreen) {
-                MerchantScreenHandler handler = merchantScreen.getScreenHandler();
-                if (lastMerchantScreenSyncId != handler.syncId) {
-                    lastMerchantScreenSyncId = handler.syncId;
+            if (mc.gui.screen() instanceof MerchantScreen merchantScreen) {
+                MerchantMenu handler = merchantScreen.getMenu();
+                if (lastMerchantScreenSyncId != handler.containerId) {
+                    lastMerchantScreenSyncId = handler.containerId;
                     hasOpened = true;
                     onMerchantScreenUpdate(merchantScreen);
                 }
@@ -374,12 +380,12 @@ public class AutoLibrarian extends BaseModule {
                     if (access.predictCurrentMiningProgressWithTool(ItemStack.EMPTY) < 0.7) {
                         return;
                     }
-                    mc.player.swingHand(Hand.MAIN_HAND);
+                    mc.player.swing(InteractionHand.MAIN_HAND);
                     access.sendBreakPacket(true);
-                } else if (!WorldManager.canVillagerResetTrade(merchantScreen.getScreenHandler())) {
+                } else if (!WorldManager.canVillagerResetTrade(merchantScreen.getMenu())) {
                     WorldManager.INSTANCE.setVillagerTradeLock(targetVillager, true);
                 }
-            } else if (mc.currentScreen == null || mc.currentScreen instanceof HandledScreen<?>) {
+            } else if (mc.gui.screen() == null || mc.gui.screen() instanceof AbstractContainerScreen<?>) {
                 if (!hasOpened && lastInteractTick + 5 < Tasks.getTick()) {
                     Interact.INSTANCE.interactEntity(targetVillager);
                     lastInteractTick = Tasks.getTick();
@@ -388,30 +394,30 @@ public class AutoLibrarian extends BaseModule {
         }
     }
 
-    private void setAccepted(RegistryEntry<Enchantment> remove, int level, int price) {
+    private void setAccepted(Holder<Enchantment> remove, int level, int price) {
         if (autoRemoval.get()) {
             Map<Identifier, Integer> map =
                     new LinkedHashMap<>(enchantments.get().idMap());
-            Integer val = map.remove(remove.getKey().get().getValue());
+            Integer val = map.remove(remove.unwrapKey().get().identifier());
             if (val != null && val >= price) {
                 if (!onlyMaxLeve.get() && level >= remove.value().getMaxLevel()) {
-                    map.remove(remove.getKey().get().getValue());
+                    map.remove(remove.unwrapKey().get().identifier());
                     if (log.get()) {
                         logI18N(
                                 "message.module.auto-librarian.enchantment-auto-remove",
                                 remove.value().description());
                     }
-                    enchantments.set(new WeakEntryPrimitiveMap<>(RegistryKeys.ENCHANTMENT, NBTTypes.INT_TYPE, map));
+                    enchantments.set(new WeakEntryPrimitiveMap<>(Registries.ENCHANTMENT, NBTTypes.INT_TYPE, map));
                 }
             }
         }
     }
 
     public void onMerchantScreenUpdate(MerchantScreen screen) {
-        MerchantScreenHandler handler = screen.getScreenHandler();
+        MerchantMenu handler = screen.getMenu();
         if (WorldManager.canVillagerResetTrade(handler)) {
 
-            IndexEntry<Pair<Integer, RegistryEntry<Enchantment>>> findIndex = checkTradingIndex(handler);
+            IndexEntry<Pair<Integer, Holder<Enchantment>>> findIndex = checkTradingIndex(handler);
             if (findIndex == null) {
                 currentAccepted = false;
                 return;
@@ -461,26 +467,26 @@ public class AutoLibrarian extends BaseModule {
             }
             currentAccepted = true;
             if (autoLockTrade.get()) {
-                if (InventoryUtils.findPlayerItem(s -> s.isOf(Items.BOOK), true, false) != null) {
+                if (InventoryUtils.findPlayerItem(s -> s.is(Items.BOOK), true, false) != null) {
                     if (InventoryUtils.computePlayerInventory(Items.EMERALD) >= price) {
                         var access = MerchantScreenAccess.of(screen);
                         access.setSelectedIndex(access.getSelectedIndex());
-                        mc.interactionManager.clickSlot(handler.syncId, 2, 1, SlotActionType.PICKUP, mc.player);
+                        mc.gameMode.handleContainerInput(handler.containerId, 2, 1, ContainerInput.PICKUP, mc.player);
                     } else {
                         if (log.get()) {
-                            logI18N("message.module.auto-librarian.auto-lock.no-item", Items.EMERALD.getName());
+                            logI18N("message.module.auto-librarian.auto-lock.no-item", Items.EMERALD.getName(new ItemStack(Items.EMERALD)));
                         }
                     }
                 } else {
                     if (log.get()) {
-                        logI18N("message.module.auto-librarian.auto-lock.no-item", Items.BOOK.getName());
+                        logI18N("message.module.auto-librarian.auto-lock.no-item", Items.BOOK.getName(new ItemStack(Items.BOOK)));
                     }
                 }
             }
         } else {
             WorldManager.INSTANCE.setVillagerTradeLock(targetVillager, true);
             currentAccepted = true;
-            IndexEntry<Pair<Integer, RegistryEntry<Enchantment>>> findIndex = checkTradingIndex(handler);
+            IndexEntry<Pair<Integer, Holder<Enchantment>>> findIndex = checkTradingIndex(handler);
             if (findIndex != null) {
                 setAccepted(
                         findIndex.val().getSecond(),
@@ -490,22 +496,22 @@ public class AutoLibrarian extends BaseModule {
         }
     }
 
-    private int getPriceAt(MerchantScreenHandler handler, int idx) {
-        var re = handler.getRecipes().get(idx);
+    private int getPriceAt(MerchantMenu handler, int idx) {
+        var re = handler.getOffers().get(idx);
         return Math.max(
-                re.getFirstBuyItem().count(),
-                re.getSecondBuyItem().map(TradedItem::count).orElse(0));
+                re.getItemCostA().count(),
+                re.getItemCostB().map(ItemCost::count).orElse(0));
     }
 
-    public IndexEntry<Pair<Integer, RegistryEntry<Enchantment>>> checkTradingIndex(MerchantScreenHandler handler) {
-        var offers = handler.getRecipes();
+    public IndexEntry<Pair<Integer, Holder<Enchantment>>> checkTradingIndex(MerchantMenu handler) {
+        var offers = handler.getOffers();
         int idx = 0;
         for (var re : offers) {
-            ItemStack stack1 = re.getSellItem();
+            ItemStack stack1 = re.getResult();
             // if(stack1)
-            if (stack1.isOf(Items.ENCHANTED_BOOK) && stack1.contains(DataComponentTypes.STORED_ENCHANTMENTS)) {
+            if (stack1.is(Items.ENCHANTED_BOOK) && stack1.has(DataComponents.STORED_ENCHANTMENTS)) {
                 // check price and enchantments
-                var firstEnch = stack1.get(DataComponentTypes.STORED_ENCHANTMENTS).getEnchantmentEntries().stream()
+                var firstEnch = stack1.get(DataComponents.STORED_ENCHANTMENTS).entrySet().stream()
                         .findFirst()
                         .orElse(null);
                 if (firstEnch != null) {
@@ -525,32 +531,32 @@ public class AutoLibrarian extends BaseModule {
             pickupLecterns = true;
         }
         if (pickupLecterns) {
-            BlockPos doNotIntersect = targetVillager.getBlockPos();
-            Box doNotIntersectBox = new Box(doNotIntersect).expand(0, 1, 0);
-            List<ItemEntity> nearbyLecterns = mc.world.getEntitiesByType(
-                    EntityType.ITEM,
-                    mc.player.getBoundingBox().expand(6, 2, 6),
+            BlockPos doNotIntersect = targetVillager.blockPosition();
+            AABB doNotIntersectBox = new AABB(doNotIntersect).inflate(0, 1, 0);
+            List<ItemEntity> nearbyLecterns = mc.level.getEntities(
+                    EntityTypes.ITEM,
+                    mc.player.getBoundingBox().inflate(6, 2, 6),
                     (item) -> !doNotIntersectBox.intersects(item.getBoundingBox())
-                            && (item).getStack().isOf(Items.LECTERN));
+                            && (item).getItem().is(Items.LECTERN));
             ItemEntity nearest = nearbyLecterns.stream()
-                    .min(Comparator.comparingDouble(s -> s.getPos().squaredDistanceTo(mc.player.getPos())))
+                    .min(Comparator.comparingDouble(s -> s.position().distanceToSqr(mc.player.position())))
                     .orElse(null);
             if (nearest == null) {
                 pickupLecterns = false;
                 return null;
             } else {
-                return new GoalNearBlockPos(nearest.getBlockPos());
+                return new GoalNearBlockPos(nearest.blockPosition());
             }
         } else {
             Direction lastDirection = MathUtils.getHorizontalFacing(
-                    targetWorkStationBase.toCenterPos().subtract(targetVillager.getPos()));
-            Direction clockWise = lastDirection.rotateClockwise(Direction.Axis.Y);
-            BlockPos testPos = targetWorkStationBase.add(0, 1, 0).offset(clockWise);
-            BlockState testState = mc.world.getBlockState(testPos);
+                    Vec3.atCenterOf(targetWorkStationBase).subtract(targetVillager.position()));
+            Direction clockWise = lastDirection.getClockWise(Direction.Axis.Y);
+            BlockPos testPos = targetWorkStationBase.offset(0, 1, 0).relative(clockWise);
+            BlockState testState = mc.level.getBlockState(testPos);
             if (!testState
-                    .getCollisionShape(mc.world, testPos, ShapeContext.of(mc.player))
+                    .getCollisionShape(mc.level, testPos, CollisionContext.of(mc.player))
                     .isEmpty()) {
-                testPos = targetWorkStationBase.add(0, 1, 0).offset(clockWise.getOpposite());
+                testPos = targetWorkStationBase.offset(0, 1, 0).relative(clockWise.getOpposite());
             }
             return new GoalBlockPos(testPos);
         }
@@ -569,46 +575,46 @@ public class AutoLibrarian extends BaseModule {
         adjustmentSchedular.center(this::adjustmentGoal);
     }
 
-    public Vec3d adjustmentGoal() {
+    public Vec3 adjustmentGoal() {
         if (adjustmentControl.get() && targetVillager != null && targetWorkStationBase != null) {
-            BlockPos targetWorkSpace = targetWorkStationBase.add(0, 1, 0);
-            BlockPos playerPos = mc.player.getBlockPos();
+            BlockPos targetWorkSpace = targetWorkStationBase.offset(0, 1, 0);
+            BlockPos playerPos = mc.player.blockPosition();
             int manDistance = MathUtils.getManhattanDistance(targetWorkSpace, playerPos);
             if (manDistance <= 1) {
                 Direction lastDirection = MathUtils.getHorizontalFacing(
-                        targetWorkStationBase.toCenterPos().subtract(targetVillager.getPos()));
-                Direction leftPos = lastDirection.rotateYClockwise();
-                Direction rightPos = lastDirection.rotateYCounterclockwise();
-                BlockPos leftBp = targetWorkSpace.offset(leftPos);
-                BlockPos rightBp = targetWorkSpace.offset(rightPos);
+                        Vec3.atCenterOf(targetWorkStationBase).subtract(targetVillager.position()));
+                Direction leftPos = lastDirection.getClockWise();
+                Direction rightPos = lastDirection.getCounterClockWise();
+                BlockPos leftBp = targetWorkSpace.relative(leftPos);
+                BlockPos rightBp = targetWorkSpace.relative(rightPos);
                 if (Objects.equals(playerPos, leftBp)) {
-                    Vec3d corner = playerPos
-                            .toBottomCenterPos()
-                            .offset(lastDirection.getOpposite(), 0.2)
-                            .offset(rightPos, 0.15);
-                    if (MathUtils.isInBox(corner, mc.player.getPos(), 0.05)) {
+                    Vec3 corner = Vec3.atBottomCenterOf(playerPos)
+
+                            .relative(lastDirection.getOpposite(), 0.2)
+                            .relative(rightPos, 0.15);
+                    if (MathUtils.isInBox(corner, mc.player.position(), 0.05)) {
                         return null;
                     }
-                    return corner.offset(lastDirection.getOpposite(), 0.5);
+                    return corner.relative(lastDirection.getOpposite(), 0.5);
 
                 } else if (Objects.equals(playerPos, rightBp)) {
-                    Vec3d corner = playerPos
-                            .toBottomCenterPos()
-                            .offset(lastDirection.getOpposite(), 0.23)
-                            .offset(leftPos, 0.15);
-                    if (MathUtils.isInBox(corner, mc.player.getPos(), 0.05)) {
+                    Vec3 corner = Vec3.atBottomCenterOf(playerPos)
+
+                            .relative(lastDirection.getOpposite(), 0.23)
+                            .relative(leftPos, 0.15);
+                    if (MathUtils.isInBox(corner, mc.player.position(), 0.05)) {
                         return null;
                     }
-                    return corner.offset(lastDirection.getOpposite(), 0.5);
+                    return corner.relative(lastDirection.getOpposite(), 0.5);
                 } else if (Objects.equals(playerPos, targetWorkSpace)) {
-                    if (MathUtils.isInBox(leftBp.toCenterPos(), mc.player.getPos(), 1)) {
-                        return leftBp.toBottomCenterPos();
+                    if (MathUtils.isInBox(Vec3.atCenterOf(leftBp), mc.player.position(), 1)) {
+                        return Vec3.atBottomCenterOf(leftBp);
                     } else {
-                        return rightBp.toBottomCenterPos();
+                        return Vec3.atBottomCenterOf(rightBp);
                     }
                 }
             } else if (manDistance == 2) {
-                return targetVillager.getPos();
+                return targetVillager.position();
             }
         }
         return null;

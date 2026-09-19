@@ -1,30 +1,29 @@
 package me.matl114.versioned.impl;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.*;
-import java.util.List;
 import me.matl114.utils.collections.IndexEntry;
 import me.matl114.versioned.accessors.GuiRendererStateAccess;
 import me.matl114.versioned.api.MatrixStack;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.gui.tooltip.HoveredTooltipPositioner;
-import net.minecraft.client.gui.tooltip.TooltipComponent;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipData;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
+import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
+import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.ColorHelper;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fc;
@@ -32,22 +31,22 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public class DrawContext_v1_21_11 implements VDrawContext {
-    private final DrawContext drawContext;
+    private final GuiGraphicsExtractor drawContext;
     private final MatrixStack matrixStack;
 
-    public DrawContext_v1_21_11(DrawContext context) {
+    public DrawContext_v1_21_11(GuiGraphicsExtractor context) {
         this.drawContext = context;
         this.matrixStack = MatrixStack.of(context);
     }
 
     @Override
-    public DrawContext pushMatrix() {
+    public GuiGraphicsExtractor pushMatrix() {
         getMatrices().pushMatrix();
         return this.drawContext;
     }
 
     @Override
-    public DrawContext popMatrix() {
+    public GuiGraphicsExtractor popMatrix() {
         getMatrices().popMatrix();
         return this.drawContext;
     }
@@ -58,22 +57,22 @@ public class DrawContext_v1_21_11 implements VDrawContext {
     }
 
     public void setShaderColor(int rgba) {
-        cachedShaderColor[0] = ColorHelper.getRed(rgba);
-        cachedShaderColor[1] = ColorHelper.getGreen(rgba);
-        cachedShaderColor[2] = ColorHelper.getBlue(rgba);
-        cachedShaderColor[3] = ColorHelper.getAlpha(rgba);
+        cachedShaderColor[0] = ARGB.red(rgba);
+        cachedShaderColor[1] = ARGB.green(rgba);
+        cachedShaderColor[2] = ARGB.blue(rgba);
+        cachedShaderColor[3] = ARGB.alpha(rgba);
     }
 
     @Override
     public void setShaderColor(float red, float green, float blue, float alpha) {
-        cachedShaderColor[0] = ColorHelper.channelFromFloat(red);
-        cachedShaderColor[1] = ColorHelper.channelFromFloat(green);
-        cachedShaderColor[2] = ColorHelper.channelFromFloat(blue);
-        cachedShaderColor[3] = ColorHelper.channelFromFloat(alpha);
+        cachedShaderColor[0] = ARGB.as8BitChannel(red);
+        cachedShaderColor[1] = ARGB.as8BitChannel(green);
+        cachedShaderColor[2] = ARGB.as8BitChannel(blue);
+        cachedShaderColor[3] = ARGB.as8BitChannel(alpha);
     }
 
     public void setShaderAlpha(float alpha) {
-        cachedShaderColor[3] = ColorHelper.channelFromFloat(alpha);
+        cachedShaderColor[3] = ARGB.as8BitChannel(alpha);
     }
 
     // r g  b a
@@ -91,7 +90,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
     }
 
     public static int getShaderRGB(int a) {
-        return ColorHelper.mix(getShaderRGB(), a);
+        return ARGB.multiply(getShaderRGB(), a);
     }
 
     public static int getCurrentDepthLevel() {
@@ -100,21 +99,21 @@ public class DrawContext_v1_21_11 implements VDrawContext {
 
     private static final ArrayDeque<IndexEntry<LayerSnapshot>> depthDeque = new ArrayDeque<>(4);
 
-    private record LayerSnapshot(GuiRenderState.Layer layer, @Nullable ScreenRect bounds) {}
+    private record LayerSnapshot(GuiRenderState.Node layer, @Nullable ScreenRectangle bounds) {}
 
     public void pushLayer(int depth) {
         int level = getCurrentDepthLevel();
         LayerSnapshot snapshot =
-                new LayerSnapshot(drawContext.state.currentLayer, drawContext.state.currentLayerBounds);
+                new LayerSnapshot(drawContext.guiRenderState.current, drawContext.guiRenderState.lastElementBounds);
         depthDeque.addLast(new IndexEntry<>(depth + level, snapshot));
-        GuiRendererStateAccess.of(drawContext.state).setLayerToDepth();
-        drawContext.state.currentLayerBounds = null;
+        GuiRendererStateAccess.of(drawContext.guiRenderState).setLayerToDepth();
+        drawContext.guiRenderState.lastElementBounds = null;
     }
 
     public void popLayer() {
         var idx = depthDeque.removeLast();
-        drawContext.state.currentLayer = idx.val().layer();
-        drawContext.state.currentLayerBounds = idx.val().bounds();
+        drawContext.guiRenderState.current = idx.val().layer();
+        drawContext.guiRenderState.lastElementBounds = idx.val().bounds();
     }
 
     @Override
@@ -123,7 +122,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             pushLayer(z);
         }
         try {
-            this.drawContext.drawGuiTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, width, height, getShaderRGB());
+            this.drawContext.blitSprite(RenderPipelines.GUI_TEXTURED, texture, x, y, width, height, getShaderRGB());
         } finally {
             if (z != 0) {
                 popLayer();
@@ -138,7 +137,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             pushLayer(z);
         }
         try {
-            this.drawContext.drawGuiTexture(
+            this.drawContext.blitSprite(
                     RenderPipelines.GUI_TEXTURED, texture, i, j, k, l, x, y, width, height, getShaderRGB());
         } finally {
             if (z != 0) {
@@ -149,22 +148,22 @@ public class DrawContext_v1_21_11 implements VDrawContext {
 
     public void drawGuiTextureQuad(
             Identifier texture, int x1, int x2, int y1, int y2, int z, float u1, float u2, float v1, float v2) {
-        Sprite sprite = getGuiSprite(texture);
-        float sMinU = sprite.getMinU();
-        float sMaxU = sprite.getMaxU();
-        float sMinV = sprite.getMinV();
-        float sMaxV = sprite.getMaxV();
+        TextureAtlasSprite sprite = getGuiSprite(texture);
+        float sMinU = sprite.getU0();
+        float sMaxU = sprite.getU1();
+        float sMinV = sprite.getV0();
+        float sMaxV = sprite.getV1();
         // 映射：u 从 [0,1] 映射到 [sMinU, sMaxU]，v 同理
         float finalU1 = sMinU + u1 * (sMaxU - sMinU);
         float finalU2 = sMinU + u2 * (sMaxU - sMinU);
         float finalV1 = sMinV + v1 * (sMaxV - sMinV);
         float finalV2 = sMinV + v2 * (sMaxV - sMinV);
-        this.drawTexturedQuad(sprite.getAtlasId(), x1, x2, y1, y2, z, finalU1, finalU2, finalV1, finalV2);
+        this.drawTexturedQuad(sprite.atlasLocation(), x1, x2, y1, y2, z, finalU1, finalU2, finalV1, finalV2);
     }
 
     @Override
-    public Sprite getGuiSprite(Identifier id) {
-        return this.drawContext.spriteAtlasTexture.getSprite(id);
+    public TextureAtlasSprite getGuiSprite(Identifier id) {
+        return this.drawContext.guiSprites.getSprite(id);
     }
 
     @Override
@@ -174,7 +173,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             pushLayer(z);
         }
         try {
-            this.drawContext.drawTexturedQuad(
+            this.drawContext.innerBlit(
                     RenderPipelines.GUI_TEXTURED, texture, x1, x2, y1, y2, u1, u2, v1, v2, getShaderRGB());
         } finally {
             if (z != 0) {
@@ -184,13 +183,13 @@ public class DrawContext_v1_21_11 implements VDrawContext {
     }
 
     @Override
-    public void drawText(TextRenderer textRenderer, OrderedText text, int x, int y, int color, boolean shadow) {
-        drawContext.drawText(textRenderer, text, x, y, getShaderRGB(color), shadow);
+    public void drawText(Font textRenderer, FormattedCharSequence text, int x, int y, int color, boolean shadow) {
+        drawContext.text(textRenderer, text, x, y, getShaderRGB(color), shadow);
     }
 
     @Override
-    public void drawText(TextRenderer textRenderer, @Nullable String text, int x, int y, int color, boolean shadow) {
-        drawContext.drawText(textRenderer, text, x, y, getShaderRGB(color), shadow);
+    public void drawText(Font textRenderer, @Nullable String text, int x, int y, int color, boolean shadow) {
+        drawContext.text(textRenderer, text, x, y, getShaderRGB(color), shadow);
     }
 
     @Override
@@ -227,10 +226,10 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             pushLayer(depth);
         }
         try {
-            this.drawContext.state.addSimpleElement(new ColoredQuad2DGuiElementRenderState(
+            this.drawContext.guiRenderState.addGuiElement(new ColoredQuad2DGuiElementRenderState(
                     RenderPipelines.GUI,
-                    TextureSetup.empty(),
-                    new Matrix3x2f(this.drawContext.getMatrices()),
+                    TextureSetup.noTexture(),
+                    new Matrix3x2f(this.drawContext.pose()),
                     x1,
                     y1,
                     x2,
@@ -239,7 +238,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
                     color2,
                     color3,
                     color4,
-                    this.drawContext.scissorStack.peekLast()));
+                    this.drawContext.scissorStack.peek()));
         } finally {
             if (depth != 0) {
                 popLayer();
@@ -259,9 +258,9 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             int col2,
             int col3,
             int col4,
-            @Nullable ScreenRect scissorArea,
-            @Nullable ScreenRect bounds)
-            implements SimpleGuiElementRenderState {
+            @Nullable ScreenRectangle scissorArea,
+            @Nullable ScreenRectangle bounds)
+            implements GuiElementRenderState {
         public ColoredQuad2DGuiElementRenderState(
                 RenderPipeline pipeline,
                 TextureSetup textureSetup,
@@ -274,7 +273,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
                 int col2,
                 int col3,
                 int col4,
-                @Nullable ScreenRect scissorArea) {
+                @Nullable ScreenRectangle scissorArea) {
             this(
                     pipeline,
                     textureSetup,
@@ -292,11 +291,11 @@ public class DrawContext_v1_21_11 implements VDrawContext {
         }
 
         @Override
-        public void setupVertices(VertexConsumer vertices) {
-            vertices.vertex(this.pose(), (float) this.x0(), (float) this.y0()).color(this.col1());
-            vertices.vertex(this.pose(), (float) this.x0(), (float) this.y1()).color(this.col2());
-            vertices.vertex(this.pose(), (float) this.x1(), (float) this.y1()).color(this.col3());
-            vertices.vertex(this.pose(), (float) this.x1(), (float) this.y0()).color(this.col4());
+        public void buildVertices(VertexConsumer vertices) {
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x0(), (float) this.y0()).setColor(this.col1());
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x0(), (float) this.y1()).setColor(this.col2());
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x1(), (float) this.y1()).setColor(this.col3());
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x1(), (float) this.y0()).setColor(this.col4());
         }
     }
 
@@ -310,9 +309,9 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             int y2,
             int color1,
             int color2,
-            @Nullable ScreenRect scissorArea,
-            @Nullable ScreenRect bounds)
-            implements SimpleGuiElementRenderState {
+            @Nullable ScreenRectangle scissorArea,
+            @Nullable ScreenRectangle bounds)
+            implements GuiElementRenderState {
 
         public ColoredLine2DGuiElementRenderState(
                 RenderPipeline pipeline,
@@ -324,7 +323,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
                 int y2,
                 int color1,
                 int color2,
-                @Nullable ScreenRect scissorArea) {
+                @Nullable ScreenRectangle scissorArea) {
             this(
                     pipeline,
                     textureSetup,
@@ -340,22 +339,22 @@ public class DrawContext_v1_21_11 implements VDrawContext {
         }
 
         @Override
-        public void setupVertices(VertexConsumer vertices) {
+        public void buildVertices(VertexConsumer vertices) {
             Vector3f normal = new Vector3f(x2() - x1(), y2() - y1(), 0).normalize();
-            vertices.vertex(this.pose(), (float) this.x1(), (float) this.y1())
-                    .color(this.color1())
-                    .normal(normal.x, normal.y, normal.z)
-                    .lineWidth(2);
-            vertices.vertex(this.pose(), (float) this.x2(), (float) this.y2())
-                    .color(this.color2())
-                    .normal(normal.x, normal.y, normal.z)
-                    .lineWidth(2);
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x1(), (float) this.y1())
+                    .setColor(this.color1())
+                    .setNormal(normal.x, normal.y, normal.z)
+                    .setLineWidth(2);
+            vertices.addVertexWith2DPose(this.pose(), (float) this.x2(), (float) this.y2())
+                    .setColor(this.color2())
+                    .setNormal(normal.x, normal.y, normal.z)
+                    .setLineWidth(2);
         }
     }
 
-    private static @Nullable ScreenRect createBounds(
-            int x0, int y0, int x1, int y1, Matrix3x2fc pose, @Nullable ScreenRect scissorArea) {
-        ScreenRect screenRect = (new ScreenRect(x0, y0, x1 - x0, y1 - y0)).transformEachVertex(pose);
+    private static @Nullable ScreenRectangle createBounds(
+            int x0, int y0, int x1, int y1, Matrix3x2fc pose, @Nullable ScreenRectangle scissorArea) {
+        ScreenRectangle screenRect = (new ScreenRectangle(x0, y0, x1 - x0, y1 - y0)).transformMaxBounds(pose);
         return scissorArea != null ? scissorArea.intersection(screenRect) : screenRect;
     }
 
@@ -378,17 +377,17 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             pushLayer(z);
         }
         try {
-            this.drawContext.state.addSimpleElement(new ColoredLine2DGuiElementRenderState(
+            this.drawContext.guiRenderState.addGuiElement(new ColoredLine2DGuiElementRenderState(
                     Render_v1_21_11.DEBUG_LINES,
-                    TextureSetup.empty(),
-                    new Matrix3x2f(this.drawContext.getMatrices()),
+                    TextureSetup.noTexture(),
+                    new Matrix3x2f(this.drawContext.pose()),
                     x1,
                     x2,
                     y1,
                     y2,
                     color1,
                     color2,
-                    this.drawContext.scissorStack.peekLast()));
+                    this.drawContext.scissorStack.peek()));
         } finally {
             if (z != 0) {
                 popLayer();
@@ -397,31 +396,31 @@ public class DrawContext_v1_21_11 implements VDrawContext {
     }
 
     private void addInternal(Runnable runnable) {
-        if (this.drawContext.tooltipDrawer != null) {
-            final Runnable prev = this.drawContext.tooltipDrawer;
-            this.drawContext.tooltipDrawer = () -> {
+        if (this.drawContext.deferredTooltip != null) {
+            final Runnable prev = this.drawContext.deferredTooltip;
+            this.drawContext.deferredTooltip = () -> {
                 prev.run();
                 runnable.run();
             };
         } else {
-            this.drawContext.tooltipDrawer = runnable;
+            this.drawContext.deferredTooltip = runnable;
         }
     }
 
     @Override
-    public void drawTooltip(TextRenderer textRenderer, List<Text> text, Optional<TooltipData> data, int x, int y) {
+    public void drawTooltip(Font textRenderer, List<Component> text, Optional<TooltipComponent> data, int x, int y) {
         var trans = matrixStack.peek3D();
         var point1 = new Vector4f(x, y, 0, 1).mul(trans);
         // Tooltips are draw in delay callback, so transfer before the call
-        List<TooltipComponent> list = (List)
-                text.stream().map(Text::asOrderedText).map(TooltipComponent::of).collect(Util.toArrayList());
+        List<ClientTooltipComponent> list = (List)
+                text.stream().map(Component::getVisualOrderText).map(ClientTooltipComponent::create).collect(Util.toMutableList());
         data.ifPresent((datax) -> {
-            list.add(list.isEmpty() ? 0 : 1, TooltipComponent.of(datax));
+            list.add(list.isEmpty() ? 0 : 1, ClientTooltipComponent.create(datax));
         });
         if (!list.isEmpty()) {
             addInternal(() -> {
-                drawContext.drawTooltipImmediately(
-                        textRenderer, list, (int) point1.x, (int) point1.y, HoveredTooltipPositioner.INSTANCE, null);
+                drawContext.tooltip(
+                        textRenderer, list, (int) point1.x, (int) point1.y, DefaultTooltipPositioner.INSTANCE, null);
             });
         }
     }
@@ -432,7 +431,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
             pushLayer(z);
         }
         try {
-            this.drawContext.drawItem(stack, x, y, seed);
+            this.drawContext.item(stack, x, y, seed);
         } finally {
             if (z != 0) {
                 popLayer();
@@ -442,7 +441,7 @@ public class DrawContext_v1_21_11 implements VDrawContext {
 
     @Override
     public void drawItemInSlot(
-            TextRenderer textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride) {
-        this.drawContext.drawStackOverlay(textRenderer, stack, x, y, countOverride);
+            Font textRenderer, ItemStack stack, int x, int y, @Nullable String countOverride) {
+        this.drawContext.itemDecorations(textRenderer, stack, x, y, countOverride);
     }
 }

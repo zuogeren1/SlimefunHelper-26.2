@@ -7,7 +7,7 @@ import me.matl114.gui.basic.DrawableWidget;
 import me.matl114.hacks.SlimefunTasks;
 import me.matl114.hacks.modules.slimefun.SlimefunGuide;
 import me.matl114.hacks.utils.recipes.RecipeEntry;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public abstract class SlimefunEntryListScreen<T> extends SlimefunPageScreen {
     // optimize
@@ -17,7 +17,7 @@ public abstract class SlimefunEntryListScreen<T> extends SlimefunPageScreen {
     List<T> recipeEntries;
 
     public SlimefunEntryListScreen(List<T> recipeEntries) {
-        super(Text.translatable("widget.gui.slimefun-entry-list-screen.title"));
+        super(Component.translatable("widget.gui.slimefun-entry-list-screen.title"));
         this.recipeEntries = recipeEntries;
     }
 
@@ -53,7 +53,7 @@ public abstract class SlimefunEntryListScreen<T> extends SlimefunPageScreen {
     public abstract DrawableWidget generateEntryContentDelegate(T entry);
 
     @Override
-    protected List<Text> provideTitleTooltips(DrawableWidget widget) {
+    protected List<Component> provideTitleTooltips(DrawableWidget widget) {
         return SlimefunGuide.TOOLTIPS_ITEM_RULE;
     }
 

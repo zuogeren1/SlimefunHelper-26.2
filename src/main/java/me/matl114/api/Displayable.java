@@ -1,7 +1,7 @@
 package me.matl114.api;
 
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public interface Displayable {
-    Text getDisplay();
+    Component getDisplay();
 }

@@ -17,26 +17,26 @@ import me.matl114.utils.commands.params.api.ArgumentType;
 import me.matl114.utils.commands.params.api.CommandExecution;
 import me.matl114.utils.commands.params.api.InputArgument;
 import me.matl114.utils.commands.params.types.EntitySelector;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 
 public class EntityArgumentType extends AbstractArgumentType<EntitySelector> implements ArgumentType<EntitySelector> {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     private static final List<String> SELECTOR_TABS = List.of("@p", "@a", "@r", "@s", "@e", "@n");
     private static final List<String> OPTION_TABS = List.of(
             "x=",
@@ -106,12 +106,12 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     public static Stream<String> getEntityTabs() {
         List<Entity> entities = EntityArgumentType.allEntities();
         Stream<String> entityTokens = entities.stream()
-                .flatMap(entity -> Stream.of("@" + entityName(entity), "@" + entity.getUuidAsString()))
+                .flatMap(entity -> Stream.of("@" + entityName(entity), "@" + entity.getStringUUID()))
                 .filter(token -> token != null && !token.isBlank() && !token.contains(" "))
                 .distinct();
-        Stream<String> crosshair = mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.ENTITY
+        Stream<String> crosshair = mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY
                 ? Stream.of(
-                        "@" + ((EntityHitResult) mc.crosshairTarget).getEntity().getUuidAsString())
+                        "@" + ((EntityHitResult) mc.hitResult).getEntity().getStringUUID())
                 : Stream.empty();
         return Stream.of(SELECTOR_TABS.stream(), entityTokens, crosshair)
                 .flatMap(stream -> stream)
@@ -179,15 +179,15 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     }
 
     private static List<Entity> resolveUuid(UUID uuid) {
-        if (mc.world == null) {
+        if (mc.level == null) {
             return List.of();
         }
-        Entity entity = mc.world.getEntityLookup().get(uuid);
+        Entity entity = mc.level.getEntities().get(uuid);
         return entity == null ? List.of() : List.of(entity);
     }
 
     private static List<Entity> resolveNamed(String raw) {
-        if (mc.world == null) {
+        if (mc.level == null) {
             return List.of();
         }
         return EntityArgumentType.allEntities().stream()
@@ -201,15 +201,15 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     }
 
     private static List<Entity> allEntities() {
-        return mc.world == null
+        return mc.level == null
                 ? List.of()
-                : StreamSupport.stream(mc.world.getEntities().spliterator(), false)
+                : StreamSupport.stream(mc.level.entitiesForRendering().spliterator(), false)
                         .toList();
     }
 
-    private static Vec3d executionPos(CommandExecution execution) {
+    private static Vec3 executionPos(CommandExecution execution) {
         Vector3d pos = execution.getExecutePos();
-        return new Vec3d(pos.x, pos.y, pos.z);
+        return new Vec3(pos.x, pos.y, pos.z);
     }
 
     private static Identifier parseIdentifier(String raw) {
@@ -217,19 +217,19 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     }
 
     private static boolean isPlayer(Entity entity) {
-        return entity instanceof PlayerEntity;
+        return entity instanceof Player;
     }
 
     private static String entityName(Entity entity) {
-        if (entity instanceof PlayerEntity player) {
-            return player.getNameForScoreboard();
+        if (entity instanceof Player player) {
+            return player.getScoreboardName();
         }
         return entity.getName().getString();
     }
 
     private static String teamName(Entity entity) {
-        if (entity instanceof PlayerEntity player && player.getScoreboardTeam() != null) {
-            return player.getScoreboardTeam().getName();
+        if (entity instanceof Player player && player.getTeam() != null) {
+            return player.getTeam().getName();
         }
         return "";
     }
@@ -239,24 +239,24 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
                 || Objects.equals(entity.getName().getString(), name);
     }
 
-    private static boolean matchesGameMode(Entity entity, GameMode gameMode) {
-        if (!(entity instanceof PlayerEntity)) {
+    private static boolean matchesGameMode(Entity entity, GameType gameMode) {
+        if (!(entity instanceof Player)) {
             return false;
         }
-        if (mc.getNetworkHandler() == null) {
+        if (mc.getConnection() == null) {
             return false;
         }
-        PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(entity.getUuid());
+        PlayerInfo entry = mc.getConnection().getPlayerInfo(entity.getUUID());
         return entry != null && entry.getGameMode() == gameMode;
     }
 
     @Nullable
-    private static GameMode parseGameMode(String raw) {
+    private static GameType parseGameMode(String raw) {
         return switch (raw.toLowerCase(Locale.ROOT)) {
-            case "survival" -> GameMode.SURVIVAL;
-            case "creative" -> GameMode.CREATIVE;
-            case "adventure" -> GameMode.ADVENTURE;
-            case "spectator" -> GameMode.SPECTATOR;
+            case "survival" -> GameType.SURVIVAL;
+            case "creative" -> GameType.CREATIVE;
+            case "adventure" -> GameType.ADVENTURE;
+            case "spectator" -> GameType.SPECTATOR;
             default -> null;
         };
     }
@@ -430,9 +430,9 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     }
 
     private static boolean rotationMatches(DoubleRange range, float value) {
-        float min = MathHelper.wrapDegrees((float) range.minOr(0.0D));
-        float max = MathHelper.wrapDegrees((float) range.maxOr(359.0D));
-        float current = MathHelper.wrapDegrees(value);
+        float min = Mth.wrapDegrees((float) range.minOr(0.0D));
+        float max = Mth.wrapDegrees((float) range.maxOr(359.0D));
+        float current = Mth.wrapDegrees(value);
         if (min > max) {
             return current >= min || current <= max;
         }
@@ -544,8 +544,8 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
         if (value.startsWith("#")) {
             return Stream.of("#").filter(tab -> tab.startsWith(value));
         }
-        Stream<String> ids = Registries.ENTITY_TYPE.stream()
-                .map(Registries.ENTITY_TYPE::getId)
+        Stream<String> ids = BuiltInRegistries.ENTITY_TYPE.stream()
+                .map(BuiltInRegistries.ENTITY_TYPE::getKey)
                 .filter(Objects::nonNull)
                 .map(Identifier::toString);
         return Stream.concat(Stream.of("#"), filterByToken(ids, value));
@@ -559,7 +559,7 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     }
 
     private static Stream<String> teamTabs() {
-        if (mc.world == null) {
+        if (mc.level == null) {
             return Stream.empty();
         }
         return EntityArgumentType.allEntities().stream()
@@ -569,11 +569,11 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     }
 
     private static Stream<String> commandTagTabs() {
-        if (mc.world == null) {
+        if (mc.level == null) {
             return Stream.empty();
         }
         return EntityArgumentType.allEntities().stream()
-                .flatMap(entity -> entity.getCommandTags().stream())
+                .flatMap(entity -> entity.entityTags().stream())
                 .distinct();
     }
 
@@ -646,12 +646,12 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
     private record ParsedSelector(SelectorState state) implements EntitySelector {
         @Override
         public List<Entity> resolve(CommandExecution execution) {
-            Vec3d origin = state.origin(execution);
-            Box box = state.box(origin);
+            Vec3 origin = state.origin(execution);
+            AABB box = state.box(origin);
             List<Entity> selected = state.initialEntities(execution).stream()
                     .filter(entity -> entity != null && !entity.isRemoved())
                     .filter(entity ->
-                            state.distance == null || state.distance.testSquared(entity.squaredDistanceTo(origin)))
+                            state.distance == null || state.distance.testSquared(entity.distanceToSqr(origin)))
                     .filter(entity -> box == null || box.intersects(entity.getBoundingBox()))
                     .filter(state.predicate())
                     .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
@@ -791,7 +791,7 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
                 return false;
             }
             this.levelRange = range;
-            this.predicates.add(entity -> entity instanceof PlayerEntity player && range.test(player.experienceLevel));
+            this.predicates.add(entity -> entity instanceof Player player && range.test(player.experienceLevel));
             return true;
         }
 
@@ -801,7 +801,7 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
                 return false;
             }
             this.pitchRange = range;
-            this.predicates.add(entity -> rotationMatches(range, entity.getPitch()));
+            this.predicates.add(entity -> rotationMatches(range, entity.getXRot()));
             return true;
         }
 
@@ -811,7 +811,7 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
                 return false;
             }
             this.yawRange = range;
-            this.predicates.add(entity -> rotationMatches(range, entity.getYaw()));
+            this.predicates.add(entity -> rotationMatches(range, entity.getYRot()));
             return true;
         }
 
@@ -856,16 +856,16 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
             InvertedValue inverted = InvertedValue.read(value);
             this.predicates.add(entity -> {
                 if (inverted.value().isEmpty()) {
-                    return entity.getCommandTags().isEmpty() != inverted.inverted();
+                    return entity.entityTags().isEmpty() != inverted.inverted();
                 }
-                return entity.getCommandTags().contains(inverted.value()) != inverted.inverted();
+                return entity.entityTags().contains(inverted.value()) != inverted.inverted();
             });
             return true;
         }
 
         private boolean addGameMode(String value) {
             InvertedValue inverted = InvertedValue.read(value);
-            GameMode gameMode = parseGameMode(inverted.value());
+            GameType gameMode = parseGameMode(inverted.value());
             if (gameMode == null) {
                 return false;
             }
@@ -883,15 +883,15 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
                 if (id == null) {
                     return false;
                 }
-                TagKey<EntityType<?>> tag = TagKey.of(RegistryKeys.ENTITY_TYPE, id);
-                this.predicates.add(entity -> entity.getType().isIn(tag) != inverted.inverted());
+                TagKey<EntityType<?>> tag = TagKey.create(Registries.ENTITY_TYPE, id);
+                this.predicates.add(entity -> entity.getType().builtInRegistryHolder().is(tag) != inverted.inverted());
                 return true;
             }
             Identifier id = parseIdentifier(inverted.value());
             if (id == null) {
                 return false;
             }
-            EntityType<?> entityType = Registries.ENTITY_TYPE.getOrEmpty(id).orElse(null);
+            EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
             if (entityType == null) {
                 return false;
             }
@@ -911,17 +911,17 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
             return predicates.stream().reduce(entity -> true, Predicate::and);
         }
 
-        private Vec3d origin(CommandExecution execution) {
-            Vec3d base = executionPos(execution);
-            return new Vec3d(x == null ? base.x : x, y == null ? base.y : y, z == null ? base.z : z);
+        private Vec3 origin(CommandExecution execution) {
+            Vec3 base = executionPos(execution);
+            return new Vec3(x == null ? base.x : x, y == null ? base.y : y, z == null ? base.z : z);
         }
 
         @Nullable
-        private Box box(Vec3d origin) {
+        private AABB box(Vec3 origin) {
             if (dx == null && dy == null && dz == null) {
                 if (distance != null && distance.max() != null) {
                     double max = distance.max();
-                    return new Box(
+                    return new AABB(
                             origin.x - max,
                             origin.y - max,
                             origin.z - max,
@@ -940,7 +940,7 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
             double maxX = (boxX < 0.0D ? 0.0D : boxX) + 1.0D;
             double maxY = (boxY < 0.0D ? 0.0D : boxY) + 1.0D;
             double maxZ = (boxZ < 0.0D ? 0.0D : boxZ) + 1.0D;
-            return new Box(
+            return new AABB(
                     origin.x + minX,
                     origin.y + minY,
                     origin.z + minZ,
@@ -971,11 +971,11 @@ public class EntityArgumentType extends AbstractArgumentType<EntitySelector> imp
             };
         }
 
-        private void sort(Vec3d origin, List<Entity> entities) {
+        private void sort(Vec3 origin, List<Entity> entities) {
             switch (this) {
-                case NEAREST -> entities.sort(Comparator.comparingDouble(entity -> entity.squaredDistanceTo(origin)));
+                case NEAREST -> entities.sort(Comparator.comparingDouble(entity -> entity.distanceToSqr(origin)));
                 case FURTHEST -> entities.sort(
-                        Comparator.comparingDouble((Entity entity) -> entity.squaredDistanceTo(origin))
+                        Comparator.comparingDouble((Entity entity) -> entity.distanceToSqr(origin))
                                 .reversed());
                 case RANDOM -> Collections.shuffle(entities);
                 case ARBITRARY -> {}

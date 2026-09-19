@@ -4,18 +4,18 @@ import me.matl114.managers.input.KeyCode;
 import me.matl114.managers.input.SimpleInputManager;
 import me.matl114.utils.ApiMethod;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.client.Keyboard;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.KeyboardHandler;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 
 @ApiMethod
 public class InputHelper {
-    static final MinecraftClient mc = MinecraftClient.getInstance();
+    static final Minecraft mc = Minecraft.getInstance();
 
-    public static Keyboard getKeyboard() {
-        return mc.keyboard;
+    public static KeyboardHandler getKeyboard() {
+        return mc.keyboardHandler;
     }
 
     public static Class<?> GLFW = org.lwjgl.glfw.GLFW.class;
@@ -56,7 +56,7 @@ public class InputHelper {
      */
     public static void keyAction(int key, int scancode, int action, int modifiers) {
         mc.execute(() -> {
-            mc.keyboard.onKey(mc.getWindow().getHandle(), action, new KeyInput(key, scancode, modifiers));
+            mc.keyboardHandler.keyPress(mc.getWindow().handle(), action, new KeyEvent(key, scancode, modifiers));
         });
     }
 
@@ -74,12 +74,12 @@ public class InputHelper {
 
     public static void charAction(int codePoint, int modifiers) {
         mc.execute(() -> {
-            Element element = mc.currentScreen;
-            if (element != null && mc.getOverlay() == null) {
+            GuiEventListener element = mc.gui.screen();
+            if (element != null && mc.gui.overlay() == null) {
                 if (Character.charCount(codePoint) == 1) {
                     ScreenUtils.wrapScreenError(
                             () -> {
-                                element.charTyped(new CharInput(codePoint, modifiers));
+                                element.charTyped(new CharacterEvent(codePoint));
                             },
                             "charTyped event handler",
                             element.getClass().getCanonicalName());
@@ -91,7 +91,7 @@ public class InputHelper {
                         char c = var6[var8];
                         ScreenUtils.wrapScreenError(
                                 () -> {
-                                    element.charTyped(new CharInput(c, modifiers));
+                                    element.charTyped(new CharacterEvent(c));
                                 },
                                 "charTyped event handler",
                                 element.getClass().getCanonicalName());

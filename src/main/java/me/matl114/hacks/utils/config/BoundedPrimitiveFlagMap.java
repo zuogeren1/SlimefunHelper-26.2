@@ -9,7 +9,7 @@ import me.matl114.gui.basic.TextProvider;
 import me.matl114.gui.elements.ButtonElement;
 import me.matl114.managers.config.NBTType;
 import me.matl114.utils.CodecUtils;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 import org.apache.commons.lang3.function.TriFunction;
 
 public class BoundedPrimitiveFlagMap<E extends Enum<E>> extends BoundedPrimitiveMap<E, Boolean> {
@@ -26,7 +26,7 @@ public class BoundedPrimitiveFlagMap<E extends Enum<E>> extends BoundedPrimitive
                     int startX = (width - estimateWidth) / 2;
                     return ExecutableWidget.instance(x + startX, y, estimateWidth, height)
                             .setElementHandler(
-                                    new ButtonElement(TextProvider.of(Text.literal(v.name())), ButtonAction.empty()));
+                                    new ButtonElement(TextProvider.of(Component.literal(v.name())), ButtonAction.empty()));
                 },
                 NBTTypes.BOOLEAN_TYPE,
                 250,

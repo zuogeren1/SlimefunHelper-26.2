@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.interact;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.function.Consumer;
 import me.matl114.accessors.access.ClientPlayerAccess;
@@ -30,19 +31,18 @@ import me.matl114.utils.InteractUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class NoInteract extends BaseModule {
     public NoInteract() {
@@ -58,12 +58,12 @@ public class NoInteract extends BaseModule {
 
     public final NBTRef<EntrySet<Block>> noInteractBlocks = builder(
                     noInteract.add("no-interact-block"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*chest|.*pot)$"), Registries.BLOCK))
+            .defaultValue(new EntrySet<>(new Regex("^(.*chest|.*pot)$"), BuiltInRegistries.BLOCK))
             .build();
 
     public final NBTRef<EntrySet<Item>> noInteractIgnoreItems = builder(
                     noInteract.add("no-interact-ignore-item"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^()$"), Registries.ITEM))
+            .defaultValue(new EntrySet<>(new Regex("^()$"), BuiltInRegistries.ITEM))
             .build();
 
     public final FlagRef vanillaOnly = builder(noInteract.add("no-interact-vanilla-only"), Boolean.class)
@@ -118,35 +118,35 @@ public class NoInteract extends BaseModule {
     }
 
     int lastCancelMainHandVanillaInputTick = 0;
-    RenderCollector<Box> failInteractPlace = RenderCollectors.createBoxCollector(true, false, false);
+    RenderCollector<AABB> failInteractPlace = RenderCollectors.createBoxCollector(true, false, false);
 
     int lastStartRenderFailPlace = 0;
 
     public void onPreInteractBlock(Event<UseItemOnBlock> event) {
         if (enable.get() && (!vanillaOnly.get() || InteractManager.INSTANCE.duringVanillaInput)) {
-            Hand hand = event.context.hand();
-            ItemStack stack = mc.player.getStackInHand(hand);
+            InteractionHand hand = event.context.hand();
+            ItemStack stack = mc.player.getItemInHand(hand);
             BlockHitResult hitResult = event.context.hitResult();
             if (autoDisableSameTickOffHand.get()
-                    && hand == Hand.OFF_HAND
+                    && hand == InteractionHand.OFF_HAND
                     && InteractManager.INSTANCE.duringVanillaInput
                     && Tasks.getTick() == lastCancelMainHandVanillaInputTick) {
                 event.cancel();
-                event.context.actionResult(ActionResult.PASS_TO_DEFAULT_BLOCK_ACTION);
+                event.context.actionResult(InteractionResult.TRY_WITH_EMPTY_HAND);
                 return;
             }
             if (hitResult != null
                     && !stack.isEmpty()
                     && !noInteractIgnoreItems.get().test(stack.getItem())) {
                 BlockPos interactAtPos = hitResult.getBlockPos();
-                BlockState state = mc.world.getBlockState(interactAtPos);
+                BlockState state = mc.level.getBlockState(interactAtPos);
                 if (!noInteractBlocks.get().test(state.getBlock())) return;
                 boolean mayInteractAccept =
-                        InteractUtils.isInteractAcceptable(mc.world, mc.player, interactAtPos, state, stack);
+                        InteractUtils.isInteractAcceptable(mc.level, mc.player, interactAtPos, state, stack);
                 if (!InteractUtils.canInteractAndPlace(mc.player, mayInteractAccept)) {
                     onFailOriginalInteract(interactAtPos, state);
                     if (stack.getItem() instanceof BlockItem) {
-                        if (sneakIfInsta.get() && ViaFabricPlusHooks.isSupportInstaSneak() && !mc.player.isSneaking()) {
+                        if (sneakIfInsta.get() && ViaFabricPlusHooks.isSupportInstaSneak() && !mc.player.isShiftKeyDown()) {
                             PlayerInputUtils.of(mc.player)
                                     .sneak(true)
                                     .sendPlayerSneakUpdatePacket()
@@ -168,7 +168,7 @@ public class NoInteract extends BaseModule {
                                     InteractionTasks.handlePlaceMode(
                                             correctMode.get(), hitResultOverride, hand, swingHand.get());
                                     event.cancel();
-                                    event.context.actionResult(ActionResult.SUCCESS);
+                                    event.context.actionResult(InteractionResult.SUCCESS);
                                     return;
                                 }
                             }
@@ -176,8 +176,8 @@ public class NoInteract extends BaseModule {
                     }
 
                     event.cancel();
-                    event.context.actionResult(ActionResult.PASS_TO_DEFAULT_BLOCK_ACTION);
-                    if (InteractManager.INSTANCE.duringVanillaInput && hand == Hand.MAIN_HAND) {
+                    event.context.actionResult(InteractionResult.TRY_WITH_EMPTY_HAND);
+                    if (InteractManager.INSTANCE.duringVanillaInput && hand == InteractionHand.MAIN_HAND) {
                         lastCancelMainHandVanillaInputTick = Tasks.getTick();
                     }
                 }
@@ -187,18 +187,18 @@ public class NoInteract extends BaseModule {
 
     public void onFailOriginalInteract(BlockPos interactAt, BlockState state) {
         if (render.get()) {
-            VoxelShape stateShape = state.getCollisionShape(mc.world, interactAt);
+            VoxelShape stateShape = state.getCollisionShape(mc.level, interactAt);
             failInteractPlace.clear();
             lastStartRenderFailPlace = Tasks.getTick();
             if (!stateShape.isEmpty()) {
-                for (var box : stateShape.getBoundingBoxes()) {
-                    failInteractPlace.submit(box.offset(interactAt), color.get().withAlpha(255));
+                for (var box : stateShape.toAabbs()) {
+                    failInteractPlace.submit(box.move(interactAt), color.get().withAlpha(255));
                 }
             }
         }
     }
 
-    public void onRender3d(Event<MatrixStack> stackEvent) {
+    public void onRender3d(Event<PoseStack> stackEvent) {
         if (enable.get() && render.get()) {
             if (Tasks.getTick() > lastStartRenderFailPlace + 200) {
                 failInteractPlace.clear();

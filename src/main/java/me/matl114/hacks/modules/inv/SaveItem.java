@@ -22,10 +22,10 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.itemdb.ItemStackData;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 public class SaveItem extends BaseModule {
     public final ModulePath inventory = makePath(Configs.INV_CONFIG, "inventory");
@@ -121,7 +121,7 @@ public class SaveItem extends BaseModule {
     }
 
     public boolean saveItem() {
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         if (player == null) return false;
 
         ItemStack heldItem = ScreenUtils.getSelectingOrHandItem();
@@ -130,10 +130,10 @@ public class SaveItem extends BaseModule {
                 addSaveItem(heldItem);
                 return true;
             } else if (heldItem != null) {
-                Debug.chat(Text.literal("不能保存空物品").formatted(Formatting.RED));
+                Debug.chat(Component.literal("不能保存空物品").withStyle(ChatFormatting.RED));
             }
         } else {
-            Debug.chat(Text.literal("数据库正在加载,请稍后重试..."));
+            Debug.chat(Component.literal("数据库正在加载,请稍后重试..."));
         }
 
         return false;
@@ -143,11 +143,11 @@ public class SaveItem extends BaseModule {
         ensureLoad();
         Pair<String, ItemStackData> dataPair = InvTasks.getCustomItemDatabase().getOrRegisterItem(item);
         if (savedItemDataMap.containsKey(dataPair.getFirst())) {
-            Debug.chat(Text.literal("该物品已经保存过了!").formatted(Formatting.YELLOW));
+            Debug.chat(Component.literal("该物品已经保存过了!").withStyle(ChatFormatting.YELLOW));
         } else {
             savedItemDataMap.put(dataPair.getFirst(), dataPair.getSecond());
             dirty = true;
-            Debug.chat(Text.literal("成功保存物品!").formatted(Formatting.GREEN));
+            Debug.chat(Component.literal("成功保存物品!").withStyle(ChatFormatting.GREEN));
         }
     }
 
@@ -156,7 +156,7 @@ public class SaveItem extends BaseModule {
         String id = InvTasks.getCustomItemDatabase().getItemIdOrNull(item);
         if (id != null && savedItemDataMap.remove(id) != null) {
             dirty = true;
-            Debug.chat(Text.literal("已经成功移除这个保存物品").formatted(Formatting.GREEN));
+            Debug.chat(Component.literal("已经成功移除这个保存物品").withStyle(ChatFormatting.GREEN));
         }
     }
 

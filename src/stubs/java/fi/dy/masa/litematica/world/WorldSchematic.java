@@ -1,18 +1,18 @@
 package fi.dy.masa.litematica.world;
 
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.world.MutableWorldProperties;
-import net.minecraft.world.World;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.storage.WritableLevelData;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.DimensionType;
 
-public abstract class WorldSchematic extends World {
+public abstract class WorldSchematic extends Level {
     protected WorldSchematic(
-            MutableWorldProperties properties,
-            RegistryKey<World> registryRef,
-            DynamicRegistryManager registryManager,
-            RegistryEntry<DimensionType> dimensionEntry,
+            WritableLevelData properties,
+            ResourceKey<Level> registryRef,
+            RegistryAccess registryManager,
+            Holder<DimensionType> dimensionEntry,
             boolean isClient,
             boolean debugWorld,
             long seed,

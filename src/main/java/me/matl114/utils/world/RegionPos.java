@@ -1,8 +1,8 @@
 package me.matl114.utils.world;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
 
 public record RegionPos(int x, int z) {
     public static RegionPos of(BlockPos pos) {
@@ -17,8 +17,8 @@ public record RegionPos(int x, int z) {
         return new RegionPos(-x, -z);
     }
 
-    public Vec3d toVec3d() {
-        return new Vec3d(x, 0, z);
+    public Vec3 toVec3d() {
+        return new Vec3(x, 0, z);
     }
 
     public BlockPos toBlockPos() {

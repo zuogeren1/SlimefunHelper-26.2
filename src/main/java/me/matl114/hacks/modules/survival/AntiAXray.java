@@ -18,12 +18,12 @@ import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ApiMethod;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class AntiAXray extends BaseModule {
     public AntiAXray() {
@@ -70,14 +70,14 @@ public class AntiAXray extends BaseModule {
     TimerExecutor timer = new TimerExecutor();
     TimerExecutor timerClear = new TimerExecutor();
 
-    public void onTick(Event<ClientPlayerEntity> player) {
+    public void onTick(Event<LocalPlayer> player) {
         if (enable.get()) {
             timerClear.run(1200, this::clearSimpleDetectionCache);
             timer.run(20, this::doSimpleDetection);
         }
     }
 
-    public void onWorldSwitch(Event<World> event) {
+    public void onWorldSwitch(Event<Level> event) {
         clearSimpleDetectionCache();
     }
 
@@ -87,31 +87,31 @@ public class AntiAXray extends BaseModule {
 
     @ApiMethod
     public void doSimpleDetection() {
-        BlockPos currentPlayer = mc.player.getSteppingPos().add(0, 1, 0);
+        BlockPos currentPlayer = mc.player.getOnPos().offset(0, 1, 0);
         int limitation = 0;
         for (var posDelta : InteractExtra.INSTANCE.getBlocksAround()) {
-            BlockPos testPos = currentPlayer.add(posDelta);
-            if (!MineTasks.distanceOutOfReach(testPos, mc.player.getEyePos())) {
+            BlockPos testPos = currentPlayer.offset(posDelta);
+            if (!MineTasks.distanceOutOfReach(testPos, mc.player.getEyePosition())) {
                 if (!simpleDetection.contains(testPos)) {
                     simpleDetection.add(testPos);
                     if (rotate.get() && ViaFabricPlusHooks.isSupportDupRot()) {
-                        Vec3d shouldFacing = testPos.toCenterPos().subtract(mc.player.getEyePos());
+                        Vec3 shouldFacing = Vec3.atCenterOf(testPos).subtract(mc.player.getEyePosition());
                         LegacySnapRotManager.INSTANCE.snapAt(shouldFacing.normalize(), false);
                     }
-                    Vec3d shouldFacing = testPos.toCenterPos().subtract(mc.player.getEyePos());
-                    Direction dir = Direction.getFacing(shouldFacing).getOpposite();
+                    Vec3 shouldFacing = Vec3.atCenterOf(testPos).subtract(mc.player.getEyePosition());
+                    Direction dir = Direction.getApproximateNearest(shouldFacing).getOpposite();
                     if (legal.get()) {
-                        mc.interactionManager.sendSequencedPacket(mc.world, (sequence) -> {
+                        mc.gameMode.startPrediction(mc.level, (sequence) -> {
                             // use real direction
-                            return new PlayerActionC2SPacket(
-                                    PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, testPos, dir, sequence);
+                            return new ServerboundPlayerActionPacket(
+                                    ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, testPos, dir, sequence);
                         });
-                        PlayerInteractionAccess.of(mc.interactionManager).sendAbortBreakPacket();
+                        PlayerInteractionAccess.of(mc.gameMode).sendAbortBreakPacket();
                     } else {
-                        mc.interactionManager.sendSequencedPacket(mc.world, (sequence) -> {
+                        mc.gameMode.startPrediction(mc.level, (sequence) -> {
                             // use real direction
-                            return new PlayerActionC2SPacket(
-                                    PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK, testPos, dir, sequence);
+                            return new ServerboundPlayerActionPacket(
+                                    ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, testPos, dir, sequence);
                         });
                     }
 

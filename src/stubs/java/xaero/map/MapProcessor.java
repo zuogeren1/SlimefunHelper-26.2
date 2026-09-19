@@ -1,6 +1,6 @@
 package xaero.map;
 
-import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import xaero.map.world.MapWorld;
 
 public class MapProcessor {
@@ -10,7 +10,7 @@ public class MapProcessor {
         return this.mapWorld;
     }
 
-    private String getMainId(int version, ClientPlayNetworkHandler connection) {
+    private String getMainId(int version, ClientPacketListener connection) {
         return "";
     }
 }

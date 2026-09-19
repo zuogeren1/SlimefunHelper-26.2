@@ -3,8 +3,8 @@ package me.matl114.hacks.api;
 import lombok.Getter;
 import me.matl114.managers.config.Config;
 import me.matl114.managers.config.FlagRef;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 public class ModuleEntry {
     Config config;
@@ -39,11 +39,11 @@ public class ModuleEntry {
         return flagRef != null && flagRef.get();
     }
 
-    public MutableText getDisplay() {
-        return Text.translatableWithFallback(this.translationKey, this.translationKey);
+    public MutableComponent getDisplay() {
+        return Component.translatableWithFallback(this.translationKey, this.translationKey);
     }
 
-    public MutableText getMetaData() {
+    public MutableComponent getMetaData() {
         return null;
     }
 }

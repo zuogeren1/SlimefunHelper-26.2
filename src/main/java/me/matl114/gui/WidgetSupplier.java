@@ -20,9 +20,9 @@ import me.matl114.gui.basic.TooltipHandler;
 import me.matl114.gui.elements.ButtonElement;
 import me.matl114.gui.elements.IconElement;
 import me.matl114.utils.config.PropertyTracker;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 public interface WidgetSupplier {
     WidgetSupplier DEFAULT = DefaultWidgetSupplier.INSTANCE;
@@ -78,12 +78,12 @@ public interface WidgetSupplier {
 
         public abstract ElementHandler build(WidgetSupplier factory);
 
-        public B tooltips(List<Text> tooltips) {
+        public B tooltips(List<Component> tooltips) {
             this.tooltipHandler = tooltips == null ? null : TooltipHandler.of(tooltips);
             return self();
         }
 
-        public B tooltips(Supplier<List<Text>> tooltips) {
+        public B tooltips(Supplier<List<Component>> tooltips) {
             this.tooltipHandler = tooltips == null ? null : TooltipHandler.of(tooltips);
             return self();
         }
@@ -179,7 +179,7 @@ public interface WidgetSupplier {
     @Setter
     @Accessors(chain = true, fluent = true)
     final class ButtonBuilder extends AbstractIconBuilder<ButtonBuilder> {
-        public TextProvider textProvider = TextProvider.of(Text.empty());
+        public TextProvider textProvider = TextProvider.of(Component.empty());
 
         public static ButtonBuilder builder() {
             return new ButtonBuilder();
@@ -191,7 +191,7 @@ public interface WidgetSupplier {
             this.activeId = ButtonElement.BUTTON;
         }
 
-        public ButtonBuilder text(Text text) {
+        public ButtonBuilder text(Component text) {
             this.textProvider = text == null ? null : TextProvider.of(text);
             return this;
         }
@@ -205,7 +205,7 @@ public interface WidgetSupplier {
     @Setter
     @Accessors(chain = true, fluent = true)
     final class RawTextBuilder extends AbstractElementBuilder<RawTextBuilder> {
-        public TextProvider textProvider = TextProvider.of(Text.empty());
+        public TextProvider textProvider = TextProvider.of(Component.empty());
         public ColorSampler color = ColorSampler.WHITE;
         public int alignment;
 
@@ -213,7 +213,7 @@ public interface WidgetSupplier {
             return new RawTextBuilder();
         }
 
-        public RawTextBuilder text(Text text) {
+        public RawTextBuilder text(Component text) {
             this.textProvider = text == null ? null : TextProvider.of(text);
             return this;
         }
@@ -232,8 +232,8 @@ public interface WidgetSupplier {
     @Setter
     @Accessors(chain = true, fluent = true)
     final class TextFieldBuilder extends AbstractElementBuilder<TextFieldBuilder> {
-        public TextFieldWidget textFieldWidget;
-        public Text message = Text.empty();
+        public EditBox textFieldWidget;
+        public Component message = Component.empty();
         public String text = "";
         public int maxLength = 32768;
         public Consumer<String> changedListener;
@@ -242,7 +242,7 @@ public interface WidgetSupplier {
         public Boolean drawsBackground;
         public Boolean focusUnlocked;
         public Boolean editable;
-        public Text placeholder;
+        public Component placeholder;
         public String suggestion;
         public Predicate<String> textPredicate;
         public Integer editableColor;

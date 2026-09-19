@@ -17,21 +17,22 @@ import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.ValueAccessor;
 import me.matl114.utils.config.kv.EnumAttrKeyValue;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class SlimefunChoiceScreen<T> extends SlimefunScreen {
     final GridSelectSubScreen<T> selectGrid;
     ContentDelegateWidget<GridSelectSubScreen<T>> gridDelegate;
     Function<T, ItemStack> itemFilterFunction;
-    List<Text> labelTooltips;
+    List<Component> labelTooltips;
     public static String currentInputFilter = "";
 
     public SlimefunChoiceScreen(
-            Text title,
+            Component title,
             List<T> values,
             Function<T, DrawableWidget> widgetFunction,
             Function<T, ItemStack> itemFilterFunction) {
@@ -39,8 +40,8 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
     }
 
     public SlimefunChoiceScreen(
-            Text title,
-            List<Text> titleTooltips,
+            Component title,
+            List<Component> titleTooltips,
             Supplier<List<T>> originValue,
             Function<T, DrawableWidget> widgetFunction,
             Function<T, ItemStack> itemFilterFunction) {
@@ -86,19 +87,19 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                 "widget.gui.slimefun-choice-screen.nbt-filter.rule.no-custom-data",
                 "widget.gui.slimefun-choice-screen.nbt-filter.rule.no-custom-data.detail");
         final Predicate<ItemStack> itemFilter;
-        final Text displayName;
+        final Component displayName;
         final String detailKey;
-        final Text detail;
+        final Component detail;
 
         NbtFilterRule(Predicate<ItemStack> itemFilter, String displayNameKey, String detailKey) {
             this.itemFilter = itemFilter;
-            this.displayName = Text.translatable(displayNameKey);
+            this.displayName = Component.translatable(displayNameKey);
             this.detailKey = detailKey;
-            this.detail = Text.translatable(detailKey);
+            this.detail = Component.translatable(detailKey);
         }
 
         @Override
-        public Text getDisplay() {
+        public Component getDisplay() {
             return displayName;
         }
     }
@@ -120,7 +121,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
         Set<Item> items = new LinkedHashSet<>();
 
         public void openModifyItemScreen(Runnable callback) {
-            ScreenAccess.of(new RegistrySelectScreen<Item>(Registries.ITEM, items, (i) -> {
+            ScreenAccess.of(new RegistrySelectScreen<Item>(BuiltInRegistries.ITEM, items, (i) -> {
                         items = i;
                         callback.run();
                     }))
@@ -157,7 +158,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
         return this;
     }
 
-    protected List<Text> getSearchButtonTooltips() {
+    protected List<Component> getSearchButtonTooltips() {
         return this.selectGrid.getFilter() != null
                 ? ChatUtils.parseTooltipsTranslation("widget.gui.slimefun-choice-screen.search.tooltips", "")
                 : super.getSearchButtonTooltips();
@@ -168,7 +169,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
     }
 
     @Override
-    protected List<Text> provideTitleTooltips(DrawableWidget widget) {
+    protected List<Component> provideTitleTooltips(DrawableWidget widget) {
         return this.labelTooltips;
     }
     // filters
@@ -192,7 +193,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
         }
 
         ExecutableWidget.instance(this.x + this.backgroundWidth - 3, this.y + 12, 26, 26)
-                .setInputHandler(InputHandler.run(this::close))
+                .setInputHandler(InputHandler.run(this::onClose))
                 .setRenderHandler(PlateElement.instance()
                         .combineRender(RenderHandler.ofGuiTextures(CANCEL_GUI_TEXTURE, 4, 4, 18, 18)))
                 .addTo(this);
@@ -217,27 +218,27 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                     executeFilterTask();
                 })
                 .updateRenderHandler(h -> ((AbstractElement) h).withTooltips(TooltipHandler.of(() -> {
-                    var builder = ImmutableList.<Text>builder();
+                    var builder = ImmutableList.<Component>builder();
                     builder.addAll(ChatUtils.parseTooltipsTranslation(
                             "widget.gui.slimefun-choice-screen.nbt-filter.tooltips", ""));
-                    builder.add(Text.translatable(
+                    builder.add(Component.translatable(
                             "widget.gui.slimefun-choice-screen.nbt-filter.current-option",
                             nbtFilter.getOriginValue().detail));
                     return builder.build();
                 })))
                 .addTo(this);
         TooltipHandler bwlistTooltips = TooltipHandler.of(() -> {
-            var builder = ImmutableList.<Text>builder();
+            var builder = ImmutableList.<Component>builder();
             builder.addAll(ChatUtils.parseTooltipsTranslation(
                     "widget.gui.slimefun-choice-screen.item-type-filter.tooltips", ""));
-            builder.add(Text.translatable(
+            builder.add(Component.translatable(
                     "widget.gui.slimefun-choice-screen.item-type-filter.current-option",
                     itemFilter.blacklist
-                            ? Text.translatable("widget.gui.slimefun-choice-screen.item-type-filter.blacklist")
-                            : Text.translatable("widget.gui.slimefun-choice-screen.item-type-filter.whitelist")));
-            builder.add(Text.translatable("widget.gui.slimefun-choice-screen.item-type-filter.list-content"));
+                            ? Component.translatable("widget.gui.slimefun-choice-screen.item-type-filter.blacklist")
+                            : Component.translatable("widget.gui.slimefun-choice-screen.item-type-filter.whitelist")));
+            builder.add(Component.translatable("widget.gui.slimefun-choice-screen.item-type-filter.list-content"));
             for (var re : itemFilter.items) {
-                builder.add(re.getName());
+                builder.add(re.getName(new ItemStack(re)));
             }
             return builder.build();
         });
@@ -245,7 +246,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                 .addDrawableChild(DisplayWidget.instance(0, 0, 26, 26).setRenderHandler(PlateElement.instance()))
                 .addDrawableChild(ExecutableWidget.instance(4, 4, 18, 18)
                         .setInputHandler(
-                                new ButtonElement(TextProvider.of(Text.empty()), ButtonAction.isLeft((left) -> {
+                                new ButtonElement(TextProvider.of(Component.empty()), ButtonAction.isLeft((left) -> {
                                     Runnable callback = this::executeFilterTask;
                                     if (ScreenUtils.hasShiftDown()) {
                                         // clear
@@ -262,8 +263,8 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                         .setRenderHandler(new AbstractElement()
                                 .combineRender(RenderHandler.ofSingleItem(
                                         () -> itemFilter.blacklist
-                                                ? new ItemStack(Items.BLACK_WOOL)
-                                                : new ItemStack(Items.WHITE_WOOL),
+                                                ? new ItemStack(Items.WOOL.pick(DyeColor.BLACK))
+                                                : new ItemStack(Items.WOOL.pick(DyeColor.WHITE)),
                                         1,
                                         1,
                                         false))

@@ -4,8 +4,8 @@ import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.utils.interfaces.IGoalRenderPos;
 import java.util.Objects;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 
 public final class GoalNearManhattan implements Goal, IGoalRenderPos {
 
@@ -14,8 +14,8 @@ public final class GoalNearManhattan implements Goal, IGoalRenderPos {
     private final double z;
     private final double threshold;
 
-    public GoalNearManhattan(Vec3d pos, double threshold) {
-        this(pos.getX(), pos.getY(), pos.getZ(), threshold);
+    public GoalNearManhattan(Vec3 pos, double threshold) {
+        this(pos.x(), pos.y(), pos.z(), threshold);
     }
 
     public GoalNearManhattan(double x, double y, double z, double threshold) {

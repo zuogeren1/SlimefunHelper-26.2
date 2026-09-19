@@ -6,7 +6,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import java.util.UUID;
-import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.world.item.component.ResolvableProfile;
 
 public interface VRecord {
     public static UUID getId(GameProfile profile) {
@@ -21,30 +21,30 @@ public interface VRecord {
         return profile.properties();
     }
 
-    public static UUID getGameProfileId(ProfileComponent profileComponent) {
-        return profileComponent.getGameProfile().id();
+    public static UUID getGameProfileId(ResolvableProfile profileComponent) {
+        return profileComponent.partialProfile().id();
     }
 
-    public static String getGameProfileName(ProfileComponent profileComponent) {
-        return profileComponent.getGameProfile().name();
+    public static String getGameProfileName(ResolvableProfile profileComponent) {
+        return profileComponent.partialProfile().name();
     }
 
-    public static PropertyMap getGameProfileProperties(ProfileComponent profileComponent) {
-        return profileComponent.getGameProfile().properties();
+    public static PropertyMap getGameProfileProperties(ResolvableProfile profileComponent) {
+        return profileComponent.partialProfile().properties();
     }
 
-    public static ProfileComponent staticProfile(UUID uuid, String name, PropertyMap properties) {
+    public static ResolvableProfile staticProfile(UUID uuid, String name, PropertyMap properties) {
 
-        return ProfileComponent.ofStatic(new GameProfile(uuid, name, properties));
+        return ResolvableProfile.createResolved(new GameProfile(uuid, name, properties));
     }
 
-    public static ProfileComponent dynamicProfile(String name) {
-        return ProfileComponent.ofDynamic(name);
+    public static ResolvableProfile dynamicProfile(String name) {
+        return ResolvableProfile.createUnresolved(name);
     }
 
-    public static ProfileComponent withProperty(ProfileComponent component, PropertyMap properties) {
-        return ProfileComponent.ofStatic(new GameProfile(
-                component.getGameProfile().id(), component.getGameProfile().name(), properties));
+    public static ResolvableProfile withProperty(ResolvableProfile component, PropertyMap properties) {
+        return ResolvableProfile.createResolved(new GameProfile(
+                component.partialProfile().id(), component.partialProfile().name(), properties));
     }
 
     public static PropertyMap createProperty(Multimap<String, Property> ppt) {

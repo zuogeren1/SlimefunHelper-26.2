@@ -3,7 +3,7 @@ package net.caffeinemc.mods.sodium.client.render;
 import net.caffeinemc.mods.sodium.client.render.chunk.ChunkRenderMatrices;
 import net.caffeinemc.mods.sodium.client.render.viewport.Viewport;
 import net.caffeinemc.mods.sodium.client.util.FogParameters;
-import net.minecraft.client.render.Camera;
+import net.minecraft.client.Camera;
 
 public class SodiumWorldRenderer {
     public void setupTerrain(

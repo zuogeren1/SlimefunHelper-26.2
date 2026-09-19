@@ -15,9 +15,9 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public class NoQDrop extends BaseModule {
     public NoQDrop() {
@@ -38,7 +38,7 @@ public class NoQDrop extends BaseModule {
     public final NBTRef<EntrySet<Item>> whiteListItem = builder(
                     root.add("white-list-items"), EntrySet.<Item>parameter())
             .defaultValue(
-                    new EntrySet<>(new Regex("^(.*diamond.*|.*netherite.*|elytra|mace|.*sword)$"), Registries.ITEM))
+                    new EntrySet<>(new Regex("^(.*diamond.*|.*netherite.*|elytra|mace|.*sword)$"), BuiltInRegistries.ITEM))
             .build();
 
     public final FlagRef log = flagBuilder(root.add("log-to-player")).build();
@@ -52,7 +52,7 @@ public class NoQDrop extends BaseModule {
     public void onPlayerDropAction(Event<Boolean> eventDrop) {
         if (enable.get()) {
             ItemStack stack = InventoryUtils.getSelectedItem().val();
-            if ((forceEquipment.get() && stack.isDamageable())
+            if ((forceEquipment.get() && stack.isDamageableItem())
                     || whiteListItem.get().test(stack.getItem())) {
                 if (log.get()) {
                     Debug.chat(

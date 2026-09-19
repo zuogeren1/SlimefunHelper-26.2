@@ -1,7 +1,7 @@
 package fi.dy.masa.litematica.util;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class EasyPlaceUtils {
     public static BlockHitResult getClickPosition(

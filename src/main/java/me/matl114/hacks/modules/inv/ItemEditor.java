@@ -13,10 +13,10 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ApiMethod;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemEditor extends BaseModule {
     public final ModulePath itemEditor = makePath(Configs.INV_CONFIG, "item-editor");
@@ -38,21 +38,21 @@ public class ItemEditor extends BaseModule {
         } else return false;
     }
 
-    public void openEditorForPlayer(ClientPlayerEntity entity) {
+    public void openEditorForPlayer(LocalPlayer entity) {
         ItemStack stack = ScreenUtils.getSelectingOrHandItem();
         if (stack != null) {
             openEditScreen(stack, null);
         } else {
-            Debug.chat(Text.literal("你必须选择一个物品以打开").formatted(Formatting.RED));
+            Debug.chat(Component.literal("你必须选择一个物品以打开").withStyle(ChatFormatting.RED));
         }
     }
 
     @ApiMethod
     public void openEditScreen(ItemStack item, Consumer<ItemStack> callback) {
-        if (item.isEmpty()) {
-            Debug.chat(Text.literal("你不能打开空物品的编辑器!"));
+        if (item.count() == 0) {
+            Debug.chat(Component.literal("你不能打开空物品的编辑器!"));
             return;
         }
-        ScreenAccess.of(new ItemEditScreen(Text.empty(), item, callback)).openFromCurrent();
+        ScreenAccess.of(new ItemEditScreen(Component.empty(), item, callback)).openFromCurrent();
     }
 }

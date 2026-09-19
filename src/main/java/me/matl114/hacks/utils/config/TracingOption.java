@@ -9,7 +9,7 @@ import me.matl114.managers.config.NBTType;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.PairLikeFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public record TracingOption(boolean box, boolean line) implements NBTParsable<TracingOption> {
     public static final PairLikeFactory<Boolean, Boolean, TracingOption> PAIR_FACTORY =
@@ -26,7 +26,7 @@ public record TracingOption(boolean box, boolean line) implements NBTParsable<Tr
                 return subScreenWidget
                         .addDrawableChild(DisplayWidget.instance(0, 0, 2 * dy, dy)
                                 .setRenderHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         "widget.nbt-parsable.tracing-option.box", "Box:")),
                                                 ButtonAction.empty())
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -36,7 +36,7 @@ public record TracingOption(boolean box, boolean line) implements NBTParsable<Tr
                                 .generateValueWidget(2 * dy, 0, dy, dy))
                         .addDrawableChild(DisplayWidget.instance(3 * dy, 0, 2 * dy, dy)
                                 .setRenderHandler(new ButtonElement(
-                                                TextProvider.of(Text.translatableWithFallback(
+                                                TextProvider.of(Component.translatableWithFallback(
                                                         "widget.nbt-parsable.tracing-option.line", "Line:")),
                                                 ButtonAction.empty())
                                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(

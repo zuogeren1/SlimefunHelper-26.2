@@ -12,9 +12,9 @@ import me.matl114.hacks.modules.survival.BaritoneFix;
 import me.matl114.hooks.BaritoneHooks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
@@ -40,10 +40,10 @@ public abstract class ElytraBehaviourPathManagerMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lbaritone/process/elytra/ElytraBehavior;a(Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Vec3d;Z)Z",
+                                    "Lbaritone/process/elytra/ElytraBehavior;a(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Z)Z",
                             ordinal = 2),
             require = 0)
-    private boolean b(ElytraBehavior instance, Vec3d start, Vec3d to, boolean b, Operation<Boolean> original) {
+    private boolean b(ElytraBehavior instance, Vec3 start, Vec3 to, boolean b, Operation<Boolean> original) {
         if (!b && BaritoneFix.INSTANCE.baritoneExperimental1.get()) {
             if (to.y < BaritoneFix.INSTANCE.baritoneExperimentHeight.get()) {
                 return false;
@@ -75,7 +75,7 @@ public abstract class ElytraBehaviourPathManagerMixin {
                             this.a(segment2);
                             return null;
                         },
-                        MinecraftClient.getInstance()));
+                        Minecraft.getInstance()));
             }
         }
     }
@@ -103,7 +103,7 @@ public abstract class ElytraBehaviourPathManagerMixin {
                             this.a(segment2);
                             return null;
                         },
-                        MinecraftClient.getInstance()));
+                        Minecraft.getInstance()));
             }
         }
     }

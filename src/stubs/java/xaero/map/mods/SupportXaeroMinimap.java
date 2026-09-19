@@ -1,8 +1,8 @@
 package xaero.map.mods;
 
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import xaero.hud.minimap.waypoint.set.WaypointSet;
 import xaero.hud.minimap.world.MinimapWorld;
 
@@ -12,7 +12,7 @@ public class SupportXaeroMinimap {
     private boolean refreshWaypoints = true;
     private MinimapWorld waypointWorld;
     private MinimapWorld mapWaypointWorld;
-    private RegistryKey<World> mapDimId;
+    private ResourceKey<Level> mapDimId;
     private double dimDiv;
     private WaypointSet waypointSet;
     private boolean allSets;
@@ -21,15 +21,15 @@ public class SupportXaeroMinimap {
         this.refreshWaypoints = true;
     }
 
-    public KeyBinding getWaypointKeyBinding() {
+    public KeyMapping getWaypointKeyBinding() {
         return null;
     }
 
-    public KeyBinding getTempWaypointKeyBinding() {
+    public KeyMapping getTempWaypointKeyBinding() {
         return null;
     }
 
-    public KeyBinding getTempWaypointsMenuKeyBinding() {
+    public KeyMapping getTempWaypointsMenuKeyBinding() {
         return null;
     }
 }

@@ -6,7 +6,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import me.matl114.hacks.modules.task.ServerStorage;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.multiplayer.ServerData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,13 +17,13 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class BaritoneWorldSaveMixin {
     @WrapOperation(
             method = {
-                "a(Lnet/minecraft/world/World;)V",
-                "Lbaritone/cache/WorldProvider;getSaveDirectories(Lnet/minecraft/world/World;)Ljava/util/Optional;"
+                "a(Lnet/minecraft/world/level/Level;)V",
+                "Lbaritone/cache/WorldProvider;getSaveDirectories(Lnet/minecraft/world/level/Level;)Ljava/util/Optional;"
             },
-            at = @At(value = "FIELD", target = "Lnet/minecraft/client/network/ServerInfo;address:Ljava/lang/String;"),
+            at = @At(value = "FIELD", target = "Lnet/minecraft/client/multiplayer/ServerData;ip:Ljava/lang/String;"),
             require = 0,
             expect = 0)
-    private String onWorldLoadAddressRemap(ServerInfo instance, Operation<String> original) {
+    private String onWorldLoadAddressRemap(ServerData instance, Operation<String> original) {
         String address = original.call(instance);
         if (ServerStorage.INSTANCE.enableProxyBaritone.get()) {
             return ServerStorage.INSTANCE.getSaveId(address);

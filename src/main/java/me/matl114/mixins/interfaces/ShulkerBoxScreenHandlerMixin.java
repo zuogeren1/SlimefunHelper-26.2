@@ -4,15 +4,15 @@ import me.matl114.accessors.interfaces.TileInventory;
 import me.matl114.utils.world.ContainerPosition;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.Block;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.screen.ShulkerBoxScreenHandler;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.inventory.ShulkerBoxMenu;
+import net.minecraft.world.level.block.Block;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ShulkerBoxScreenHandler.class)
+@Mixin(ShulkerBoxMenu.class)
 public abstract class ShulkerBoxScreenHandlerMixin implements TileInventory.Handler {
     @Unique
     private BlockPos pos;
@@ -31,10 +31,10 @@ public abstract class ShulkerBoxScreenHandlerMixin implements TileInventory.Hand
     }
 
     @Unique
-    private ClientWorld world;
+    private ClientLevel world;
 
     @Unique
-    public ClientWorld getWorld() {
+    public ClientLevel getWorld() {
         return this.world;
     }
 

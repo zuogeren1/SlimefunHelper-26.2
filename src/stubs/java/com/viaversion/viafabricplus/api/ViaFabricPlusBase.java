@@ -5,9 +5,9 @@ import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import io.netty.channel.Channel;
 import java.nio.file.Path;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.ClientConnection;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.Connection;
 
 public interface ViaFabricPlusBase {
     default int apiVersion() {
@@ -26,15 +26,15 @@ public interface ViaFabricPlusBase {
 
     ProtocolVersion getTargetVersion(Channel var1);
 
-    ProtocolVersion getTargetVersion(ClientConnection var1);
+    ProtocolVersion getTargetVersion(Connection var1);
 
     UserConnection getPlayNetworkUserConnection();
 
-    UserConnection getUserConnection(ClientConnection var1);
+    UserConnection getUserConnection(Connection var1);
 
     void setTargetVersion(ProtocolVersion var1, boolean var2);
 
-    ProtocolVersion getServerVersion(ServerInfo var1);
+    ProtocolVersion getServerVersion(ServerData var1);
 
     int getMaxChatLength(ProtocolVersion var1);
 

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.inv;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -37,32 +38,37 @@ import me.matl114.utils.inventory.ImmutableListInventory;
 import me.matl114.utils.world.BlockLocation;
 import me.matl114.utils.world.ContainerPosition;
 import me.matl114.versioned.api.VRender;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.ShulkerBoxBlockEntity;
-import net.minecraft.block.enums.ChestType;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.decoration.DisplayEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextCodecs;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.phys.Vec3;
 
 public class ChestHistory extends BaseModule {
     public final ModulePath invCache = makePath(Configs.INV_CONFIG, "inv-cache");
@@ -102,7 +108,7 @@ public class ChestHistory extends BaseModule {
         super.registerAll();
         registerListener(Listener.getPostOpenHandledScreen(), this::onOpenHandledScreen);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractBlockC2SPacket.class), this::onPlaceShulkerBox);
+                Listener.getPacketPoint().getChannel(ServerboundUseItemOnPacket.class), this::onPlaceShulkerBox);
         registerListener(Listener.getGameJoinPoint(), this::onServerJoin);
         registerListener(Listener.getPostGameTick(), this::onTick);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
@@ -114,16 +120,16 @@ public class ChestHistory extends BaseModule {
 
     public Entry currentEnderChestEntry;
 
-    private static final Text ENDER_CHEST_TITLE = Text.translatable("container.enderchest");
+    private static final Component ENDER_CHEST_TITLE = Component.translatable("container.enderchest");
 
     public static boolean isEnderChest(Screen handler) {
-        return handler instanceof GenericContainerScreen screen && Objects.equals(screen.getTitle(), ENDER_CHEST_TITLE);
+        return handler instanceof ContainerScreen screen && Objects.equals(screen.getTitle(), ENDER_CHEST_TITLE);
     }
 
-    public void onOpenHandledScreen(Event<HandledScreen<?>> screenEvent) {
-        HandledScreen<?> screen = screenEvent.context();
-        if (screen instanceof CreativeInventoryScreen) return;
-        Pair<ClientWorld, BlockPos> data;
+    public void onOpenHandledScreen(Event<AbstractContainerScreen<?>> screenEvent) {
+        AbstractContainerScreen<?> screen = screenEvent.context();
+        if (screen instanceof CreativeModeInventoryScreen) return;
+        Pair<ClientLevel, BlockPos> data;
         String title = ChatUtils.textToPlainString(screen.getTitle());
         String enderChestTitle = ChatUtils.textToPlainString(ENDER_CHEST_TITLE);
         boolean isEnderChest = Objects.equals(title, enderChestTitle);
@@ -138,7 +144,7 @@ public class ChestHistory extends BaseModule {
         if (screen instanceof TileInventory tile && !tile.isVirtual()) {
             ContainerPosition containerPosition = tile.getContainerPosition();
             BlockPos pos = tile.getPos();
-            var state = mc.world.getBlockState(pos);
+            var state = mc.level.getBlockState(pos);
             newEntry = new Entry(screen, containerPosition);
             onAddEntry(containerPosition, state, newEntry);
         } else {
@@ -153,7 +159,7 @@ public class ChestHistory extends BaseModule {
     private static final String KEY_SHULKER_BOX_PLACED_BY_PLAYER =
             "slimefunhelper:chest_history/tracked_self_place_shulker";
 
-    public void onPlaceShulkerBox(Event<PlayerInteractBlockC2SPacket> eventInteract) {
+    public void onPlaceShulkerBox(Event<ServerboundUseItemOnPacket> eventInteract) {
         PlayerInteractBlockC2SPacketAccess access = PlayerInteractBlockC2SPacketAccess.of(eventInteract.context);
         PlayerInteractBlockC2SPacketAccess.UseContext useContext = access.getUseContext();
         if (useContext != null
@@ -163,18 +169,18 @@ public class ChestHistory extends BaseModule {
                 && bi.getBlock() instanceof ShulkerBoxBlock) {
             //
             BlockPos placePos = useContext.getPlaceBlockPos(
-                    eventInteract.context.getHand(), eventInteract.context.getBlockHitResult());
+                    eventInteract.context.getHand(), eventInteract.context.getHitResult());
             // if it is a real place
-            BlockState state = mc.world.getBlockState(placePos);
+            BlockState state = mc.level.getBlockState(placePos);
             if (state.getBlock() == bi.getBlock()
-                    && mc.world.getBlockEntity(placePos) instanceof ShulkerBoxBlockEntity shulkerBoxBlock) {
+                    && mc.level.getBlockEntity(placePos) instanceof ShulkerBoxBlockEntity shulkerBoxBlock) {
                 if (shulkerBoxBlock instanceof MetadataHolder holder) {
                     holder.getMetadata().put(this, KEY_SHULKER_BOX_PLACED_BY_PLAYER, true);
                 }
                 //                ItemStack stack = useContext.stack();
                 //                var container = stack.get(DataComponentTypes.CONTAINER);
                 //                if(container != null){
-                //                    ContainerPosition position = ContainerPosition.ofSingle(mc.world, placePos);
+                //                    ContainerPosition position = ContainerPosition.ofSingle(mc.level, placePos);
                 //                    List<IndexEntry<ItemStack>> allItems =
                 // InventoryUtils.getContainerInventory(container);
                 //                    Text titleName = stack.get(DataComponentTypes.CUSTOM_NAME);
@@ -183,10 +189,10 @@ public class ChestHistory extends BaseModule {
                 //                        allItems, allItems.size(),
                 //                    )
                 //                }
-                ContainerPosition position = ContainerPosition.ofSingle(mc.world, placePos);
+                ContainerPosition position = ContainerPosition.ofSingle(mc.level, placePos);
                 Entry previewEntry = new Entry(
                         InventoryUtils.getInventoryEntries(shulkerBoxBlock),
-                        shulkerBoxBlock.size(),
+                        shulkerBoxBlock.getContainerSize(),
                         Optional.ofNullable(shulkerBoxBlock.getName()),
                         Optional.of(bi.getBlock()),
                         Optional.of(position));
@@ -207,8 +213,8 @@ public class ChestHistory extends BaseModule {
         } else {
             BlockPos pos1 = containerPosition.getFirst().getPos();
             for (var re : MathUtils.HORIZONTALS) {
-                BlockPos pos2 = pos1.offset(re);
-                ContainerPosition optional = ContainerPosition.ofDouble(mc.world, pos1, pos2);
+                BlockPos pos2 = pos1.relative(re);
+                ContainerPosition optional = ContainerPosition.ofDouble(mc.level, pos1, pos2);
                 if (screens.containsKey(optional)) {
                     return optional;
                 }
@@ -218,7 +224,7 @@ public class ChestHistory extends BaseModule {
     }
 
     public boolean isShulkerBoxPlacedBySelf(BlockPos pos) {
-        return mc.world.getBlockEntity(pos) instanceof ShulkerBoxBlockEntity shulker
+        return mc.level.getBlockEntity(pos) instanceof ShulkerBoxBlockEntity shulker
                 && shulker instanceof MetadataHolder metadataHolder
                 && !metadataHolder.isMetaEmpty()
                 && metadataHolder.getMetadata().get(this, KEY_SHULKER_BOX_PLACED_BY_PLAYER) != null;
@@ -232,7 +238,7 @@ public class ChestHistory extends BaseModule {
     private static final List<ItemStack> EMPTY_LIST = Collections.nCopies(27, ItemStack.EMPTY);
 
     @ApiMethod
-    public Inventory getTrackedEnderChestInventory() {
+    public Container getTrackedEnderChestInventory() {
         if (currentEnderChestEntry != null) {
             return currentEnderChestEntry.getInventory();
         } else {
@@ -274,14 +280,14 @@ public class ChestHistory extends BaseModule {
     }
 
     public boolean openInventoryCacheScreen() {
-        if (mc.player == null || mc.world == null) return false;
+        if (mc.player == null || mc.level == null) return false;
         ScreenAccess.of(new InventorySelectScreen(this::getCachedInventories)).openFromCurrent();
         return true;
     }
 
     private static String lastServerName = null;
 
-    private void onServerJoin(Event<ClientPlayerEntity> v) {
+    private void onServerJoin(Event<LocalPlayer> v) {
         String serverName = ServerStorage.getCurrentServerName();
         if (!Objects.equals(serverName, lastServerName)) {
             // refresh
@@ -296,13 +302,13 @@ public class ChestHistory extends BaseModule {
     private int interval = 0;
     private static final int REFRESH_RATE = 40;
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         if (++interval < REFRESH_RATE) {
             return;
         }
         if (currentEntry != null && currentEntry.optionalScreen != null) {
-            if (ClientPlayerAccess.of(mc.player).getServerScreenHandler().syncId
-                    == currentEntry.optionalScreen.getScreenHandler().syncId) {
+            if (ClientPlayerAccess.of(mc.player).getServerScreenHandler().containerId
+                    == currentEntry.optionalScreen.getMenu().containerId) {
                 currentEntry.dirty = true;
             } else {
                 currentEntry.update(currentEntry.optionalScreen);
@@ -325,7 +331,7 @@ public class ChestHistory extends BaseModule {
                 }
                 if (!entry.getKey().isDouble()) {
 
-                    Block block = mc.world
+                    Block block = mc.level
                             .getBlockState(entry.getKey().getFirst().getPos())
                             .getBlock();
                     if (block != chestType) {
@@ -335,20 +341,20 @@ public class ChestHistory extends BaseModule {
                     }
                 } else if (entry.getKey() instanceof ContainerPosition d) {
                     BlockPos pos = d.getFirst().getPos();
-                    BlockState block = mc.world.getBlockState(pos);
+                    BlockState block = mc.level.getBlockState(pos);
                     if (!(block.getBlock() instanceof ChestBlock)) {
                         iterator.remove();
                         onRemoveEntry(entry.getKey());
                         continue;
                     }
                     // not a bigchest
-                    if (block.get(ChestBlock.CHEST_TYPE) == ChestType.SINGLE) {
+                    if (block.getValue(ChestBlock.TYPE) == ChestType.SINGLE) {
                         iterator.remove();
                         onRemoveEntry(entry.getKey());
                         continue;
                     }
-                    Direction direction = ChestBlock.getFacing(block);
-                    BlockPos anotherBlock = pos.offset(direction);
+                    Direction direction = ChestBlock.getConnectedDirection(block);
+                    BlockPos anotherBlock = pos.relative(direction);
                     BlockPos twoPos = d.getSecond().getPos();
                     // direction change
                     if (!twoPos.equals(anotherBlock)) {
@@ -357,7 +363,7 @@ public class ChestHistory extends BaseModule {
                         continue;
                     }
                     // not a chest
-                    Block block2 = mc.world.getBlockState(twoPos).getBlock();
+                    Block block2 = mc.level.getBlockState(twoPos).getBlock();
                     if (!(block2 instanceof ChestBlock)) {
                         iterator.remove();
                         onRemoveEntry(entry.getKey());
@@ -370,53 +376,53 @@ public class ChestHistory extends BaseModule {
 
     private static final int POSITION_FLAG = VRender.createTextPositionFlag(0, 1);
 
-    public void onRender(Event<MatrixStack> event) {
-        MatrixStack stack = event.context();
+    public void onRender(Event<PoseStack> event) {
+        PoseStack stack = event.context();
         // todo: make it a render
         if (enableTitle.get()) {
             if (mc.player != null) {
                 RenderUtils.startDrawVirtual(stack);
                 try {
                     BlockLocation location = BlockLocation.of(mc.player);
-                    Vec3d cameraPos = RenderUtils.getCameraPos();
-                    Set<Vec3d> bigChestsPositions = new HashSet<>();
+                    Vec3 cameraPos = RenderUtils.getCameraPos();
+                    Set<Vec3> bigChestsPositions = new HashSet<>();
                     for (var entry : screens.entrySet()) {
                         if (entry.getKey().isInRenderRange(location, AUTO_REFRESH_RANGE)) {
-                            Vec3d renderPos = entry.getKey().getCenterPosition();
+                            Vec3 renderPos = entry.getKey().getCenterPosition();
                             if (bigChestsPositions.contains(renderPos)) {
                                 continue;
                             } else {
                                 bigChestsPositions.add(renderPos);
                             }
-                            Vec3d delta = renderPos.add(0, 0.25, 0).subtract(cameraPos);
-                            stack.push();
+                            Vec3 delta = renderPos.add(0, 0.25, 0).subtract(cameraPos);
+                            stack.pushPose();
                             stack.translate(delta.x, delta.y, delta.z);
                             // title的高度是9 我们希望这个9在 0.75 ~ 1.0之间
                             // 我希望他看向我
-                            stack.multiply(RenderUtils.getBillboardRotation(DisplayEntity.BillboardMode.CENTER, 0, 0));
+                            stack.mulPose(RenderUtils.getBillboardRotation(Display.BillboardConstraints.CENTER, 0, 0));
                             stack.scale(0.03125F, 0.03125F, 1);
                             int items = (int) InventoryUtils.streamInventory(
                                             entry.getValue().value.getInventory())
                                     .filter(s -> !s.isEmpty())
                                     .count();
-                            Text text = entry.getValue()
+                            Component text = entry.getValue()
                                     .getValue()
                                     .getTitle()
-                                    .orElse(Text.empty())
+                                    .orElse(Component.empty())
                                     .copy()
-                                    .append(Text.literal("(x%d)".formatted(items))
-                                            .formatted(Formatting.YELLOW));
+                                    .append(Component.literal("(x%d)".formatted(items))
+                                            .withStyle(ChatFormatting.YELLOW));
 
                             VRender.getInstance()
                                     .drawTextCameraCoord(
-                                            text.asOrderedText(),
+                                            text.getVisualOrderText(),
                                             stack,
-                                            Vec3d.ZERO,
+                                            Vec3.ZERO,
                                             POSITION_FLAG,
                                             Color.WHITE,
                                             VRender.DEFAULT_TEXT);
 
-                            stack.pop();
+                            stack.popPose();
                         }
                     }
                 } finally {
@@ -452,13 +458,13 @@ public class ChestHistory extends BaseModule {
     public void onSave(Event<ServerStorage.Meta> metaSave) {
         if (enablePersistent.get()) {
             ServerStorage.Meta meta = metaSave.context();
-            RegistryWrapper.WrapperLookup wrapperLookup = metaSave.getArgs(1);
+            HolderLookup.Provider wrapperLookup = metaSave.getArgs(1);
             for (var re : screens.entrySet()) {
                 Entry entry = re.getValue().getValue();
 
                 if (entry.dirty) {
                     entry.dirty = false;
-                    RegistryKey<World> world = re.getKey().world();
+                    ResourceKey<Level> world = re.getKey().world();
                     var savePos = re.getKey().getFirst().getPos();
                     BlockStorage bs = meta.getBlockStorage(world, savePos, true);
                     bs.put(KEY_INV_STORAGE, entry, Entry.CODEC, wrapperLookup);
@@ -474,9 +480,9 @@ public class ChestHistory extends BaseModule {
                                 .fieldOf("contents")
                                 .forGetter(Entry::toSlots),
                         Codec.INT.fieldOf("size").forGetter(Entry::getSize),
-                        TextCodecs.CODEC.optionalFieldOf("title").forGetter(Entry::getTitle),
-                        Registries.BLOCK
-                                .getCodec()
+                        ComponentSerialization.CODEC.optionalFieldOf("title").forGetter(Entry::getTitle),
+                        BuiltInRegistries.BLOCK
+                                .byNameCodec()
                                 .optionalFieldOf("chest-type")
                                 .forGetter(Entry::getChestType),
                         ContainerPosition.CODEC.optionalFieldOf("container-pos").forGetter(Entry::getContainerPosition))
@@ -485,7 +491,7 @@ public class ChestHistory extends BaseModule {
         boolean dirty = false;
 
         @Getter
-        Inventory inventory;
+        Container inventory;
 
         @Getter
         int size;
@@ -493,10 +499,10 @@ public class ChestHistory extends BaseModule {
         boolean doubleChest;
 
         @Getter
-        HandledScreen<?> optionalScreen;
+        AbstractContainerScreen<?> optionalScreen;
 
         @Getter
-        Optional<Text> title;
+        Optional<Component> title;
 
         @Getter
         Optional<Block> chestType;
@@ -507,10 +513,10 @@ public class ChestHistory extends BaseModule {
         public Entry(
                 List<IndexEntry<ItemStack>> slots,
                 int size,
-                Optional<Text> title,
+                Optional<Component> title,
                 Optional<Block> chestType,
                 Optional<ContainerPosition> containerPosition) {
-            inventory = new SimpleInventory(size);
+            inventory = new SimpleContainer(size);
             this.title = title;
             this.chestType = chestType;
             this.containerPosition = containerPosition;
@@ -519,17 +525,17 @@ public class ChestHistory extends BaseModule {
                     containerPosition.isPresent() && containerPosition.get().isDouble();
             for (IndexEntry<ItemStack> slot : slots) {
                 if (slot.index() >= 0 && slot.index() < size) {
-                    inventory.setStack(slot.index(), slot.val());
+                    inventory.setItem(slot.index(), slot.val());
                 }
             }
         }
 
-        public Entry(Inventory inventory) {
-            this(List.of(), inventory.size(), Optional.empty(), Optional.empty(), Optional.empty());
+        public Entry(Container inventory) {
+            this(List.of(), inventory.getContainerSize(), Optional.empty(), Optional.empty(), Optional.empty());
             update(inventory);
         }
 
-        public Entry(HandledScreen<?> handled) {
+        public Entry(AbstractContainerScreen<?> handled) {
             this(InventoryUtils.getTopInventory(handled));
             this.title = Optional.ofNullable(handled.getTitle());
             if (handled instanceof TileInventory tile && !tile.isVirtual()) {
@@ -538,19 +544,19 @@ public class ChestHistory extends BaseModule {
             }
         }
 
-        public Entry(HandledScreen<?> handled, ContainerPosition containerPosition) {
+        public Entry(AbstractContainerScreen<?> handled, ContainerPosition containerPosition) {
             this(handled);
             this.containerPosition = Optional.of(containerPosition);
         }
 
-        public void update(Inventory inventory) {
+        public void update(Container inventory) {
             this.inventory = inventory;
-            this.size = inventory.size();
+            this.size = inventory.getContainerSize();
             dirty = true;
         }
 
         // todo: update update update
-        public void update(HandledScreen<?> handledScreen) {
+        public void update(AbstractContainerScreen<?> handledScreen) {
             this.optionalScreen = handledScreen;
             var guessInventory = InventoryUtils.getTopInventory(handledScreen);
             update(guessInventory);
@@ -563,8 +569,8 @@ public class ChestHistory extends BaseModule {
 
         public List<IndexEntry<ItemStack>> toSlots() {
             List<IndexEntry<ItemStack>> slots = new ArrayList<>();
-            for (var re = 0; re < inventory.size(); ++re) {
-                var st = inventory.getStack(re);
+            for (var re = 0; re < inventory.getContainerSize(); ++re) {
+                var st = inventory.getItem(re);
                 if (!st.isEmpty()) {
                     slots.add(new IndexEntry<>(re, st));
                 }

@@ -10,10 +10,10 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.utils.DamageUtils;
-import net.minecraft.entity.damage.DamageType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.EntityDamageS2CPacket;
-import net.minecraft.registry.RegistryKey;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.entity.player.Player;
 
 public class CombatLog extends BaseModule {
     public CombatLog() {
@@ -52,27 +52,27 @@ public class CombatLog extends BaseModule {
 
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(EntityDamageS2CPacket.class), this::onEntityDamage);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);
     }
 
-    public void onEntityDamage(Event<EntityDamageS2CPacket> e) {
+    public void onEntityDamage(Event<ClientboundDamageEventPacket> e) {
         if (checkNull()) return;
         if (enable.get()
                 && e.context.sourceCauseId() == mc.player.getId()
-                && mc.world.getEntityById(e.context.entityId()) instanceof PlayerEntity otherPlayer
+                && mc.level.getEntity(e.context.entityId()) instanceof Player otherPlayer
                 && enableMeHitOther.get()) {
-            var source = e.context.sourceType().getKey().orElse(null);
-            logDamage("you", otherPlayer.getNameForScoreboard(), source);
+            var source = e.context.sourceType().unwrapKey().orElse(null);
+            logDamage("you", otherPlayer.getScoreboardName(), source);
         } else if (enable.get()
                 && e.context.entityId() == mc.player.getId()
-                && mc.world.getEntityById(e.context.sourceCauseId()) instanceof PlayerEntity otherPlayer
+                && mc.level.getEntity(e.context.sourceCauseId()) instanceof Player otherPlayer
                 && enableOtherHitMe.get()) {
-            var source = e.context.sourceType().getKey().orElse(null);
-            logDamage(otherPlayer.getNameForScoreboard(), "you", source);
+            var source = e.context.sourceType().unwrapKey().orElse(null);
+            logDamage(otherPlayer.getScoreboardName(), "you", source);
         }
     }
 
-    public void logDamage(String from, String to, RegistryKey<DamageType> source) {
+    public void logDamage(String from, String to, ResourceKey<DamageType> source) {
         if (enableSmash.get()) {
             if (DamageUtils.isType(source, "mace_smash")) {
                 // we trigger a mace smash
@@ -93,7 +93,7 @@ public class CombatLog extends BaseModule {
                     .formatText(
                             from,
                             to,
-                            source == null ? "null" : source.getValue().getPath()));
+                            source == null ? "null" : source.identifier().getPath()));
             return;
         }
     }

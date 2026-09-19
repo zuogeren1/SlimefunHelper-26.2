@@ -16,14 +16,14 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.RaycastUtils;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.block.entity.ShulkerBoxBlockEntity;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class AutoShulker extends BaseModule {
     public final ModulePath autoInv = makePath(Configs.INV_CONFIG, "auto-inv");
@@ -55,20 +55,20 @@ public class AutoShulker extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPostSendPoint().getChannel(PlayerInteractBlockC2SPacket.class),
+                Listener.getPacketPostSendPoint().getChannel(ServerboundUseItemOnPacket.class),
                 this::onClickShulkerBoxOrPlaceShulkerBox);
     }
 
-    public void onClickShulkerBoxOrPlaceShulkerBox(Event<PlayerInteractBlockC2SPacket> event) {
+    public void onClickShulkerBoxOrPlaceShulkerBox(Event<ServerboundUseItemOnPacket> event) {
         if (event.isCancelled()) return;
         if (autoShulker.get()) {
-            PlayerInteractBlockC2SPacket packet = event.context;
-            BlockHitResult hitResult = packet.getBlockHitResult();
-            boolean hasShift = mc.player.isSneaking();
-            BlockState state = mc.world.getBlockState(hitResult.getBlockPos());
+            ServerboundUseItemOnPacket packet = event.context;
+            BlockHitResult hitResult = packet.getHitResult();
+            boolean hasShift = mc.player.isShiftKeyDown();
+            BlockState state = mc.level.getBlockState(hitResult.getBlockPos());
             if (state.getBlock() instanceof ShulkerBoxBlock
                     && !hasShift
-                    && mc.world.getBlockEntity(hitResult.getBlockPos()) instanceof ShulkerBoxBlockEntity bl) {
+                    && mc.level.getBlockEntity(hitResult.getBlockPos()) instanceof ShulkerBoxBlockEntity bl) {
                 int size = InvTasks.predictOpenVanillaContainerSize(hitResult.getBlockPos());
                 // can open
                 if (size > 0) {
@@ -76,8 +76,8 @@ public class AutoShulker extends BaseModule {
                     if (autoShulker0TickSteal.get()) {
                         InvTasks.executePredictInventoryAction(bl, handler -> {
                             for (var i = 0; i < size; ++i) {
-                                mc.interactionManager.clickSlot(
-                                        handler.syncId, i, 0, SlotActionType.QUICK_MOVE, mc.player);
+                                mc.gameMode.handleContainerInput(
+                                        handler.containerId, i, 0, ContainerInput.QUICK_MOVE, mc.player);
                             }
                         });
                         int tick = Tasks.getTick();
@@ -86,44 +86,44 @@ public class AutoShulker extends BaseModule {
                                 .thenRunAsync(
                                         () -> {
                                             if (tick + 4 > Tasks.getTick()) {
-                                                mc.player.closeHandledScreen();
+                                                mc.player.closeContainer();
                                             }
                                         },
                                         mc);
                     } else {
                         int tick = Tasks.getTick();
                         ScreenUtils.getOpenScreenFuture().thenRun(() -> {
-                            if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
+                            if (mc.player.containerMenu != mc.player.inventoryMenu) {
                                 if (tick + 4 <= Tasks.getTick()) {
                                     return;
                                 }
                                 for (var i = 0; i < size; ++i) {
-                                    mc.interactionManager.clickSlot(
-                                            mc.player.currentScreenHandler.syncId,
+                                    mc.gameMode.handleContainerInput(
+                                            mc.player.containerMenu.containerId,
                                             i,
                                             0,
-                                            SlotActionType.QUICK_MOVE,
+                                            ContainerInput.QUICK_MOVE,
                                             mc.player);
                                 }
                             }
-                            mc.player.closeHandledScreen();
+                            mc.player.closeContainer();
                         });
                     }
                 }
             } else {
                 if (hasShift) {
-                    mc.player.setSneaking(false);
+                    mc.player.setShiftKeyDown(false);
                     PlayerInputUtils.of(mc.player).sneak(false).sendPlayerSneakUpdatePacket();
                     ClientPlayerAccess.of(mc.player).resyncSneak();
                 }
-                BlockPos placedBlock = hitResult.getBlockPos().offset(hitResult.getSide());
-                BlockState placedState = mc.world.getBlockState(placedBlock);
+                BlockPos placedBlock = hitResult.getBlockPos().relative(hitResult.getDirection());
+                BlockState placedState = mc.level.getBlockState(placedBlock);
 
                 if (placedState.getBlock() instanceof ShulkerBoxBlock) {
                     BlockHitResult hitResult1 = RaycastUtils.createRealHitResult(placedBlock);
-                    // mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hitResult1);
+                    // mc.gameMode.interactBlock(mc.player, Hand.MAIN_HAND, hitResult1);
                     ACTasks.addPostTransactionAction((ch) -> {
-                        InteractionTasks.interactBlock(Hand.MAIN_HAND, hitResult1, true);
+                        InteractionTasks.interactBlock(InteractionHand.MAIN_HAND, hitResult1, true);
                     });
                 }
             }

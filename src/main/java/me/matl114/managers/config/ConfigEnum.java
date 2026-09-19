@@ -5,10 +5,10 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import me.matl114.api.Displayable;
-import net.minecraft.text.Text;
-import net.minecraft.util.StringIdentifiable;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.StringRepresentable;
 
-public interface ConfigEnum extends StringIdentifiable, Displayable, AutoRegisterType {
+public interface ConfigEnum extends StringRepresentable, Displayable, AutoRegisterType {
     public static Map<String, Map<String, ConfigEnum>> registeredConfigs = new HashMap<>();
     public static Map<String, Class<? extends ConfigEnum>> registeredEnumsClasses = new HashMap<>();
 
@@ -47,7 +47,7 @@ public interface ConfigEnum extends StringIdentifiable, Displayable, AutoRegiste
         return this.getClass().getSimpleName().toLowerCase(Locale.ROOT);
     }
 
-    default String asString() {
+    default String getSerializedName() {
         return "enum:" + getConfigEnumType() + ":" + cast().name();
     }
 
@@ -67,8 +67,8 @@ public interface ConfigEnum extends StringIdentifiable, Displayable, AutoRegiste
         }
     }
 
-    default Text getDisplay() {
-        return Text.translatable("configenum." + this.getConfigEnumType().replace("_", "-") + "."
+    default Component getDisplay() {
+        return Component.translatable("configenum." + this.getConfigEnumType().replace("_", "-") + "."
                 + cast().name().toLowerCase(Locale.ROOT));
     }
 

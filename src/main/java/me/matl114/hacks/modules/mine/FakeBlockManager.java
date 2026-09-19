@@ -8,14 +8,15 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.utils.NetworkUtils;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.ChunkDeltaUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerActionResponseS2CPacket;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundBlockChangedAckPacket;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 
 public class FakeBlockManager extends BaseModule {
     public static FakeBlockManager INSTANCE;
@@ -30,11 +31,11 @@ public class FakeBlockManager extends BaseModule {
         super.registerAll();
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(PlayerActionResponseS2CPacket.class), this::onBlockACK);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockChangedAckPacket.class), this::onBlockACK);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(BlockUpdateS2CPacket.class), this::onBlockUpdate);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockUpdatePacket.class), this::onBlockUpdate);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(ChunkDeltaUpdateS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundSectionBlocksUpdatePacket.class),
                 this::onChunkDeltaUpdate);
         registerListener(Listener.getChunkUpdateListener(), this::onChunkUpdate);
     }
@@ -42,7 +43,7 @@ public class FakeBlockManager extends BaseModule {
     final Int2ObjectOpenHashMap<BlockPos> fakeMiningBlocks = new Int2ObjectOpenHashMap<>(4);
     final Set<BlockPos> permanentFakeMiningBlocks = new HashSet<>();
 
-    public void onWorldSwitch(Event<World> event) {
+    public void onWorldSwitch(Event<Level> event) {
         fakeMiningBlocks.clear();
     }
 
@@ -55,15 +56,15 @@ public class FakeBlockManager extends BaseModule {
             return;
         }
         if (Objects.equals(
-                PlayerInteractionAccess.of(mc.interactionManager).getCurrentMiningPos(), new BlockPos(-1, -1, -1))) {
+                PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos(), new BlockPos(-1, -1, -1))) {
             // start to avoid wrong break
-            PlayerInteractionAccess.of(mc.interactionManager).sendStartBreakPacket(pos);
+            PlayerInteractionAccess.of(mc.gameMode).sendStartBreakPacket(pos);
         }
-        Direction direction = Direction.getFacing(mc.player.getEyePos().subtract(pos.toCenterPos()));
+        Direction direction = Direction.getApproximateNearest(mc.player.getEyePosition().subtract(Vec3.atCenterOf(pos)));
         int seq = NetworkUtils.generateNextSequence();
-        mc.getNetworkHandler()
-                .sendPacket(new PlayerActionC2SPacket(
-                        PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK, pos, direction, seq));
+        mc.getConnection()
+                .send(new ServerboundPlayerActionPacket(
+                        ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, direction, seq));
         BlockPos pos2 = fakeMiningBlocks.put(seq, pos);
         if (pos2 != null) {
             permanentFakeMiningBlocks.add(pos2);
@@ -80,7 +81,7 @@ public class FakeBlockManager extends BaseModule {
     }
     // 交互不能产生假方块， see ACK
 
-    public void onBlockACK(Event<PlayerActionResponseS2CPacket> event) {
+    public void onBlockACK(Event<ClientboundBlockChangedAckPacket> event) {
         if (fakeMiningBlocks.isEmpty()) {
             return;
         }
@@ -95,9 +96,9 @@ public class FakeBlockManager extends BaseModule {
         }
     }
 
-    public void onBlockUpdate(Event<BlockUpdateS2CPacket> event) {}
+    public void onBlockUpdate(Event<ClientboundBlockUpdatePacket> event) {}
 
-    public void onChunkDeltaUpdate(Event<ChunkDeltaUpdateS2CPacket> event) {}
+    public void onChunkDeltaUpdate(Event<ClientboundSectionBlocksUpdatePacket> event) {}
 
     public void onChunkUpdate(Event<ChunkPos> chunkUpdate) {}
 }

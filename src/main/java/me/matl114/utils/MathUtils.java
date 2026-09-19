@@ -7,7 +7,16 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntSupplier;
 import lombok.AllArgsConstructor;
-import net.minecraft.util.math.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
+import net.minecraft.util.Mth;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
 import org.joml.Matrix3d;
 import org.joml.Vector3d;
@@ -54,18 +63,18 @@ public class MathUtils {
         return (int) packed;
     }
 
-    public static double squaredMagnitude(Box thi, Box other) {
+    public static double squaredMagnitude(AABB thi, AABB other) {
         double d = Math.max(Math.max(thi.minX - other.maxX, other.minX - thi.maxX), 0.0);
         double e = Math.max(Math.max(thi.minY - other.maxY, other.minY - thi.maxY), 0.0);
         double f = Math.max(Math.max(thi.minZ - other.maxZ, other.minZ - thi.maxZ), 0.0);
-        return MathHelper.squaredMagnitude(d, e, f);
+        return Mth.lengthSquared(d, e, f);
     }
 
-    public static Vec3d magnitudePoint(Box shrinkedBox, Vec3d bestEyePos) {
+    public static Vec3 magnitudePoint(AABB shrinkedBox, Vec3 bestEyePos) {
         double x = Math.clamp(bestEyePos.x, shrinkedBox.minX, shrinkedBox.maxX);
         double y = Math.clamp(bestEyePos.y, shrinkedBox.minY, shrinkedBox.maxY);
         double z = Math.clamp(bestEyePos.z, shrinkedBox.minZ, shrinkedBox.maxZ);
-        return new Vec3d(x, y, z);
+        return new Vec3(x, y, z);
     }
 
     public static int sgn(int t) {
@@ -80,26 +89,26 @@ public class MathUtils {
         return Math.abs(t) > threshold ? sgn(t) : 0.0D;
     }
 
-    public static Vec3d lerp(double delta, Vec3d start, Vec3d end) {
-        return new Vec3d(
-                MathHelper.lerp(delta, start.x, end.x),
-                MathHelper.lerp(delta, start.y, end.y),
-                MathHelper.lerp(delta, start.z, end.z));
+    public static Vec3 lerp(double delta, Vec3 start, Vec3 end) {
+        return new Vec3(
+                Mth.lerp(delta, start.x, end.x),
+                Mth.lerp(delta, start.y, end.y),
+                Mth.lerp(delta, start.z, end.z));
     }
 
-    public static boolean isInBox(Vec3d a, Vec3d b, double range) {
+    public static boolean isInBox(Vec3 a, Vec3 b, double range) {
         return isInBox(a.subtract(b), range);
     }
 
-    public static boolean isInBox(Vec3d a, double range) {
+    public static boolean isInBox(Vec3 a, double range) {
         return Math.abs(a.x) < range && Math.abs(a.y) < range && Math.abs(a.z) < range;
     }
 
-    public static boolean isInXZRange(Vec3d a, Vec3d b, double range) {
+    public static boolean isInXZRange(Vec3 a, Vec3 b, double range) {
         return isInBox(a.subtract(b), range);
     }
 
-    public static boolean isInXZRange(Vec3d a, double range) {
+    public static boolean isInXZRange(Vec3 a, double range) {
         return Math.abs(a.x) < range && Math.abs(a.z) < range;
     }
 
@@ -109,16 +118,16 @@ public class MathUtils {
                 + Math.abs(pos1.getZ() - pos2.getZ());
     }
 
-    public static boolean intersectsXZ(Box box, int minX, int minZ, int maxX, int maxZ) {
+    public static boolean intersectsXZ(AABB box, int minX, int minZ, int maxX, int maxZ) {
         return box.minX < maxX && box.maxX > minX && box.minZ < maxZ && box.maxZ > minZ;
     }
 
-    public static Box getBlockBox(BlockPos pos) {
-        return new Box(pos);
+    public static AABB getBlockBox(BlockPos pos) {
+        return new AABB(pos);
     }
 
-    public static Box createBox(Vec3d vec3d, double ra) {
-        return new Box(vec3d.subtract(ra), vec3d.add(ra));
+    public static AABB createBox(Vec3 vec3d, double ra) {
+        return new AABB(vec3d.subtract(ra), vec3d.add(ra));
     }
 
     public static String getDirectionName(int xSgn, int zSgn) {
@@ -134,7 +143,7 @@ public class MathUtils {
         return "Unknown";
     }
 
-    public static List<BlockPos> getOccupiedBlockPositions(Box box) {
+    public static List<BlockPos> getOccupiedBlockPositions(AABB box) {
         int minX = (int) Math.floor(box.minX);
         int maxX = (int) Math.ceil(box.maxX) - 1;
         int minY = (int) Math.floor(box.minY);
@@ -157,88 +166,88 @@ public class MathUtils {
             .filter((direction) -> {
                 return direction.getAxis().isHorizontal();
             })
-            .sorted(Comparator.comparingInt(Direction::getHorizontalQuarterTurns))
+            .sorted(Comparator.comparingInt(Direction::get2DDataValue))
             .toArray(Direction[]::new);
 
-    public static Direction getHorizontalFacing(Vec3d vec3d) {
+    public static Direction getHorizontalFacing(Vec3 vec3d) {
         float yaw = EntityUtils.rotationToYaw(vec3d.normalize());
-        return Direction.fromHorizontalDegrees(yaw);
+        return Direction.fromYRot(yaw);
     }
 
-    public static ChunkPos toChunkPos(Vec3d vec3d) {
-        return new ChunkPos(BlockPos.ofFloored(vec3d));
+    public static ChunkPos toChunkPos(Vec3 vec3d) {
+        return ChunkPos.containing(BlockPos.containing(vec3d));
     }
 
     /**
      * 根据两个 Vec3d 点（最小和最大坐标）构建 Box 并获取占据的方块。
      */
-    public static List<BlockPos> getOccupiedBlockPositions(Vec3d min, Vec3d max) {
-        return getOccupiedBlockPositions(new Box(min, max));
+    public static List<BlockPos> getOccupiedBlockPositions(Vec3 min, Vec3 max) {
+        return getOccupiedBlockPositions(new AABB(min, max));
     }
 
-    public static Vec3d getVerticalWithSameXZ(Vec3d vec3d) {
-        Vec3d direction = vec3d.normalize();
+    public static Vec3 getVerticalWithSameXZ(Vec3 vec3d) {
+        Vec3 direction = vec3d.normalize();
         return (direction.y != 0
-                        ? new Vec3d(
+                        ? new Vec3(
                                 direction.x,
                                 -(MathUtils.s2(direction.x) + MathUtils.s2(direction.z)) / direction.y,
                                 direction.z)
-                        : new Vec3d(0, 1, 0))
+                        : new Vec3(0, 1, 0))
                 .normalize();
     }
 
-    public static Vec3d getVerticalWithSameY(Vec3d vec3d) {
-        Vec3d dir = vec3d.normalize();
+    public static Vec3 getVerticalWithSameY(Vec3 vec3d) {
+        Vec3 dir = vec3d.normalize();
         double dx = dir.x;
         double dz = dir.z;
         if (Math.abs(dx) < 1e-8 && Math.abs(dz) < 1e-8) {
             // 点在 Y 轴上，任何水平向量都是垂直的
-            return new Vec3d(1, 0, 0);
+            return new Vec3(1, 0, 0);
         }
         // 与 (dx, dz) 垂直的向量为 (dz, -dx)，y=0
-        return new Vec3d(dz, 0, -dx).normalize();
+        return new Vec3(dz, 0, -dx).normalize();
     }
 
-    public static Pair<Vec3d, Vec3d> getTangentWithSameXZ(Vec3d center, double range, Vec3d point) {
+    public static Pair<Vec3, Vec3> getTangentWithSameXZ(Vec3 center, double range, Vec3 point) {
         return getTangentWithSameXZ(range, point.subtract(center));
     }
 
-    public static Pair<Vec3d, Vec3d> getTangentWithSameXZ(double range, Vec3d point) {
+    public static Pair<Vec3, Vec3> getTangentWithSameXZ(double range, Vec3 point) {
         double r2 = MathUtils.s2(range);
         double len = point.length();
         if (MathUtils.s2(len) <= r2) {
             // in ball
-            Vec3d vec3d = getVerticalWithSameXZ(point);
-            return Pair.of(vec3d, vec3d.negate());
+            Vec3 vec3d = getVerticalWithSameXZ(point);
+            return Pair.of(vec3d, vec3d.reverse());
         }
         double cutLine = r2 / len; // < range
         double cutLen = Math.sqrt(r2 - MathUtils.s2(cutLine));
-        Vec3d verticals = getVerticalWithSameXZ(point);
-        Vec3d cutPoint = point.normalize().multiply(cutLine);
+        Vec3 verticals = getVerticalWithSameXZ(point);
+        Vec3 cutPoint = point.normalize().scale(cutLine);
         return Pair.of(
-                cutPoint.add(verticals.multiply(cutLen)).subtract(point),
-                cutPoint.subtract(verticals.multiply(cutLen)).subtract(point));
+                cutPoint.add(verticals.scale(cutLen)).subtract(point),
+                cutPoint.subtract(verticals.scale(cutLen)).subtract(point));
     }
 
-    public static Pair<Vec3d, Vec3d> getTangentWithSamePlate(Vec3d center, double range, Vec3d point) {
+    public static Pair<Vec3, Vec3> getTangentWithSamePlate(Vec3 center, double range, Vec3 point) {
         return getTangentWithSamePlate(range, point.subtract(center));
     }
 
-    public static Pair<Vec3d, Vec3d> getTangentWithSamePlate(double range, Vec3d point) {
+    public static Pair<Vec3, Vec3> getTangentWithSamePlate(double range, Vec3 point) {
         double r2 = MathUtils.s2(range);
         double len = point.length();
         if (MathUtils.s2(len) <= r2) {
             // in ball
-            Vec3d vec3d = getVerticalWithSameY(point);
-            return Pair.of(vec3d, vec3d.negate());
+            Vec3 vec3d = getVerticalWithSameY(point);
+            return Pair.of(vec3d, vec3d.reverse());
         }
         double cutLine = r2 / len; // < range
         double cutLen = Math.sqrt(r2 - MathUtils.s2(cutLine));
-        Vec3d verticals = getVerticalWithSameY(point);
-        Vec3d cutPoint = point.normalize().multiply(cutLine);
+        Vec3 verticals = getVerticalWithSameY(point);
+        Vec3 cutPoint = point.normalize().scale(cutLine);
         return Pair.of(
-                cutPoint.add(verticals.multiply(cutLen)).subtract(point),
-                cutPoint.subtract(verticals.multiply(cutLen)).subtract(point));
+                cutPoint.add(verticals.scale(cutLen)).subtract(point),
+                cutPoint.subtract(verticals.scale(cutLen)).subtract(point));
     }
 
     public static List<Vec3i> create2DPointListInRange(double i, int x) {
@@ -272,23 +281,23 @@ public class MathUtils {
         return Math.max(Math.max(minX - x, x - maxX), 0.0);
     }
 
-    public static Vec3d linearInterpolation(Vec3d[] vec3ds, int ticksLater) {
+    public static Vec3 linearInterpolation(Vec3[] vec3ds, int ticksLater) {
         if (ticksLater <= 0 || vec3ds.length < 3) return vec3ds[vec3ds.length - 1];
         if (vec3ds[0] == null || vec3ds[1] == null || vec3ds[2] == null) return vec3ds[2];
 
         // 计算最近的速度（位置变化）
-        Vec3d velocity1 = vec3ds[2].subtract(vec3ds[1]);
-        Vec3d velocity2 = vec3ds[1].subtract(vec3ds[0]);
+        Vec3 velocity1 = vec3ds[2].subtract(vec3ds[1]);
+        Vec3 velocity2 = vec3ds[1].subtract(vec3ds[0]);
 
         // 计算加速度
-        Vec3d acceleration = velocity1.subtract(velocity2);
+        Vec3 acceleration = velocity1.subtract(velocity2);
 
         // 预测：position = p0 + v*t + 0.5*a*t^2
         double t = ticksLater;
-        return vec3ds[2].add(velocity1.multiply(t)).add(acceleration.multiply(0.5 * t * t));
+        return vec3ds[2].add(velocity1.scale(t)).add(acceleration.scale(0.5 * t * t));
     }
 
-    public static Vec3d quadraticPolynomialFit(Vec3d[] positions, int ticksLater) {
+    public static Vec3 quadraticPolynomialFit(Vec3[] positions, int ticksLater) {
         if (ticksLater <= 0 || positions.length < 3) return positions[positions.length - 1];
         if (positions[0] == null || positions[1] == null || positions[2] == null) return positions[2];
         // 使用最近3个点进行二次拟合
@@ -317,7 +326,7 @@ public class MathUtils {
         double t = ticksLater;
         double t2 = t * t;
 
-        return new Vec3d(
+        return new Vec3(
                 xCoeffs[0] * t2 + xCoeffs[1] * t + xCoeffs[2],
                 yCoeffs[0] * t2 + yCoeffs[1] * t + yCoeffs[2],
                 zCoeffs[0] * t2 + zCoeffs[1] * t + zCoeffs[2]);
@@ -348,7 +357,7 @@ public class MathUtils {
         return new double[] {a, b, c};
     }
 
-    public static Vec3d linearPrediction(Vec3d[] vec3ds, int ticksLater) {
+    public static Vec3 linearPrediction(Vec3[] vec3ds, int ticksLater) {
         if (ticksLater <= 0) {
             return vec3ds[vec3ds.length - 1];
         }
@@ -363,7 +372,7 @@ public class MathUtils {
         if (datapoints < 2) {
             return vec3ds[vec3ds.length - 1];
         }
-        Vec3d[] vec3ds1 = new Vec3d[datapoints];
+        Vec3[] vec3ds1 = new Vec3[datapoints];
         System.arraycopy(vec3ds, vec3ds.length - datapoints, vec3ds1, 0, datapoints);
         vec3ds = vec3ds1;
         double[] x = new double[vec3ds.length];
@@ -379,10 +388,10 @@ public class MathUtils {
         Linear xl = linearRegression(arg, x);
         Linear yl = linearRegression(arg, y);
         Linear zl = linearRegression(arg, z);
-        return new Vec3d(xl.f(ticksLater), yl.f(ticksLater), zl.f(ticksLater));
+        return new Vec3(xl.f(ticksLater), yl.f(ticksLater), zl.f(ticksLater));
     }
 
-    public static Vec3d quadraticPrediction(Vec3d[] vec3ds, int ticksLater) {
+    public static Vec3 quadraticPrediction(Vec3[] vec3ds, int ticksLater) {
         if (ticksLater <= 0) {
             return vec3ds[vec3ds.length - 1];
         }
@@ -397,7 +406,7 @@ public class MathUtils {
         if (datapoints < 4) {
             return vec3ds[vec3ds.length - 1];
         }
-        Vec3d[] vec3ds1 = new Vec3d[datapoints];
+        Vec3[] vec3ds1 = new Vec3[datapoints];
         System.arraycopy(vec3ds, vec3ds.length - datapoints, vec3ds1, 0, datapoints);
         vec3ds = vec3ds1;
 
@@ -414,7 +423,7 @@ public class MathUtils {
         MathFunction xl = quadraticRegression(arg, x);
         MathFunction yl = quadraticRegression(arg, y);
         MathFunction zl = quadraticRegression(arg, z);
-        return new Vec3d(xl.f(ticksLater), yl.f(ticksLater), zl.f(ticksLater));
+        return new Vec3(xl.f(ticksLater), yl.f(ticksLater), zl.f(ticksLater));
     }
 
     public static Linear linearRegression(double[] x, double[] y) {
@@ -512,38 +521,38 @@ public class MathUtils {
     }
     // 指数加权移动平均
     public static class NVPredictor {
-        private final Vec3d[] pointList;
+        private final Vec3[] pointList;
         private final IntSupplier supplier;
 
-        public NVPredictor(Vec3d[] historyStack, IntSupplier currentIndex) {
+        public NVPredictor(Vec3[] historyStack, IntSupplier currentIndex) {
             pointList = historyStack;
             supplier = currentIndex;
         }
 
-        public Vec3d compute(int ticksLater) {
+        public Vec3 compute(int ticksLater) {
             int idx = supplier.getAsInt();
-            Vec3d currentPos = pointList[idx];
+            Vec3 currentPos = pointList[idx];
             if (currentPos == null) return null;
             int len = pointList.length;
             int i = 1;
-            List<Vec3d> points = new ArrayList<>();
+            List<Vec3> points = new ArrayList<>();
             points.add(currentPos);
             for (; i < len; i++) {
-                Vec3d v3d = pointList[(idx - i + len) % len];
+                Vec3 v3d = pointList[(idx - i + len) % len];
                 if (v3d != null) {
                     points.add(0, v3d);
                 } else {
                     break;
                 }
             }
-            Vec3d result = null;
+            Vec3 result = null;
             if (!points.isEmpty()) {
                 result = currentPos;
             }
             if (points.size() < 2) return result;
-            List<Vec3d> diff = new ArrayList<>();
-            Vec3d oldV = null;
-            for (Vec3d v : points) {
+            List<Vec3> diff = new ArrayList<>();
+            Vec3 oldV = null;
+            for (Vec3 v : points) {
                 if (oldV == null) {
                     oldV = v;
                     continue;
@@ -554,13 +563,13 @@ public class MathUtils {
                 oldV = v;
             }
             if (diff.size() >= 2) {
-                Vec3d d = new Vec3d(0, 0, 0);
-                for (Vec3d v : diff) {
-                    d = d.add(v).multiply(0.5);
+                Vec3 d = new Vec3(0, 0, 0);
+                for (Vec3 v : diff) {
+                    d = d.add(v).scale(0.5);
                 }
-                return result.add(d.multiply(ticksLater));
+                return result.add(d.scale(ticksLater));
             } else if (diff.size() == 1) {
-                return currentPos.add(diff.get(0).multiply(ticksLater));
+                return currentPos.add(diff.get(0).scale(ticksLater));
             }
 
             return result;
@@ -568,38 +577,38 @@ public class MathUtils {
     }
 
     public static class AcceleratePredictor {
-        private final Vec3d[] pointList;
+        private final Vec3[] pointList;
         private final IntSupplier supplier;
 
-        public AcceleratePredictor(Vec3d[] historyStack, IntSupplier currentIndex) {
+        public AcceleratePredictor(Vec3[] historyStack, IntSupplier currentIndex) {
             pointList = historyStack;
             supplier = currentIndex;
         }
 
-        public Vec3d compute(int ticksLater) {
+        public Vec3 compute(int ticksLater) {
             int idx = supplier.getAsInt();
-            Vec3d currentPos = pointList[idx];
+            Vec3 currentPos = pointList[idx];
             if (currentPos == null) return null;
             int len = pointList.length;
             int i = 1;
-            List<Vec3d> points = new ArrayList<>();
+            List<Vec3> points = new ArrayList<>();
             points.add(currentPos);
             for (; i < len; i++) {
-                Vec3d v3d = pointList[(idx - i + len) % len];
+                Vec3 v3d = pointList[(idx - i + len) % len];
                 if (v3d != null) {
                     points.add(0, v3d);
                 } else {
                     break;
                 }
             }
-            Vec3d result = null;
+            Vec3 result = null;
             if (!points.isEmpty()) {
                 result = currentPos;
             }
             if (points.size() < 2) return result;
-            List<Vec3d> diff = new ArrayList<>();
-            Vec3d oldV = null;
-            for (Vec3d v : points) {
+            List<Vec3> diff = new ArrayList<>();
+            Vec3 oldV = null;
+            for (Vec3 v : points) {
                 if (oldV == null) {
                     oldV = v;
                     continue;
@@ -610,13 +619,13 @@ public class MathUtils {
                 oldV = v;
             }
             if (diff.size() >= 3) {
-                Vec3d d = new Vec3d(0, 0, 0);
-                for (Vec3d v : diff) {
-                    d = d.add(v).multiply(0.5);
+                Vec3 d = new Vec3(0, 0, 0);
+                for (Vec3 v : diff) {
+                    d = d.add(v).scale(0.5);
                 }
-                List<Vec3d> dvs = new ArrayList<>();
-                Vec3d oldDelta = null;
-                for (Vec3d v : diff) {
+                List<Vec3> dvs = new ArrayList<>();
+                Vec3 oldDelta = null;
+                for (Vec3 v : diff) {
                     if (oldDelta == null) {
                         oldDelta = v;
                         continue;
@@ -624,11 +633,11 @@ public class MathUtils {
                     dvs.add(v.subtract(oldDelta));
                     oldDelta = v;
                 }
-                Vec3d nextDv = new Vec3d(0, 0, 0);
-                for (Vec3d v : dvs) {
-                    nextDv = nextDv.add(v).multiply(0.5);
+                Vec3 nextDv = new Vec3(0, 0, 0);
+                for (Vec3 v : dvs) {
+                    nextDv = nextDv.add(v).scale(0.5);
                 }
-                Vec3d finalSpeed = result;
+                Vec3 finalSpeed = result;
                 for (var newTick = 0; newTick < ticksLater; ++newTick) {
                     d = d.add(nextDv);
                     finalSpeed = finalSpeed.add(d);
@@ -636,7 +645,7 @@ public class MathUtils {
 
                 return finalSpeed;
             } else if (diff.size() > 0) {
-                return currentPos.add(diff.get(0).multiply(ticksLater));
+                return currentPos.add(diff.get(0).scale(ticksLater));
             }
 
             return result;
@@ -647,32 +656,32 @@ public class MathUtils {
     public static class RotationalPredictor {
         private static final double MAX_TURN_ANGLE = Math.toRadians(60.0D);
 
-        private final Vec3d[] historyStack;
+        private final Vec3[] historyStack;
         private final IntSupplier currentIndex;
 
-        public RotationalPredictor(Vec3d[] historyStack, IntSupplier currentIndex) {
+        public RotationalPredictor(Vec3[] historyStack, IntSupplier currentIndex) {
             this.historyStack = historyStack;
             this.currentIndex = currentIndex;
         }
 
-        public Vec3d compute(int ticksLater) {
-            List<Vec3d> points = collectPoints();
+        public Vec3 compute(int ticksLater) {
+            List<Vec3> points = collectPoints();
             if (points.isEmpty()) return null;
 
-            Vec3d current = points.get(points.size() - 1);
+            Vec3 current = points.get(points.size() - 1);
             if (ticksLater <= 0) return current;
             if (points.size() < 2) return current;
 
-            Vec3d lastVel = current.subtract(points.get(points.size() - 2));
+            Vec3 lastVel = current.subtract(points.get(points.size() - 2));
             if (points.size() < 3) {
-                return current.add(lastVel.multiply(ticksLater));
+                return current.add(lastVel.scale(ticksLater));
             }
 
             List<Double> horizontalLengths = new ArrayList<>();
             List<Double> verticalDisplacements = new ArrayList<>();
             List<Double> horizontalAngles = new ArrayList<>();
             for (int i = 1; i < points.size(); i++) {
-                Vec3d delta = points.get(i).subtract(points.get(i - 1));
+                Vec3 delta = points.get(i).subtract(points.get(i - 1));
                 horizontalLengths.add(Math.hypot(delta.x, delta.z));
                 verticalDisplacements.add(delta.y);
                 horizontalAngles.add(Math.atan2(delta.z, delta.x));
@@ -730,16 +739,16 @@ public class MathUtils {
             return last + d * ticksLater;
         }
 
-        private List<Vec3d> collectPoints() {
+        private List<Vec3> collectPoints() {
             int idx = currentIndex.getAsInt();
-            Vec3d currentPos = historyStack[idx];
+            Vec3 currentPos = historyStack[idx];
             if (currentPos == null) return List.of();
 
-            List<Vec3d> points = new ArrayList<>();
+            List<Vec3> points = new ArrayList<>();
             points.add(currentPos);
             int len = historyStack.length;
             for (int i = 1; i < len; i++) {
-                Vec3d v = historyStack[(idx - i + len) % len];
+                Vec3 v = historyStack[(idx - i + len) % len];
                 if (v != null) {
                     points.add(0, v);
                 } else {

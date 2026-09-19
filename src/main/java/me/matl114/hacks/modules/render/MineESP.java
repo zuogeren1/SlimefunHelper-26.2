@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Comparator;
 import me.matl114.events.Event;
@@ -28,17 +29,17 @@ import me.matl114.utils.WorldUtils;
 import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.utils.render.RenderCollector;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import org.joml.Quaternionf;
 
 public class MineESP extends BaseModule {
@@ -65,19 +66,19 @@ public class MineESP extends BaseModule {
             flagBuilder(root.add("ghost-hand-predict")).build();
 
     public final NBTRef<WrapColor> colorName = builder(root.add("name-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.WHITE)))
+            .defaultValue(new WrapColor((ChatFormatting.WHITE)))
             .build();
 
     public final NBTRef<WrapColor> colorFrame = builder(root.add("frame-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.AQUA)))
+            .defaultValue(new WrapColor((ChatFormatting.AQUA)))
             .build();
 
     public final NBTRef<WrapColor> colorFrameDouble = builder(root.add("frame-double-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.AQUA))
+            .defaultValue(new WrapColor(ChatFormatting.AQUA))
             .build();
 
     public final NBTRef<WrapColor> colorProgress = builder(root.add("progress-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.GOLD)))
+            .defaultValue(new WrapColor((ChatFormatting.GOLD)))
             .build();
 
     public final FlagRef renderGrid2D = flagBuilder(root.add("render-grid-2d")).build();
@@ -97,11 +98,11 @@ public class MineESP extends BaseModule {
             .build();
 
     public final NBTRef<WrapColor> colorGridBreaking = builder(root.add("grid-breaking-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.RED))
+            .defaultValue(new WrapColor(ChatFormatting.RED))
             .build();
 
     public final NBTRef<WrapColor> colorGridDouble = builder(root.add("grid-double-color"), WrapColor.class)
-            .defaultValue(new WrapColor(Formatting.AQUA))
+            .defaultValue(new WrapColor(ChatFormatting.AQUA))
             .build();
 
     public final NBTRef<WrapColor> colorGridSolid = builder(root.add("grid-solid-color"), WrapColor.class)
@@ -120,11 +121,11 @@ public class MineESP extends BaseModule {
         registerListener(RenderListener.getRender2DEvent(), this::onRender2D);
     }
 
-    final RenderCollector<Box> frameRenderer = RenderCollectors.createBoxCollector(true, false, false);
-    final RenderCollector<Box> progressRenderer = RenderCollectors.createBoxCollector(true, true, false);
+    final RenderCollector<AABB> frameRenderer = RenderCollectors.createBoxCollector(true, false, false);
+    final RenderCollector<AABB> progressRenderer = RenderCollectors.createBoxCollector(true, true, false);
     final RenderCollector<RenderElements.Text> textRenderer = RenderCollectors.createTextCollector();
 
-    public void onUpdate(Event<ClientPlayerEntity> eventUpdate) {
+    public void onUpdate(Event<LocalPlayer> eventUpdate) {
         textRenderer.clear();
         frameRenderer.clear();
         progressRenderer.clear();
@@ -157,20 +158,20 @@ public class MineESP extends BaseModule {
                         }
                     }
                     if (renderName.get()) {
-                        Text text = ChatUtils.stringToText(re.player.getNameForScoreboard() + "\n" + breakState);
+                        Component text = ChatUtils.stringToText(re.player.getScoreboardName() + "\n" + breakState);
                         textRenderer.submit(
                                 new RenderElements.Text(
-                                        text, currentMining.toCenterPos().add(0, 0.2, 0), 0.5f),
+                                        text, Vec3.atCenterOf(currentMining).add(0, 0.2, 0), 0.5f),
                                 colorName.get().withAlpha(255));
                     }
                     if (renderBox.get()) {
                         frameRenderer.submit(
-                                new Box(currentMining), colorFrame.get().withAlpha(255));
+                                new AABB(currentMining), colorFrame.get().withAlpha(255));
                         float progressPF = Math.clamp(progressPercentage / 100.0F, 0.0F, 1.0F);
                         progressRenderer.submit(
-                                new Box(
-                                        currentMining.toCenterPos().add(RenderTasks.FROM.multiply(progressPF)),
-                                        currentMining.toCenterPos().add(RenderTasks.TO.multiply(progressPF))),
+                                new AABB(
+                                        Vec3.atCenterOf(currentMining).add(RenderTasks.FROM.scale(progressPF)),
+                                        Vec3.atCenterOf(currentMining).add(RenderTasks.TO.scale(progressPF))),
                                 colorProgress.get().withAlpha(64));
                     }
                 }
@@ -179,20 +180,20 @@ public class MineESP extends BaseModule {
                     String breakState = "Double";
                     int progressPercentage = re.doubleBreakProgress * 10;
                     if (renderName.get()) {
-                        Text text = Text.literal(re.player.getNameForScoreboard() + "\n" + breakState);
+                        Component text = Component.literal(re.player.getScoreboardName() + "\n" + breakState);
                         textRenderer.submit(
                                 new RenderElements.Text(
-                                        text, currentMining.toCenterPos().add(0, 0.2, 0), 0.5f),
+                                        text, Vec3.atCenterOf(currentMining).add(0, 0.2, 0), 0.5f),
                                 colorName.get().withAlpha(255));
                     }
                     if (renderBox.get()) {
                         frameRenderer.submit(
-                                new Box(currentMining), colorFrame.get().withAlpha(255));
+                                new AABB(currentMining), colorFrame.get().withAlpha(255));
                         float progressPF = Math.clamp(progressPercentage / 100.0F, 0.0F, 1.0F);
                         progressRenderer.submit(
-                                new Box(
-                                        currentMining.toCenterPos().add(RenderTasks.FROM.multiply(progressPF)),
-                                        currentMining.toCenterPos().add(RenderTasks.TO.multiply(progressPF))),
+                                new AABB(
+                                        Vec3.atCenterOf(currentMining).add(RenderTasks.FROM.scale(progressPF)),
+                                        Vec3.atCenterOf(currentMining).add(RenderTasks.TO.scale(progressPF))),
                                 colorProgress.get().withAlpha(64));
                     }
                 }
@@ -200,9 +201,9 @@ public class MineESP extends BaseModule {
         }
     }
 
-    public float predictGhostHandBreakSpeed(PlayerEntity player, BlockPos pos) {
+    public float predictGhostHandBreakSpeed(Player player, BlockPos pos) {
         PlayerStateManager.PlayerStatus status = PlayerStateManager.INSTANCE.getPlayerStatus(player);
-        BlockState blockState = mc.world.getBlockState(pos);
+        BlockState blockState = mc.level.getBlockState(pos);
         ItemStack bestTool = status.trackedInventoryItems.stream()
                 .max(Comparator.comparingDouble(s -> {
                     return WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(player, blockState, s.sample());
@@ -210,10 +211,10 @@ public class MineESP extends BaseModule {
                 .map(ItemStackSample::sample)
                 .orElse(ItemStack.EMPTY);
         float speed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(player, blockState, bestTool);
-        return WorldUtils.calcBlockBreakingDelta(blockState, mc.world, pos, speed);
+        return WorldUtils.calcBlockBreakingDelta(blockState, mc.level, pos, speed);
     }
 
-    public void onRender3D(Event<MatrixStack> event) {
+    public void onRender3D(Event<PoseStack> event) {
         if (checkNull()) return;
         if (enable.get()) {
             RenderUtils.startDrawVirtual(event.context);
@@ -233,7 +234,7 @@ public class MineESP extends BaseModule {
             return;
         }
 
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         GridCell[][] gridCells = buildProjectedGrid(player);
         if (gridCells == null) {
             return;
@@ -261,7 +262,7 @@ public class MineESP extends BaseModule {
                     vdraw.popMatrix();
                 }
 
-                vdraw.fill(-2, -2, 2, 2, Colors.RED);
+                vdraw.fill(-2, -2, 2, 2, CommonColors.RED);
 
                 renderGridOverlay(vdraw, gridCells, rotationRadians, playerOffsetX, playerOffsetY);
             } finally {
@@ -272,11 +273,11 @@ public class MineESP extends BaseModule {
         }
     }
 
-    private GridCell[][] buildProjectedGrid(ClientPlayerEntity player) {
+    private GridCell[][] buildProjectedGrid(LocalPlayer player) {
         int[] occupiedBlocks = new int[] {0};
         int footY = (int) Math.floor(player.getBoundingBox().minY);
-        int centerX = MathHelper.floor(player.getX());
-        int centerZ = MathHelper.floor(player.getZ());
+        int centerX = Mth.floor(player.getX());
+        int centerZ = Mth.floor(player.getZ());
 
         GridCell[][] baseStates = new GridCell[GRID_SIZE][GRID_SIZE];
         for (int row = 0; row < GRID_SIZE; ++row) {
@@ -300,9 +301,9 @@ public class MineESP extends BaseModule {
 
         for (int y = minY; y < maxYExclusive; ++y) {
             BlockPos pos = new BlockPos(x, y, z);
-            BlockState state = mc.world.getBlockState(pos);
-            if (!state.isAir() && !state.isLiquid()) {
-                if (state.isFullCube(mc.world, pos)) {
+            BlockState state = mc.level.getBlockState(pos);
+            if (!state.isAir() && !state.liquid()) {
+                if (state.isCollisionShapeFullBlock(mc.level, pos)) {
                     occupiedBlocks[0] += 1;
                     hasFullCube = true;
                 }
@@ -334,16 +335,16 @@ public class MineESP extends BaseModule {
     }
 
     private float getGridRotationRadians() {
-        float yaw = mc.gameRenderer.getCamera().getYaw();
+        float yaw = mc.gameRenderer.mainCamera().yRot();
         return (float) Math.toRadians(180 - yaw);
     }
 
-    private float getPlayerCellOffsetX(ClientPlayerEntity player) {
-        return (float) ((player.getX() - (MathHelper.floor(player.getX()) + 0.5)) * gridCellSize.get());
+    private float getPlayerCellOffsetX(LocalPlayer player) {
+        return (float) ((player.getX() - (Mth.floor(player.getX()) + 0.5)) * gridCellSize.get());
     }
 
-    private float getPlayerCellOffsetY(ClientPlayerEntity player) {
-        return (float) ((player.getZ() - (MathHelper.floor(player.getZ()) + 0.5)) * gridCellSize.get());
+    private float getPlayerCellOffsetY(LocalPlayer player) {
+        return (float) ((player.getZ() - (Mth.floor(player.getZ()) + 0.5)) * gridCellSize.get());
     }
 
     private void rotateGridToView(VDrawContext vdraw, float rotationRadians) {
@@ -471,8 +472,8 @@ public class MineESP extends BaseModule {
 
     private void drawCellProgress(VDrawContext vdraw, double centerX, double centerY, int progressPercentage) {
         String text = progressPercentage + "%";
-        int textWidth = mc.textRenderer.getWidth(text);
-        int fontHeight = mc.textRenderer.fontHeight;
+        int textWidth = mc.font.width(text);
+        int fontHeight = mc.font.lineHeight;
         float maxSize = Math.max(1.0F, gridCellSize.get() - 2.0F);
         float scale = Math.min(1.0F, Math.min(maxSize / textWidth, maxSize / fontHeight));
         int color = colorProgress.get().withAlpha(255);
@@ -481,7 +482,7 @@ public class MineESP extends BaseModule {
         try {
             vdraw.getMatrices().translate((float) centerX, (float) centerY);
             vdraw.getMatrices().scale(scale, scale);
-            vdraw.drawText(mc.textRenderer, text, -textWidth / 2, -fontHeight / 2, color, true);
+            vdraw.drawText(mc.font, text, -textWidth / 2, -fontHeight / 2, color, true);
         } finally {
             vdraw.popMatrix();
         }

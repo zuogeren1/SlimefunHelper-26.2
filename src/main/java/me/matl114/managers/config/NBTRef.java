@@ -7,9 +7,9 @@ import java.util.Optional;
 import me.matl114.utils.Debug;
 import me.matl114.utils.config.BaseAttrKeyValue;
 import me.matl114.versioned.api.VNbt;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.Tag;
 
-public class NBTRef<T extends NBTParsable<?>> extends LazilyRegisterTypeRef<T, NbtElement> {
+public class NBTRef<T extends NBTParsable<?>> extends LazilyRegisterTypeRef<T, Tag> {
 
     private NBTType<T> type;
 
@@ -30,17 +30,17 @@ public class NBTRef<T extends NBTParsable<?>> extends LazilyRegisterTypeRef<T, N
     }
 
     @Override
-    protected NbtElement toLazy(T val) {
+    protected Tag toLazy(T val) {
         return val.toNbt();
     }
 
     @Override
-    protected NbtElement fromStringToLazy(String string) {
+    protected Tag fromStringToLazy(String string) {
         return VNbt.getInstance().readNbtNoRegistry(string);
     }
 
     @Override
-    protected String fromLazyToString(NbtElement val) {
+    protected String fromLazyToString(Tag val) {
         return VNbt.getInstance().writeNbt(val);
     }
 

@@ -14,17 +14,17 @@ import me.matl114.gui.basic.RenderHandler;
 import me.matl114.gui.presets.single.RegistryDisplays;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import oshi.util.tuples.Triplet;
 
-public class ListRegistryMultiSelectWidget<T> extends ListMultiSelectWidget<Triplet<Text, Identifier, T>> {
+public class ListRegistryMultiSelectWidget<T> extends ListMultiSelectWidget<Triplet<Component, Identifier, T>> {
     public Set<T> getSelectedRegistries() {
         return buildSelected().stream().map(Triplet::getC).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private static final FilterService.Filter<Triplet<Text, Identifier, Object>> filter = (s, b, bl) -> {
+    private static final FilterService.Filter<Triplet<Component, Identifier, Object>> filter = (s, b, bl) -> {
         if (bl) {
             try {
                 return Pattern.matches(b, s.getB().getPath())
@@ -45,11 +45,11 @@ public class ListRegistryMultiSelectWidget<T> extends ListMultiSelectWidget<Trip
         }
     };
 
-    private static <T> Pair<List<Triplet<Text, Identifier, T>>, Set<Triplet<Text, Identifier, T>>> buildPairInternal(
-            Registry<T> registry, Set<T> currentSelection, Function<T, Text> localization) {
-        var set = new HashSet<Triplet<Text, Identifier, T>>();
+    private static <T> Pair<List<Triplet<Component, Identifier, T>>, Set<Triplet<Component, Identifier, T>>> buildPairInternal(
+            Registry<T> registry, Set<T> currentSelection, Function<T, Component> localization) {
+        var set = new HashSet<Triplet<Component, Identifier, T>>();
         var list = registry.stream()
-                .map(s -> new Triplet<Text, Identifier, T>(localization.apply(s), registry.getId(s), s))
+                .map(s -> new Triplet<Component, Identifier, T>(localization.apply(s), registry.getKey(s), s))
                 .peek(s -> {
                     if (currentSelection.contains(s.getC())) {
                         set.add(s);
@@ -63,8 +63,8 @@ public class ListRegistryMultiSelectWidget<T> extends ListMultiSelectWidget<Trip
     public ListRegistryMultiSelectWidget(
             Registry<T> registry,
             Set<T> currentSelection,
-            Function<T, Text> localization,
-            BiFunction<Triplet<Text, Identifier, T>, AttrKeyValue<Boolean>, RenderHandler> renderFactory,
+            Function<T, Component> localization,
+            BiFunction<Triplet<Component, Identifier, T>, AttrKeyValue<Boolean>, RenderHandler> renderFactory,
             ValueAccessor<String> filterInput,
             int x,
             int y,
@@ -83,8 +83,8 @@ public class ListRegistryMultiSelectWidget<T> extends ListMultiSelectWidget<Trip
     }
 
     private ListRegistryMultiSelectWidget(
-            Pair<List<Triplet<Text, Identifier, T>>, Set<Triplet<Text, Identifier, T>>> pairData,
-            BiFunction<Triplet<Text, Identifier, T>, AttrKeyValue<Boolean>, RenderHandler> renderFactory,
+            Pair<List<Triplet<Component, Identifier, T>>, Set<Triplet<Component, Identifier, T>>> pairData,
+            BiFunction<Triplet<Component, Identifier, T>, AttrKeyValue<Boolean>, RenderHandler> renderFactory,
             ValueAccessor<String> filterInput,
             int x,
             int y,

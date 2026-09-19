@@ -21,26 +21,26 @@ import me.matl114.utils.WorldUtils;
 import me.matl114.utils.collections.IndexEntry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.network.SequencedPacketCreator;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.GameMode;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.multiplayer.prediction.PredictiveAction;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -49,31 +49,31 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Environment(EnvType.CLIENT)
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public abstract class PlayerInteractionMixin implements PlayerInteractionAccess {
     @Shadow
-    private float currentBreakingProgress;
+    private float destroyProgress;
 
     @Shadow
-    private boolean breakingBlock;
+    private boolean isDestroying;
 
     @Shadow
-    private ItemStack selectedStack;
+    private ItemStack destroyingItem;
 
     @Shadow
-    protected abstract void sendSequencedPacket(ClientWorld world, SequencedPacketCreator packetCreator);
+    protected abstract void startPrediction(ClientLevel world, PredictiveAction packetCreator);
 
     @Shadow
-    public abstract boolean breakBlock(BlockPos pos);
+    public abstract boolean destroyBlock(BlockPos pos);
 
     @Shadow
-    private int blockBreakingCooldown;
+    private int destroyDelay;
 
     @Shadow
-    private float blockBreakingSoundCooldown;
+    private float destroyTicks;
 
     @Shadow
-    private BlockPos currentBreakingPos;
+    private BlockPos destroyBlockPos;
 
     /**
      * doubleBreak / failMine 使用的备用挖掘槽位。
@@ -100,7 +100,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
      */
     @Override
     public BlockPos getCurrentMiningPos() {
-        return currentBreakingPos;
+        return destroyBlockPos;
     }
 
     /**
@@ -111,7 +111,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
      */
     @Override
     public void resetCurrentMiningPos() {
-        currentBreakingPos = new BlockPos(-1, -1, -1);
+        destroyBlockPos = new BlockPos(-1, -1, -1);
         resetLocalMiningProgress();
     }
 
@@ -153,13 +153,13 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     @Override
     @Unique
     public int getMiningCooldown() {
-        return blockBreakingCooldown;
+        return destroyDelay;
     }
 
     @Override
     @Unique
     public void setMiningCooldown(int val) {
-        blockBreakingCooldown = val;
+        destroyDelay = val;
     }
     /**
      * 读取当前主挖掘位进度。
@@ -169,19 +169,19 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
      */
     @Override
     public float getCurrentMiningProgress(@Nullable ItemStack tool) {
-        BlockState block = MinecraftClient.getInstance().world.getBlockState(currentBreakingPos);
+        BlockState block = Minecraft.getInstance().level.getBlockState(destroyBlockPos);
         if (block.isAir()) {
             return -1.0F;
         }
         // force return 0 if not mining
-        if (!breakingBlock && !MineExtra.INSTANCE.optimizeOneBlock.get()) {
+        if (!isDestroying && !MineExtra.INSTANCE.optimizeOneBlock.get()) {
             return -1.0F;
         }
-        if (tool == null && (breakingBlock && isCurrentlyBreaking(currentBreakingPos))) {
-            return this.currentBreakingProgress == 0.0F ? -1.0F : this.currentBreakingProgress;
+        if (tool == null && (isDestroying && sameDestroyTarget(destroyBlockPos))) {
+            return this.destroyProgress == 0.0F ? -1.0F : this.destroyProgress;
         }
 
-        ItemStack usedTool = tool == null ? this.client.player.getMainHandStack() : tool;
+        ItemStack usedTool = tool == null ? this.minecraft.player.getMainHandItem() : tool;
         return predictCurrentMiningProgressWithTool(usedTool);
     }
 
@@ -201,7 +201,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     public boolean beginFailBreak(BlockPos pos) {
         if (currentFailBreakPos == null) {
             currentFailBreakPos = pos;
-            currentBreakingPos = pos;
+            destroyBlockPos = pos;
             failBreakStartTick = MineExtra.INSTANCE.lastStartMineBreakingProgressResetTick;
             MineExtra.INSTANCE.lastStartDoubleMineTick = Tasks.getTick();
             return true;
@@ -216,7 +216,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
      */
     @Unique
     public boolean moveCurrentMiningToFailBreak() {
-        return beginFailBreak(currentBreakingPos);
+        return beginFailBreak(destroyBlockPos);
     }
 
     /**
@@ -237,7 +237,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
      */
     @Unique
     private void resetLocalMiningProgress() {
-        currentBreakingProgress = 0.0F;
+        destroyProgress = 0.0F;
     }
 
     /**
@@ -247,7 +247,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
      */
     @Unique
     private void clearBreakingState() {
-        this.breakingBlock = false;
+        this.isDestroying = false;
     }
 
     /**
@@ -267,31 +267,31 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
         if (resetProgress) {
             resetLocalMiningProgress();
         }
-        this.blockBreakingSoundCooldown = 0.0F;
-        this.blockBreakingCooldown = MineExtra.INSTANCE.getMiningPacketCooldown(0);
+        this.destroyTicks = 0.0F;
+        this.destroyDelay = MineExtra.INSTANCE.getMiningPacketCooldown(0);
     }
 
     @Override
     @Unique
     public void sendBreakPacket(BlockPos pos, Direction direction, boolean silent) {
-        this.sendSequencedPacket(MinecraftClient.getInstance().world, (sequence -> {
+        this.startPrediction(Minecraft.getInstance().level, (sequence -> {
             if (!silent) {
-                breakBlock(pos);
+                destroyBlock(pos);
             }
-            return new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
+            return new ServerboundPlayerActionPacket(ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
         }));
     }
 
     @Unique
     private void continueSameBlockMining(BlockPos pos, Direction direction) {
-        this.currentBreakingPos = pos;
-        this.currentBreakingProgress = getCurrentMiningProgress(null);
-        this.blockBreakingCooldown = 0;
-        this.breakingBlock = true;
-        this.selectedStack = this.client.player.getMainHandStack();
-        this.client.world.setBlockBreakingInfo(
-                this.client.player.getId(), this.currentBreakingPos, this.getBlockBreakingProgress());
-        this.updateBlockBreakingProgress(pos, direction);
+        this.destroyBlockPos = pos;
+        this.destroyProgress = getCurrentMiningProgress(null);
+        this.destroyDelay = 0;
+        this.isDestroying = true;
+        this.destroyingItem = this.minecraft.player.getMainHandItem();
+        this.minecraft.level.destroyBlockProgress(
+                this.minecraft.player.getId(), this.destroyBlockPos, this.getDestroyStage());
+        this.continueDestroyBlock(pos, direction);
     }
 
     @Unique
@@ -299,23 +299,23 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
         if (!MineExtra.INSTANCE.doubleBreak.get() || !isFailBreakEmpty()) {
             return false;
         }
-        ClientPlayerEntity playerEntity = MinecraftClient.getInstance().player;
-        if (!playerEntity.canInteractWithBlockAt(this.currentBreakingPos, 1.0D)) {
+        LocalPlayer playerEntity = Minecraft.getInstance().player;
+        if (!playerEntity.isWithinBlockInteractionRange(this.destroyBlockPos, 1.0D)) {
             return false;
         }
-        BlockState state = MinecraftClient.getInstance().world.getBlockState(this.currentBreakingPos);
-        if (state.isAir() || state.isLiquid()) {
+        BlockState state = Minecraft.getInstance().level.getBlockState(this.destroyBlockPos);
+        if (state.isAir() || state.liquid()) {
             return false;
         }
-        float speed = state.calcBlockBreakingDelta(
-                MinecraftClient.getInstance().player,
-                MinecraftClient.getInstance().player.getEntityWorld(),
-                currentBreakingPos);
+        float speed = state.getDestroyProgress(
+                Minecraft.getInstance().player,
+                Minecraft.getInstance().player.level(),
+                destroyBlockPos);
         if (speed <= 0) {
             return false;
         }
         moveCurrentMiningToFailBreak();
-        MineExtra.INSTANCE.onPostStopMiningFastBreak(currentBreakingPos, speed, currentBreakingProgress);
+        MineExtra.INSTANCE.onPostStopMiningFastBreak(destroyBlockPos, speed, destroyProgress);
         return true;
     }
 
@@ -332,36 +332,36 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
      */
     @Unique
     private boolean shouldClearFailBreakBecauseInvalidState() {
-        if (MinecraftClient.getInstance().world == null) {
+        if (Minecraft.getInstance().level == null) {
             return false;
         }
-        BlockState state = MinecraftClient.getInstance().world.getBlockState(currentFailBreakPos);
-        if (client.player == null || gameMode != GameMode.SURVIVAL) {
+        BlockState state = Minecraft.getInstance().level.getBlockState(currentFailBreakPos);
+        if (minecraft.player == null || localPlayerMode != GameType.SURVIVAL) {
             return true;
         }
-        if (state == null || state.isAir() || state.isLiquid()) {
+        if (state == null || state.isAir() || state.liquid()) {
             return true;
         }
-        float speed = state.calcBlockBreakingDelta(
-                MinecraftClient.getInstance().player, MinecraftClient.getInstance().world, currentFailBreakPos);
+        float speed = state.getDestroyProgress(
+                Minecraft.getInstance().player, Minecraft.getInstance().level, currentFailBreakPos);
         // in the case of server lag
         if (speed > 0.0F && ((Tasks.getTick() - failBreakStartTick - 1) * speed > 1.0F)) {
             return true;
         }
-        return client.player != null
-                && client.player.getPos().squaredDistanceTo(currentBreakingPos.toCenterPos()) > 225;
+        return minecraft.player != null
+                && minecraft.player.position().distanceToSqr(Vec3.atCenterOf(destroyBlockPos)) > 225;
     }
 
     @Shadow
-    private GameMode gameMode;
+    private GameType localPlayerMode;
 
     @Shadow
     @Final
-    private MinecraftClient client;
+    private Minecraft minecraft;
 
     @Shadow
     @Final
-    private ClientPlayNetworkHandler networkHandler;
+    private ClientPacketListener connection;
 
     @Unique
     public boolean calculateInstantBlockBreakingDeltaWithGhostHand(BlockState instance, BlockPos pos) {
@@ -370,10 +370,10 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             if (MineExtra.INSTANCE.ghostHandSwapWhenStart.get()
                     || WorldUtils.calcBlockBreakingDelta(
                                     instance,
-                                    client.world,
+                                    minecraft.level,
                                     pos,
                                     WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
-                                            client.player, instance, bestTool.val()))
+                                            minecraft.player, instance, bestTool.val()))
                             > 1.01) {
                 MineExtra.INSTANCE.instaBreakGhostHand =
                         Pair.of(InvExtra.INSTANCE.swapInventoryIndexToHand(bestTool.index()), pos);
@@ -391,34 +391,34 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     @Override
     @Unique
     public void startMiningBlock(BlockPos pos, Direction direction) {
-        this.sendSequencedPacket(MinecraftClient.getInstance().world, (sequence -> {
-            BlockState state = client.world.getBlockState(pos);
+        this.startPrediction(Minecraft.getInstance().level, (sequence -> {
+            BlockState state = minecraft.level.getBlockState(pos);
             DisablerManager.INSTANCE.flushACPlaceBreakQueue();
-            if (this.client.player.getAbilities().creativeMode
+            if (this.minecraft.player.getAbilities().instabuild
                     || (!state.isAir()
                             && (calculateInstantBlockBreakingDeltaWithGhostHand(state, pos)
-                                    || state.calcBlockBreakingDelta(client.player, client.world, pos) > 1.0))) {
-                this.breakBlock(pos);
+                                    || state.getDestroyProgress(minecraft.player, minecraft.level, pos) > 1.0))) {
+                this.destroyBlock(pos);
                 // insta break do not change current breaking pos
             } else {
                 resetLocalMiningProgress();
-                currentBreakingPos = pos;
+                destroyBlockPos = pos;
             }
-            return new PlayerActionC2SPacket(
-                    PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, pos, direction, sequence);
+            return new ServerboundPlayerActionPacket(
+                    ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, pos, direction, sequence);
         }));
     }
 
     public void abortBreak(Direction direction) {
-        this.networkHandler.sendPacket(new PlayerActionC2SPacket(
-                PlayerActionC2SPacket.Action.ABORT_DESTROY_BLOCK, this.currentBreakingPos, direction));
+        this.connection.send(new ServerboundPlayerActionPacket(
+                ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK, this.destroyBlockPos, direction));
     }
 
     @Override
     @Unique
     public void syncSelectedHotbar(int x) {
-        client.player.getInventory().setSelectedSlot(x);
-        this.syncSelectedSlot();
+        minecraft.player.getInventory().setSelectedSlot(x);
+        this.ensureHasSentCarriedItem();
     }
     //    public void autoSendStopPacket(){
     //        if(currentBreakingPos != null){
@@ -428,15 +428,15 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
 
     @Unique
     public boolean breakIfComplete() {
-        BlockState state = this.client.world.getBlockState(currentBreakingPos);
-        if (state.isAir() || state.isLiquid()) {
+        BlockState state = this.minecraft.level.getBlockState(destroyBlockPos);
+        if (state.isAir() || state.liquid()) {
             return true;
         }
-        Vec3d shouldFacing = currentBreakingPos
-                .toCenterPos()
-                .subtract(MinecraftClient.getInstance().player.getEyePos());
-        Direction direction = Direction.getFacing(shouldFacing).getOpposite();
-        return breakIfComplete(currentBreakingPos, state, direction);
+        Vec3 shouldFacing = Vec3.atCenterOf(destroyBlockPos)
+
+                .subtract(Minecraft.getInstance().player.getEyePosition());
+        Direction direction = Direction.getApproximateNearest(shouldFacing).getOpposite();
+        return breakIfComplete(destroyBlockPos, state, direction);
     }
 
     @Unique
@@ -445,22 +445,22 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
         IndexEntry<ItemStack> tool = MineExtra.INSTANCE.getGhostHandMiningTool(blockState);
         float progress = getCurrentMiningProgress(tool.val());
         if (mineExtra.shouldExecuteFastBreak(progress)) {
-            this.currentBreakingProgress = progress;
+            this.destroyProgress = progress;
             DisablerManager.INSTANCE.flushACPlaceBreakQueue();
             clearBreakingState();
             Runnable fastBreakGhostHand = InvExtra.INSTANCE.swapInventoryIndexToHand(tool.index());
-            AttributeUtils.updateAttribute(this.client.player);
+            AttributeUtils.updateAttribute(this.minecraft.player);
             float speed =
-                    blockState.calcBlockBreakingDelta(MinecraftClient.getInstance().player, this.client.world, pos);
-            this.sendSequencedPacket(MinecraftClient.getInstance().world, (sequence) -> {
-                this.breakBlock(pos);
-                return new PlayerActionC2SPacket(
-                        PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
+                    blockState.getDestroyProgress(Minecraft.getInstance().player, this.minecraft.level, pos);
+            this.startPrediction(Minecraft.getInstance().level, (sequence) -> {
+                this.destroyBlock(pos);
+                return new ServerboundPlayerActionPacket(
+                        ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
             });
             if (fastBreakGhostHand != null) {
                 fastBreakGhostHand.run();
             }
-            mineExtra.onPostStopMiningFastBreak(pos, speed, this.currentBreakingProgress);
+            mineExtra.onPostStopMiningFastBreak(pos, speed, this.destroyProgress);
             applyPostStopState(!mineExtra.optimizeOneBlock.get());
             return true;
         }
@@ -469,12 +469,12 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
 
     // speed up with early packet when progress>0.7
     @Inject(
-            method = "updateBlockBreakingProgress",
+            method = "continueDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/tutorial/TutorialManager;onBlockBreaking(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/BlockState;F)V",
+                                    "Lnet/minecraft/client/tutorial/Tutorial;onDestroyBlock(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;F)V",
                             ordinal = 1,
                             shift = At.Shift.AFTER),
             cancellable = true,
@@ -483,7 +483,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             BlockPos pos,
             Direction direction,
             CallbackInfoReturnable<Boolean> cir,
-            net.minecraft.block.BlockState blockState) {
+            net.minecraft.world.level.block.state.BlockState blockState) {
         if (breakIfComplete(pos, blockState, direction)) {
             cir.setReturnValue(true);
         }
@@ -492,12 +492,12 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     //
     // fixme: fix
     @Inject(
-            method = "attackBlock",
+            method = "startDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;sendSequencedPacket(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/client/network/SequencedPacketCreator;)V",
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
                             ordinal = 1,
                             shift = At.Shift.BEFORE),
             locals = LocalCapture.CAPTURE_FAILHARD,
@@ -508,7 +508,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
         MineExtra mineExtra = MineExtra.INSTANCE;
         if (mineExtra.optimizeOneBlock.get()) {
 
-            if (Objects.equals(pos, currentBreakingPos)) {
+            if (Objects.equals(pos, destroyBlockPos)) {
 
                 if (!mineExtra.shouldExecuteOptimizeOneBlock()) {
                     return;
@@ -525,13 +525,13 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     }
 
     @WrapOperation(
-            method = "cancelBlockBreaking",
+            method = "stopDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayNetworkHandler;sendPacket(Lnet/minecraft/network/packet/Packet;)V"))
-    private void onDoubleBreak(ClientPlayNetworkHandler instance, Packet packet, Operation<Void> original) {
+                                    "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"))
+    private void onDoubleBreak(ClientPacketListener instance, Packet packet, Operation<Void> original) {
 
         if (!MineExtra.INSTANCE.optimizeOneBlock.get()) {
             // we make optimizeOneBlockMine delay its destroy packet to changing the currentPosition in method
@@ -548,28 +548,28 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     public boolean sendFailBreakCurrentPos(@Nullable Direction direction) {
         if (tryAbortCurrentMiningIntoFailBreak()) {
             if (direction == null) {
-                Vec3d shouldFacing = currentBreakingPos
-                        .toCenterPos()
-                        .subtract(MinecraftClient.getInstance().player.getEyePos());
-                direction = Direction.getFacing(shouldFacing).getOpposite();
+                Vec3 shouldFacing = Vec3.atCenterOf(destroyBlockPos)
+
+                        .subtract(Minecraft.getInstance().player.getEyePosition());
+                direction = Direction.getApproximateNearest(shouldFacing).getOpposite();
             }
-            sendBreakPacket(currentBreakingPos, direction, true);
+            sendBreakPacket(destroyBlockPos, direction, true);
             // ... add cooldown here
-            this.blockBreakingCooldown = MineExtra.INSTANCE.getMiningPacketCooldown(0);
+            this.destroyDelay = MineExtra.INSTANCE.getMiningPacketCooldown(0);
             return true;
         }
         return false;
     }
 
     @WrapOperation(
-            method = "attackBlock",
+            method = "startDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayNetworkHandler;sendPacket(Lnet/minecraft/network/packet/Packet;)V"))
+                                    "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"))
     private void onDoubleBreak2(
-            ClientPlayNetworkHandler instance,
+            ClientPacketListener instance,
             Packet packet,
             Operation<Void> original,
             @Local(argsOnly = true) Direction direction) {
@@ -586,28 +586,28 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     }
 
     @Shadow
-    protected abstract int getBlockBreakingProgress();
+    protected abstract int getDestroyStage();
 
     @Shadow
-    public abstract boolean updateBlockBreakingProgress(BlockPos pos, Direction direction);
+    public abstract boolean continueDestroyBlock(BlockPos pos, Direction direction);
 
     @Shadow
-    protected abstract boolean isCurrentlyBreaking(BlockPos pos);
+    protected abstract boolean sameDestroyTarget(BlockPos pos);
 
     @Shadow
-    protected abstract void syncSelectedSlot();
+    protected abstract void ensureHasSentCarriedItem();
 
     @Shadow
-    protected abstract ActionResult interactBlockInternal(
-            ClientPlayerEntity player, Hand hand, BlockHitResult hitResult);
+    protected abstract InteractionResult performUseItemOn(
+            LocalPlayer player, InteractionHand hand, BlockHitResult hitResult);
 
     @Inject(
-            method = "attackBlock",
+            method = "startDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;sendSequencedPacket(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/client/network/SequencedPacketCreator;)V",
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
                             ordinal = 0,
                             shift = At.Shift.AFTER),
             locals = LocalCapture.CAPTURE_FAILSOFT)
@@ -615,17 +615,17 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             BlockPos pos,
             Direction direction,
             CallbackInfoReturnable<Boolean> cir,
-            net.minecraft.block.BlockState blockState) {
+            net.minecraft.world.level.block.state.BlockState blockState) {
         MineExtra.INSTANCE.onStartingMine(pos, Float.MAX_VALUE, true);
     }
 
     @Inject(
-            method = "attackBlock",
+            method = "startDestroyBlock",
             at =
                     @At(
                             value = "FIELD",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;blockBreakingCooldown:I",
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;destroyDelay:I",
                             shift = At.Shift.BEFORE),
             locals = LocalCapture.CAPTURE_FAILSOFT,
             cancellable = true)
@@ -633,7 +633,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             BlockPos pos,
             Direction direction,
             CallbackInfoReturnable<Boolean> cir,
-            net.minecraft.block.BlockState blockState) {
+            net.minecraft.world.level.block.state.BlockState blockState) {
         applyPostStopState(false);
         if (MineExtra.INSTANCE.quickMine.get()) {
             cir.setReturnValue(true);
@@ -646,11 +646,11 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/block/BlockState;calcBlockBreakingDelta(Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/world/BlockView;Lnet/minecraft/util/math/BlockPos;)F"))
+                                    "Lnet/minecraft/world/level/block/state/BlockState;calcBlockBreakingDelta(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F"))
     public float fastBreakGhostHand(
             BlockState instance,
-            PlayerEntity player,
-            BlockView blockView,
+            Player player,
+            BlockGetter blockView,
             BlockPos blockPos,
             Operation<Float> original) {
         if (calculateInstantBlockBreakingDeltaWithGhostHand(instance, blockPos)) {
@@ -660,12 +660,12 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     }
 
     @Inject(
-            method = "attackBlock",
+            method = "startDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;sendSequencedPacket(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/client/network/SequencedPacketCreator;)V",
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
                             ordinal = 1,
                             shift = At.Shift.AFTER),
             locals = LocalCapture.CAPTURE_FAILSOFT)
@@ -673,12 +673,12 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
             BlockPos pos,
             Direction direction,
             CallbackInfoReturnable<Boolean> cir,
-            net.minecraft.block.BlockState blockState) {
+            net.minecraft.world.level.block.state.BlockState blockState) {
         float speed;
         var usingTool = MineExtra.INSTANCE.getGhostHandMiningTool(blockState);
         float playerSpeed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(
-                this.client.player, blockState, usingTool.val());
-        speed = WorldUtils.calcBlockBreakingDelta(blockState, this.client.world, pos, playerSpeed);
+                this.minecraft.player, blockState, usingTool.val());
+        speed = WorldUtils.calcBlockBreakingDelta(blockState, this.minecraft.level, pos, playerSpeed);
 
         MineExtra mineExtra = MineExtra.INSTANCE;
         mineExtra.onStartingMine(pos, speed, false);
@@ -688,28 +688,28 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
         if (mineExtra.shouldTriggerEarlyStop(speed)) {
             DisablerManager.INSTANCE.flushACPlaceBreakQueue();
             Runnable fastbreakCallback = InvExtra.INSTANCE.swapInventoryIndexToHand(usingTool.index());
-            AttributeUtils.updateAttribute(this.client.player);
+            AttributeUtils.updateAttribute(this.minecraft.player);
             clearBreakingState();
-            this.sendSequencedPacket(MinecraftClient.getInstance().world, (sequence) -> {
-                this.breakBlock(pos);
-                return new PlayerActionC2SPacket(
-                        PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
+            this.startPrediction(Minecraft.getInstance().level, (sequence) -> {
+                this.destroyBlock(pos);
+                return new ServerboundPlayerActionPacket(
+                        ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, direction, sequence);
             });
             if (fastbreakCallback != null) {
                 fastbreakCallback.run();
             }
-            mineExtra.onPostStopMiningFastBreak(pos, speed, this.currentBreakingProgress);
+            mineExtra.onPostStopMiningFastBreak(pos, speed, this.destroyProgress);
             applyPostStopState(!mineExtra.optimizeOneBlock.get());
         }
     }
 
     @Inject(
-            method = "updateBlockBreakingProgress",
+            method = "continueDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;sendSequencedPacket(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/client/network/SequencedPacketCreator;)V",
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
                             ordinal = 0,
                             shift = At.Shift.AFTER),
             cancellable = true,
@@ -720,12 +720,12 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     }
 
     @Inject(
-            method = "updateBlockBreakingProgress",
+            method = "continueDestroyBlock",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/network/ClientPlayerInteractionManager;sendSequencedPacket(Lnet/minecraft/client/world/ClientWorld;Lnet/minecraft/client/network/SequencedPacketCreator;)V",
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
                             ordinal = 1,
                             shift = At.Shift.AFTER))
     private void onCommonBlockBreak(BlockPos pos, Direction direction, CallbackInfoReturnable<Boolean> cir) {
@@ -736,7 +736,7 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     //    public void widerReachDistance(CallbackInfoReturnable<Float> cir){
     //
     //    }
-    @Inject(method = "hasLimitedAttackSpeed", at = @At(value = "HEAD"), cancellable = true)
+    @Inject(method = "hasMissTime", at = @At(value = "HEAD"), cancellable = true)
     public void cancelAttackSpeedLimit(CallbackInfoReturnable<Boolean> cir) {
         if (CombatTasks.getCombatExtra().noCooldown.get()) {
             cir.setReturnValue(false);
@@ -750,11 +750,11 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     public void onTick(CallbackInfo ci) {
         // tick cooldown when not pressing
         if (MineExtra.INSTANCE.fasterVanillaBreak.get()) {
-            if (lastBreakCooldown != blockBreakingCooldown) {
-                lastBreakCooldown = blockBreakingCooldown;
-            } else if (blockBreakingCooldown > 0) {
-                blockBreakingCooldown--;
-                lastBreakCooldown = blockBreakingCooldown;
+            if (lastBreakCooldown != destroyDelay) {
+                lastBreakCooldown = destroyDelay;
+            } else if (destroyDelay > 0) {
+                destroyDelay--;
+                lastBreakCooldown = destroyDelay;
             }
         }
         if (!isFailBreakEmpty() && shouldClearFailBreakBecauseInvalidState()) {
@@ -763,64 +763,64 @@ public abstract class PlayerInteractionMixin implements PlayerInteractionAccess 
     }
 
     @ModifyExpressionValue(
-            method = "clickSlot",
+            method = "handleInventoryMouseClick",
             at =
                     @At(
                             value = "FIELD",
                             target =
-                                    "Lnet/minecraft/entity/player/PlayerEntity;currentScreenHandler:Lnet/minecraft/screen/ScreenHandler;"))
-    public ScreenHandler onClickSlot(ScreenHandler original, @Local(argsOnly = true) PlayerEntity player) {
+                                    "Lnet/minecraft/world/entity/player/Player;containerMenu:Lnet/minecraft/world/inventory/AbstractContainerMenu;"))
+    public AbstractContainerMenu onClickSlot(AbstractContainerMenu original, @Local(argsOnly = true) Player player) {
         return player instanceof ClientPlayerAccess clientPlayer ? clientPlayer.getServerScreenHandler() : original;
     }
 
-    @Inject(method = "isCurrentlyBreaking", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "sameDestroyTarget", at = @At("HEAD"), cancellable = true)
     public void onCurrentlyBreaking(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
         // completely ignore the damage change
-        cir.setReturnValue(Objects.equals(pos, currentBreakingPos)
-                && ItemStackUtils.matchItemMiningAbility(this.client.player.getMainHandStack(), this.selectedStack));
+        cir.setReturnValue(Objects.equals(pos, destroyBlockPos)
+                && ItemStackUtils.matchItemMiningAbility(this.minecraft.player.getMainHandItem(), this.destroyingItem));
     }
 
     @Inject(
-            method = "interactItem",
+            method = "useItem",
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/ClientPlayerInteractionManager;syncSelectedSlot()V",
+                            target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V",
                             shift = At.Shift.AFTER),
             order = -114514)
-    private void onInteractPreSend(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+    private void onInteractPreSend(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
         LegacySnapRotManager.INSTANCE.betweenViaPacket = true;
     }
 
     @Inject(
-            method = "interactItem",
+            method = "useItem",
             at =
                     @At(
                             value = "INVOKE",
                             target = "Lorg/apache/commons/lang3/mutable/MutableObject;<init>()V",
                             remap = false),
             order = 114514)
-    private void onInteractPostSend(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+    private void onInteractPostSend(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
         LegacySnapRotManager.INSTANCE.betweenViaPacket = false;
     }
 
     @Override
     @Unique
-    public ActionResult simulateInteractBlock(Hand hand, BlockHitResult hitResult) {
-        return interactBlockInternal(this.client.player, hand, hitResult);
+    public InteractionResult simulateInteractBlock(InteractionHand hand, BlockHitResult hitResult) {
+        return performUseItemOn(this.minecraft.player, hand, hitResult);
     }
 
     @Override
     @Unique
-    public ActionResult simulateInteractItem(Hand hand) {
-        var player = this.client.player;
-        ItemStack itemStack = player.getStackInHand(hand);
-        if (player.getItemCooldownManager().isCoolingDown(itemStack)) {
-            return ActionResult.PASS;
+    public InteractionResult simulateInteractItem(InteractionHand hand) {
+        var player = this.minecraft.player;
+        ItemStack itemStack = player.getItemInHand(hand);
+        if (player.getCooldowns().isOnCooldown(itemStack)) {
+            return InteractionResult.PASS;
         } else {
-            ActionResult actionResult = itemStack.use(this.client.world, player, hand);
+            InteractionResult actionResult = itemStack.use(this.minecraft.level, player, hand);
             // restore
-            player.setStackInHand(hand, itemStack);
+            player.setItemInHand(hand, itemStack);
             return actionResult;
         }
     }

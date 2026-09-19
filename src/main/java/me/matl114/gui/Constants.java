@@ -5,9 +5,9 @@ import java.awt.*;
 import java.util.List;
 import java.util.Map;
 import me.matl114.utils.ChatUtils;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.EquipmentSlot;
 
 public interface Constants {
     // fixme: value wrong
@@ -33,17 +33,17 @@ public interface Constants {
 
     public static final Identifier ADD_SPRITE = new Identifier("slimefunhelper", "gui/add");
 
-    public static List<Text> searchRegistryTooltips() {
+    public static List<Component> searchRegistryTooltips() {
         return ChatUtils.parseTooltipsTranslation("widget.gui.constants.search-registry.tooltips", "");
     }
 
-    public static final Text OPEN_LIST_EDIT_TEXT = Text.translatable("widget.gui.constants.open-list-edit");
+    public static final Component OPEN_LIST_EDIT_TEXT = Component.translatable("widget.gui.constants.open-list-edit");
 
-    public static List<Text> openListEditTooltips() {
+    public static List<Component> openListEditTooltips() {
         return ChatUtils.parseTooltipsTranslation("widget.gui.constants.open-list-edit.tooltips", "");
     }
 
-    public static List<Text> openListPreviewTooltips() {
+    public static List<Component> openListPreviewTooltips() {
         return ChatUtils.parseTooltipsTranslation("widget.gui.constants.open-list-preview.tooltips", "");
     }
 

@@ -72,10 +72,10 @@ import me.matl114.utils.CodecUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.text.StringVisitable;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.Style;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.mutable.MutableObject;
 
@@ -138,7 +138,7 @@ public class EncryptChat extends BaseModule {
                                 el -> {
                                     ChatKeyEntry selected = keyList.getSelected();
                                     if (selected == null) {
-                                        return Text.translatable("widget.encrypt-chat.key-list-editor")
+                                        return Component.translatable("widget.encrypt-chat.key-list-editor")
                                                 .append("None");
                                     }
                                     String detail = "%s(%s%s)"
@@ -146,7 +146,7 @@ public class EncryptChat extends BaseModule {
                                                     selected.getName(),
                                                     selected.getAlgorithm().name(),
                                                     selected.getPhase().isEmpty() ? "" : "/phrase");
-                                    return Text.translatable("widget.encrypt-chat.key-list-editor")
+                                    return Component.translatable("widget.encrypt-chat.key-list-editor")
                                             .append(detail);
                                 },
                                 ButtonAction.run(this::openKeyListEditScreen))
@@ -163,7 +163,7 @@ public class EncryptChat extends BaseModule {
                 currentList, ChatKeyEntry::empty, value -> createEditRenderHandler(value, index), 30, 220);
         ListModifyWidget listWidget = new ListModifyWidget(controller, 0, 0, 320, 260);
         ConfirmingWidgetScreen confirmScreen = new ConfirmingWidgetScreen(
-                Text.translatable("widget.encrypt-chat.key-list-editor.title"),
+                Component.translatable("widget.encrypt-chat.key-list-editor.title"),
                 listWidget,
                 () -> true,
                 () -> setKeyList(new KeyList(
@@ -195,16 +195,16 @@ public class EncryptChat extends BaseModule {
                 .addToSub(subScreen);
         ExecutableWidget.instance(45, 0, 100, 20)
                 .setElementHandler(new MultiLineTextElement(
-                        el -> Text.literal("%s\n(%s)"
+                        el -> Component.literal("%s\n(%s)"
                                 .formatted(entry.getName(), entry.getAlgorithm().name())),
                         ClickGui.INSTANCE.configColor.get().withAlpha(255),
                         0))
                 .addToSub(subScreen);
         ExecutableWidget.instance(155, 0, 60, 20)
                 .setElementHandler(new ButtonElement(
-                        TextProvider.of(Text.translatable("widget.encrypt-chat.open-editor")), ButtonAction.run(() -> {
+                        TextProvider.of(Component.translatable("widget.encrypt-chat.open-editor")), ButtonAction.run(() -> {
                             var screen = WidgetUtils.createValueAccessorsEditScreen(
-                                    Text.translatable("widget.encrypt-chat.open-editor.title"),
+                                    Component.translatable("widget.encrypt-chat.open-editor.title"),
                                     List::of,
                                     createChatKeyEntryAccessors(entry),
                                     WidgetUtils.DEFAULT_CONFIG_SCREEN_LAYOUT,
@@ -236,7 +236,7 @@ public class EncryptChat extends BaseModule {
         return encrypt.get() && !ScreenUtils.hasCtrlDown() && getSelectedKey() != null;
     }
 
-    public void onChatAdd(Event<Text> chatAdd) {
+    public void onChatAdd(Event<Component> chatAdd) {
         if (chatAdd.isCancelled() || safeFlag || !decrypt.get()) {
             return;
         }
@@ -297,7 +297,7 @@ public class EncryptChat extends BaseModule {
         return idx + 1;
     }
 
-    private Text rebuildMessage(Text origin, DecryptScanResult result, String replacement) {
+    private Component rebuildMessage(Component origin, DecryptScanResult result, String replacement) {
         MutableInt counter = new MutableInt(0);
         ChatUtils.TextBuilder builder = ChatUtils.builder();
         builder.withStyle(Style.EMPTY);
@@ -311,7 +311,7 @@ public class EncryptChat extends BaseModule {
                             builder.accept(style, cutStr);
                             counter.add(cutStr.length());
                         }
-                        return StringVisitable.TERMINATE_VISIT;
+                        return FormattedText.STOP_ITERATION;
                     } else {
                         builder.accept(style, asString);
                         counter.add(len);
@@ -320,14 +320,14 @@ public class EncryptChat extends BaseModule {
                 }),
                 Style.EMPTY);
         builder.withHoverEvent(ChatUtils.getHoverShowText(List.of(
-                        Text.literal("当前密文:" + result.cipher()),
-                        Text.literal("点击拷贝").formatted(Formatting.YELLOW))))
+                        Component.literal("当前密文:" + result.cipher()),
+                        Component.literal("点击拷贝").withStyle(ChatFormatting.YELLOW))))
                 .withClickEvent(ChatUtils.getClickCopyText(result.cipher()))
                 .with(replacement + result.suffix())
-                .withHoverEvent(ChatUtils.getHoverShowText(List.of(Text.literal("当前消息由SlimefunHelper解密"))))
+                .withHoverEvent(ChatUtils.getHoverShowText(List.of(Component.literal("当前消息由SlimefunHelper解密"))))
                 .withClickEvent(null)
                 .withBold(true)
-                .withColor(Formatting.DARK_PURPLE)
+                .withColor(ChatFormatting.DARK_PURPLE)
                 .with(" [!]")
                 .withStyle(Style.EMPTY);
         return builder.end().build();
@@ -659,8 +659,8 @@ public class EncryptChat extends BaseModule {
         }
 
         @Override
-        public net.minecraft.text.Text getDisplay() {
-            return net.minecraft.text.Text.translatable(
+        public net.minecraft.network.chat.Component getDisplay() {
+            return net.minecraft.network.chat.Component.translatable(
                     "configenum.encryptalgorithm." + name().toLowerCase(Locale.ROOT));
         }
     }

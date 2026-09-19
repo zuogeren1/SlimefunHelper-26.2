@@ -27,20 +27,20 @@ import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.collections.IndexEntry;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class AutoWeb extends BaseModule {
-    private static final BlockState WEB_STATE = Blocks.COBWEB.getDefaultState();
+    private static final BlockState WEB_STATE = Blocks.COBWEB.defaultBlockState();
 
     public AutoWeb() {
         super("AutoWeb");
@@ -121,7 +121,7 @@ public class AutoWeb extends BaseModule {
     }
 
     private IndexEntry<ItemStack> supplyWeb() {
-        return InventoryUtils.findPlayerItem(stack -> stack.isOf(Items.COBWEB), true, false);
+        return InventoryUtils.findPlayerItem(stack -> stack.is(Items.COBWEB), true, false);
     }
 
     private boolean placeWeb(IndexEntry<ItemStack> web, BlockHitResult hitResult) {
@@ -129,15 +129,15 @@ public class AutoWeb extends BaseModule {
         if (callback == null) {
             return false;
         }
-        InteractionTasks.handlePlaceMode(mode.get(), hitResult, Hand.MAIN_HAND, swingHand.get());
+        InteractionTasks.handlePlaceMode(mode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
         callback.run();
         return true;
     }
 
     private BlockHitResult searchPlaceOption() {
-        if (selfWeb.get() && (!selfWebOnlySlow.get() || mc.player.hasStatusEffect(StatusEffects.SLOWNESS))) {
-            BlockPos pos = mc.player.getBlockPos();
-            if (mc.world.getBlockState(pos) != WEB_STATE && !PlayerStateManager.INSTANCE.lastInWeb) {
+        if (selfWeb.get() && (!selfWebOnlySlow.get() || mc.player.hasEffect(MobEffects.SLOWNESS))) {
+            BlockPos pos = mc.player.blockPosition();
+            if (mc.level.getBlockState(pos) != WEB_STATE && !PlayerStateManager.INSTANCE.lastInWeb) {
                 FlagEntry<BlockHitResult> hitResult = createWebHitResult(mc.player, pos);
                 if (hitResult != null) {
                     return hitResult.val();
@@ -145,12 +145,12 @@ public class AutoWeb extends BaseModule {
             }
         }
         if (otherWeb.get()) {
-            List<PlayerEntity> targets = getTargets();
+            List<Player> targets = getTargets();
             if (targets.isEmpty()) {
                 return null;
             }
 
-            for (PlayerEntity target : targets) {
+            for (Player target : targets) {
                 for (BlockPos pos : collectTargetPositions(target)) {
                     FlagEntry<BlockHitResult> hitResult = createWebHitResult(target, pos);
                     if (hitResult == null) {
@@ -163,38 +163,38 @@ public class AutoWeb extends BaseModule {
         return null;
     }
 
-    private List<PlayerEntity> getTargets() {
+    private List<Player> getTargets() {
         if (TargetSelector.INSTANCE == null) {
             return List.of();
         }
         return TargetSelector.INSTANCE.getAttackableEntities(interactRange.get()).stream()
-                .filter(PlayerEntity.class::isInstance)
-                .map(PlayerEntity.class::cast)
+                .filter(Player.class::isInstance)
+                .map(Player.class::cast)
                 .filter(EntityUtils::isEntityValid)
                 .filter(player -> player != mc.player)
-                .sorted(Comparator.comparingDouble(mc.player::squaredDistanceTo))
+                .sorted(Comparator.comparingDouble(mc.player::distanceToSqr))
                 .toList();
     }
 
-    private List<BlockPos> collectTargetPositions(PlayerEntity target) {
+    private List<BlockPos> collectTargetPositions(Player target) {
         LinkedHashSet<BlockPos> positions = new LinkedHashSet<>();
-        Box box = target.getBoundingBox();
-        positions.addAll(MathUtils.getOccupiedBlockPositions(box.withMaxY(box.minY + 0.5D)));
-        if (ceiling.get() && !target.isOnGround()) {
+        AABB box = target.getBoundingBox();
+        positions.addAll(MathUtils.getOccupiedBlockPositions(box.setMaxY(box.minY + 0.5D)));
+        if (ceiling.get() && !target.onGround()) {
             int minTargetY = target.getBlockY();
-            MathUtils.getOccupiedBlockPositions(box.stretch(0.0D, 0.75D, 0.0D)).stream()
+            MathUtils.getOccupiedBlockPositions(box.expandTowards(0.0D, 0.75D, 0.0D)).stream()
                     .filter(pos -> pos.getY() > minTargetY)
                     .forEach(positions::add);
         }
         List<BlockPos> result = new ArrayList<>(positions.size());
         positions.stream()
-                .map(BlockPos::toImmutable)
-                .sorted(Comparator.comparingDouble(s -> new Box(s).squaredMagnitude(mc.player.getEyePos())))
+                .map(BlockPos::immutable)
+                .sorted(Comparator.comparingDouble(s -> new AABB(s).distanceToSqr(mc.player.getEyePosition())))
                 .forEach(result::add);
         return result;
     }
 
-    private FlagEntry<BlockHitResult> createWebHitResult(PlayerEntity target, BlockPos pos) {
+    private FlagEntry<BlockHitResult> createWebHitResult(Player target, BlockPos pos) {
         if (!isValidWebPos(target, pos)) {
             return null;
         }
@@ -204,35 +204,35 @@ public class AutoWeb extends BaseModule {
             return null;
         }
         if (!InteractExtra.INSTANCE.isWithinInteractRange(
-                mc.player.getPos(), hitResult.val().getBlockPos())) {
+                mc.player.position(), hitResult.val().getBlockPos())) {
             return null;
         }
         return hitResult;
     }
 
-    private boolean isValidWebPos(PlayerEntity target, BlockPos pos) {
-        if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), pos)) {
+    private boolean isValidWebPos(Player target, BlockPos pos) {
+        if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), pos)) {
             return false;
         }
-        BlockState state = mc.world.getBlockState(pos);
-        if (state.isOf(Blocks.COBWEB)) {
+        BlockState state = mc.level.getBlockState(pos);
+        if (state.is(Blocks.COBWEB)) {
             return false;
         }
-        if (!state.isAir() && !state.isLiquid() && !state.isReplaceable()) {
+        if (!state.isAir() && !state.liquid() && !state.canBeReplaced()) {
             return false;
         }
-        if (!WEB_STATE.canPlaceAt(mc.world, pos)) {
+        if (!WEB_STATE.canSurvive(mc.level, pos)) {
             return false;
         }
         return true;
     }
 
-    private boolean shouldIgnoreWebCollision(Entity entity, PlayerEntity target) {
+    private boolean shouldIgnoreWebCollision(Entity entity, Player target) {
         return entity == target || (selfWeb.get() && entity == mc.player);
     }
 
     private boolean isPlayerAlreadyWebbed() {
         return collectTargetPositions(mc.player).stream()
-                .anyMatch(pos -> mc.world.getBlockState(pos).isOf(Blocks.COBWEB));
+                .anyMatch(pos -> mc.level.getBlockState(pos).is(Blocks.COBWEB));
     }
 }

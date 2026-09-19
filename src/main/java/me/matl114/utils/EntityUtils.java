@@ -6,69 +6,88 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.block.SpawnerBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.UseEffectsComponent;
-import net.minecraft.entity.*;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.*;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.*;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.item.*;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.FishingRodItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.ThrowablePotionItem;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.item.component.TypedEntityData;
+import net.minecraft.world.item.component.UseEffects;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.SpawnerBlock;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector2d;
 import org.spongepowered.include.com.google.common.collect.BiMap;
 import org.spongepowered.include.com.google.common.collect.HashBiMap;
 
 public class EntityUtils {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static void parseEntityWhiteList(String value, Set<EntityType<?>> collection) {
         collection.clear();
         try {
-            for (net.minecraft.entity.EntityType<?> entityType : Registries.ENTITY_TYPE) {
+            for (net.minecraft.world.entity.EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
                 if (Pattern.matches(
-                        value, Registries.ENTITY_TYPE.getId(entityType).getPath())) {
+                        value, BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath())) {
                     collection.add(entityType);
                 }
             }
             if (Pattern.matches(value, "animal")) {
-                for (net.minecraft.entity.EntityType<?> entityType : Registries.ENTITY_TYPE) {
-                    if (entityType.getSpawnGroup() == SpawnGroup.CREATURE) {
+                for (net.minecraft.world.entity.EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
+                    if (entityType.getCategory() == MobCategory.CREATURE) {
                         collection.add(entityType);
                     }
                 }
             }
             if (Pattern.matches(value, "monster")) {
-                for (net.minecraft.entity.EntityType<?> entityType : Registries.ENTITY_TYPE) {
-                    if (entityType.getSpawnGroup() == SpawnGroup.MONSTER) {
-                        if (!(entityType == EntityType.ZOMBIFIED_PIGLIN)
-                                && !(entityType == net.minecraft.entity.EntityType.ENDERMAN)) {
+                for (net.minecraft.world.entity.EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
+                    if (entityType.getCategory() == MobCategory.MONSTER) {
+                        if (!(entityType == EntityTypes.ZOMBIFIED_PIGLIN)
+                                && !(entityType == net.minecraft.world.entity.EntityTypes.ENDERMAN)) {
                             collection.add(entityType);
                         }
                     }
                 }
             }
             // feat: add spawn group flag
-            for (SpawnGroup group : SpawnGroup.values()) {
-                if (group != SpawnGroup.MONSTER && Pattern.matches(value, group.getName())) {
-                    for (net.minecraft.entity.EntityType<?> entityType : Registries.ENTITY_TYPE) {
-                        if (entityType.getSpawnGroup() == group) {
+            for (MobCategory group : MobCategory.values()) {
+                if (group != MobCategory.MONSTER && Pattern.matches(value, group.getName())) {
+                    for (net.minecraft.world.entity.EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
+                        if (entityType.getCategory() == group) {
                             collection.add(entityType);
                         }
                     }
                 }
             }
             if (Pattern.matches(value, "living_entity")) {
-                for (EntityType<?> entityType : Registries.ENTITY_TYPE) {
-                    if (entityType.getSpawnGroup() != SpawnGroup.MISC) {
+                for (EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
+                    if (entityType.getCategory() != MobCategory.MISC) {
                         collection.add(entityType);
                     }
                 }
@@ -77,10 +96,10 @@ public class EntityUtils {
             while (iter.hasNext()) {
                 EntityType<?> entityType = iter.next();
                 if (!Pattern.matches(
-                                value, Registries.ENTITY_TYPE.getId(entityType).getPath())
+                                value, BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath())
                         && Pattern.matches(
                                 value,
-                                "!" + Registries.ENTITY_TYPE.getId(entityType).getPath())) {
+                                "!" + BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath())) {
                     iter.remove();
                 }
             }
@@ -94,9 +113,9 @@ public class EntityUtils {
     private static final BiMap<Item, EntityType<?>> ITEM2SPAWN_ENTITY = HashBiMap.create();
 
     static {
-        for (Item item : Registries.ITEM) {
+        for (Item item : BuiltInRegistries.ITEM) {
             if (item instanceof SpawnEggItem egg) {
-                ITEM2SPAWN_ENTITY.put(item, egg.getEntityType(new ItemStack(item)));
+                ITEM2SPAWN_ENTITY.put(item, egg.getType(new ItemStack(item)));
             }
         }
     }
@@ -113,26 +132,26 @@ public class EntityUtils {
         if (stack != null
                 && stack.getItem() instanceof BlockItem block
                 && block.getBlock() instanceof SpawnerBlock spawner
-                && ItemStackUtils.hasInPatch(stack, DataComponentTypes.BLOCK_ENTITY_DATA)) {
-            TypedEntityData<?> component = ItemStackUtils.getInPatch(stack, DataComponentTypes.BLOCK_ENTITY_DATA);
-            return getSpawnerEntityType(component.getNbtWithoutId());
+                && ItemStackUtils.hasInPatch(stack, DataComponents.BLOCK_ENTITY_DATA)) {
+            TypedEntityData<?> component = ItemStackUtils.getInPatch(stack, DataComponents.BLOCK_ENTITY_DATA);
+            return getSpawnerEntityType(component.getUnsafe());
         }
         return null;
     }
 
-    public static EntityType<?> getSpawnerEntityType(NbtCompound spawnerCompound) {
+    public static EntityType<?> getSpawnerEntityType(CompoundTag spawnerCompound) {
         return spawnerCompound == null
                 ? null
-                : Registries.ENTITY_TYPE
-                        .getOrEmpty(getSpawnedEntityId(spawnerCompound, "SpawnData"))
+                : BuiltInRegistries.ENTITY_TYPE
+                        .getOptional(getSpawnedEntityId(spawnerCompound, "SpawnData"))
                         .orElse(null);
     }
 
-    public static Identifier getSpawnedEntityId(NbtCompound nbt, String spawnDataKey) {
+    public static Identifier getSpawnedEntityId(CompoundTag nbt, String spawnDataKey) {
         if (nbt.contains(spawnDataKey)) {
-            if (nbt.get(spawnDataKey) instanceof NbtCompound cp1) {
-                if (cp1.get("entity") instanceof NbtCompound cp2) {
-                    if (cp2.get("id") instanceof NbtString nbt3) {
+            if (nbt.get(spawnDataKey) instanceof CompoundTag cp1) {
+                if (cp1.get("entity") instanceof CompoundTag cp2) {
+                    if (cp2.get("id") instanceof StringTag nbt3) {
                         String string = nbt3.value();
                         if (string != null && !string.isEmpty()) {
                             return Identifier.tryParse(string);
@@ -152,17 +171,17 @@ public class EntityUtils {
         return entity != null
                 && entity.isAlive()
                 && !entity.isRemoved()
-                && mc.world != null
-                && mc.world == entity.getEntityWorld()
-                && mc.world.getEntityLookup().get(entity.getUuid()) == entity;
+                && mc.level != null
+                && mc.level == entity.level()
+                && mc.level.getEntities().get(entity.getUUID()) == entity;
     }
 
     public static Vector2d getEntityLookXZ(Entity entity) {
-        float yaw = entity.getYaw();
-        float pitch = entity.getPitch();
-        float f = MathHelper.cos(-yaw * 0.017453292F - 3.1415927F);
-        float g = MathHelper.sin(-yaw * 0.017453292F - 3.1415927F);
-        float h = -MathHelper.cos(-pitch * 0.017453292F);
+        float yaw = entity.getYRot();
+        float pitch = entity.getXRot();
+        float f = Mth.cos(-yaw * 0.017453292F - 3.1415927F);
+        float g = Mth.sin(-yaw * 0.017453292F - 3.1415927F);
+        float h = -Mth.cos(-pitch * 0.017453292F);
         return new Vector2d(g * h, f * h);
     }
 
@@ -221,48 +240,48 @@ public class EntityUtils {
     }
 
     public static void setEntityYawSafe(Entity entity, float newYaw) {
-        newYaw = getSafeYaw(entity.getYaw(), newYaw);
-        entity.setYaw(newYaw);
+        newYaw = getSafeYaw(entity.getYRot(), newYaw);
+        entity.setYRot(newYaw);
     }
 
     public static void setEntityPitchSafe(Entity entity, float newPitch) {
-        entity.setPitch(getSafePitch(newPitch));
+        entity.setXRot(getSafePitch(newPitch));
     }
 
-    public static Vec3d pitchYawToRotation(float pitch, float yaw) {
+    public static Vec3 pitchYawToRotation(float pitch, float yaw) {
         float f = pitch * 0.017453292F;
         float g = -yaw * 0.017453292F;
-        float h = MathHelper.cos(g);
-        float i = MathHelper.sin(g);
-        float j = MathHelper.cos(f);
-        float k = MathHelper.sin(f);
-        return new Vec3d((double) (i * j), (double) (-k), (double) (h * j));
+        float h = Mth.cos(g);
+        float i = Mth.sin(g);
+        float j = Mth.cos(f);
+        float k = Mth.sin(f);
+        return new Vec3((double) (i * j), (double) (-k), (double) (h * j));
     }
 
-    public static Vec2f rotationToPitchYaw(Vec3d vec) {
-        return new Vec2f(rotationToPitch(vec), rotationToYaw(vec));
+    public static Vec2 rotationToPitchYaw(Vec3 vec) {
+        return new Vec2(rotationToPitch(vec), rotationToYaw(vec));
     }
 
-    public static Vec2f directionToPitchYaw(Direction direction) {
+    public static Vec2 directionToPitchYaw(Direction direction) {
         switch (direction) {
             case DOWN:
-                return new Vec2f(89.9F, 0);
+                return new Vec2(89.9F, 0);
             case UP:
-                return new Vec2f(-89.9F, 0);
+                return new Vec2(-89.9F, 0);
             case NORTH:
-                return new Vec2f(0, 180);
+                return new Vec2(0, 180);
             case SOUTH:
-                return new Vec2f(0, 0);
+                return new Vec2(0, 0);
             case WEST:
-                return new Vec2f(0, 90);
+                return new Vec2(0, 90);
             case EAST:
-                return new Vec2f(0, -90);
+                return new Vec2(0, -90);
             default:
                 throw new IllegalArgumentException("Unknown direction: " + direction);
         }
     }
 
-    public static float rotationToYaw(Vec3d vec) {
+    public static float rotationToYaw(Vec3 vec) {
         return (float) Math.toDegrees(Math.atan2(-vec.x, vec.z));
     }
 
@@ -282,11 +301,11 @@ public class EntityUtils {
         }
     }
 
-    public static float rotationToPitch(Vec3d vec) {
+    public static float rotationToPitch(Vec3 vec) {
         return (float) Math.toDegrees(Math.asin(-vec.y));
     }
 
-    public static Direction pitchYawToDirection(Vec2f pitchYaw) {
+    public static Direction pitchYawToDirection(Vec2 pitchYaw) {
         float pitch = pitchYaw.x;
         float yaw = pitchYaw.y;
 
@@ -363,7 +382,7 @@ public class EntityUtils {
     }
 
     public static double getProjectileGravity(Item item) {
-        if (item instanceof RangedWeaponItem) return 0.05;
+        if (item instanceof ProjectileWeaponItem) return 0.05;
 
         if (item instanceof ThrowablePotionItem) return 0.4;
 
@@ -374,105 +393,105 @@ public class EntityUtils {
         return 0.03;
     }
 
-    public static RaycastContext.FluidHandling getFluidHandling(Item item) {
-        if (item instanceof FishingRodItem) return RaycastContext.FluidHandling.ANY;
+    public static ClipContext.Fluid getFluidHandling(Item item) {
+        if (item instanceof FishingRodItem) return ClipContext.Fluid.ANY;
 
-        return RaycastContext.FluidHandling.NONE;
+        return ClipContext.Fluid.NONE;
     }
 
-    public static Vec3d rotateVec(Vec3d vec, float pitch, float yaw) {
-        Vec3d facing = vec.normalize();
+    public static Vec3 rotateVec(Vec3 vec, float pitch, float yaw) {
+        Vec3 facing = vec.normalize();
         double len = vec.length();
-        Vec2f py = rotationToPitchYaw(facing);
-        Vec3d rotated = pitchYawToRotation(py.x + pitch, py.y + yaw);
-        return rotated.normalize().multiply(len);
+        Vec2 py = rotationToPitchYaw(facing);
+        Vec3 rotated = pitchYawToRotation(py.x + pitch, py.y + yaw);
+        return rotated.normalize().scale(len);
     }
 
-    public static Vec3d lookCoordToAbsolutePos(Entity source, double x, double y, double z) {
-        Vec2f vec2f = source.getRotationClient();
-        Vec3d vec3d = source.getPos();
+    public static Vec3 lookCoordToAbsolutePos(Entity source, double x, double y, double z) {
+        Vec2 vec2f = source.getRotationVector();
+        Vec3 vec3d = source.position();
 
-        float f = MathHelper.cos((vec2f.y + 90.0F) * 0.017453292F);
+        float f = Mth.cos((vec2f.y + 90.0F) * 0.017453292F);
 
-        float g = MathHelper.sin((vec2f.y + 90.0F) * 0.017453292F);
+        float g = Mth.sin((vec2f.y + 90.0F) * 0.017453292F);
 
-        float h = MathHelper.cos(-vec2f.x * 0.017453292F);
+        float h = Mth.cos(-vec2f.x * 0.017453292F);
 
-        float i = MathHelper.sin(-vec2f.x * 0.017453292F);
-        float j = MathHelper.cos((-vec2f.x + 90.0F) * 0.017453292F);
-        float k = MathHelper.sin((-vec2f.x + 90.0F) * 0.017453292F);
-        Vec3d vec3d2 = new Vec3d((double) (f * h), (double) i, (double) (g * h));
-        Vec3d vec3d3 = new Vec3d((double) (f * j), (double) k, (double) (g * j));
-        Vec3d vec3d4 = vec3d2.crossProduct(vec3d3).multiply(-1.0);
+        float i = Mth.sin(-vec2f.x * 0.017453292F);
+        float j = Mth.cos((-vec2f.x + 90.0F) * 0.017453292F);
+        float k = Mth.sin((-vec2f.x + 90.0F) * 0.017453292F);
+        Vec3 vec3d2 = new Vec3((double) (f * h), (double) i, (double) (g * h));
+        Vec3 vec3d3 = new Vec3((double) (f * j), (double) k, (double) (g * j));
+        Vec3 vec3d4 = vec3d2.cross(vec3d3).scale(-1.0);
         double d = vec3d2.x * z + vec3d3.x * y + vec3d4.x * x;
         double e = vec3d2.y * z + vec3d3.y * y + vec3d4.y * x;
         double l = vec3d2.z * z + vec3d3.z * y + vec3d4.z * x;
-        return new Vec3d(vec3d.x + d, vec3d.y + e, vec3d.z + l);
+        return new Vec3(vec3d.x + d, vec3d.y + e, vec3d.z + l);
     }
 
-    public static Vec3d lookCoordToPos(float pitch, float yaw, double x, double y, double z) {
-        Vec2f vec2f = new Vec2f(pitch, yaw);
+    public static Vec3 lookCoordToPos(float pitch, float yaw, double x, double y, double z) {
+        Vec2 vec2f = new Vec2(pitch, yaw);
 
-        float f = MathHelper.cos((vec2f.y + 90.0F) * 0.017453292F);
+        float f = Mth.cos((vec2f.y + 90.0F) * 0.017453292F);
 
-        float g = MathHelper.sin((vec2f.y + 90.0F) * 0.017453292F);
+        float g = Mth.sin((vec2f.y + 90.0F) * 0.017453292F);
 
-        float h = MathHelper.cos(-vec2f.x * 0.017453292F);
+        float h = Mth.cos(-vec2f.x * 0.017453292F);
 
-        float i = MathHelper.sin(-vec2f.x * 0.017453292F);
-        float j = MathHelper.cos((-vec2f.x + 90.0F) * 0.017453292F);
-        float k = MathHelper.sin((-vec2f.x + 90.0F) * 0.017453292F);
-        Vec3d vec3d2 = new Vec3d((double) (f * h), (double) i, (double) (g * h));
-        Vec3d vec3d3 = new Vec3d((double) (f * j), (double) k, (double) (g * j));
-        Vec3d vec3d4 = vec3d2.crossProduct(vec3d3).multiply(-1.0);
+        float i = Mth.sin(-vec2f.x * 0.017453292F);
+        float j = Mth.cos((-vec2f.x + 90.0F) * 0.017453292F);
+        float k = Mth.sin((-vec2f.x + 90.0F) * 0.017453292F);
+        Vec3 vec3d2 = new Vec3((double) (f * h), (double) i, (double) (g * h));
+        Vec3 vec3d3 = new Vec3((double) (f * j), (double) k, (double) (g * j));
+        Vec3 vec3d4 = vec3d2.cross(vec3d3).scale(-1.0);
         double d = vec3d2.x * z + vec3d3.x * y + vec3d4.x * x;
         double e = vec3d2.y * z + vec3d3.y * y + vec3d4.y * x;
         double l = vec3d2.z * z + vec3d3.z * y + vec3d4.z * x;
-        return new Vec3d(d, e, l);
+        return new Vec3(d, e, l);
     }
 
-    public static PlayerEntity getPlayerByName(String name) {
-        return MinecraftClient.getInstance().world.getPlayers().stream()
-                .filter(m -> m.getNameForScoreboard().equals(name))
+    public static Player getPlayerByName(String name) {
+        return Minecraft.getInstance().level.players().stream()
+                .filter(m -> m.getScoreboardName().equals(name))
                 .findFirst()
                 .orElse(null);
     }
 
     public static Stream<String> getWorldPlayerNames(boolean containSelf) {
-        return mc.world.getPlayers().stream()
+        return mc.level.players().stream()
                 .filter(i -> containSelf || i != mc.player)
-                .map(PlayerEntity::getNameForScoreboard);
+                .map(Player::getScoreboardName);
     }
 
-    public static Vec3d movementInputToVelocity(Vec3d movementInput, float speed, float yaw) {
-        double d = movementInput.lengthSquared();
+    public static Vec3 movementInputToVelocity(Vec3 movementInput, float speed, float yaw) {
+        double d = movementInput.lengthSqr();
         if (d < 1.0E-7) {
-            return Vec3d.ZERO;
+            return Vec3.ZERO;
         } else {
-            Vec3d vec3d = (d > 1.0 ? movementInput.normalize() : movementInput).multiply((double) speed);
-            float f = MathHelper.sin(yaw * 0.017453292F);
-            float g = MathHelper.cos(yaw * 0.017453292F);
-            return new Vec3d(
+            Vec3 vec3d = (d > 1.0 ? movementInput.normalize() : movementInput).scale((double) speed);
+            float f = Mth.sin(yaw * 0.017453292F);
+            float g = Mth.cos(yaw * 0.017453292F);
+            return new Vec3(
                     vec3d.x * (double) g - vec3d.z * (double) f, vec3d.y, vec3d.z * (double) g + vec3d.x * (double) f);
         }
     }
 
     public static void smoothPlayerInputState() {}
 
-    public static Text getEntityDisplayable(Entity target) {
-        return target instanceof PlayerEntity player
-                ? Text.literal(player.getNameForScoreboard())
+    public static Component getEntityDisplayable(Entity target) {
+        return target instanceof Player player
+                ? Component.literal(player.getScoreboardName())
                 : target.getDisplayName();
     }
 
-    public static double sqrtSpeed(Vec3d vec) {
+    public static double sqrtSpeed(Vec3 vec) {
         return Math.sqrt(vec.x * vec.x + vec.z * vec.z);
     }
 
-    public static Vec3d withStrafe(Vec3d self, double speed, double strength, PlayerInputUtils.Input input, float yaw) {
+    public static Vec3 withStrafe(Vec3 self, double speed, double strength, PlayerInputUtils.Input input, float yaw) {
         // 输入无效（无移动输入）时水平速度清零
         if (input != null && !input.hasWASDMovement()) {
-            return new Vec3d(0.0, self.y, 0.0);
+            return new Vec3(0.0, self.y, 0.0);
         }
 
         // 保留部分原有水平速度
@@ -485,7 +504,7 @@ public class EntityUtils {
         double x = -Math.sin(angle) * useSpeed + prevX;
         double z = Math.cos(angle) * useSpeed + prevZ;
 
-        return new Vec3d(x, self.y, z);
+        return new Vec3(x, self.y, z);
     }
 
     public static float getMovementDirectionOfInput(float facingYaw, PlayerInputUtils.Input input) {
@@ -511,68 +530,68 @@ public class EntityUtils {
             actualYaw += 90f * forward;
         }
 
-        return MathHelper.wrapDegrees(actualYaw);
+        return Mth.wrapDegrees(actualYaw);
     }
 
     public static final double SQRT_SPEED = Math.sqrt(0.0825);
 
-    public static Vec3d withStrafe(Vec3d self, double speed) {
+    public static Vec3 withStrafe(Vec3 self, double speed) {
 
         return withStrafe(self, speed, 1.0D);
     }
 
-    public static Vec2f applyMovementFactors(Entity entity, Vec2f vec2f) {
+    public static Vec2 applyMovementFactors(Entity entity, Vec2 vec2f) {
         if (vec2f.lengthSquared() == 0) {
             return vec2f;
         }
-        if (entity instanceof ClientPlayerEntity p) {
-            vec2f = vec2f.multiply(0.98F);
-            if (p.isUsingItem() && !p.hasVehicle()) {
-                vec2f = vec2f.multiply(p.getActiveItem()
-                        .getOrDefault(DataComponentTypes.USE_EFFECTS, UseEffectsComponent.DEFAULT)
+        if (entity instanceof LocalPlayer p) {
+            vec2f = vec2f.scale(0.98F);
+            if (p.isUsingItem() && !p.isPassenger()) {
+                vec2f = vec2f.scale(p.getUseItem()
+                        .getOrDefault(DataComponents.USE_EFFECTS, UseEffects.DEFAULT)
                         .speedMultiplier());
             }
-            if (p.shouldSlowDown()) {
-                float f = (float) p.getAttributeValue(EntityAttributes.SNEAKING_SPEED);
-                vec2f = vec2f.multiply(f);
+            if (p.isMovingSlowly()) {
+                float f = (float) p.getAttributeValue(Attributes.SNEAKING_SPEED);
+                vec2f = vec2f.scale(f);
             }
             float f = vec2f.length();
-            vec2f = vec2f.multiply(1.0F / f);
+            vec2f = vec2f.scale(1.0F / f);
             float g = getDirectionalMovementSpeedMultiplier(vec2f);
             float h = Math.min(f * g, 1.0F);
-            return vec2f.multiply(h);
+            return vec2f.scale(h);
         } else {
             return vec2f;
         }
     }
 
-    private static float getDirectionalMovementSpeedMultiplier(Vec2f vec) {
+    private static float getDirectionalMovementSpeedMultiplier(Vec2 vec) {
         float f = Math.abs(vec.x);
         float g = Math.abs(vec.y);
         float h = g > f ? f / g : g / f;
-        return MathHelper.sqrt(1.0F + MathHelper.square(h));
+        return Mth.sqrt(1.0F + Mth.square(h));
     }
 
-    public static double getEffectiveGravity(ClientPlayerEntity player) {
-        boolean bl = player.getVelocity().y <= 0.0;
-        return bl && player.hasStatusEffect(StatusEffects.SLOW_FALLING)
-                ? Math.min(player.getFinalGravity(), 0.01)
-                : player.getFinalGravity();
+    public static double getEffectiveGravity(LocalPlayer player) {
+        boolean bl = player.getDeltaMovement().y <= 0.0;
+        return bl && player.hasEffect(MobEffects.SLOW_FALLING)
+                ? Math.min(player.getGravity(), 0.01)
+                : player.getGravity();
     }
 
-    public static Vec3d calculateGlidingVelocity(
-            ClientPlayerEntity player, Vec3d oldVelocity, Vec3d rotationVector, boolean hasGravity) {
-        Vec3d look = rotationVector;
+    public static Vec3 calculateGlidingVelocity(
+            LocalPlayer player, Vec3 oldVelocity, Vec3 rotationVector, boolean hasGravity) {
+        Vec3 look = rotationVector;
         float pitch = rotationToPitch(rotationVector);
         float pitchRad = pitch * 0.017453292F;
         double lookHorizLen = Math.sqrt(look.x * look.x + look.z * look.z);
-        double initialHorizSpeed = oldVelocity.horizontalLength();
+        double initialHorizSpeed = oldVelocity.horizontalDistance();
         double gravity = hasGravity ? getEffectiveGravity(player) : 0;
-        double cosPitchSq = MathHelper.square(Math.cos(pitchRad));
+        double cosPitchSq = Mth.square(Math.cos(pitchRad));
 
         // 1. 重力影响
         double newY = oldVelocity.y + gravity * (cosPitchSq * 0.75 - 1.0);
-        Vec3d vel = new Vec3d(oldVelocity.x, newY, oldVelocity.z);
+        Vec3 vel = new Vec3(oldVelocity.x, newY, oldVelocity.z);
 
         // 2. 下降时的抬升效应
         if (newY < 0.0 && lookHorizLen > 0.0) {
@@ -582,7 +601,7 @@ public class EntityUtils {
 
         // 3. 俯冲加速（向下看时）
         if (pitchRad < 0.0F && lookHorizLen > 0.0) {
-            double dive = initialHorizSpeed * (-MathHelper.sin(pitchRad)) * 0.04;
+            double dive = initialHorizSpeed * (-Mth.sin(pitchRad)) * 0.04;
             vel = vel.add(-look.x * dive / lookHorizLen, dive * 3.2, -look.z * dive / lookHorizLen);
         }
 
@@ -596,8 +615,8 @@ public class EntityUtils {
         return vel.multiply(0.99, 0.98, 0.99);
     }
 
-    public static Vec3d simulateTravelInFluidVelocity(
-            Vec3d velocity, boolean lastInWater, boolean lastInLava, boolean hasGravity) {
+    public static Vec3 simulateTravelInFluidVelocity(
+            Vec3 velocity, boolean lastInWater, boolean lastInLava, boolean hasGravity) {
         if (lastInWater) {
             return simulateTravelInWaterVelocity(velocity, hasGravity);
         }
@@ -607,33 +626,33 @@ public class EntityUtils {
         return velocity;
     }
 
-    private static Vec3d simulateTravelInWaterVelocity(Vec3d velocity, boolean hasGravity) {
+    private static Vec3 simulateTravelInWaterVelocity(Vec3 velocity, boolean hasGravity) {
         PlayerInputUtils.Input input = PlayerStateManager.INSTANCE.lastInput;
 
-        Vec2f vec2f =
-                EntityUtils.applyMovementFactors(mc.player, new Vec2f(input.sidewaysSpeed(), input.forwardSpeed()));
-        Vec3d movementInput = new Vec3d(vec2f.x, 0, vec2f.y);
+        Vec2 vec2f =
+                EntityUtils.applyMovementFactors(mc.player, new Vec2(input.sidewaysSpeed(), input.forwardSpeed()));
+        Vec3 movementInput = new Vec3(vec2f.x, 0, vec2f.y);
         boolean falling = velocity.y <= 0.0;
         double y = mc.player.getY();
         double gravity = EntityUtils.getEffectiveGravity(mc.player);
         float drag = mc.player.isSprinting() ? 0.9F : 0.8F;
         float acceleration = 0.02F;
         float efficiency = (float)
-                mc.player.getAttributeValue(net.minecraft.entity.attribute.EntityAttributes.WATER_MOVEMENT_EFFICIENCY);
-        if (!mc.player.isOnGround()) {
+                mc.player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.WATER_MOVEMENT_EFFICIENCY);
+        if (!mc.player.onGround()) {
             efficiency *= 0.5F;
         }
         if (efficiency > 0.0F) {
             drag += (0.54600006F - drag) * efficiency;
-            acceleration += (mc.player.getMovementSpeed() - acceleration) * efficiency;
+            acceleration += (mc.player.getSpeed() - acceleration) * efficiency;
         }
-        if (mc.player.hasStatusEffect(StatusEffects.DOLPHINS_GRACE)) {
+        if (mc.player.hasEffect(MobEffects.DOLPHINS_GRACE)) {
             drag = 0.96F;
         }
-        Vec3d nextVelocity =
-                velocity.add(EntityUtils.movementInputToVelocity(movementInput, acceleration, mc.player.getYaw()));
-        if (mc.player.horizontalCollision && mc.player.isClimbing()) {
-            nextVelocity = new Vec3d(nextVelocity.x, 0.2, nextVelocity.z);
+        Vec3 nextVelocity =
+                velocity.add(EntityUtils.movementInputToVelocity(movementInput, acceleration, mc.player.getYRot()));
+        if (mc.player.horizontalCollision && mc.player.onClimbable()) {
+            nextVelocity = new Vec3(nextVelocity.x, 0.2, nextVelocity.z);
         }
         nextVelocity = nextVelocity.multiply((double) drag, 0.800000011920929, (double) drag);
         nextVelocity =
@@ -641,20 +660,20 @@ public class EntityUtils {
         return simulateResetVerticalVelocityInFluid(nextVelocity, y);
     }
 
-    private static Vec3d simulateTravelInLavaVelocity(Vec3d velocity, boolean hasGravity) {
+    private static Vec3 simulateTravelInLavaVelocity(Vec3 velocity, boolean hasGravity) {
         PlayerInputUtils.Input input = PlayerStateManager.INSTANCE.lastInput;
-        Vec3d movementInput = new Vec3d(input.sidewaysSpeed(), input.upwardSpeed(), input.forwardSpeed());
+        Vec3 movementInput = new Vec3(input.sidewaysSpeed(), input.upwardSpeed(), input.forwardSpeed());
         boolean falling = velocity.y <= 0.0;
         double y = mc.player.getY();
         double gravity = EntityUtils.getEffectiveGravity(mc.player);
-        Vec3d nextVelocity =
-                velocity.add(EntityUtils.movementInputToVelocity(movementInput, 0.02F, mc.player.getYaw()));
-        if (mc.player.getFluidHeight(net.minecraft.registry.tag.FluidTags.LAVA) <= mc.player.getSwimHeight()) {
+        Vec3 nextVelocity =
+                velocity.add(EntityUtils.movementInputToVelocity(movementInput, 0.02F, mc.player.getYRot()));
+        if (mc.player.getFluidHeight(net.minecraft.tags.FluidTags.LAVA) <= mc.player.getFluidJumpThreshold()) {
             nextVelocity = nextVelocity.multiply(0.5, 0.800000011920929, 0.5);
             nextVelocity =
                     simulateApplyFluidMovingSpeed(gravity, falling, nextVelocity, hasGravity, mc.player.isSprinting());
         } else {
-            nextVelocity = nextVelocity.multiply(0.5);
+            nextVelocity = nextVelocity.scale(0.5);
         }
         if (gravity != 0.0) {
             nextVelocity = nextVelocity.add(0.0, -gravity / 4.0, 0.0);
@@ -662,8 +681,8 @@ public class EntityUtils {
         return simulateResetVerticalVelocityInFluid(nextVelocity, y);
     }
 
-    private static Vec3d simulateApplyFluidMovingSpeed(
-            double gravity, boolean falling, Vec3d velocity, boolean hasGravity, boolean isSprinting) {
+    private static Vec3 simulateApplyFluidMovingSpeed(
+            double gravity, boolean falling, Vec3 velocity, boolean hasGravity, boolean isSprinting) {
         if (gravity != 0.0 && hasGravity && !isSprinting) {
             double nextY;
             if (falling && Math.abs(velocity.y - 0.005) >= 0.003 && Math.abs(velocity.y - gravity / 16.0) < 0.003) {
@@ -671,16 +690,16 @@ public class EntityUtils {
             } else {
                 nextY = velocity.y - gravity / 16.0;
             }
-            return new Vec3d(velocity.x, nextY, velocity.z);
+            return new Vec3(velocity.x, nextY, velocity.z);
         }
         return velocity;
     }
 
-    private static Vec3d simulateResetVerticalVelocityInFluid(Vec3d velocity, double y) {
+    private static Vec3 simulateResetVerticalVelocityInFluid(Vec3 velocity, double y) {
         if (mc.player.horizontalCollision
-                && mc.player.doesNotCollide(
+                && mc.player.isFree(
                         velocity.x, velocity.y + 0.6000000238418579 - mc.player.getY() + y, velocity.z)) {
-            return new Vec3d(velocity.x, 0.30000001192092896, velocity.z);
+            return new Vec3(velocity.x, 0.30000001192092896, velocity.z);
         }
         return velocity;
     }
@@ -688,10 +707,10 @@ public class EntityUtils {
     /**
      * 指定 speed 和 strength
      */
-    public static Vec3d withStrafe(Vec3d self, double speed, double strength) {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+    public static Vec3 withStrafe(Vec3 self, double speed, double strength) {
+        LocalPlayer player = Minecraft.getInstance().player;
         PlayerInputUtils.Input input = PlayerInputUtils.of(player);
-        float yaw = getMovementDirectionOfInput(player.getYaw(), input);
+        float yaw = getMovementDirectionOfInput(player.getYRot(), input);
         return withStrafe(self, speed, strength, input, yaw);
     }
 }

@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import lombok.Getter;
 import me.matl114.managers.config.Config;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class ModulePath {
     @Getter
@@ -40,8 +40,8 @@ public class ModulePath {
         return String.join(".", splits);
     }
 
-    public Text toTranslationKey() {
-        return Text.translatable(asString());
+    public Component toTranslationKey() {
+        return Component.translatable(asString());
     }
 
     @Override

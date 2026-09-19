@@ -14,14 +14,14 @@ import me.matl114.hacks.InvTasks;
 import me.matl114.hacks.utils.HotKeyUtils;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.ScreenUtils;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.MerchantScreen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.village.TradeOffer;
-import net.minecraft.village.TradeOfferList;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.MerchantScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
 
 public class TradeInformationSubScreen extends SubScreenWidget {
     private static final int SLOT_WIDTH = 18;
@@ -30,9 +30,9 @@ public class TradeInformationSubScreen extends SubScreenWidget {
     private static final int TRADE_ICON_WIDTH = 10;
     private static final int TRADE_ICON_HEIGHT = 9;
     private static final Identifier TRADE_ARROW_OUT_OF_STOCK_TEXTURE =
-            Identifier.ofVanilla("container/villager/out_of_stock");
+            Identifier.withDefaultNamespace("container/villager/out_of_stock");
     private static final Identifier TRADE_ARROW_TEXTURE_SPRITE = new Identifier("slimefunhelper", "gui/trade_arrow");
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     private MerchantScreen screen;
 
     public TradeInformationSubScreen(int x, int y, MerchantScreen screen) {
@@ -46,10 +46,10 @@ public class TradeInformationSubScreen extends SubScreenWidget {
     }
 
     @Nullable
-    public TradeOffer getCurrentTrade() {
+    public MerchantOffer getCurrentTrade() {
         MerchantScreenAccess access = MerchantScreenAccess.of(this.screen);
         int index = access.getSelectedIndex();
-        TradeOfferList list = this.screen.getScreenHandler().getRecipes();
+        MerchantOffers list = this.screen.getMenu().getOffers();
         if (index < 0 || index >= list.size()) {
             return null;
         } else {
@@ -61,11 +61,11 @@ public class TradeInformationSubScreen extends SubScreenWidget {
         return getCurrentTrade() != null;
     }
 
-    private static final Text LABEL_TRADE = Text.translatable("widget.fast-trade.trade");
-    private static final List<Text> TOOLTIPS_TRADE = List.of(Text.translatable("widget.fast-trade.trade.tooltips"));
-    private static final Text LABEL_DROP_CRAFT = Text.translatable("widget.fast-trade.toggle-drop");
-    private static final List<Text> TOOLTIPS_DROPCRAFT =
-            List.of(Text.translatable("widget.fast-trade.toggle-drop.tooltips"));
+    private static final Component LABEL_TRADE = Component.translatable("widget.fast-trade.trade");
+    private static final List<Component> TOOLTIPS_TRADE = List.of(Component.translatable("widget.fast-trade.trade.tooltips"));
+    private static final Component LABEL_DROP_CRAFT = Component.translatable("widget.fast-trade.toggle-drop");
+    private static final List<Component> TOOLTIPS_DROPCRAFT =
+            List.of(Component.translatable("widget.fast-trade.toggle-drop.tooltips"));
 
     protected void init() {
 
@@ -73,7 +73,7 @@ public class TradeInformationSubScreen extends SubScreenWidget {
                 .setElementHandler(new SlotElement(
                                 InventoryUtils.createReadOnlyOneItemInventory(() -> {
                                     var trade = getCurrentTrade();
-                                    return trade == null ? ItemStack.EMPTY : trade.getDisplayedFirstBuyItem();
+                                    return trade == null ? ItemStack.EMPTY : trade.getCostA();
                                 }),
                                 0,
                                 InvTasks.getRightClickOpenEditScreenCallback())
@@ -83,7 +83,7 @@ public class TradeInformationSubScreen extends SubScreenWidget {
                 .setElementHandler(new SlotElement(
                                 InventoryUtils.createReadOnlyOneItemInventory(() -> {
                                     var trade = getCurrentTrade();
-                                    return trade == null ? ItemStack.EMPTY : (trade.getDisplayedSecondBuyItem());
+                                    return trade == null ? ItemStack.EMPTY : (trade.getCostB());
                                 }),
                                 0,
                                 InvTasks.getRightClickOpenEditScreenCallback())
@@ -96,34 +96,34 @@ public class TradeInformationSubScreen extends SubScreenWidget {
                                 ButtonAction.empty(),
                                 (el) -> {
                                     var trade = getCurrentTrade();
-                                    return trade != null && !trade.isDisabled();
+                                    return trade != null && !trade.isOutOfStock();
                                 })
                         //                    .setShaderColor(Constants.SLOT_COLOR)
                         .withTooltips(TooltipHandler.of(() -> {
                             var trade = getCurrentTrade();
                             if (trade == null) return List.of();
-                            var builder = ImmutableList.<Text>builder();
-                            builder.add(Text.translatable("widget.fast-trade.trade-info.0")
-                                    .formatted(Formatting.AQUA));
-                            builder.add(Text.translatable("widget.fast-trade.trade-info.1")
-                                    .formatted(Formatting.GREEN));
-                            builder.add(Text.literal("------------------").formatted(Formatting.GREEN));
-                            builder.add(Text.translatable(
+                            var builder = ImmutableList.<Component>builder();
+                            builder.add(Component.translatable("widget.fast-trade.trade-info.0")
+                                    .withStyle(ChatFormatting.AQUA));
+                            builder.add(Component.translatable("widget.fast-trade.trade-info.1")
+                                    .withStyle(ChatFormatting.GREEN));
+                            builder.add(Component.literal("------------------").withStyle(ChatFormatting.GREEN));
+                            builder.add(Component.translatable(
                                     "widget.fast-trade.trade-info.max-trade", String.valueOf(trade.getMaxUses())));
-                            builder.add(Text.translatable(
+                            builder.add(Component.translatable(
                                     "widget.fast-trade.trade-info.current-trade", String.valueOf(trade.getUses())));
-                            builder.add(Text.translatable(
+                            builder.add(Component.translatable(
                                     "widget.fast-trade.trade-info.default-count",
-                                    String.valueOf(trade.getFirstBuyItem().count())));
-                            builder.add(Text.translatable(
+                                    String.valueOf(trade.getItemCostA().count())));
+                            builder.add(Component.translatable(
                                     "widget.fast-trade.trade-info.price-multiplier",
                                     "%.2f".formatted(trade.getPriceMultiplier())));
-                            builder.add(Text.translatable(
+                            builder.add(Component.translatable(
                                     "widget.fast-trade.trade-info.demand-bonus",
-                                    String.valueOf(trade.getDemandBonus())));
-                            builder.add(Text.translatable(
+                                    String.valueOf(trade.getDemand())));
+                            builder.add(Component.translatable(
                                     "widget.fast-trade.trade-info.special-price",
-                                    String.valueOf(trade.getSpecialPrice())));
+                                    String.valueOf(trade.getSpecialPriceDiff())));
                             return builder.build();
                         }))
                         .withPresentCondition(this::active))
@@ -132,7 +132,7 @@ public class TradeInformationSubScreen extends SubScreenWidget {
                 .setElementHandler(new SlotElement(
                                 InventoryUtils.createReadOnlyOneItemInventory(() -> {
                                     var trade = getCurrentTrade();
-                                    return trade == null ? ItemStack.EMPTY : (trade.getSellItem());
+                                    return trade == null ? ItemStack.EMPTY : (trade.getResult());
                                 }),
                                 0,
                                 InvTasks.getRightClickOpenEditScreenCallback())
@@ -158,7 +158,7 @@ public class TradeInformationSubScreen extends SubScreenWidget {
                 .addToSub(this);
         DisplayWidget.instance(10, 0, 3 * (SLOT_WIDTH + 2) + TRADE_ICON_WIDTH - 20, 20)
                 .setRenderHandler(LabelElement.instance(
-                                Text.translatable("widget.fast-trade.no-select").formatted(Formatting.RED))
+                                Component.translatable("widget.fast-trade.no-select").withStyle(ChatFormatting.RED))
                         .withPresentCondition((v) -> !this.active(v)))
                 .addToSub(this);
     }
@@ -173,11 +173,11 @@ public class TradeInformationSubScreen extends SubScreenWidget {
     private void craft() {
         if (mc.player != null) {
             place();
-            TradeOffer offer = getCurrentTrade();
+            MerchantOffer offer = getCurrentTrade();
             if (offer != null) {
-                ItemStack output = offer.getSellItem();
+                ItemStack output = offer.getResult();
                 if (!output.isEmpty()) {
-                    int maxCraft = (int) Math.ceil((float) output.getMaxCount() / (float) output.getCount());
+                    int maxCraft = (int) Math.ceil((float) output.getMaxStackSize() / (float) output.getCount());
                     maxCraft = Math.min(maxCraft, offer.getMaxUses() - offer.getUses());
                     InvTasks.getFastCraft().craftAtSlotIndex(this.screen, maxCraft, 2);
                 }

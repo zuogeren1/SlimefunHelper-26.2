@@ -4,11 +4,11 @@ import java.util.OptionalInt;
 import me.matl114.accessors.access.FireworkRocketEntityAccess;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.projectile.FireworkRocketEntity;
-import net.minecraft.world.World;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -19,18 +19,18 @@ import org.spongepowered.asm.mixin.Unique;
 public abstract class FireworkRocketEntityMixin extends Entity implements FireworkRocketEntityAccess {
     @Shadow
     @Final
-    private static TrackedData<OptionalInt> SHOOTER_ENTITY_ID;
+    private static EntityDataAccessor<OptionalInt> DATA_ATTACHED_TO_TARGET;
 
     @Shadow
     private int life;
 
-    public FireworkRocketEntityMixin(EntityType<?> type, World world) {
+    public FireworkRocketEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @Unique
     public boolean isFallFlyingAccelerator() {
-        return this.dataTracker.get(SHOOTER_ENTITY_ID).isPresent();
+        return this.entityData.get(DATA_ATTACHED_TO_TARGET).isPresent();
     }
 
     @Unique

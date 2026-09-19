@@ -13,8 +13,8 @@ import me.matl114.gui.presets.choices.ConfirmingBigScreen;
 import me.matl114.managers.config.NBTType;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WidgetFactory;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
     final Predicate<List<T>> validator;
@@ -52,7 +52,7 @@ public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
             Consumer<List<T>> callback,
             int dx,
             int dy) {
-        super(Text.translatable("widget.gui.nbt-list-modify-screen.title").formatted(Formatting.GREEN));
+        super(Component.translatable("widget.gui.nbt-list-modify-screen.title").withStyle(ChatFormatting.GREEN));
         validator = listValidator;
         this.attrFactory = attrElementFactory;
         this.list = list.stream().map(s -> attrFactory.apply("", s)).collect(Collectors.toCollection(ArrayList::new));
@@ -125,7 +125,7 @@ public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
         var list = this.list();
         if (validator.test(list)) {
             callback.accept(list);
-            close();
+            onClose();
         }
     }
 }

@@ -8,28 +8,28 @@ import me.matl114.utils.ApiMethod;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.inventory.MutableInventory;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.component.ComponentType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemConvertible;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ItemLike;
 
 @ApiMethod
 public class ItemStackHelper {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static ItemStack createStack(Object object, int num) {
         if (object instanceof ItemStack stack) {
             return stack.copyWithCount(num);
-        } else if (object instanceof ItemConvertible item) {
+        } else if (object instanceof ItemLike item) {
             return new ItemStack(item, num);
         } else if (object instanceof String str) {
-            Item item = Registries.ITEM.get(Identifier.tryParse(str));
+            Item item = BuiltInRegistries.ITEM.getValue(Identifier.tryParse(str));
             return new ItemStack(item, num);
         } else {
             throw new IllegalArgumentException(object + " is not a stack related argument");
@@ -42,7 +42,7 @@ public class ItemStackHelper {
             return new LinkedHashMap<>();
         }
         return (Map<String, Object>) ItemStack.CODEC
-                .encodeStart(ItemStackUtils.registry().getOps(JavaOps.INSTANCE), itemStack1)
+                .encodeStart(ItemStackUtils.registry().createSerializationContext(JavaOps.INSTANCE), itemStack1)
                 .getOrThrow();
     }
 
@@ -51,7 +51,7 @@ public class ItemStackHelper {
             return ItemStack.EMPTY;
         }
         return ItemStack.CODEC
-                .decode(ItemStackUtils.registry().getOps(JavaOps.INSTANCE), itemStack)
+                .decode(ItemStackUtils.registry().createSerializationContext(JavaOps.INSTANCE), itemStack)
                 .getOrThrow()
                 .getFirst();
     }
@@ -61,8 +61,8 @@ public class ItemStackHelper {
         if (itemStack.isEmpty()) {
             return null;
         }
-        Text text = ItemStackUtils.getCustomName(itemStack);
-        return Objects.equals(text, Text.empty()) ? null : ChatUtils.textToLegacyString(text);
+        Component text = ItemStackUtils.getCustomName(itemStack);
+        return Objects.equals(text, Component.empty()) ? null : ChatUtils.textToLegacyString(text);
     }
 
     public static void setCustomName(Object what, String name) {
@@ -78,7 +78,7 @@ public class ItemStackHelper {
         if (itemStack.isEmpty()) {
             return null;
         }
-        List<Text> texts = ItemStackUtils.getLore(itemStack);
+        List<Component> texts = ItemStackUtils.getLore(itemStack);
         return texts.isEmpty()
                 ? null
                 : texts.stream()
@@ -97,24 +97,24 @@ public class ItemStackHelper {
                         ? null
                         : lore.stream()
                                 .map(ChatUtils::textFromLegacyString)
-                                .map(Text.class::cast)
+                                .map(Component.class::cast)
                                 .toList());
     }
 
-    public static ComponentType<?> getComponentType(String name) {
-        return RegistryHelper.getInRegistry(Registries.DATA_COMPONENT_TYPE, name);
+    public static DataComponentType<?> getComponentType(String name) {
+        return RegistryHelper.getInRegistry(BuiltInRegistries.DATA_COMPONENT_TYPE, name);
     }
 
-    public static Optional<?> getComponent(Object what, ComponentType<?> type) {
+    public static Optional<?> getComponent(Object what, DataComponentType<?> type) {
         ItemStack itemStack = JsHelper.unwrap(what, ItemStack.class);
         if (itemStack.isEmpty()) {
             return null;
         }
-        var map = itemStack.components.changedComponents;
+        var map = itemStack.components.patch;
         return map == null ? null : map.get(type);
     }
 
-    public static <T> void setComponent(Object what, ComponentType<T> type, @Nullable Optional<T> value) {
+    public static <T> void setComponent(Object what, DataComponentType<T> type, @Nullable Optional<T> value) {
         ItemStack itemStack = JsHelper.unwrap(what, ItemStack.class);
         if (itemStack.isEmpty()) {
             return;
@@ -132,7 +132,7 @@ public class ItemStackHelper {
         return JsMacrosBridge.getInstance().wrapItemStack(stack);
     }
 
-    public static Inventory createInventory(List<?> list, int size) {
+    public static Container createInventory(List<?> list, int size) {
         return new MutableInventory(
                 size,
                 list.stream()
@@ -140,18 +140,18 @@ public class ItemStackHelper {
                         .collect(Collectors.toCollection(ArrayList::new)));
     }
 
-    public static Inventory createMappingInventory(List<ItemStack> list, int size) {
+    public static Container createMappingInventory(List<ItemStack> list, int size) {
         return new MutableInventory(size, list);
     }
 
-    public static Inventory createJSMappingInventory(List<?> list, int size) {
+    public static Container createJSMappingInventory(List<?> list, int size) {
         List helpers = list;
         if (helpers.size() < size) {
             helpers.add(JsMacrosBridge.getInstance().wrapItemStack(ItemStack.EMPTY));
         }
-        return new Inventory() {
+        return new Container() {
             @Override
-            public int size() {
+            public int getContainerSize() {
                 return size;
             }
 
@@ -161,12 +161,12 @@ public class ItemStackHelper {
             }
 
             @Override
-            public ItemStack getStack(int slot) {
+            public ItemStack getItem(int slot) {
                 return JsMacrosBridge.getInstance().unwrapItemStack(helpers.get(slot));
             }
 
             @Override
-            public ItemStack removeStack(int slot, int amount) {
+            public ItemStack removeItem(int slot, int amount) {
                 Object helper = helpers.get(slot);
                 if (!JsMacrosBridge.getInstance().isItemEmpty(helper) && amount > 0) {
                     return JsMacrosBridge.getInstance().unwrapItemStack(helper).split(amount);
@@ -176,7 +176,7 @@ public class ItemStackHelper {
             }
 
             @Override
-            public ItemStack removeStack(int slot) {
+            public ItemStack removeItemNoUpdate(int slot) {
                 ItemStack itemStack = JsMacrosBridge.getInstance().unwrapItemStack(helpers.get(slot));
                 if (itemStack.isEmpty()) {
                     return ItemStack.EMPTY;
@@ -187,22 +187,22 @@ public class ItemStackHelper {
             }
 
             @Override
-            public void setStack(int slot, ItemStack stack) {
+            public void setItem(int slot, ItemStack stack) {
                 helpers.set(slot, JsMacrosBridge.getInstance().wrapItemStack(stack));
             }
 
             @Override
-            public void markDirty() {}
+            public void setChanged() {}
 
             @Override
-            public boolean canPlayerUse(PlayerEntity player) {
+            public boolean stillValid(Player player) {
                 return true;
             }
 
             @Override
-            public void clear() {
+            public void clearContent() {
                 for (int i = 0; i < size; i++) {
-                    setStack(i, ItemStack.EMPTY);
+                    setItem(i, ItemStack.EMPTY);
                 }
             }
         };

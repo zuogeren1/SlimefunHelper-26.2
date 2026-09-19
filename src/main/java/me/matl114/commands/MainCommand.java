@@ -18,14 +18,14 @@ import me.matl114.utils.commands.commandGroup.SubCommand;
 import me.matl114.utils.commands.params.ArgumentInputStream;
 import me.matl114.utils.commands.params.ArgumentReader;
 import me.matl114.utils.commands.params.api.CommandExecution;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class MainCommand extends AbstractMainCommand {
     public static void init() {
         reloadCommand();
     }
 
-    public static final MinecraftClient mc = MinecraftClient.getInstance();
+    public static final Minecraft mc = Minecraft.getInstance();
     public static String MAIN_PREFIX = "!!";
 
     public static String getMainCommandPrefix() {

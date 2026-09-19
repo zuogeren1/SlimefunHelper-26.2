@@ -5,7 +5,6 @@ import me.matl114.hacks.api.ModuleGroup;
 import me.matl114.hacks.api.ModuleManager;
 import me.matl114.hacks.modules.HackModules;
 import me.matl114.hacks.modules.extra.*;
-import me.matl114.hacks.modules.extra.AutoLogout;
 
 public class ExtraTasks {
     public static void init() {}

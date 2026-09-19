@@ -2,10 +2,10 @@ package me.matl114.hacks.utils.multiblock;
 
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.minecraft.block.Block;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.TagKey;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.block.Block;
 
 public interface BlockMatcher {
     public Set<Block> getPotentials();
@@ -31,13 +31,13 @@ public interface BlockMatcher {
 
     public static record Tagged(TagKey<Block> blockTagKey) implements BlockMatcher {
         public Set<Block> getPotentials() {
-            return Registries.BLOCK.getOrThrow(blockTagKey).stream()
-                    .map(RegistryEntry::value)
+            return BuiltInRegistries.BLOCK.getOrThrow(blockTagKey).stream()
+                    .map(Holder::value)
                     .collect(Collectors.toUnmodifiableSet());
         }
 
         public boolean match(Block b) {
-            return b.getRegistryEntry().isIn(blockTagKey);
+            return b.builtInRegistryHolder().is(blockTagKey);
         }
 
         @Override

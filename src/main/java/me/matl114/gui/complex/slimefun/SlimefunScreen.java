@@ -7,11 +7,11 @@ import me.matl114.gui.elements.PlateElement;
 import me.matl114.gui.elements.SlotElement;
 import me.matl114.hacks.SlimefunTasks;
 import me.matl114.utils.ChatUtils;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 public class SlimefunScreen extends GenericBackGroundScreen {
-    public SlimefunScreen(Text title) {
+    public SlimefunScreen(Component title) {
         super(title, 240, 320);
         this.titleLabel = title;
     }
@@ -28,7 +28,7 @@ public class SlimefunScreen extends GenericBackGroundScreen {
     protected static Identifier CANCEL_GUI_TEXTURE = new Identifier("minecraft", "container/beacon/cancel");
     private static final Identifier SEARCH_TEXTURE_SPRITE = new Identifier("slimefunhelper", "gui/search");
 
-    protected List<Text> getSearchButtonTooltips() {
+    protected List<Component> getSearchButtonTooltips() {
         return ChatUtils.parseTooltipsTranslation("widget.gui.slimefun-screen.search-default.tooltips", "");
     }
 
@@ -46,14 +46,14 @@ public class SlimefunScreen extends GenericBackGroundScreen {
                 .setRenderHandler(PlateElement.instance())
                 .addTo(this);
         this.closeButton = ExecutableWidget.instance(this.x + this.backgroundWidth - 3, this.y + 12, 26, 26)
-                .setInputHandler(InputHandler.run(this::close))
+                .setInputHandler(InputHandler.run(this::onClose))
                 .setRenderHandler(PlateElement.instance()
                         .combineRender(RenderHandler.ofGuiTextures(CANCEL_GUI_TEXTURE, 4, 4, 18, 18))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-screen.close-screen.tooltips", ""))))
                 .addTo(this);
         this.searchButton = ExecutableWidget.instance(this.x + this.backgroundWidth - 3, this.y + 38, 26, 26)
-                .setInputHandler(InputHandler.run(this::close))
+                .setInputHandler(InputHandler.run(this::onClose))
                 .setRenderHandler(PlateElement.instance()
                         .combineRender(RenderHandler.ofGuiTextures(SEARCH_TEXTURE_SPRITE, 4, 4, 18, 18))
                         .withTooltips(TooltipHandler.of(this::getSearchButtonTooltips)))

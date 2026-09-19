@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.interact;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.awt.*;
 import java.util.*;
@@ -32,21 +33,45 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.render.RenderCollector;
-import net.minecraft.block.*;
-import net.minecraft.block.enums.SlabType;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.*;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.core.*;
+import net.minecraft.world.phys.*;
+import net.minecraft.util.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.CakeBlock;
+import net.minecraft.world.level.block.CandleBlock;
+import net.minecraft.world.level.block.CandleCakeBlock;
+import net.minecraft.world.level.block.FlowerBedBlock;
+import net.minecraft.world.level.block.FlowerPotBlock;
+import net.minecraft.world.level.block.LeafLitterBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.NoteBlock;
+import net.minecraft.world.level.block.PumpkinBlock;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.SeaPickleBlock;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.SnowLayerBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec2;
 
 public class PrinterRewrite extends BaseModule {
     public final ModulePath blockRotate = makePath(Configs.INTERACT_CONFIG, "block-rotate");
@@ -148,7 +173,7 @@ public class PrinterRewrite extends BaseModule {
         super.registerAll();
         registerListener(Listener.getPreHandleInputEvents(), this::onPreInputEvent);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(BlockUpdateS2CPacket.class), this::onBlockUpdate);
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockUpdatePacket.class), this::onBlockUpdate);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetReload);
     }
@@ -163,7 +188,7 @@ public class PrinterRewrite extends BaseModule {
     }
 
     int countDown;
-    final RenderCollector<Box> drawOutlines = RenderCollectors.createBoxCollector(true, false, false);
+    final RenderCollector<AABB> drawOutlines = RenderCollectors.createBoxCollector(true, false, false);
     boolean needSneak = false;
     boolean drainWater = false;
     Map<BlockPos, Integer> desyncWaitBlocks = new HashMap<>();
@@ -191,25 +216,25 @@ public class PrinterRewrite extends BaseModule {
         tickDesyncWaitBlocks();
         drawOutlines.clear();
         if (enable.get() && LitematicaHooks.getInstance().isEnabled()) {
-            World litematicaWorld = LitematicaHooks.getInstance().getSchematicWorld();
-            BlockPos posStanding = mc.player.getSteppingPos();
-            BlockPos posCenter = posStanding.add(0, 1, 0);
+            Level litematicaWorld = LitematicaHooks.getInstance().getSchematicWorld();
+            BlockPos posStanding = mc.player.getOnPos();
+            BlockPos posCenter = posStanding.offset(0, 1, 0);
             int multiply = ((DisablerManager.INSTANCE.isMultiRotPlaceCheckDisabled(
                             mode.get().canMultiRotPlace())))
                     ? mul.get()
                     : 1;
             int placeCount = 0;
             for (var offset : blocksSeq) {
-                BlockPos checkPos = posCenter.add(offset);
+                BlockPos checkPos = posCenter.offset(offset);
                 if (LitematicaHooks.getInstance().isPositionWithinRange(checkPos)) {
                     BlockState state = litematicaWorld.getBlockState(checkPos);
                     if (!state.isAir()) {
-                        BlockState clientState = mc.world.getBlockState(checkPos);
+                        BlockState clientState = mc.level.getBlockState(checkPos);
                         if (supportReplace.get()
                                 && clientState != state
                                 && !clientState.isAir()
-                                && !clientState.isLiquid()
-                                && !clientState.isReplaceable()
+                                && !clientState.liquid()
+                                && !clientState.canBeReplaced()
                                 && !desyncWaitBlocks.containsKey(checkPos)
                                 && canBeReplaceTo(clientState, state)) {
                             if (doMultiReplace(checkPos, clientState, state)) {
@@ -222,8 +247,8 @@ public class PrinterRewrite extends BaseModule {
                         if (supportWater.get()
                                 && clientState != state
                                 && ((clientState.isAir()
-                                                && (state.isLiquid()
-                                                        || state.getFluidState().getFluid() == Fluids.WATER))
+                                                && (state.liquid()
+                                                        || state.getFluidState().getType() == Fluids.WATER))
                                         || (clientState.getBlock() == state.getBlock()
                                                 && clientState.getFluidState() != state.getFluidState()))
                                 && !desyncWaitBlocks.containsKey(checkPos)) {
@@ -231,11 +256,11 @@ public class PrinterRewrite extends BaseModule {
                             FluidState fluidState = clientState.getFluidState();
                             FluidState targetState = state.getFluidState();
                             // place only source to empty state
-                            if ((fluidState.getFluid() == Fluids.EMPTY
-                                            || fluidState.getFluid() == Fluids.FLOWING_WATER
-                                            || fluidState.getFluid() == Fluids.FLOWING_LAVA)
-                                    && (targetState.getFluid() == Fluids.LAVA
-                                            || targetState.getFluid() == Fluids.WATER)) {
+                            if ((fluidState.getType() == Fluids.EMPTY
+                                            || fluidState.getType() == Fluids.FLOWING_WATER
+                                            || fluidState.getType() == Fluids.FLOWING_LAVA)
+                                    && (targetState.getType() == Fluids.LAVA
+                                            || targetState.getType() == Fluids.WATER)) {
                                 if (doLiquidPlace(checkPos, state)) {
                                     placeCount += 1;
                                     if (placeCount >= multiply) {
@@ -245,8 +270,8 @@ public class PrinterRewrite extends BaseModule {
                                 }
                             }
                         }
-                        if (!state.isLiquid()
-                                && (clientState.isAir() || clientState.isLiquid() || clientState.isReplaceable())
+                        if (!state.liquid()
+                                && (clientState.isAir() || clientState.liquid() || clientState.canBeReplaced())
                                 && clientState != state) {
                             // do place
                             if (doPlace(
@@ -300,7 +325,7 @@ public class PrinterRewrite extends BaseModule {
         Block needBlock = targetState.getBlock();
         if (needBlock instanceof CandleCakeBlock) {
             needBlock = Blocks.CAKE;
-        } else if (needBlock instanceof FlowerPotBlock flowerPotBlock && flowerPotBlock.getContent() != Blocks.AIR) {
+        } else if (needBlock instanceof FlowerPotBlock flowerPotBlock && flowerPotBlock.getPotted() != Blocks.AIR) {
             needBlock = Blocks.FLOWER_POT;
         }
         int idx = supplyBlocks(needBlock);
@@ -309,12 +334,12 @@ public class PrinterRewrite extends BaseModule {
             return false;
         }
         var result = InteractionTasks.createSpecificStateHitResult(
-                mc.player.getFacing(), pos, targetState, useAirPlace, usePositionPlace);
+                mc.player.getNearestViewDirection(), pos, targetState, useAirPlace, usePositionPlace);
         // add placement collision check
         if (result != null
                 && InteractExtra.INSTANCE.isWithinInteractRange(
-                        mc.player.getPos(), result.val().getBlockPos(), interactRangeOverride.get())
-                && InteractUtils.getBlockPlacement(needBlock, mc.player, mc.world, result.val()) != null) {
+                        mc.player.position(), result.val().getBlockPos(), interactRangeOverride.get())
+                && InteractUtils.getBlockPlacement(needBlock, mc.player, mc.level, result.val()) != null) {
             if (result.flag()) {
                 needSneak = true;
 
@@ -368,13 +393,13 @@ public class PrinterRewrite extends BaseModule {
     public boolean doLiquidPlace(BlockPos pos, BlockState targetState) {
         FluidState fluidState = targetState.getFluidState();
         // fill source
-        BlockState clientState = mc.world.getBlockState(pos);
+        BlockState clientState = mc.level.getBlockState(pos);
         if (useIce.get()
-                && fluidState.getFluid() == Fluids.WATER
-                && (clientState.isAir() || clientState.isLiquid() || clientState.isReplaceable())) {
+                && fluidState.getType() == Fluids.WATER
+                && (clientState.isAir() || clientState.liquid() || clientState.canBeReplaced())) {
             if (doPlace(
                     pos,
-                    Blocks.ICE.getDefaultState(),
+                    Blocks.ICE.defaultBlockState(),
                     airplace.get(),
                     !mode.get().isLegal())) {
                 if (DisablerManager.INSTANCE.flushACPlaceBreakQueue()) {
@@ -391,31 +416,31 @@ public class PrinterRewrite extends BaseModule {
                 return true;
             }
         }
-        if (fluidState.getFluid() == Fluids.WATER || fluidState.getFluid() == Fluids.LAVA) {
-            int item = supplyLiquid(fluidState.getFluid());
+        if (fluidState.getType() == Fluids.WATER || fluidState.getType() == Fluids.LAVA) {
+            int item = supplyLiquid(fluidState.getType());
             if (item == -1) {
                 putCanNotPlace(pos);
-                if (fluidState.getFluid() == Fluids.WATER) {
+                if (fluidState.getType() == Fluids.WATER) {
                     drainWater = true;
                 }
                 return false;
             }
             boolean suc = false;
-            FlagEntry<Vec2f> rotation =
-                    InteractionTasks.createLiquidPlacementRaycast(mc.player.getEyePos(), pos, targetState);
+            FlagEntry<Vec2> rotation =
+                    InteractionTasks.createLiquidPlacementRaycast(mc.player.getEyePosition(), pos, targetState);
             if (rotation == null) {
                 putCanNotPlace(pos);
                 return false;
             }
-            if (rotation.flag() == mc.player.isSneaking()) {
+            if (rotation.flag() == mc.player.isShiftKeyDown()) {
                 var rot = rotation.val();
 
                 Runnable callback = InvExtra.INSTANCE.swapInventoryIndexToHand(item);
                 if (callback != null) {
-                    EntityMovementStatus<PlayerEntity> playerStatus = new EntityMovementStatus<>(mc.player);
+                    EntityMovementStatus<Player> playerStatus = new EntityMovementStatus<>(mc.player);
                     EntityUtils.setEntityPitchSafe(mc.player, rot.x);
                     PlayerStateManager.setPlayerYawSafe(mc.player, rot.y);
-                    mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                    mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
                     playerStatus.restoreRotation();
                     suc = true;
                     desyncWaitBlocks.put(pos, Tasks.getTick() + 20);
@@ -456,15 +481,15 @@ public class PrinterRewrite extends BaseModule {
         }
         if (currentBlock instanceof CandleBlock
                 && targetBlock instanceof CandleBlock
-                && currentState.get(CandleBlock.LIT)
-                && targetState.equals(currentState.with(CandleBlock.LIT, false))) {
+                && currentState.getValue(CandleBlock.LIT)
+                && targetState.equals(currentState.setValue(CandleBlock.LIT, false))) {
             return true;
         }
         if (currentBlock instanceof CandleBlock
                 && targetBlock instanceof CandleBlock
-                && !currentState.get(CandleBlock.LIT)
-                && !currentState.get(CandleBlock.WATERLOGGED)
-                && targetState.equals(currentState.with(CandleBlock.LIT, true))) {
+                && !currentState.getValue(CandleBlock.LIT)
+                && !currentState.getValue(CandleBlock.WATERLOGGED)
+                && targetState.equals(currentState.setValue(CandleBlock.LIT, true))) {
             return true;
         }
         if (currentBlock instanceof CakeBlock && targetBlock instanceof CakeBlock) {
@@ -481,35 +506,35 @@ public class PrinterRewrite extends BaseModule {
 
     private boolean isStackedPlacementTransition(BlockState currentState, BlockState targetState) {
         if (currentState == null || targetState == null) return false;
-        if (!currentState.isOf(targetState.getBlock())) return false;
+        if (!currentState.is(targetState.getBlock())) return false;
         Block block = currentState.getBlock();
         if (block instanceof SlabBlock) {
-            return currentState.get(SlabBlock.TYPE) != SlabType.DOUBLE
-                    && targetState.get(SlabBlock.TYPE) == SlabType.DOUBLE;
+            return currentState.getValue(SlabBlock.TYPE) != SlabType.DOUBLE
+                    && targetState.getValue(SlabBlock.TYPE) == SlabType.DOUBLE;
         }
-        if (block instanceof SnowBlock) {
-            return currentState.get(SnowBlock.LAYERS) < targetState.get(SnowBlock.LAYERS);
+        if (block instanceof SnowLayerBlock) {
+            return currentState.getValue(SnowLayerBlock.LAYERS) < targetState.getValue(SnowLayerBlock.LAYERS);
         }
         if (block instanceof CandleBlock) {
-            return currentState.get(CandleBlock.CANDLES) < targetState.get(CandleBlock.CANDLES);
+            return currentState.getValue(CandleBlock.CANDLES) < targetState.getValue(CandleBlock.CANDLES);
         }
         if (block instanceof SeaPickleBlock) {
-            return currentState.get(SeaPickleBlock.PICKLES) < targetState.get(SeaPickleBlock.PICKLES);
+            return currentState.getValue(SeaPickleBlock.PICKLES) < targetState.getValue(SeaPickleBlock.PICKLES);
         }
-        if (block instanceof FlowerbedBlock) {
-            return currentState.get(FlowerbedBlock.FLOWER_AMOUNT) < targetState.get(FlowerbedBlock.FLOWER_AMOUNT);
+        if (block instanceof FlowerBedBlock) {
+            return currentState.getValue(FlowerBedBlock.AMOUNT) < targetState.getValue(FlowerBedBlock.AMOUNT);
         }
         if (block instanceof LeafLitterBlock) {
-            return currentState.get(LeafLitterBlock.SEGMENT_AMOUNT) < targetState.get(LeafLitterBlock.SEGMENT_AMOUNT);
+            return currentState.getValue(LeafLitterBlock.AMOUNT) < targetState.getValue(LeafLitterBlock.AMOUNT);
         }
         return false;
     }
 
     private BlockHitResult createStateInteractHitResult(BlockPos pos) {
-        Vec2f rot = EntityUtils.rotationToPitchYaw(
-                pos.toCenterPos().subtract(mc.player.getEyePos()).normalize());
+        Vec2 rot = EntityUtils.rotationToPitchYaw(
+                Vec3.atCenterOf(pos).subtract(mc.player.getEyePosition()).normalize());
         Direction side = EntityUtils.pitchYawToDirection(rot).getOpposite();
-        return new BlockHitResult(pos.toCenterPos(), side, pos, false);
+        return new BlockHitResult(Vec3.atCenterOf(pos), side, pos, false);
     }
 
     private int supplyInteractionItem(BlockState currentState, BlockState targetState) {
@@ -519,27 +544,27 @@ public class PrinterRewrite extends BaseModule {
 
         if (currentBlock instanceof RespawnAnchorBlock
                 && targetBlock instanceof RespawnAnchorBlock
-                && currentState.get(RespawnAnchorBlock.CHARGES) < targetState.get(RespawnAnchorBlock.CHARGES)) {
-            var entry = InventoryUtils.findPlayerItem(stack -> stack.isOf(Items.GLOWSTONE), true, false);
+                && currentState.getValue(RespawnAnchorBlock.CHARGE) < targetState.getValue(RespawnAnchorBlock.CHARGE)) {
+            var entry = InventoryUtils.findPlayerItem(stack -> stack.is(Items.GLOWSTONE), true, false);
             return entry == null ? -1 : entry.index();
         }
         if (currentBlock instanceof CandleBlock
                 && targetBlock instanceof CandleBlock
-                && !currentState.get(CandleBlock.LIT)
-                && targetState.get(CandleBlock.LIT)) {
+                && !currentState.getValue(CandleBlock.LIT)
+                && targetState.getValue(CandleBlock.LIT)) {
             var entry = InventoryUtils.findPlayerItem(
-                    stack -> stack.isOf(Items.FLINT_AND_STEEL) || stack.isOf(Items.FIRE_CHARGE), true, false);
+                    stack -> stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE), true, false);
             return entry == null ? -1 : entry.index();
         }
         if (currentBlock instanceof PumpkinBlock && targetBlock == Blocks.CARVED_PUMPKIN) {
-            var entry = InventoryUtils.findPlayerItem(stack -> stack.isOf(Items.SHEARS), true, false);
+            var entry = InventoryUtils.findPlayerItem(stack -> stack.is(Items.SHEARS), true, false);
             return entry == null ? -1 : entry.index();
         }
         if (currentBlock instanceof FlowerPotBlock fromPot && targetBlock instanceof FlowerPotBlock targetPot) {
-            if (fromPot.getContent() == Blocks.AIR && targetPot.getContent() != Blocks.AIR) {
-                Item item = targetPot.getContent().asItem();
+            if (fromPot.getPotted() == Blocks.AIR && targetPot.getPotted() != Blocks.AIR) {
+                Item item = targetPot.getPotted().asItem();
                 if (item == Items.AIR) return -1;
-                var entry = InventoryUtils.findPlayerItem(stack -> stack.isOf(item), true, false);
+                var entry = InventoryUtils.findPlayerItem(stack -> stack.is(item), true, false);
                 return entry == null ? -1 : entry.index();
             }
             return -2;
@@ -547,7 +572,7 @@ public class PrinterRewrite extends BaseModule {
         if (currentBlock instanceof CakeBlock && targetBlock instanceof CandleCakeBlock) {
             Item item = targetBlock.asItem();
             if (item == Items.AIR) return -1;
-            var entry = InventoryUtils.findPlayerItem(stack -> stack.isOf(item), true, false);
+            var entry = InventoryUtils.findPlayerItem(stack -> stack.is(item), true, false);
             return entry == null ? -1 : entry.index();
         }
         return -2;
@@ -569,12 +594,12 @@ public class PrinterRewrite extends BaseModule {
                     hitResult = InteractionTasks.createSpecificStateHitResult(
                             pos, targetState, airplace.get(), !mode.get().isLegal());
                 } else {
-                    hitResult = new FlagEntry<>(false, RaycastUtils.createHitResult(pos, mc.player.getEyePos()));
+                    hitResult = new FlagEntry<>(false, RaycastUtils.createHitResult(pos, mc.player.getEyePosition()));
                 }
                 if (InteractUtils.canInteractAndPlace(mc.player, hitResult)) {
                     Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(re.index());
                     if (runnable != null) {
-                        InteractionTasks.handlePlaceMode(mode.get(), hitResult.val(), Hand.MAIN_HAND);
+                        InteractionTasks.handlePlaceMode(mode.get(), hitResult.val(), InteractionHand.MAIN_HAND);
                         putSuccessPlace(pos);
                         if (isDesyncStateInteractTransition(currentState, targetState)) {
                             desyncWaitBlocks.put(pos, Tasks.getTick() + 20);
@@ -595,7 +620,7 @@ public class PrinterRewrite extends BaseModule {
         return false;
     }
 
-    private void onBlockUpdate(Event<BlockUpdateS2CPacket> event) {
+    private void onBlockUpdate(Event<ClientboundBlockUpdatePacket> event) {
         if (enable.get() && !desyncWaitBlocks.isEmpty()) {
             BlockPos pos = event.context.getPos();
             Integer waitUntil = desyncWaitBlocks.get(pos);
@@ -609,14 +634,14 @@ public class PrinterRewrite extends BaseModule {
 
     public void handlePlace(BlockHitResult result) {
         if (!mode.get().isLegal()) {
-            InteractionTasks.interactBlock(Hand.MAIN_HAND, result, swingHand.get());
+            InteractionTasks.interactBlock(InteractionHand.MAIN_HAND, result, swingHand.get());
         } else {
-            InteractionTasks.handlePlaceMode(mode.get(), result, Hand.MAIN_HAND, swingHand.get());
+            InteractionTasks.handlePlaceMode(mode.get(), result, InteractionHand.MAIN_HAND, swingHand.get());
         }
     }
 
-    public void onRender(Event<MatrixStack> event) {
-        MatrixStack stack = event.context();
+    public void onRender(Event<PoseStack> event) {
+        PoseStack stack = event.context();
         if (enable.get() && render.get()) {
             RenderUtils.startDrawVirtual(stack);
             try {

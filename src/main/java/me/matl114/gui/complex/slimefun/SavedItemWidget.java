@@ -8,10 +8,10 @@ import me.matl114.gui.elements.SlotElement;
 import me.matl114.hacks.InvTasks;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 public class SavedItemWidget extends SubScreenWidget {
     ItemStack itemStack;
@@ -38,7 +38,7 @@ public class SavedItemWidget extends SubScreenWidget {
                 .addToSub(this);
         ExecutableWidget.instance(75, 12, 25, 16)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.gui.saved-item-widget.open-editor")),
+                                TextProvider.of(Component.translatable("widget.gui.saved-item-widget.open-editor")),
                                 ButtonAction.run(() -> InvTasks.openEditScreen(itemStack, null)))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.saved-item-widget.open-editor.tooltips", ""))))
@@ -46,17 +46,17 @@ public class SavedItemWidget extends SubScreenWidget {
 
         ExecutableWidget.instance(75, 36, 25, 16)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.gui.saved-item-widget.creative-give")),
+                                TextProvider.of(Component.translatable("widget.gui.saved-item-widget.creative-give")),
                                 ButtonAction.run(() -> {
-                                    if (MinecraftClient.getInstance().player != null
-                                            && MinecraftClient.getInstance()
-                                                    .interactionManager
-                                                    .getCurrentGameMode()
+                                    if (Minecraft.getInstance().player != null
+                                            && Minecraft.getInstance()
+                                                    .gameMode
+                                                    .getPlayerMode()
                                                     .isCreative()) {
                                         InvTasks.creativeAddItem(this.itemStack, 64);
                                     } else {
-                                        Debug.chat(Text.translatable("widget.gui.saved-item-widget.creative-give.error")
-                                                .formatted(Formatting.YELLOW));
+                                        Debug.chat(Component.translatable("widget.gui.saved-item-widget.creative-give.error")
+                                                .withStyle(ChatFormatting.YELLOW));
                                     }
                                 }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
@@ -65,14 +65,14 @@ public class SavedItemWidget extends SubScreenWidget {
 
         ExecutableWidget.instance(105, 12, 25, 16)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.gui.saved-item-widget.delete-item")),
+                                TextProvider.of(Component.translatable("widget.gui.saved-item-widget.delete-item")),
                                 ButtonAction.run(() -> InvTasks.getSaveItem().removeSavedItem(this.itemStack)))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.saved-item-widget.delete-item.tooltips", ""))))
                 .addToSub(this);
         ExecutableWidget.instance(105, 36, 25, 16)
                 .setElementHandler(new ButtonElement(
-                                TextProvider.of(Text.translatable("widget.gui.saved-item-widget.copy-command")),
+                                TextProvider.of(Component.translatable("widget.gui.saved-item-widget.copy-command")),
                                 ButtonAction.run(() -> {
                                     InvTasks.copyGiveCommand(this.itemStack);
                                 }))

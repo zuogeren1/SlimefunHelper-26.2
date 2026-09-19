@@ -3,11 +3,11 @@ package me.matl114.mixins.access;
 import me.matl114.accessors.moonrise.MoonriseBlockStateBaseAccess;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.AbstractBlock;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -16,13 +16,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(AbstractBlock.AbstractBlockState.class)
+@Mixin(BlockBehaviour.BlockStateBase.class)
 public abstract class MoonriseBlockStateBaseMixin implements MoonriseBlockStateBaseAccess {
     @Unique
     private VoxelShape constantCollisionShape;
 
     @Shadow
-    public abstract VoxelShape getCollisionShape(BlockView world, BlockPos pos, ShapeContext context);
+    public abstract VoxelShape getCollisionShape(BlockGetter world, BlockPos pos, CollisionContext context);
 
     @Unique
     private void initCache0() {
@@ -33,7 +33,7 @@ public abstract class MoonriseBlockStateBaseMixin implements MoonriseBlockStateB
         }
     }
 
-    @Inject(method = "initShapeCache", at = @At("RETURN"))
+    @Inject(method = "initCache", at = @At("RETURN"))
     public void onInitCache(CallbackInfo ci) {
         initCache0();
     }

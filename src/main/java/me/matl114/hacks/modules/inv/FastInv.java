@@ -13,12 +13,12 @@ import me.matl114.managers.input.KeyCode;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.collections.Point;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
 
 public class FastInv extends BaseModule {
     public final ModulePath fastInv = makePath(Configs.INV_CONFIG, "fastinv");
@@ -69,12 +69,12 @@ public class FastInv extends BaseModule {
     }
 
     public boolean onShiftAction() {
-        PlayerEntity player = mc.player;
+        Player player = mc.player;
         if (player == null) return false;
         Screen nowScreen = InvTasks.getCurrentServerScreen(player);
         // filter inventory screen
-        if (nowScreen instanceof HandledScreen<?> handled && !(nowScreen instanceof InventoryScreen)) {
-            ScreenHandler handler = handled.getScreenHandler();
+        if (nowScreen instanceof AbstractContainerScreen<?> handled && !(nowScreen instanceof InventoryScreen)) {
+            AbstractContainerMenu handler = handled.getMenu();
             Point mouseCoord = ScreenUtils.getMouseCoord(mc);
             Slot slot = HandledScreenAccess.of(handled).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (enable.get() && enableShift.get()) {
@@ -97,9 +97,9 @@ public class FastInv extends BaseModule {
     public boolean onDropAction() {
         if (mc.player == null) return false;
         if (enable.get() && enableDrop.get()) {
-            PlayerEntity player = mc.player;
+            Player player = mc.player;
             Screen nowScreen = InvTasks.getCurrentServerScreen(player);
-            if (nowScreen instanceof HandledScreen<?> handled) {
+            if (nowScreen instanceof AbstractContainerScreen<?> handled) {
 
                 Point mouseCoord = ScreenUtils.getMouseCoord(mc);
                 Slot slot = HandledScreenAccess.of(handled).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);

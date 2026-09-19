@@ -21,18 +21,18 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class TpInteract extends BaseModule {
     public final ModulePath tpInteract = makePath(Configs.INTERACT_CONFIG, "tp-interact");
@@ -64,24 +64,24 @@ public class TpInteract extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractBlockC2SPacket.class), this::onInteractBlock);
+                Listener.getPacketPoint().getChannel(ServerboundUseItemOnPacket.class), this::onInteractBlock);
         registerListener(
-                Listener.getPacketPoint().getChannel(PlayerInteractEntityC2SPacket.class), this::onInteractEntity);
-        registerListener(Listener.getPacketPoint().getChannel(PlayerActionC2SPacket.class), this::onBlockMine);
+                Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class), this::onInteractEntity);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundPlayerActionPacket.class), this::onBlockMine);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
     }
 
     private final float ENABLE_NO_TP_DISTANCE = 1.14f;
 
-    public void onInteractBlock(Event<PlayerInteractBlockC2SPacket> event) {
+    public void onInteractBlock(Event<ServerboundUseItemOnPacket> event) {
         if (event.isCancelled()) return;
         if (enable.get()) {
             var packetToSend = event.context;
-            BlockHitResult hit = event.context.getBlockHitResult();
+            BlockHitResult hit = event.context.getHitResult();
             BlockPos blockPos = hit.getBlockPos();
             double distance = InteractExtra.INSTANCE.getBlockReachDistance() + ENABLE_NO_TP_DISTANCE;
-            if (new Box(blockPos).squaredMagnitude(mc.player.getEyePos()) > MathUtils.s2(distance)) {
-                if (!mc.player.isSneaking() && tryTpSteal.get().isAllPressed()) {
+            if (new AABB(blockPos).distanceToSqr(mc.player.getEyePosition()) > MathUtils.s2(distance)) {
+                if (!mc.player.isShiftKeyDown() && tryTpSteal.get().isAllPressed()) {
                     int size = InvTasks.predictOpenVanillaContainerSize(blockPos);
                     if (size != 0) {
 
@@ -94,8 +94,8 @@ public class TpInteract extends BaseModule {
                                             InventoryUtils.createInventory(Collections.nCopies(size, ItemStack.EMPTY)),
                                             (handler) -> {
                                                 for (var i = 0; i < size; ++i) {
-                                                    mc.interactionManager.clickSlot(
-                                                            handler.syncId, i, 0, SlotActionType.QUICK_MOVE, mc.player);
+                                                    mc.gameMode.handleContainerInput(
+                                                            handler.containerId, i, 0, ContainerInput.QUICK_MOVE, mc.player);
                                                 }
                                             });
                                 }))) {
@@ -111,16 +111,17 @@ public class TpInteract extends BaseModule {
         }
     }
 
-    public void onInteractEntity(Event<PlayerInteractEntityC2SPacket> event) {
+    public void onInteractEntity(Event<ServerboundInteractPacket> event) {
         if (event.isCancelled()) return;
         if (enable.get()) {
             var packet = event.context;
-            // filter ATTACK packets
-            if (true || !Objects.equals(((Enum) packet.type.getType()).name(), "ATTACK")) {
+            // 26.2: ServerboundInteractPacket 只剩交互语义（攻击已拆为 ServerboundAttackPacket），
+            // 故无需再过滤 ATTACK。
+            {
                 int entityId = packet.entityId;
-                Entity entity = mc.world.getEntityById(entityId);
+                Entity entity = mc.level.getEntity(entityId);
                 if (entity != null
-                        && entity.getBoundingBox().squaredMagnitude(mc.player.getEyePos())
+                        && entity.getBoundingBox().distanceToSqr(mc.player.getEyePosition())
                                 > MathUtils.s2(CombatTasks.getCombatExtra().getAttackRange() + ENABLE_NO_TP_DISTANCE)) {
                     if (tpToEntity(entity, packet)) {
                         event.cancel();
@@ -130,7 +131,7 @@ public class TpInteract extends BaseModule {
         }
     }
 
-    public void onBlockMine(Event<PlayerActionC2SPacket> event) {
+    public void onBlockMine(Event<ServerboundPlayerActionPacket> event) {
         if (event.isCancelled()) return;
         if (enable.get()) {
             var packet = event.context;
@@ -140,8 +141,8 @@ public class TpInteract extends BaseModule {
                     // check y;
                     if (involvedBlock == null) return;
                     // filter "out of building height" shit
-                    if (involvedBlock.getY() < (mc.world.getBottomY() - 1)
-                            || involvedBlock.getY() > (mc.world.getBottomY() + mc.world.getHeight() + 1)) {
+                    if (involvedBlock.getY() < (mc.level.getMinY() - 1)
+                            || involvedBlock.getY() > (mc.level.getMinY() + mc.level.getHeight() + 1)) {
                         return;
                     }
                 }
@@ -151,15 +152,15 @@ public class TpInteract extends BaseModule {
             }
             BlockPos blockPos = packet.getPos();
             double distance = InteractExtra.INSTANCE.getBlockReachDistance() + ENABLE_NO_TP_DISTANCE;
-            if (new Box(blockPos).squaredMagnitude(mc.player.getEyePos()) > MathUtils.s2(distance)) {
-                PlayerActionC2SPacket packetToSend = event.context();
+            if (new AABB(blockPos).distanceToSqr(mc.player.getEyePosition()) > MathUtils.s2(distance)) {
+                ServerboundPlayerActionPacket packetToSend = event.context();
                 if (tpToBlock(
                         blockPos,
                         useFallMine.get()
                                 ? (selectedPos) -> executeTp(selectedPos, () -> {
-                                    mc.getNetworkHandler().sendPacket(packetToSend);
-                                    PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.interactionManager);
-                                    if (packetToSend.getAction() == PlayerActionC2SPacket.Action.START_DESTROY_BLOCK
+                                    mc.getConnection().send(packetToSend);
+                                    PlayerInteractionAccess access = PlayerInteractionAccess.of(mc.gameMode);
+                                    if (packetToSend.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
                                             && Objects.equals(access.getCurrentMiningPos(), packetToSend.getPos())
                                             && access.getCurrentFailBreakPos() == null) {
                                         access.sendFailBreakCurrentPos(null);
@@ -172,7 +173,7 @@ public class TpInteract extends BaseModule {
         }
     }
 
-    public boolean tpAndInteractBlock(BlockHitResult hitResult, Hand hand, boolean swing) {
+    public boolean tpAndInteractBlock(BlockHitResult hitResult, InteractionHand hand, boolean swing) {
         return tpToBlock(
                 hitResult.getBlockPos(),
                 (sel) -> executeTp(sel, () -> {
@@ -180,15 +181,15 @@ public class TpInteract extends BaseModule {
                 }));
     }
 
-    public boolean tpToBlock(BlockPos pos, Predicate<Vec3d> callBack) {
+    public boolean tpToBlock(BlockPos pos, Predicate<Vec3> callBack) {
         // compat Freecam
-        Vec3d selectedPos = RenderUtils.getCameraEntityPos();
+        Vec3 selectedPos = RenderUtils.getCameraEntityPos();
         double eyeHeight = mc.player.getEyeHeight(mc.player.getPose());
         if (MineTasks.distanceOutOfReach(pos, selectedPos.add(0, eyeHeight, 0))
                 || MovTasks.ENGIN.checkEnvironmentCollision(mc.player, selectedPos, true)) {
             selectedPos = null;
             for (var deltaPos : InteractExtra.INSTANCE.getBlocksAround()) {
-                Vec3d checkPos = pos.add(deltaPos).toBottomCenterPos().add(0, 1E-4, 0);
+                Vec3 checkPos = Vec3.atBottomCenterOf(pos.offset(deltaPos)).add(0, 1E-4, 0);
                 if (!MineTasks.distanceOutOfReach(pos, checkPos.add(0, eyeHeight, 0))
                         && !MovTasks.ENGIN.checkEnvironmentCollision(mc.player, checkPos, true)) {
                     selectedPos = checkPos;
@@ -205,18 +206,18 @@ public class TpInteract extends BaseModule {
     }
 
     public boolean tpToEntity(Entity pos, Packet<?> packetToSend) {
-        Vec3d selectedPos = RenderUtils.getCameraEntityPos();
-        Box entityBox = pos.getBoundingBox();
+        Vec3 selectedPos = RenderUtils.getCameraEntityPos();
+        AABB entityBox = pos.getBoundingBox();
         double attackRange = CombatTasks.getCombatExtra().getAttackRange() + 1.0d;
         double eyeHeight = mc.player.getEyeHeight(mc.player.getPose());
-        if (entityBox.squaredMagnitude(selectedPos.add(0, eyeHeight, 0)) > MathUtils.s2(attackRange)) {
+        if (entityBox.distanceToSqr(selectedPos.add(0, eyeHeight, 0)) > MathUtils.s2(attackRange)) {
             selectedPos = null;
             // make an algorithm to
-            BlockPos entityPos = pos.getBlockPos();
+            BlockPos entityPos = pos.blockPosition();
             // todo: move this to CombatExtra or PositionPredictor or something
             for (var deltaPos : InteractExtra.INSTANCE.getBlocksAround()) {
-                Vec3d checkPos = entityPos.add(deltaPos).toBottomCenterPos().add(0, 1E-4, 0);
-                if (entityBox.squaredMagnitude(checkPos.add(0, eyeHeight, 0)) < MathUtils.s2(attackRange)
+                Vec3 checkPos = Vec3.atBottomCenterOf(entityPos.offset(deltaPos)).add(0, 1E-4, 0);
+                if (entityBox.distanceToSqr(checkPos.add(0, eyeHeight, 0)) < MathUtils.s2(attackRange)
                         && !MovTasks.ENGIN.checkEnvironmentCollision(mc.player, checkPos, true)) {
                     selectedPos = checkPos;
                     break;
@@ -231,11 +232,11 @@ public class TpInteract extends BaseModule {
         }
     }
 
-    public boolean executeTp(Vec3d pos, Runnable callback) {
-        Vec3d current = mc.player.getPos();
+    public boolean executeTp(Vec3 pos, Runnable callback) {
+        Vec3 current = mc.player.position();
         MovTasks.MovingContext context = MovTasks.createPlayerMovContext();
-        List<Vec3d> from = MovTasks.generateTpSequence(current, pos, false, 200, true);
-        List<Vec3d> to = MovTasks.generateTpSequence(pos, current, false, 200, true);
+        List<Vec3> from = MovTasks.generateTpSequence(current, pos, false, 200, true);
+        List<Vec3> to = MovTasks.generateTpSequence(pos, current, false, 200, true);
         if (from.isEmpty() || to.isEmpty()) {
             Debug.chat("[TpAct] Can not reach the target");
             return false;
@@ -244,7 +245,7 @@ public class TpInteract extends BaseModule {
                 RenderTasks.registerVirtualRenderTask(new RenderTasks.RenderTask(
                         RenderTasks.DEBUG_TICK,
                         new RenderTasks.BoxObject(
-                                mc.player.dimensions.getBoxAt(pos), ColorUtils.withAlpha(Color.MAGENTA, 0.25F))));
+                                mc.player.dimensions.makeBoundingBox(pos), ColorUtils.withAlpha(Color.MAGENTA, 0.25F))));
             }
             List<MovTasks.MovInfo> moveInfo = new ArrayList<>();
             moveInfo.addAll(MovTasks.createMovInfoList(from));
@@ -274,7 +275,7 @@ public class TpInteract extends BaseModule {
         }
     }
 
-    public boolean executeTp(Vec3d pos, Packet<?>... packetToSend) {
+    public boolean executeTp(Vec3 pos, Packet<?>... packetToSend) {
         return executeTp(pos, () -> {
             for (Packet<?> packet : packetToSend) {
                 Listener.sendPacketNoEvents(packet);

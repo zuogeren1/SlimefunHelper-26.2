@@ -23,25 +23,25 @@ import me.matl114.utils.Debug;
 import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VEntity;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Items;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.listener.PacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.CrashReport;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.PacketListener;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.util.Util;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.BlockEntityTickInvoker;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.TickingBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public class ClientExtra extends BaseModule {
     public static ClientExtra INSTANCE;
@@ -124,20 +124,20 @@ public class ClientExtra extends BaseModule {
         registerListener(Listener.getServerLeavePoint(), this::onServerLeave);
     }
 
-    private final Text questionCrash =
-            Text.literal("你的游戏刚才因为未知原因崩溃,但是SlimefunHelper拦截了它").formatted(Formatting.RED);
+    private final Component questionCrash =
+            Component.literal("你的游戏刚才因为未知原因崩溃,但是SlimefunHelper拦截了它").withStyle(ChatFormatting.RED);
 
     private void exitGame() {
-        mc.scheduleStop();
+        mc.stop();
     }
 
-    public void onCrash(Event<MinecraftClient> event) {
+    public void onCrash(Event<Minecraft> event) {
         if (event.canCancel() && event.context().isRunning() && noCrash.get()) {
             event.cancel();
             CrashReport report = event.getArgs(0);
             // must disconnect from server here
-            String msg = (report == null ? "null" : report.getMessage());
-            String detailedMessage = (report == null ? "null" : report.getCauseAsString());
+            String msg = (report == null ? "null" : report.getTitle());
+            String detailedMessage = (report == null ? "null" : report.getExceptionMessage());
             // remove
             detailedMessage = detailedMessage.replace("\t", "");
             String[] lines = detailedMessage.split("\\r?\\n");
@@ -151,21 +151,21 @@ public class ClientExtra extends BaseModule {
                 sb.append("\n......(%d行)".formatted(lines.length - maxLines));
             }
             detailedMessage = sb.toString();
-            Text literal = ChatUtils.stringToText("&c你的游戏刚刚崩溃了,但是SlimefunHelper拦截了它\n报错信息: " + msg + "\n"
+            Component literal = ChatUtils.stringToText("&c你的游戏刚刚崩溃了,但是SlimefunHelper拦截了它\n报错信息: " + msg + "\n"
                     + detailedMessage + "\n如果你须与寻求帮助,请点击下方按钮打开错误报告\n而不是发送这个界面的截图");
             List<QuestionScreen.Solution> crashSolutions = List.of(
                     QuestionScreen.Solution.of(
-                            Text.literal("我已知晓, 继续游戏").formatted(Formatting.GREEN), Runnables.doNothing()),
-                    QuestionScreen.Solution.of(Text.literal("打开报告, 继续游戏").formatted(Formatting.YELLOW), () -> {
+                            Component.literal("我已知晓, 继续游戏").withStyle(ChatFormatting.GREEN), Runnables.doNothing()),
+                    QuestionScreen.Solution.of(Component.literal("打开报告, 继续游戏").withStyle(ChatFormatting.YELLOW), () -> {
                         if (report != null) {
-                            var path = report.getFile();
+                            var path = report.getSaveFile();
                             if (path != null) {
-                                Util.getOperatingSystem().open(report.getFile().getParent());
-                                Util.getOperatingSystem().open(report.getFile());
+                                Util.getPlatform().openPath(report.getSaveFile().getParent());
+                                Util.getPlatform().openPath(report.getSaveFile());
                             }
                         }
                     }),
-                    QuestionScreen.Solution.of(Text.literal("我已知晓, 退出游戏").formatted(Formatting.RED), this::exitGame));
+                    QuestionScreen.Solution.of(Component.literal("我已知晓, 退出游戏").withStyle(ChatFormatting.RED), this::exitGame));
             QuestionScreen screen = new QuestionScreen(literal, crashSolutions);
             checkClientData(screen);
         }
@@ -178,13 +178,13 @@ public class ClientExtra extends BaseModule {
             PacketListener listener = event.getArgs(1);
             Throwable exception = we.exception();
             if (mc.player != null) {
-                Debug.chat(Text.literal("Error while handling a network packet: ")
-                        .formatted(Formatting.RED)
-                        .append(Text.literal(packet.getClass().getSimpleName())));
+                Debug.chat(Component.literal("Error while handling a network packet: ")
+                        .withStyle(ChatFormatting.RED)
+                        .append(Component.literal(packet.getClass().getSimpleName())));
                 Debug.chat(
                         exception.getClass().getSimpleName(),
                         ":",
-                        Text.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
+                        Component.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
             }
             Debug.info("Packet Exception INFO :");
             Debug.info("  PacketListener : ", listener);
@@ -206,26 +206,26 @@ public class ClientExtra extends BaseModule {
                 Debug.chat(
                         "Error while ticking entity:",
                         entity.getDisplayName(),
-                        entity instanceof PlayerEntity player
-                                ? "(%s)".formatted(player.getNameForScoreboard())
-                                : "(%s)".formatted(Registries.ENTITY_TYPE.getId(entity.getType())));
+                        entity instanceof Player player
+                                ? "(%s)".formatted(player.getScoreboardName())
+                                : "(%s)".formatted(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())));
                 Debug.chat(
                         exception.getClass().getSimpleName(),
                         ":",
-                        Text.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
+                        Component.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
                 // try fix common issues
-                if (!validVec3d(entity.getPos())) {
+                if (!validVec3d(entity.position())) {
                     Debug.chat("Invalid Position detected!");
-                    entity.setPosition(Vec3d.ZERO);
+                    entity.setPos(Vec3.ZERO);
                 }
-                if (!validVec3d(entity.getVelocity())) {
+                if (!validVec3d(entity.getDeltaMovement())) {
                     Debug.chat("Invalid Velocity detected!");
-                    entity.setVelocity(Vec3d.ZERO);
+                    entity.setDeltaMovement(Vec3.ZERO);
                 }
-                if (!Double.isFinite(entity.getPitch()) || !Double.isFinite(entity.getYaw())) {
+                if (!Double.isFinite(entity.getXRot()) || !Double.isFinite(entity.getYRot())) {
                     Debug.chat("Invalid Rotation detected!");
-                    entity.setPitch(0);
-                    entity.setYaw(0);
+                    entity.setXRot(0);
+                    entity.setYRot(0);
                 }
                 Debug.info("Entity Exception INFO :");
                 Debug.info("  Entity : ", entity);
@@ -242,28 +242,28 @@ public class ClientExtra extends BaseModule {
     public void onBlockEntityException(Event<Listener.WrapperException> event) {
         if (noBlockEntityCrash.get()) {
             Listener.WrapperException we = event.context();
-            BlockEntityTickInvoker entity = event.getArgs(0);
-            World world = event.getArgs(1);
+            TickingBlockEntity entity = event.getArgs(0);
+            Level world = event.getArgs(1);
             event.cancel();
             if (!entity.isRemoved()) {
                 Throwable exception = we.exception();
                 Debug.chat(
                         "Error while ticking blockEntity at world:",
-                        ChatUtils.getDisplayedLocation(Vec3d.of(entity.getPos())),
+                        ChatUtils.getDisplayedLocation(Vec3.atLowerCornerOf(entity.getPos())),
                         "World:",
-                        world.getRegistryKey().getValue());
+                        world.dimension().identifier());
                 Debug.chat(
                         exception.getClass().getSimpleName(),
                         ":",
-                        Text.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
+                        Component.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
                 Debug.info("BlockEntity Exception INFO :");
-                Debug.info("  World : ", world.getRegistryKey().getValue());
+                Debug.info("  World : ", world.dimension().identifier());
                 Debug.info("  BlockEntityPos : ", entity);
                 try {
                     BlockEntity be = world.getBlockEntity(entity.getPos());
                     Debug.info(" BlockEntity : ", be == null ? null : be.getType());
                     if (be != null) {
-                        Debug.info(" BlockEntityNBT : ", be.createNbt(ItemStackUtils.registry()));
+                        Debug.info(" BlockEntityNBT : ", be.saveWithoutMetadata(ItemStackUtils.registry()));
                     }
                     BlockState state = world.getBlockState(entity.getPos());
                     Debug.info(" BlockState : ", state);
@@ -280,13 +280,13 @@ public class ClientExtra extends BaseModule {
             Listener.WrapperException we = event.context();
             PacketListener packet = event.getArgs(0);
             Throwable exception = we.exception();
-            if (packet instanceof ClientPlayPacketListener playListener) {
+            if (packet instanceof ClientGamePacketListener playListener) {
                 if (mc.player != null) {
-                    Debug.chat(Text.literal("Error while decoding packet: ").formatted(Formatting.RED));
+                    Debug.chat(Component.literal("Error while decoding packet: ").withStyle(ChatFormatting.RED));
                     Debug.chat(
                             exception.getClass().getSimpleName(),
                             ":",
-                            Text.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
+                            Component.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
                 }
                 Debug.info("Exception StackTrace:");
                 Debug.info(exception);
@@ -300,13 +300,13 @@ public class ClientExtra extends BaseModule {
             Listener.WrapperException we = event.context();
             PacketListener packet = event.getArgs(0);
             Throwable exception = we.exception();
-            if (packet instanceof ClientPlayPacketListener playListener) {
+            if (packet instanceof ClientGamePacketListener playListener) {
                 if (mc.player != null) {
-                    Debug.chat(Text.literal("Error while receiving packet: ").formatted(Formatting.RED));
+                    Debug.chat(Component.literal("Error while receiving packet: ").withStyle(ChatFormatting.RED));
                     Debug.chat(
                             exception.getClass().getSimpleName(),
                             ":",
-                            Text.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
+                            Component.literal(exception.getMessage() == null ? "Exception: null" : exception.getMessage()));
                 }
                 Debug.info("Exception StackTrace:");
                 Debug.info(exception);
@@ -315,23 +315,23 @@ public class ClientExtra extends BaseModule {
         }
     }
 
-    public boolean validVec3d(Vec3d vec3d) {
+    public boolean validVec3d(Vec3 vec3d) {
         return Double.isFinite(vec3d.x) && Double.isFinite(vec3d.y) && Double.isFinite(vec3d.z);
     }
 
     int lastCrashTick = 0;
 
     protected void checkClientData(Screen screen) {
-        ScreenAccess currentScreen = ScreenAccess.of(mc.currentScreen);
-        Screen parentScreen = (currentScreen instanceof QuestionScreen ? currentScreen.getParent() : mc.currentScreen);
+        ScreenAccess currentScreen = ScreenAccess.of(mc.gui.screen());
+        Screen parentScreen = (currentScreen instanceof QuestionScreen ? currentScreen.getParent() : mc.gui.screen());
         // continue crash, force exit
         boolean shouldKeep = keepInServer.get() && lastCrashTick < Tasks.getTick() - 10;
         if (shouldKeep
                 && mc.player != null
-                && mc.world != null
-                && mc.inGameHud != null
-                && mc.getNetworkHandler() != null
-                && mc.interactionManager != null) {
+                && mc.level != null
+                && mc.gui != null
+                && mc.getConnection() != null
+                && mc.gameMode != null) {
             ScreenAccess.of(screen).openFrom(parentScreen);
         } else {
             // 严重问题
@@ -342,47 +342,47 @@ public class ClientExtra extends BaseModule {
     }
 
     public void onCursorLockSwitch() {
-        if (mc.mouse != null) {
-            if (mc.mouse.isCursorLocked()) {
-                mc.mouse.unlockCursor();
+        if (mc.mouseHandler != null) {
+            if (mc.mouseHandler.isMouseGrabbed()) {
+                mc.mouseHandler.releaseMouse();
             } else {
-                mc.mouse.lockCursor();
+                mc.mouseHandler.grabMouse();
             }
         }
     }
 
     public void onBlankScreenCreate() {
-        new GenericScreen(Text.empty(), 0, 0).access().openFromCurrent();
+        new GenericScreen(Component.empty(), 0, 0).access().openFromCurrent();
     }
 
     public void onServerLeave(Event<Void> eventVoid) {
         if (mc.player != null && logServerExiting.get()) {
             Debug.info("Player leaving server log:");
             Debug.info("  - Reconfiguration: ", !eventVoid.<Boolean>getArgs(0));
-            Debug.info("  - Name: " + mc.player.getNameForScoreboard());
-            Debug.info("  - Pos: " + mc.player.getPos());
-            if (mc.world != null) {
-                Debug.info("  - World: " + mc.world.getRegistryKey().getValue());
+            Debug.info("  - Name: " + mc.player.getScoreboardName());
+            Debug.info("  - Pos: " + mc.player.position());
+            if (mc.level != null) {
+                Debug.info("  - World: " + mc.level.dimension().identifier());
             }
             Debug.info("  - Health: " + mc.player.getHealth());
-            Debug.info("  - Hand item: " + mc.player.getMainHandStack());
-            Debug.info("  - Offhand item: " + mc.player.getOffHandStack());
+            Debug.info("  - Hand item: " + mc.player.getMainHandItem());
+            Debug.info("  - Offhand item: " + mc.player.getOffhandItem());
             Debug.info("  - FallFlying: " + mc.player.isFallFlying());
             int count = (int) InventoryUtils.computePlayerInventory(
-                    s -> s.isOf(Items.TOTEM_OF_UNDYING) ? (double) s.getCount() : null, false);
+                    s -> s.is(Items.TOTEM_OF_UNDYING) ? (double) s.getCount() : null, false);
             Debug.info("  - TotemCount: " + count);
-            if (mc.world != null) {
-                List<AbstractClientPlayerEntity> players = mc.world.getPlayers();
+            if (mc.level != null) {
+                List<AbstractClientPlayer> players = mc.level.players();
                 Debug.info("  - Players in visual range: " + players.size());
-                List<AbstractClientPlayerEntity> playersSort = players.stream()
-                        .sorted(Comparator.comparingDouble(s -> s.getPos().squaredDistanceTo(mc.player.getPos())))
+                List<AbstractClientPlayer> playersSort = players.stream()
+                        .sorted(Comparator.comparingDouble(s -> s.position().distanceToSqr(mc.player.position())))
                         .toList();
                 for (var re : playersSort) {
                     if (re != mc.player) {
-                        Debug.info("    - Name: " + re.getNameForScoreboard() + ", Pos: " + re.getPos()
+                        Debug.info("    - Name: " + re.getScoreboardName() + ", Pos: " + re.position()
                                 + ", dist: %.2f"
-                                        .formatted(re.getPos()
-                                                .subtract(mc.player.getPos())
+                                        .formatted(re.position()
+                                                .subtract(mc.player.position())
                                                 .length()));
                     }
                 }

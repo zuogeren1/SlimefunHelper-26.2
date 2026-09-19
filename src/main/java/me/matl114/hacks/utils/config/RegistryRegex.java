@@ -23,13 +23,13 @@ import me.matl114.utils.RegistryUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.TypeConvertAttrKeyValue;
-import net.minecraft.block.Block;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.Text;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 
 public class RegistryRegex<T> implements NBTParsable<RegistryRegex<T>>, Predicate<T> {
     public static final Class<RegistryRegex<EntityType<?>>> ENTITY_TYPE = (Class) RegistryRegex.class;
@@ -44,12 +44,12 @@ public class RegistryRegex<T> implements NBTParsable<RegistryRegex<T>>, Predicat
             "registryregex",
             RecordCodecBuilder.create(instance -> instance.group(
                             Regex.TYPE.typeCodec().fieldOf("regex").forGetter(RegistryRegex::getParent),
-                            ((Codec<Registry<?>>) Registries.REGISTRIES.getCodec())
+                            ((Codec<Registry<?>>) BuiltInRegistries.REGISTRY.byNameCodec())
                                     .fieldOf("registry")
                                     .forGetter(RegistryRegex::getRegistry))
                     .apply(instance, RegistryRegex::new)),
             RegistryRegex::createTextEditWidget,
-            new RegistryRegex(Regex.EMPTY, Registries.ITEM));
+            new RegistryRegex(Regex.EMPTY, BuiltInRegistries.ITEM));
 
     @Getter
     protected final Registry<T> registry;
@@ -79,7 +79,7 @@ public class RegistryRegex<T> implements NBTParsable<RegistryRegex<T>>, Predicat
         return getFilterValue().contains(val);
     }
 
-    public boolean test(RegistryEntry<T> val) {
+    public boolean test(Holder<T> val) {
         return getFilterValue().contains(val.value());
     }
 
@@ -175,7 +175,7 @@ public class RegistryRegex<T> implements NBTParsable<RegistryRegex<T>>, Predicat
         return Optional.empty();
     }
 
-    public List<Text> getRules() {
+    public List<Component> getRules() {
         return ChatUtils.parseTooltipsTranslation("widget.nbt-parsable.registry-regex.rules.tooltips", "");
     }
 }

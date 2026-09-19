@@ -1,7 +1,7 @@
 package me.matl114.hacks.utils.config;
 
 import me.matl114.managers.config.ConfigEnum;
-import net.minecraft.util.math.Direction;
+import net.minecraft.core.Direction;
 
 public enum Direction3d implements ConfigEnum {
     DOWN(Direction.DOWN),

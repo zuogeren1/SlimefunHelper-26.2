@@ -1,14 +1,14 @@
 package me.matl114.versioned.impl;
 
-import static net.minecraft.component.DataComponentTypes.*;
+import static net.minecraft.core.component.DataComponents.*;
 
 import java.util.Objects;
 import javax.annotation.Nullable;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.versioned.api.VHideFlag;
-import net.minecraft.component.ComponentType;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.ItemStack;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.TooltipDisplay;
 
 public enum TooltipHideFlag_v1_21_11 implements VHideFlag {
     HIDE_ALL("全部", null),
@@ -24,9 +24,9 @@ public enum TooltipHideFlag_v1_21_11 implements VHideFlag {
     String name;
 
     @Nullable
-    ComponentType type;
+    DataComponentType type;
 
-    TooltipHideFlag_v1_21_11(String displayName, ComponentType<?> type) {
+    TooltipHideFlag_v1_21_11(String displayName, DataComponentType<?> type) {
         this.name = displayName;
         this.type = type;
     }
@@ -45,13 +45,13 @@ public enum TooltipHideFlag_v1_21_11 implements VHideFlag {
     @Override
     public void setHideFlag(ItemStack stack, boolean hide) {
         var component = ItemStackUtils.getInPatch(stack, TOOLTIP_DISPLAY);
-        if (component == null) component = TooltipDisplayComponent.DEFAULT;
+        if (component == null) component = TooltipDisplay.DEFAULT;
         if (this.type == null) {
-            component = new TooltipDisplayComponent(hide, component.hiddenComponents());
+            component = new TooltipDisplay(hide, component.hiddenComponents());
         } else {
-            component = component.with(this.type, hide);
+            component = component.withHidden(this.type, hide);
         }
-        if (Objects.equals(component, TooltipDisplayComponent.DEFAULT)) {
+        if (Objects.equals(component, TooltipDisplay.DEFAULT)) {
             ItemStackUtils.setOrRemoveChange(stack, TOOLTIP_DISPLAY, null);
         } else {
             ItemStackUtils.setOrRemoveChange(stack, TOOLTIP_DISPLAY, component);

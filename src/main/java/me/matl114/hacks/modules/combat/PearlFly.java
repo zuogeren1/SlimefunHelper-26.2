@@ -15,14 +15,14 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public class PearlFly extends BaseModule {
     public PearlFly() {
@@ -69,7 +69,7 @@ public class PearlFly extends BaseModule {
         if (checkNull()) return;
         if (enablePearlPhase.get()) {
             var pose = mc.player.getPose();
-            if (pose == EntityPose.SWIMMING) {
+            if (pose == Pose.SWIMMING) {
                 if (!enableCrawl.get()) {
                     return;
                 }
@@ -78,22 +78,22 @@ public class PearlFly extends BaseModule {
                     return;
                 }
             }
-            if (mc.player.getItemCooldownManager().isCoolingDown(new ItemStack(Items.ENDER_PEARL))) {
+            if (mc.player.getCooldowns().isOnCooldown(new ItemStack(Items.ENDER_PEARL))) {
                 return;
             }
-            Direction direction = mc.player.getHorizontalFacing();
-            Vec3d pos = mc.player.getBlockPos().toCenterPos();
-            Vec3d ppos = mc.player.getPos();
-            BlockPos pbpos = mc.player.getBlockPos();
+            Direction direction = mc.player.getDirection();
+            Vec3 pos = Vec3.atCenterOf(mc.player.blockPosition());
+            Vec3 ppos = mc.player.position();
+            BlockPos pbpos = mc.player.blockPosition();
 
             BlockPos searchPos;
             if (useWASDControl.get()) {
                 var input = PlayerInputUtils.of(mc.options);
-                Direction right = direction.rotateYCounterclockwise();
-                searchPos = pbpos.add(direction.getVector().multiply(input.forwardSpeed()))
-                        .add(right.getVector().multiply(input.sidewaysSpeed()));
+                Direction right = direction.getCounterClockWise();
+                searchPos = pbpos.offset(direction.getUnitVec3i().multiply(input.forwardSpeed()))
+                        .offset(right.getUnitVec3i().multiply(input.sidewaysSpeed()));
                 if (enableJump.get() && input.upwardSpeed() > 0) {
-                    searchPos = searchPos.offset(Direction.UP, input.upwardSpeed());
+                    searchPos = searchPos.relative(Direction.UP, input.upwardSpeed());
                 }
                 if (!Objects.equals(pbpos, searchPos) && doPearlUse(pbpos, searchPos)) {
                     enablePearlPhase.set(false);
@@ -107,35 +107,35 @@ public class PearlFly extends BaseModule {
                 Direction result = direction;
                 double min = Double.MAX_VALUE;
                 do {
-                    BlockPos test = pbpos.offset(search);
-                    BlockState state = mc.world.getBlockState(test);
+                    BlockPos test = pbpos.relative(search);
+                    BlockState state = mc.level.getBlockState(test);
 
-                    if (MathUtils.isInXZRange(ppos, test.toCenterPos(), 0.5 + autoPearlActivateRange.get())) {
-                        double sqd = test.getSquaredDistance(ppos);
+                    if (MathUtils.isInXZRange(ppos, Vec3.atCenterOf(test), 0.5 + autoPearlActivateRange.get())) {
+                        double sqd = test.distToCenterSqr(ppos);
                         if (sqd < min) {
                             result = search;
                             min = sqd;
                         }
                     }
 
-                    search = search.rotateYClockwise();
+                    search = search.getClockWise();
                 } while (search != direction);
                 if (min == Double.MAX_VALUE) {
                     return;
                 }
                 search = result;
-                searchPos = pbpos.offset(search, 1);
+                searchPos = pbpos.relative(search, 1);
 
-                BlockState state = mc.world.getBlockState(searchPos);
-                if (!state.isAir() && !state.isLiquid()) {
+                BlockState state = mc.level.getBlockState(searchPos);
+                if (!state.isAir() && !state.liquid()) {
                     if (doPearlUse(pbpos, searchPos)) {
                         enablePearlPhase.set(false);
                         return;
                     }
                 }
-                if (autoCrawl.get() && pose != EntityPose.SWIMMING) {
-                    BlockState state2 = mc.world.getBlockState(searchPos.offset(Direction.UP));
-                    if (!state2.isAir() && !state2.isLiquid()) {
+                if (autoCrawl.get() && pose != Pose.SWIMMING) {
+                    BlockState state2 = mc.level.getBlockState(searchPos.relative(Direction.UP));
+                    if (!state2.isAir() && !state2.liquid()) {
                         if (doPearlUse(pbpos, searchPos)) {
                             enablePearlPhase.set(false);
                             return;
@@ -147,17 +147,17 @@ public class PearlFly extends BaseModule {
     }
 
     public boolean doPearlUse(BlockPos originPos, BlockPos pos) {
-        EntityPose pose = mc.player.getPose();
-        Vec3d look;
-        if (pose == EntityPose.SWIMMING) {
-            look = pos.toCenterPos().subtract(mc.player.getEyePos());
+        Pose pose = mc.player.getPose();
+        Vec3 look;
+        if (pose == Pose.SWIMMING) {
+            look = Vec3.atCenterOf(pos).subtract(mc.player.getEyePosition());
         } else {
-            look = pos.toCenterPos().add(originPos.toCenterPos()).multiply(0.5).subtract(mc.player.getEyePos());
+            look = Vec3.atCenterOf(pos).add(Vec3.atCenterOf(originPos)).scale(0.5).subtract(mc.player.getEyePosition());
         }
         return usePearl(look);
     }
 
-    public boolean usePearl(Vec3d look) {
+    public boolean usePearl(Vec3 look) {
         look = look.normalize();
         var re = InventoryUtils.findPlayerItem((ss) -> ss.getItem() == Items.ENDER_PEARL, true, false);
         if (re == null) {
@@ -173,8 +173,8 @@ public class PearlFly extends BaseModule {
         var status = new EntityMovementStatus<>(mc.player);
 
         PlayerStateManager.setPlayerRotationSafe(mc.player, look);
-        Hand hand = offHand ? Hand.OFF_HAND : Hand.MAIN_HAND;
-        mc.interactionManager.interactItem(mc.player, hand);
+        InteractionHand hand = offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+        mc.gameMode.useItem(mc.player, hand);
         status.restoreRotation();
         runnable.run();
         return true;

@@ -2,6 +2,7 @@ package me.matl114.hacks.modules.interact;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Streams;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
@@ -29,29 +30,28 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.MovementType;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class Interact extends BaseModule {
     public static Interact INSTANCE;
@@ -98,7 +98,7 @@ public class Interact extends BaseModule {
 
     public final NBTRef<EntrySet<Item>> useItemBlackList = builder(
                     root.add("use-item-black-list"), EntrySet.<Item>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^()$"), Registries.ITEM))
+            .defaultValue(new EntrySet<>(new Regex("^()$"), BuiltInRegistries.ITEM))
             .build();
 
     public final FlagRef entityPriority = builder(root.add("entity-priority"), Boolean.class)
@@ -111,7 +111,7 @@ public class Interact extends BaseModule {
 
     public final NBTRef<EntrySet<Block>> blockWhiteList = builder(
                     root.add("block-whitelist"), EntrySet.<Block>parameter())
-            .defaultValue(new EntrySet<>(new Regex("^(.*chest|shulker.*)$"), Registries.BLOCK))
+            .defaultValue(new EntrySet<>(new Regex("^(.*chest|shulker.*)$"), BuiltInRegistries.BLOCK))
             .build();
 
     public final FlagRef blockOnlyHandNotPlace = builder(
@@ -135,7 +135,7 @@ public class Interact extends BaseModule {
             flagBuilder(root.add("render-target")).build();
 
     public final NBTRef<WrapColor> renderAttackColor = builder(root.add("render-target-color"), WrapColor.class)
-            .defaultValue(new WrapColor((Formatting.RED)))
+            .defaultValue(new WrapColor((ChatFormatting.RED)))
             .build();
 
     HitResult currentInteractTarget = null;
@@ -160,7 +160,7 @@ public class Interact extends BaseModule {
         if (entity.isAlive() && !entity.isSpectator() && interactWhiteList.get().test(entity.getType())) {
             if (entityOnlyInteractable.get()
                     && !InteractUtils.isInteractAcceptable(
-                            mc.world, mc.player, entity, mc.player.getStackInHand(Hand.MAIN_HAND))) {
+                            mc.level, mc.player, entity, mc.player.getItemInHand(InteractionHand.MAIN_HAND))) {
                 return false;
             }
             return true;
@@ -172,8 +172,8 @@ public class Interact extends BaseModule {
         if (canUseTp()) {
             search += tpInteract.get().getValue();
         }
-        if (mc.crosshairTarget.getType() == HitResult.Type.ENTITY) {
-            Entity entity = ((EntityHitResult) mc.crosshairTarget).getEntity();
+        if (mc.hitResult.getType() == HitResult.Type.ENTITY) {
+            Entity entity = ((EntityHitResult) mc.hitResult).getEntity();
             if (canInteract(entity, search)) {
                 return entity;
             }
@@ -186,18 +186,18 @@ public class Interact extends BaseModule {
     }
 
     public boolean canInteract(BlockPos bp, double range) {
-        BlockState state = mc.world.getBlockState(bp);
-        if (!state.isAir() && !state.isLiquid() && blockWhiteList.get().test(state.getBlock())) {
-            if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), bp, range)) {
+        BlockState state = mc.level.getBlockState(bp);
+        if (!state.isAir() && !state.liquid() && blockWhiteList.get().test(state.getBlock())) {
+            if (!InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), bp, range)) {
                 return false;
             }
             if (blockOnlyInteractable.get()
                     && !InteractUtils.isInteractAcceptable(
-                            mc.world, mc.player, bp, state, mc.player.getStackInHand(Hand.MAIN_HAND))) {
+                            mc.level, mc.player, bp, state, mc.player.getItemInHand(InteractionHand.MAIN_HAND))) {
                 return false;
             }
             if (blockOnlyHandNotPlace.get()
-                    && mc.player.getStackInHand(Hand.MAIN_HAND).getItem() instanceof BlockItem) {
+                    && mc.player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof BlockItem) {
                 return false;
             }
             return true;
@@ -210,17 +210,17 @@ public class Interact extends BaseModule {
         if (canUseTp()) {
             search += tpInteract.get().getValue();
         }
-        Vec3d playerEye = mc.player.getEyePos();
-        Vec3d rot = mc.player.getRotationVector();
-        Vec3d endPos = playerEye.add(rot.normalize().multiply(search));
+        Vec3 playerEye = mc.player.getEyePosition();
+        Vec3 rot = mc.player.getLookAngle();
+        Vec3 endPos = playerEye.add(rot.normalize().scale(search));
         for (var bp : RaycastUtils.createRaycastBlockPoses(playerEye, endPos)) {
             if (canInteract(bp, search)) {
                 return bp;
             }
         }
-        BlockPos playerPos = mc.player.getSteppingPos().add(0, 1, 0);
+        BlockPos playerPos = mc.player.getOnPos().offset(0, 1, 0);
         for (var bd : InteractExtra.INSTANCE.getBlocksAround()) {
-            BlockPos testPos = playerPos.add(bd);
+            BlockPos testPos = playerPos.offset(bd);
             if (canInteract(testPos, search)) {
                 return testPos;
             }
@@ -228,35 +228,35 @@ public class Interact extends BaseModule {
         return null;
     }
 
-    public void onPreTick(Event<ClientPlayerEntity> event) {
+    public void onPreTick(Event<LocalPlayer> event) {
         currentInteractTarget = null;
         if (enable.get()) {
-            HitResult currentCrosshairTarget = mc.crosshairTarget;
+            HitResult currentCrosshairTarget = mc.hitResult;
             // hold use
             if (!ignoreUseItem.get()) {
-                ItemStack stack = mc.player.getStackInHand(Hand.MAIN_HAND);
+                ItemStack stack = mc.player.getItemInHand(InteractionHand.MAIN_HAND);
                 if (!useItemBlackList.get().test(stack.getItem())
-                        && InteractUtils.isInteractAcceptable(mc.world, mc.player, stack)) {
+                        && InteractUtils.isInteractAcceptable(mc.level, mc.player, stack)) {
                     currentInteractTarget = null;
                     return;
                 }
             }
             if (currentCrosshairTarget.getType() == HitResult.Type.BLOCK) {
                 if (!ignoreBlockPlace.get()
-                        && mc.player.getStackInHand(Hand.MAIN_HAND).getItem() instanceof BlockItem bl) {
+                        && mc.player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof BlockItem bl) {
                     currentInteractTarget = currentCrosshairTarget;
                 } else {
                     BlockPos pos = ((BlockHitResult) currentCrosshairTarget).getBlockPos();
-                    BlockState state = mc.world.getBlockState(pos);
+                    BlockState state = mc.level.getBlockState(pos);
                     if (InteractUtils.isInteractAcceptable(
-                            mc.world, mc.player, pos, state, mc.player.getStackInHand(Hand.MAIN_HAND))) {
+                            mc.level, mc.player, pos, state, mc.player.getItemInHand(InteractionHand.MAIN_HAND))) {
                         currentInteractTarget = currentCrosshairTarget;
                     }
                 }
             } else if (currentCrosshairTarget.getType() == HitResult.Type.ENTITY) {
                 Entity target = ((EntityHitResult) currentCrosshairTarget).getEntity();
                 if (InteractUtils.isInteractAcceptable(
-                        mc.world, mc.player, target, mc.player.getStackInHand(Hand.MAIN_HAND))) {
+                        mc.level, mc.player, target, mc.player.getItemInHand(InteractionHand.MAIN_HAND))) {
                     currentInteractTarget = currentCrosshairTarget;
                 }
             }
@@ -270,13 +270,13 @@ public class Interact extends BaseModule {
                 } else {
                     BlockPos pos = enableBlock.get() ? searchInteractableBlock() : null;
                     if (pos != null) {
-                        currentInteractTarget = RaycastUtils.createHitResult(pos, mc.player.getEyePos());
+                        currentInteractTarget = RaycastUtils.createHitResult(pos, mc.player.getEyePosition());
                     }
                 }
             } else {
                 BlockPos pos = enableBlock.get() ? searchInteractableBlock() : null;
                 if (pos != null) {
-                    currentInteractTarget = RaycastUtils.createHitResult(pos, mc.player.getEyePos());
+                    currentInteractTarget = RaycastUtils.createHitResult(pos, mc.player.getEyePosition());
                 } else {
                     Entity targetEntity = enableEntity.get() ? searchInteractableEntity() : null;
                     if (targetEntity != null) {
@@ -290,11 +290,11 @@ public class Interact extends BaseModule {
     public void onInteract(Event<HitResult> hitResult) {
         if (hitResult.isCancelled()) return;
         if (enable.get()) {
-            Hand hand = hitResult.getArgs(0);
-            if (hand == Hand.MAIN_HAND) {
-                PlayerEntity player = mc.player;
-                if (player != null && mc.world != null) {
-                    if (currentInteractTarget != null && currentInteractTarget != mc.crosshairTarget) {
+            InteractionHand hand = hitResult.getArgs(0);
+            if (hand == InteractionHand.MAIN_HAND) {
+                Player player = mc.player;
+                if (player != null && mc.level != null) {
+                    if (currentInteractTarget != null && currentInteractTarget != mc.hitResult) {
                         if (currentInteractTarget instanceof EntityHitResult entity
                                 && entity.getType() == HitResult.Type.ENTITY
                                 && interactEntity(entity.getEntity())) {
@@ -329,7 +329,7 @@ public class Interact extends BaseModule {
             case DELAY_MOVEMENT -> processDelayMovementInteract(target);
             case LEGACY_SLIENT_ROT -> processLegacySnapInteract(target);
             case NONE -> {
-                InteractionTasks.interactEntity(mc.player, target, Hand.MAIN_HAND, swingHand.get());
+                InteractionTasks.interactEntity(mc.player, target, InteractionHand.MAIN_HAND, swingHand.get());
                 yield true;
             }
         };
@@ -349,17 +349,17 @@ public class Interact extends BaseModule {
         if (canDirectlyHit) {
             // already actioned in caller
             // may not actioned in caller, fix it
-            InteractionTasks.interactEntity(mc.player, target, Hand.MAIN_HAND, swingHand.get());
+            InteractionTasks.interactEntity(mc.player, target, InteractionHand.MAIN_HAND, swingHand.get());
             return true;
         } else {
             // 提前转向 下个tick就有正确的velocity了
             ClientPlayerAccess.of(mc.player)
                     .getLegalMovementManager()
                     .addMovementModifier(new LegalMovementManager.MovementModifier() {
-                        Vec3d posDelta = Vec3d.ZERO;
-                        Vec3d posDelta2 = Vec3d.ZERO;
-                        Vec3d velocity;
-                        Vec3d lookVec;
+                        Vec3 posDelta = Vec3.ZERO;
+                        Vec3 posDelta2 = Vec3.ZERO;
+                        Vec3 velocity;
+                        Vec3 lookVec;
                         boolean distancePassAttack = true;
                         boolean runThisTick = true;
                         int max = 10;
@@ -372,61 +372,61 @@ public class Interact extends BaseModule {
                         @Override
                         public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {
                             runThisTick = true;
-                            ClientPlayerEntity args = movementManagerEvent.context.playerStatus.entity;
+                            LocalPlayer args = movementManagerEvent.context.playerStatus.entity;
 
                             // step back our position
-                            velocity = args.getVelocity();
-                            Vec3d predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(
-                                    mc.player.getPos(), target.getBoundingBox()); // mc.player.getEyePos();
+                            velocity = args.getDeltaMovement();
+                            Vec3 predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(
+                                    mc.player.position(), target.getBoundingBox()); // mc.player.getEyePos();
                             // revert shit
                             if (args.isFallFlying()) {
                                 // fix targeting in big velocity
                                 predictedEyePos = predictedEyePos.add(
-                                        mc.player.getVelocity()); // predictedEyePos.add(mc.player.getVelocity());
+                                        mc.player.getDeltaMovement()); // predictedEyePos.add(mc.player.getVelocity());
                             }
-                            Vec3d vec3d = args.getPos();
+                            Vec3 vec3d = args.position();
                             if (tpInteract.get().positive()
-                                    && target.getBoundingBox().squaredMagnitude(predictedEyePos)
+                                    && target.getBoundingBox().distanceToSqr(predictedEyePos)
                                             > MathUtils.s2(attackRange)) {
                                 // need tp attack
                                 // how?
                                 // 平面突袭？
 
-                                Vec3d vec3d1 =
+                                Vec3 vec3d1 =
                                         MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), attackRange, 9.9, 1)
                                                 .stream()
                                                 .findFirst()
                                                 .orElse(null);
                                 // calculateBestReachPos(vec3d, target.getBoundingBox());
-                                if (vec3d1 != null && vec3d1.squaredDistanceTo(vec3d) > 1E-7) {
+                                if (vec3d1 != null && vec3d1.distanceToSqr(vec3d) > 1E-7) {
                                     posDelta = vec3d; // vec3d1.subtract(vec3d);
                                     posDelta2 = vec3d1;
-                                    args.setPosition(vec3d1.add(0, 9E-8, 0));
+                                    args.setPos(vec3d1.add(0, 9E-8, 0));
                                     predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(
-                                            args.getPos(), target.getBoundingBox());
+                                            args.position(), target.getBoundingBox());
                                 }
                                 // backoff
                                 if (!TargetSelector.INSTANCE.isWithinAttackRange(
-                                        args.getPos(), target.getBoundingBox(), attackRange)) {
+                                        args.position(), target.getBoundingBox(), attackRange)) {
                                     // Debug.chat("Distance to large , disable atack");
                                     distancePassAttack = false;
                                     movementManagerEvent.context.playerStatus.restoreRotation();
-                                    args.setPosition(vec3d);
+                                    args.setPos(vec3d);
                                     // skip attack
                                 }
                             }
                             // after move player, do target
                             if (distancePassAttack) {
-                                Vec3d eyePos = target.getEyePos();
-                                Vec3d targetPos = target.getPos();
+                                Vec3 eyePos = target.getEyePosition();
+                                Vec3 targetPos = target.position();
                                 double percentage = attackOffsetRand.nextDouble(0.8d, 1.00d);
-                                Vec3d attackOffsetted =
-                                        targetPos.add(eyePos.subtract(targetPos).multiply(percentage));
+                                Vec3 attackOffsetted =
+                                        targetPos.add(eyePos.subtract(targetPos).scale(percentage));
                                 attackOffsetted.add(
                                         attackOffsetRand.nextDouble(-0.05d, 0.05d),
                                         attackOffsetRand.nextDouble(-0.05d, 0.05d),
                                         attackOffsetRand.nextDouble(-0.05d, 0.05d));
-                                Vec3d cacheDirection = attackOffsetted
+                                Vec3 cacheDirection = attackOffsetted
                                         .subtract(predictedEyePos)
                                         .normalize();
                                 movementManagerEvent.context.pushImportantRotation(true, true);
@@ -442,13 +442,13 @@ public class Interact extends BaseModule {
                             }
 
                             // restore velocity after collide
-                            args.setVelocity(velocity);
+                            args.setDeltaMovement(velocity);
                         }
 
                         @Override
                         public void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {
                             if (!runThisTick) return;
-                            ClientPlayerEntity args = movementManagerEvent.context.playerStatus.entity;
+                            LocalPlayer args = movementManagerEvent.context.playerStatus.entity;
                             // there is no need for fall flying player to correct this
                             if (lookVec != null && !args.isFallFlying()) {
                                 // rewrite input to fit lookVec
@@ -463,15 +463,15 @@ public class Interact extends BaseModule {
                             if (!runThisTick) {
                                 return max >= 0;
                             }
-                            ClientPlayerEntity args = movementManagerEvent.context.playerStatus.entity;
+                            LocalPlayer args = movementManagerEvent.context.playerStatus.entity;
                             if (distancePassAttack) {
                                 postInteract(args, target);
-                                if (posDelta != Vec3d.ZERO) {
-                                    Vec3d trueDelta = args.getPos().subtract(posDelta2); // .subtract(0, 0.2, 0);// =
-                                    args.setPosition(posDelta);
+                                if (posDelta != Vec3.ZERO) {
+                                    Vec3 trueDelta = args.position().subtract(posDelta2); // .subtract(0, 0.2, 0);// =
+                                    args.setPos(posDelta);
                                     // args.move(MovementType.PLAYER, posDelta.subtract(args.getPos()));
-                                    args.move(MovementType.PLAYER, trueDelta);
-                                    posDelta = posDelta2 = Vec3d.ZERO;
+                                    args.move(MoverType.PLAYER, trueDelta);
+                                    posDelta = posDelta2 = Vec3.ZERO;
                                 }
                             }
                             // return do not kept
@@ -482,9 +482,9 @@ public class Interact extends BaseModule {
         }
     }
 
-    private void postInteract(PlayerEntity player, Entity target) {
+    private void postInteract(Player player, Entity target) {
         // consider post
-        InteractionTasks.interactEntity(mc.player, target, Hand.MAIN_HAND, swingHand.get());
+        InteractionTasks.interactEntity(mc.player, target, InteractionHand.MAIN_HAND, swingHand.get());
     }
 
     private boolean processLegacySnapInteract(Entity target) {
@@ -499,27 +499,27 @@ public class Interact extends BaseModule {
         if (canDirectlyHit) {
             // already actioned in caller
             // may not actioned in caller, fix it
-            InteractionTasks.interactEntity(mc.player, target, Hand.MAIN_HAND, swingHand.get());
+            InteractionTasks.interactEntity(mc.player, target, InteractionHand.MAIN_HAND, swingHand.get());
             return true;
         }
-        Vec3d vec3d = mc.player.getPos();
-        Vec3d predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(vec3d, target.getBoundingBox());
+        Vec3 vec3d = mc.player.position();
+        Vec3 predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(vec3d, target.getBoundingBox());
         boolean distancePassAttack =
                 TargetSelector.INSTANCE.isWithinAttackRange(vec3d, mc.player.getBoundingBox(), attackRange);
         if (tpInteract.get().positive() && !distancePassAttack) {
 
-            Vec3d vec3d1 = MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), attackRange, 9.9, 1).stream()
+            Vec3 vec3d1 = MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), attackRange, 9.9, 1).stream()
                     .findFirst()
                     .orElse(null);
             // calculateBestReachPos(vec3d, target.getBoundingBox());
-            if (vec3d1 != null && vec3d1.squaredDistanceTo(vec3d) > 1E-7) {
-                mc.player.setPosition(vec3d1.add(0, 9E-8, 0));
+            if (vec3d1 != null && vec3d1.distanceToSqr(vec3d) > 1E-7) {
+                mc.player.setPos(vec3d1.add(0, 9E-8, 0));
                 predictedEyePos = TargetSelector.INSTANCE.getBestAttackEyePos(vec3d, target.getBoundingBox());
             }
             // backoff
             if (!TargetSelector.INSTANCE.isWithinAttackRange(vec3d, mc.player.getBoundingBox(), attackRange)) {
                 distancePassAttack = false;
-                mc.player.setPosition(vec3d);
+                mc.player.setPos(vec3d);
                 // skip attack
             }
         }
@@ -527,23 +527,23 @@ public class Interact extends BaseModule {
         if (distancePassAttack) {
 
             if (mc.player.isUsingItem()) {
-                mc.player.stopUsingItem();
-                mc.getNetworkHandler()
-                        .sendPacket(new PlayerActionC2SPacket(
-                                PlayerActionC2SPacket.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, Direction.DOWN));
+                mc.player.releaseUsingItem();
+                mc.getConnection()
+                        .send(new ServerboundPlayerActionPacket(
+                                ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM, BlockPos.ZERO, Direction.DOWN));
             }
-            Vec3d eyePos = target.getEyePos();
-            Vec3d targetPos = target.getPos();
+            Vec3 eyePos = target.getEyePosition();
+            Vec3 targetPos = target.position();
             double percentage = attackOffsetRand.nextDouble(0.8d, 1.00d);
-            Vec3d attackOffsetted = targetPos.add(eyePos.subtract(targetPos).multiply(percentage));
+            Vec3 attackOffsetted = targetPos.add(eyePos.subtract(targetPos).scale(percentage));
             attackOffsetted.add(
                     attackOffsetRand.nextDouble(-0.05d, 0.05d),
                     attackOffsetRand.nextDouble(-0.05d, 0.05d),
                     attackOffsetRand.nextDouble(-0.05d, 0.05d));
-            Vec3d cacheDirection = attackOffsetted.subtract(predictedEyePos).normalize();
+            Vec3 cacheDirection = attackOffsetted.subtract(predictedEyePos).normalize();
             // mace
             LegacySnapRotManager.INSTANCE.snapAt(cacheDirection, false);
-            InteractionTasks.interactEntity(mc.player, target, Hand.MAIN_HAND, swingHand.get());
+            InteractionTasks.interactEntity(mc.player, target, InteractionHand.MAIN_HAND, swingHand.get());
         }
         return true;
     }
@@ -557,12 +557,12 @@ public class Interact extends BaseModule {
         // rewrite tp system
         Deque<MovTasks.MovInfo> movementStack = new ArrayDeque<>();
         Deque<MovTasks.MovInfo> shouldMoveBackStack = new ArrayDeque<>();
-        Vec3d currentStartPos = mc.player.getPos();
-        movementStack.addLast(MovTasks.MovInfo.createNoUpdate(mc.player.getPos()));
-        shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNoUpdate(mc.player.getPos()));
+        Vec3 currentStartPos = mc.player.position();
+        movementStack.addLast(MovTasks.MovInfo.createNoUpdate(mc.player.position()));
+        shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNoUpdate(mc.player.position()));
         boolean alreadyInRange = alreadyAtTarget
                 || TargetSelector.INSTANCE.isWithinAttackRange(
-                        player.getPos(),
+                        player.position(),
                         target.getBoundingBox(),
                         attackRange); // target.getBoundingBox().squaredMagnitude(player.getEyePos()) <
         // MathUtils.s2(attackRange);
@@ -571,10 +571,10 @@ public class Interact extends BaseModule {
         boolean useExactAttack = useTp && (!alreadyInRange);
         boolean currentSuccessful = true;
         boolean vanillaSuccessful = false;
-        Vec3d top = movementStack.peekLast().vec3d();
+        Vec3 top = movementStack.peekLast().vec3d();
         if (alreadyAtTarget) {
             vanillaSuccessful = true;
-        } else if (target.getBoundingBox().squaredMagnitude(top.add(0, mc.player.getStandingEyeHeight(), 0))
+        } else if (target.getBoundingBox().distanceToSqr(top.add(0, mc.player.getEyeHeight(), 0))
                 <= MathUtils.s2(CombatTasks.getCombatExtra().getAttackRange())) {
             vanillaSuccessful = true;
         }
@@ -593,7 +593,7 @@ public class Interact extends BaseModule {
             // start execute
             var iter = movementStack.iterator();
             Preconditions.checkArgument(iter.hasNext());
-            Vec3d vec3d1 = iter.next().vec3d();
+            Vec3 vec3d1 = iter.next().vec3d();
             MovTasks.MovingContext movingContext = MovTasks.MovingContext.create(vec3d1);
             List<MovTasks.MovInfo> moveInfos = new ArrayList<>();
             iter.forEachRemaining(moveInfos::add);
@@ -608,7 +608,7 @@ public class Interact extends BaseModule {
                 actionBundles.get(i).run();
             }
             // processDuplicateAttack(player, target, moveInfos, movingContext, maceAttack);
-            InteractionTasks.interactEntity(player, target, Hand.MAIN_HAND, swingHand.get());
+            InteractionTasks.interactEntity(player, target, InteractionHand.MAIN_HAND, swingHand.get());
             for (int i = movingToBundleCnt; i < actionBundles.size(); ++i) {
                 if (actionBundles.get(i).success) {
                     actionBundles.get(i).run();
@@ -626,7 +626,7 @@ public class Interact extends BaseModule {
 
             // force resync position to origin
             if (useTp && (!shouldMoveBackStack.isEmpty() || !movementStack.isEmpty())) {
-                mc.player.setPosition(currentStartPos);
+                mc.player.setPos(currentStartPos);
                 // feature
                 MovTasks.setupAutoResync();
             }
@@ -644,8 +644,8 @@ public class Interact extends BaseModule {
                     minY = Math.min(minY, movementList.get(i).vec3d().y);
                 }
                 // calculate max deltaY
-                if (Math.abs(maxY - minY) > player.getAttributeValue(EntityAttributes.SAFE_FALL_DISTANCE) - 1) {
-                    ClientPlayerAccess.of((ClientPlayerEntity) player).setForceNoFall(true);
+                if (Math.abs(maxY - minY) > player.getAttributeValue(Attributes.SAFE_FALL_DISTANCE) - 1) {
+                    ClientPlayerAccess.of((LocalPlayer) player).setForceNoFall(true);
                     // in case that resync packet cause OnGround falldamage
                     player.setOnGround(false);
                 }
@@ -657,7 +657,7 @@ public class Interact extends BaseModule {
     }
 
     private boolean processExactInteract(
-            PlayerEntity player,
+            Player player,
             Entity target,
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack,
@@ -677,14 +677,14 @@ public class Interact extends BaseModule {
         }
         double range = CombatExtra.INSTANCE.getAttackAtTargetRange(player)
                 + tpInteract.get().getValue();
-        Vec3d current = player.getPos();
+        Vec3 current = player.position();
         // feat : teleporting position should met the need of antishield
-        Vec3d targetPos = positionPredict.getExactAttackPosition(target);
+        Vec3 targetPos = positionPredict.getExactAttackPosition(target);
 
         if (targetPos != null) {
             // common atttack?
-            List<Vec3d> tpSequence = MovTasks.generateTpSequence(current, targetPos, false, 1.5 * range, true);
-            List<Vec3d> tpSequenceBack = MovTasks.generateTpSequence(targetPos, current, false, 1.5 * range, true);
+            List<Vec3> tpSequence = MovTasks.generateTpSequence(current, targetPos, false, 1.5 * range, true);
+            List<Vec3> tpSequenceBack = MovTasks.generateTpSequence(targetPos, current, false, 1.5 * range, true);
             if ((tpSequence.size() == 2 || tpSequence.size() == 4)
                     && (tpSequenceBack.size() == 2 || tpSequenceBack.size() == 4)) {
                 // correct tp sequence
@@ -732,14 +732,14 @@ public class Interact extends BaseModule {
 
     @ApiMethod
     public boolean interactBlock(BlockPos pos) {
-        return interactBlock(RaycastUtils.createHitResult(pos, mc.player.getEyePos()));
+        return interactBlock(RaycastUtils.createHitResult(pos, mc.player.getEyePosition()));
     }
 
     @ApiMethod
     public boolean interactBlock(BlockHitResult hitResult) {
         double reach = InteractExtra.INSTANCE.getBlockReachDistance();
         boolean isWithinDistance =
-                InteractExtra.INSTANCE.isWithinInteractRange(mc.player.getPos(), hitResult.getBlockPos(), reach);
+                InteractExtra.INSTANCE.isWithinInteractRange(mc.player.position(), hitResult.getBlockPos(), reach);
         boolean canDirectlyHit = RaycastUtils.canRaycastHit(
                 mc.player,
                 PlayerStateManager.INSTANCE.lastPitch,
@@ -747,20 +747,20 @@ public class Interact extends BaseModule {
                 hitResult.getBlockPos(),
                 reach);
         if (canDirectlyHit) {
-            InteractionTasks.interactBlock(Hand.MAIN_HAND, hitResult, swingHand.get());
+            InteractionTasks.interactBlock(InteractionHand.MAIN_HAND, hitResult, swingHand.get());
             return true;
         }
         switch (blockMode.get()) {
             case NONE -> {
                 if (canUseTp() && !isWithinDistance) {
-                    return TpInteract.INSTANCE.tpAndInteractBlock(hitResult, Hand.MAIN_HAND, swingHand.get());
+                    return TpInteract.INSTANCE.tpAndInteractBlock(hitResult, InteractionHand.MAIN_HAND, swingHand.get());
                 }
-                InteractionTasks.interactBlock(Hand.MAIN_HAND, hitResult, swingHand.get());
+                InteractionTasks.interactBlock(InteractionHand.MAIN_HAND, hitResult, swingHand.get());
                 return true;
             }
             default -> {
                 if (isWithinDistance) {
-                    InteractionTasks.handlePlaceMode(blockMode.get(), hitResult, Hand.MAIN_HAND, swingHand.get());
+                    InteractionTasks.handlePlaceMode(blockMode.get(), hitResult, InteractionHand.MAIN_HAND, swingHand.get());
                     return true;
                 }
                 return false;
@@ -768,19 +768,19 @@ public class Interact extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<MatrixStack> event) {
+    public void onRender3D(Event<PoseStack> event) {
         if (renderAttackTarget.get() && currentInteractTarget != null) {
             float tickDelta = (Float) event.extraArgs[0];
-            Box currentBox;
+            AABB currentBox;
             if (currentInteractTarget instanceof BlockHitResult hitResult
                     && hitResult.getType() == HitResult.Type.BLOCK) {
                 BlockPos hitPos = hitResult.getBlockPos();
-                BlockState state = mc.world.getBlockState(hitPos);
-                VoxelShape shape = state.getOutlineShape(mc.world, hitPos);
+                BlockState state = mc.level.getBlockState(hitPos);
+                VoxelShape shape = state.getShape(mc.level, hitPos);
                 if (shape.isEmpty()) {
                     return;
                 }
-                currentBox = shape.getBoundingBox().offset(hitPos);
+                currentBox = shape.bounds().move(hitPos);
             } else if (currentInteractTarget instanceof EntityHitResult hitResult
                     && hitResult.getType() == HitResult.Type.ENTITY) {
                 currentBox = RenderUtils.getLerpedBox(hitResult.getEntity(), tickDelta);
@@ -790,12 +790,12 @@ public class Interact extends BaseModule {
             RenderUtils.startDrawVirtual(event.context);
             try {
                 float dist = (float)
-                        currentBox.getCenter().subtract(mc.player.getEyePos()).length();
+                        currentBox.getCenter().subtract(mc.player.getEyePosition()).length();
                 float opacity = Math.min(0.6F, 0.20F + dist * 0.02F);
                 RenderUtils.drawSolidBox(
                         event.context,
-                        currentBox.getMinPos(),
-                        currentBox.getMaxPos(),
+                        currentBox.getMinPosition(),
+                        currentBox.getMaxPosition(),
                         ColorUtils.withAlpha(renderAttackColor.get().color(), opacity));
             } finally {
                 RenderUtils.stopDrawVirtual(event.context);

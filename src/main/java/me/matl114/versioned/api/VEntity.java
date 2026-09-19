@@ -1,8 +1,8 @@
 package me.matl114.versioned.api;
 
 import me.matl114.versioned.impl.Entity_v1_21_11;
-import net.minecraft.entity.Entity;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.entity.Entity;
 
 public interface VEntity {
     public static final VEntity INSTANCE = new Entity_v1_21_11();
@@ -11,9 +11,9 @@ public interface VEntity {
         return INSTANCE;
     }
 
-    public static NbtCompound saveEntityNbt(Entity entity) {
+    public static CompoundTag saveEntityNbt(Entity entity) {
         return getInstance().serializeNBT(entity);
     }
 
-    public NbtCompound serializeNBT(Entity entity);
+    public CompoundTag serializeNBT(Entity entity);
 }

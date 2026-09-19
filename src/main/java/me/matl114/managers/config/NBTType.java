@@ -11,12 +11,12 @@ import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.BaseAttrKeyValue;
 import me.matl114.utils.config.WrapperFactory;
 import me.matl114.utils.config.kv.AttrKeyValues;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 
 @Getter
 @Accessors(fluent = true)
-public class NBTType<T> implements WrapperFactory<NbtElement, T> {
+public class NBTType<T> implements WrapperFactory<Tag, T> {
     public NBTType(String typeName, Codec<T> codec, AttrKeyValue.CustomWidgetFactory<T> customWidgetFactory, T empty) {
         this(typeName, codec, null, customWidgetFactory, empty);
         this.stringifyFactory = createDefaultFactory(this);
@@ -55,7 +55,7 @@ public class NBTType<T> implements WrapperFactory<NbtElement, T> {
 
     final T empty;
 
-    public T parse(NbtElement element) {
+    public T parse(Tag element) {
         return typeCodec.decode(NbtOps.INSTANCE, element).getOrThrow().getFirst();
     }
 
@@ -69,7 +69,7 @@ public class NBTType<T> implements WrapperFactory<NbtElement, T> {
                 .getFirst();
     }
 
-    public NbtElement toNbt(T val) {
+    public Tag toNbt(T val) {
         return typeCodec.encodeStart(NbtOps.INSTANCE, val).getOrThrow();
     }
 
@@ -90,12 +90,12 @@ public class NBTType<T> implements WrapperFactory<NbtElement, T> {
     }
 
     @Override
-    public T create(NbtElement va) {
+    public T create(Tag va) {
         return parse(va);
     }
 
     @Override
-    public NbtElement get(T va) {
+    public Tag get(T va) {
         return toNbt(va);
     }
 

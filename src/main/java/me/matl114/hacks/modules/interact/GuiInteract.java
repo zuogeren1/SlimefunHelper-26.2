@@ -13,8 +13,8 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.Screen;
 
 public class GuiInteract extends BaseModule {
     public final ModulePath other = makePath(Configs.INTERACT_CONFIG, "interact-fix.gui-interact");
@@ -32,10 +32,10 @@ public class GuiInteract extends BaseModule {
         registerListener(Listener.getPreHandleInputEvents(), this::onInput, Integer.MIN_VALUE);
     }
 
-    public final Set<KeyBinding> sets = new HashSet<>();
-    public final Supplier<KeyBinding[]> sticks = Suppliers.memoize(() -> {
-        return new KeyBinding[] {
-            mc.options.useKey, mc.options.attackKey, mc.options.sprintKey,
+    public final Set<KeyMapping> sets = new HashSet<>();
+    public final Supplier<KeyMapping[]> sticks = Suppliers.memoize(() -> {
+        return new KeyMapping[] {
+            mc.options.keyUse, mc.options.keyAttack, mc.options.keySprint,
         };
     });
 
@@ -52,7 +52,7 @@ public class GuiInteract extends BaseModule {
         if (checkNull()) return;
         if (enable.get() && !eventPre.isCancelled()) {
             for (var re : sticks.get()) {
-                if (re.isPressed()) {
+                if (re.isDown()) {
                     sets.add(re);
                 }
             }
@@ -68,7 +68,7 @@ public class GuiInteract extends BaseModule {
             if (eventPost.context != null) {
                 for (var re : sticks.get()) {
                     if (sets.contains(re)) {
-                        re.setPressed(true);
+                        re.setDown(true);
                     }
                 }
             } else {
@@ -82,7 +82,7 @@ public class GuiInteract extends BaseModule {
 
     public void onInput(Event<Void> event) {
         if (checkNull()) return;
-        if (enable.get() && mc.currentScreen != null) {
+        if (enable.get() && mc.gui.screen() != null) {
             if (useWhenScreenOpen.get()) {
                 if (event.isCancelled()) {
                     event.cancel(false);

@@ -10,13 +10,13 @@ import me.matl114.hacks.api.ModulePath;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.ItemStackUtils;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtInt;
-import net.minecraft.nbt.NbtIntArray;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.IntTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.item.ItemStack;
 
 public class ShowIdTooltips extends BaseModule {
     public final ModulePath slimefunSettings = makePath(Configs.SLIMEFUN_CONFIG, "slimefun-settings");
@@ -36,7 +36,7 @@ public class ShowIdTooltips extends BaseModule {
         registerListener(RenderListener.getTooltipShow(), this::onTooltips);
     }
 
-    public void onTooltips(Event<List<Text>> event) {
+    public void onTooltips(Event<List<Component>> event) {
         if (isActive()) {
             ItemStack stack = event.getArgs(0);
 
@@ -44,7 +44,7 @@ public class ShowIdTooltips extends BaseModule {
             if (id == null) {
                 return;
             }
-            final List<Text> lore = event.context();
+            final List<Component> lore = event.context();
             // final Identifier identifier = Registries.ITEM.getId(this.getItem());
             boolean found = false;
             for (int i = 0; i < lore.size(); i++) {
@@ -57,28 +57,28 @@ public class ShowIdTooltips extends BaseModule {
             if (!found) {
                 lore.add(SLIMEFUN_MODID);
             }
-            lore.add(Text.literal("粘液物品ID: ")
-                    .formatted(Formatting.GRAY)
-                    .append(Text.literal(id).formatted(Formatting.GREEN)));
+            lore.add(Component.literal("粘液物品ID: ")
+                    .withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(id).withStyle(ChatFormatting.GREEN)));
             handleGCEInfo(id, stack, lore);
             handleCLTInfo(id, stack, lore);
         }
     }
 
-    protected static final Text SLIMEFUN_MODID = Text.literal("Slimefun").formatted(Formatting.BLUE);
+    protected static final Component SLIMEFUN_MODID = Component.literal("Slimefun").withStyle(ChatFormatting.BLUE);
 
     protected static String GCE_CHICKEN_PATH = "geneticchickengineering:gce_pocket_chicken_dna";
     protected static char[] GCE_GENE_DISPLAY_L = new char[] {'b', 'c', 'd', 'f', 's', 'w'};
     protected static char[] GCE_GENE_DISPLAY_U = new char[] {'B', 'C', 'D', 'F', 'S', 'W'};
 
-    public static void handleGCEInfo(String sfid, ItemStack stack, List<Text> lores) {
+    public static void handleGCEInfo(String sfid, ItemStack stack, List<Component> lores) {
         if (sfid.startsWith("GCE_")) {
             if (stack != null && ItemStackUtils.hasCustomData(stack)) {
                 try {
-                    NbtCompound tag = getCustomDataReadOnly(stack);
+                    CompoundTag tag = getCustomDataReadOnly(stack);
                     if ((tag = getBukkitValue(tag)) != null
-                            && tag.get(GCE_CHICKEN_PATH) instanceof NbtIntArray intArray) {
-                        int[] dna = intArray.getIntArray();
+                            && tag.get(GCE_CHICKEN_PATH) instanceof IntArrayTag intArray) {
+                        int[] dna = intArray.getAsIntArray();
                         int len = dna.length;
                         StringBuilder sb = new StringBuilder();
                         for (int i = 0; i < 6; i++) {
@@ -89,9 +89,9 @@ public class ShowIdTooltips extends BaseModule {
                                 sb.append("??");
                             }
                         }
-                        lores.add(Text.literal("基因工程: ")
-                                .formatted(Formatting.GRAY)
-                                .append(Text.literal(sb.toString()).formatted(Formatting.DARK_PURPLE)));
+                        lores.add(Component.literal("基因工程: ")
+                                .withStyle(ChatFormatting.GRAY)
+                                .append(Component.literal(sb.toString()).withStyle(ChatFormatting.DARK_PURPLE)));
                     }
                 } catch (Throwable e) {
                 }
@@ -104,36 +104,36 @@ public class ShowIdTooltips extends BaseModule {
     protected static final String CLT_SEED_GROWTH_PATH = "cultivation:growth_speed";
     protected static final String CLT_SEED_STRENGTH_PATH = "cultivation:strength";
 
-    public static void handleCLTInfo(String sfid, ItemStack stack, List<Text> lores) {
+    public static void handleCLTInfo(String sfid, ItemStack stack, List<Component> lores) {
         if (sfid.startsWith("CLT_PLANT")) {
             if (stack != null && ItemStackUtils.hasCustomData(stack)) {
-                MutableText info = Text.literal("农耕工艺: [").formatted(Formatting.GRAY);
-                NbtCompound tag = getBukkitValueReadOnly(stack);
+                MutableComponent info = Component.literal("农耕工艺: [").withStyle(ChatFormatting.GRAY);
+                CompoundTag tag = getBukkitValueReadOnly(stack);
                 if (tag != null) {
                     try {
                         if (tag.contains(CLT_SEED_PATH)) {
-                            if (tag.get(CLT_SEED_PATH) instanceof NbtCompound nbt) {
+                            if (tag.get(CLT_SEED_PATH) instanceof CompoundTag nbt) {
 
-                                int level = nbt.get(CLT_SEED_DROP_PATH) instanceof NbtInt it ? it.intValue() : 0;
-                                int speed = nbt.get(CLT_SEED_GROWTH_PATH) instanceof NbtInt it ? it.intValue() : 0;
-                                int strength = nbt.get(CLT_SEED_STRENGTH_PATH) instanceof NbtInt it ? it.intValue() : 0;
-                                info.append(Text.literal("等级: ").formatted(Formatting.YELLOW));
-                                info.append(Text.literal(String.valueOf(level)).formatted(Formatting.GRAY));
-                                info.append(Text.literal(" 速率: ").formatted(Formatting.YELLOW));
-                                info.append(Text.literal(String.valueOf(speed)).formatted(Formatting.GRAY));
-                                info.append(Text.literal(" 强度: ").formatted(Formatting.YELLOW));
+                                int level = nbt.get(CLT_SEED_DROP_PATH) instanceof IntTag it ? it.intValue() : 0;
+                                int speed = nbt.get(CLT_SEED_GROWTH_PATH) instanceof IntTag it ? it.intValue() : 0;
+                                int strength = nbt.get(CLT_SEED_STRENGTH_PATH) instanceof IntTag it ? it.intValue() : 0;
+                                info.append(Component.literal("等级: ").withStyle(ChatFormatting.YELLOW));
+                                info.append(Component.literal(String.valueOf(level)).withStyle(ChatFormatting.GRAY));
+                                info.append(Component.literal(" 速率: ").withStyle(ChatFormatting.YELLOW));
+                                info.append(Component.literal(String.valueOf(speed)).withStyle(ChatFormatting.GRAY));
+                                info.append(Component.literal(" 强度: ").withStyle(ChatFormatting.YELLOW));
                                 info.append(
-                                        Text.literal(String.valueOf(strength)).formatted(Formatting.GRAY));
+                                        Component.literal(String.valueOf(strength)).withStyle(ChatFormatting.GRAY));
                             }
 
                         } else {
-                            info.append(Text.literal("未初始化属性").formatted(Formatting.RED));
+                            info.append(Component.literal("未初始化属性").withStyle(ChatFormatting.RED));
                         }
                     } catch (Throwable e) {
-                        info.append(Text.literal("数据错误").formatted(Formatting.RED));
+                        info.append(Component.literal("数据错误").withStyle(ChatFormatting.RED));
                     }
                 }
-                info.append(Text.literal("]").formatted(Formatting.GRAY));
+                info.append(Component.literal("]").withStyle(ChatFormatting.GRAY));
                 lores.add(info);
             }
         }

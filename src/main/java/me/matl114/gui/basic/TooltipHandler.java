@@ -4,12 +4,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public class TooltipHandler implements RenderHandler {
     final TooltipProvider provider;
 
-    public static TooltipHandler of(List<Text> list) {
+    public static TooltipHandler of(List<Component> list) {
         return new TooltipHandler(list);
     }
 
@@ -17,11 +17,11 @@ public class TooltipHandler implements RenderHandler {
         return new TooltipHandler(provider);
     }
 
-    public static TooltipHandler of(Supplier<List<Text>> listSupplier) {
+    public static TooltipHandler of(Supplier<List<Component>> listSupplier) {
         return new TooltipHandler(TooltipProvider.of(listSupplier));
     }
 
-    public TooltipHandler(List<Text> provider) {
+    public TooltipHandler(List<Component> provider) {
         this(TooltipProvider.of(provider));
     }
 
@@ -50,22 +50,22 @@ public class TooltipHandler implements RenderHandler {
 
         if (shouldHighlight) {
             if (provider != null) {
-                List<Text> texts = provider.getTooltips(element);
+                List<Component> texts = provider.getTooltips(element);
                 if (texts != null && !texts.isEmpty()) {
-                    context.drawTooltip(mc.textRenderer, texts, Optional.empty(), mouseX, mouseY);
+                    context.drawTooltip(mc.font, texts, Optional.empty(), mouseX, mouseY);
                 }
             }
         }
     }
 
     public interface TooltipProvider {
-        List<Text> getTooltips(DrawableWidget element);
+        List<Component> getTooltips(DrawableWidget element);
 
-        static TooltipProvider of(List<Text> a) {
+        static TooltipProvider of(List<Component> a) {
             return (e) -> a;
         }
 
-        static TooltipProvider of(Supplier<List<Text>> t) {
+        static TooltipProvider of(Supplier<List<Component>> t) {
             return (e) -> t.get();
         }
     }

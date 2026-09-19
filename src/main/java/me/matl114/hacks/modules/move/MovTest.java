@@ -9,10 +9,10 @@ import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
 import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.common.CommonPingS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundPingPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.world.phys.Vec3;
 
 public class MovTest extends BaseModule implements LegalMovementManager.MovementModifier {
     public static LegalMovementManager.DelegateMovementModifier instance;
@@ -34,9 +34,9 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(CommonPingS2CPacket.class), this::onTransaction);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundPingPacket.class), this::onTransaction);
         registerListener(
-                Listener.getPacketPoint().getChannel(EntityVelocityUpdateS2CPacket.class), this::onVelocityPacket);
+                Listener.getPacketPoint().getChannel(ClientboundSetEntityMotionPacket.class), this::onVelocityPacket);
     }
 
     @Override
@@ -45,15 +45,15 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
         return 10000000;
     }
 
-    public void onTransaction(Event<CommonPingS2CPacket> event) {
+    public void onTransaction(Event<ClientboundPingPacket> event) {
         if (enable()) {
             //            delayedPackets.add(event.context());
             //            event.cancel();
         }
     }
 
-    public void onVelocityPacket(Event<EntityVelocityUpdateS2CPacket> event) {
-        if (enable() && !checkNull() && event.context.getEntityId() == mc.player.getId()) {
+    public void onVelocityPacket(Event<ClientboundSetEntityMotionPacket> event) {
+        if (enable() && !checkNull() && event.context.id() == mc.player.getId()) {
             //            if(veryBigVelocity == null || (veryBigVelocity.getVelocity().lengthSquared() <
             // event.context.getVelocity().lengthSquared())){
             //                veryBigVelocity = event.context;
@@ -63,7 +63,7 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
         }
     }
 
-    Deque<EntityVelocityUpdateS2CPacket> delayedPackets = new ArrayDeque<>();
+    Deque<ClientboundSetEntityMotionPacket> delayedPackets = new ArrayDeque<>();
 
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> movementManagerEvent) {}
@@ -71,7 +71,7 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
     @Override
     public void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {
         if (!enable()) {
-            EntityVelocityUpdateS2CPacket packet;
+            ClientboundSetEntityMotionPacket packet;
             //            while ((packet = delayedPackets.poll()) != null){
             //                Vec3d velocity = packet.getVelocity();
             //                if(velocity.lengthSquared() > mc.player.getVelocity().lengthSquared()){
@@ -84,11 +84,11 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
 
     Step step;
     int lastOnGround;
-    Vec3d storePos;
+    Vec3 storePos;
     boolean runOnGroundThisTick;
     int sleep = 0;
     Packet<?> storedPacket = null;
-    Deque<Vec3d> posDeque = new ArrayDeque<>();
+    Deque<Vec3> posDeque = new ArrayDeque<>();
 
     @Override
     public void applyBeforeMovementPacketModify(Event<LegalMovementManager> movementManagerEvent) {
@@ -99,9 +99,9 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
                     mc.player.getX(),
                     mc.player.getY(),
                     mc.player.getZ(),
-                    mc.player.getYaw(),
-                    mc.player.getPitch(),
-                    mc.player.isOnGround(),
+                    mc.player.getYRot(),
+                    mc.player.getXRot(),
+                    mc.player.onGround(),
                     mc.player.horizontalCollision);
         }
     }
@@ -116,8 +116,8 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
             if (posDeque == null) {
                 posDeque = new ArrayDeque<>();
             }
-            posDeque.add(mc.player.getPos());
-            Vec3d last19Vec3d = null;
+            posDeque.add(mc.player.position());
+            Vec3 last19Vec3d = null;
             // >= 21,
             while (posDeque.size() > 20) {
                 last19Vec3d = posDeque.removeFirst();
@@ -125,7 +125,7 @@ public class MovTest extends BaseModule implements LegalMovementManager.Movement
             if (last19Vec3d != null) {
                 Debug.chat(
                         "Speed last one sec :",
-                        mc.player.getPos().subtract(last19Vec3d).length());
+                        mc.player.position().subtract(last19Vec3d).length());
             }
         } else {
             if (posDeque != null) {

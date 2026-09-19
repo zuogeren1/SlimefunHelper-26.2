@@ -1,7 +1,7 @@
 package xaero.common.minimap.waypoints;
 
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.resource.language.I18n;
+import net.minecraft.client.Camera;
+import net.minecraft.client.resources.language.I18n;
 import xaero.hud.minimap.waypoint.WaypointColor;
 import xaero.hud.minimap.waypoint.WaypointPurpose;
 
@@ -88,7 +88,7 @@ public class Waypoint implements Comparable<Waypoint> {
     }
 
     public String getLocalizedName() {
-        return I18n.translate(null, new Object[0]);
+        return I18n.get(null, new Object[0]);
     }
 
     public String getNameSafe(String replacement) {

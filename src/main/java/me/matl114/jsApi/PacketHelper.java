@@ -11,24 +11,31 @@ import me.matl114.utils.InventoryUtils;
 import me.matl114.utils.NetworkUtils;
 import me.matl114.utils.RaycastUtils;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.PacketType;
-import net.minecraft.network.packet.c2s.play.*;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 @ApiMethod
 public class PacketHelper {
-    static MinecraftClient mc = MinecraftClient.getInstance();
+    static Minecraft mc = Minecraft.getInstance();
 
     public static Class<? extends Packet<?>> getPacketType(String packetType, boolean s2c) {
         Identifier id = Identifier.tryParse(packetType);
@@ -36,7 +43,7 @@ public class PacketHelper {
     }
 
     public static void sendPacket(Packet<?> packet) {
-        mc.getNetworkHandler().sendPacket(packet);
+        mc.getConnection().send(packet);
     }
 
     public static List<String> getAllPacketTypes() {
@@ -51,7 +58,7 @@ public class PacketHelper {
     }
 
     public static void sendInventoryPacket(int slotId, int button, Object actionTypeStr) {
-        InvTasks.clickSlotAsync(slotId, button, JsHelper.toEnum(actionTypeStr, SlotActionType.class));
+        InvTasks.clickSlotAsync(slotId, button, JsHelper.toEnum(actionTypeStr, ContainerInput.class));
     }
 
     public static int getLastServerScreenSyncId() {
@@ -59,7 +66,7 @@ public class PacketHelper {
     }
 
     public static void sendCloseInventory(int syncId) {
-        mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(syncId));
+        mc.getConnection().send(new ServerboundContainerClosePacket(syncId));
     }
 
     public static void sendAttackBlock(int x, int y, int z, Object direction) {
@@ -70,40 +77,40 @@ public class PacketHelper {
         Direction dir = JsHelper.toEnum(direction, Direction.class);
         BlockPos blockPos = DataHelper.createBlockPos(pos);
         BlockState blockState;
-        if (mc.player.getAbilities().creativeMode) {
-            mc.interactionManager.sendSequencedPacket(mc.world, (sequence) -> {
-                mc.execute(() -> mc.interactionManager.breakBlock(blockPos));
-                return new PlayerActionC2SPacket(
-                        PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, blockPos, dir, sequence);
+        if (mc.player.getAbilities().instabuild) {
+            mc.gameMode.startPrediction(mc.level, (sequence) -> {
+                mc.execute(() -> mc.gameMode.destroyBlock(blockPos));
+                return new ServerboundPlayerActionPacket(
+                        ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, blockPos, dir, sequence);
             });
         } else {
-            blockState = mc.world.getBlockState(blockPos);
-            float speed = blockState.calcBlockBreakingDelta(mc.player, mc.world, blockPos);
+            blockState = mc.level.getBlockState(blockPos);
+            float speed = blockState.getDestroyProgress(mc.player, mc.level, blockPos);
             boolean canInstaMine = speed > 1.0F;
             if (canInstaMine) {
-                mc.interactionManager.sendSequencedPacket(
-                        mc.world,
-                        (sequence -> new PlayerActionC2SPacket(
-                                PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, blockPos, dir, sequence)));
-                mc.execute(() -> mc.interactionManager.breakBlock(blockPos));
+                mc.gameMode.startPrediction(
+                        mc.level,
+                        (sequence -> new ServerboundPlayerActionPacket(
+                                ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, blockPos, dir, sequence)));
+                mc.execute(() -> mc.gameMode.destroyBlock(blockPos));
             } else if (!Objects.equals(
-                    blockPos, PlayerInteractionAccess.of(mc.interactionManager).getCurrentMiningPos())) {
-                if (mc.interactionManager.isBreakingBlock()) {
-                    mc.getNetworkHandler()
-                            .sendPacket(new PlayerActionC2SPacket(
-                                    PlayerActionC2SPacket.Action.ABORT_DESTROY_BLOCK,
-                                    PlayerInteractionAccess.of(mc.interactionManager)
+                    blockPos, PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos())) {
+                if (mc.gameMode.isDestroying()) {
+                    mc.getConnection()
+                            .send(new ServerboundPlayerActionPacket(
+                                    ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK,
+                                    PlayerInteractionAccess.of(mc.gameMode)
                                             .getCurrentMiningPos(),
                                     dir));
                 }
-                PlayerInteractionAccess.of(mc.interactionManager).startMiningBlock(blockPos, dir);
+                PlayerInteractionAccess.of(mc.gameMode).startMiningBlock(blockPos, dir);
             }
         }
     }
 
     private static void syncHotbar() {
 
-        PlayerInteractionAccess.of(mc.interactionManager).syncSelectedHotbar(InventoryUtils.getSelectedSlot());
+        PlayerInteractionAccess.of(mc.gameMode).syncSelectedHotbar(InventoryUtils.getSelectedSlot());
     }
 
     public static void sendInteractBlock(int x, int y, int z, Object direction, boolean offhand) {
@@ -115,15 +122,15 @@ public class PacketHelper {
         BlockPos blockPos = DataHelper.createBlockPos(pos);
         BlockHitResult hitResult = RaycastUtils.createHitResult(blockPos, dir);
         syncHotbar();
-        mc.interactionManager.sendSequencedPacket(mc.world, (seq) -> {
-            var packet = new PlayerInteractBlockC2SPacket(offhand ? Hand.OFF_HAND : Hand.MAIN_HAND, hitResult, seq);
+        mc.gameMode.startPrediction(mc.level, (seq) -> {
+            var packet = new ServerboundUseItemOnPacket(offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, hitResult, seq);
             if (packet instanceof PlayerInteractBlockC2SPacketAccess access) {
                 access.setUseContext(new PlayerInteractBlockC2SPacketAccess.UseContext(
                         mc.player
-                                .getStackInHand(offhand ? Hand.OFF_HAND : Hand.MAIN_HAND)
+                                .getItemInHand(offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND)
                                 .copy(),
-                        mc.world.getBlockState(hitResult.getBlockPos()),
-                        ActionResult.SUCCESS,
+                        mc.level.getBlockState(hitResult.getBlockPos()),
+                        InteractionResult.SUCCESS,
                         false));
             }
             return packet;
@@ -131,7 +138,7 @@ public class PacketHelper {
     }
 
     public static void sendInteractEntity(Object entity, boolean offhand) {
-        sendInteractEntity(entity, mc.player.isSneaking(), offhand);
+        sendInteractEntity(entity, mc.player.isShiftKeyDown(), offhand);
     }
 
     public static void sendInteractEntity(Object entity, boolean sneaking, boolean offhand) {
@@ -143,22 +150,23 @@ public class PacketHelper {
             s = e.getId();
         }
         syncHotbar();
-        mc.interactionManager.sendSequencedPacket(mc.world, (seq) -> {
-            return new PlayerInteractEntityC2SPacket(
+        mc.gameMode.startPrediction(mc.level, (seq) -> {
+            return new ServerboundInteractPacket(
                     s,
-                    sneaking,
-                    new PlayerInteractEntityC2SPacket.InteractHandler(offhand ? Hand.OFF_HAND : Hand.MAIN_HAND));
+                    offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
+                    net.minecraft.world.phys.Vec3.ZERO,
+                    sneaking);
         });
     }
 
     public static void sendInteractItem(boolean offHand) {
-        sendInteractItem(offHand, mc.player.getPitch(), mc.player.getYaw());
+        sendInteractItem(offHand, mc.player.getXRot(), mc.player.getYRot());
     }
 
     public static void sendInteractItem(boolean offHand, float pitch, float yaw) {
         syncHotbar();
-        mc.interactionManager.sendSequencedPacket(mc.world, (seq) -> {
-            return new PlayerInteractItemC2SPacket(offHand ? Hand.OFF_HAND : Hand.MAIN_HAND, seq, yaw, pitch);
+        mc.gameMode.startPrediction(mc.level, (seq) -> {
+            return new ServerboundUseItemPacket(offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, seq, yaw, pitch);
         });
     }
 
@@ -170,18 +178,19 @@ public class PacketHelper {
             Entity e = JsHelper.unwrap(entity, Entity.class);
             s = e.getId();
         }
-        Vec3d p = DataHelper.createVec(pos);
+        Vec3 p = DataHelper.createVec(pos);
         syncHotbar();
-        mc.interactionManager.sendSequencedPacket(mc.world, (seq) -> {
-            return new PlayerInteractEntityC2SPacket(
+        mc.gameMode.startPrediction(mc.level, (seq) -> {
+            return new ServerboundInteractPacket(
                     s,
-                    sneaking,
-                    new PlayerInteractEntityC2SPacket.InteractAtHandler(offhand ? Hand.OFF_HAND : Hand.MAIN_HAND, p));
+                    offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
+                    p,
+                    sneaking);
         });
     }
 
     public static void sendSwingHand(boolean offhand) {
-        mc.getNetworkHandler().sendPacket(new HandSwingC2SPacket(offhand ? Hand.OFF_HAND : Hand.MAIN_HAND));
+        mc.getConnection().send(new ServerboundSwingPacket(offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND));
     }
 
     public static void startMine(Object pos, Object direction) {}
@@ -190,60 +199,60 @@ public class PacketHelper {
         Direction dir = JsHelper.toEnum(direction, Direction.class);
         BlockPos blockPos = DataHelper.createBlockPos(pos);
         // todo: fix packet
-        PlayerInteractionAccess.of(mc.interactionManager).startMiningBlock(blockPos, dir);
+        PlayerInteractionAccess.of(mc.gameMode).startMiningBlock(blockPos, dir);
     }
 
     public static void sendStopMining() {
-        var access = PlayerInteractionAccess.of(mc.interactionManager); // .sendStopBreakPacket();
+        var access = PlayerInteractionAccess.of(mc.gameMode); // .sendStopBreakPacket();
         access.sendBreakPacket(true);
     }
 
     public static void sendStopMining(Object pos, Object direction) {
         Direction dir = JsHelper.toEnum(direction, Direction.class);
         BlockPos blockPos = DataHelper.createBlockPos(pos);
-        PlayerInteractionAccess.of(mc.interactionManager).sendBreakPacket(blockPos, dir, true);
+        PlayerInteractionAccess.of(mc.gameMode).sendBreakPacket(blockPos, dir, true);
     }
 
     public static void sendStopMining(int x, int y, int z, Object direction) {}
 
     public static void syncSelectedHotbar(int x) {
-        PlayerInteractionAccess.of(mc.interactionManager).syncSelectedHotbar(x);
+        PlayerInteractionAccess.of(mc.gameMode).syncSelectedHotbar(x);
     }
 
     public static void sendClientCommand(Object cmd) {
-        ClientCommandC2SPacket.Mode mode = JsHelper.toEnum(cmd, ClientCommandC2SPacket.Mode.class);
-        mc.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(mc.player, mode));
+        ServerboundPlayerCommandPacket.Action mode = JsHelper.toEnum(cmd, ServerboundPlayerCommandPacket.Action.class);
+        mc.getConnection().send(new ServerboundPlayerCommandPacket(mc.player, mode));
     }
 
     public static void sendMoveOnGround(boolean onGround, boolean horizontalCollision) {
-        mc.getNetworkHandler().sendPacket(VPacket.newOnGroundOnly(onGround, horizontalCollision));
+        mc.getConnection().send(VPacket.newOnGroundOnly(onGround, horizontalCollision));
     }
 
     public static void sendMovePositionAndOnGround(
             double x, double y, double z, boolean isOnGround, boolean collision) {
-        mc.getNetworkHandler().sendPacket(VPacket.newPositionAndOnGround(x, y, z, isOnGround, collision));
+        mc.getConnection().send(VPacket.newPositionAndOnGround(x, y, z, isOnGround, collision));
     }
 
     public static void sendMoveLookAndOnGround(float yaw, float pitch, boolean isOnGround, boolean collision) {
-        mc.getNetworkHandler().sendPacket(VPacket.newLookAndOnGround(yaw, pitch, isOnGround, collision));
+        mc.getConnection().send(VPacket.newLookAndOnGround(yaw, pitch, isOnGround, collision));
     }
 
     public static void sendMoveVehicle(Entity entity) {
-        mc.getNetworkHandler().sendPacket(VPacket.newVehicleMove(JsHelper.unwrap(entity, Entity.class)));
+        mc.getConnection().send(VPacket.newVehicleMove(JsHelper.unwrap(entity, Entity.class)));
     }
 
     public static void sendMoveFull(
             double x, double y, double z, float yaw, float pitch, boolean isOnGround, boolean collision) {
-        mc.getNetworkHandler().sendPacket(VPacket.newFull(x, y, z, yaw, pitch, isOnGround, collision));
+        mc.getConnection().send(VPacket.newFull(x, y, z, yaw, pitch, isOnGround, collision));
     }
 
     public static void sendPlayerAction(Object action) {
-        PlayerActionC2SPacket.Action actionPacket = JsHelper.toEnum(action, PlayerActionC2SPacket.Action.class);
+        ServerboundPlayerActionPacket.Action actionPacket = JsHelper.toEnum(action, ServerboundPlayerActionPacket.Action.class);
         switch (actionPacket) {
             case STAB, SWAP_ITEM_WITH_OFFHAND, DROP_ITEM, DROP_ALL_ITEMS, RELEASE_USE_ITEM -> {}
 
             default -> throw new IllegalStateException("Unexpected value: " + actionPacket);
         }
-        mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(actionPacket, BlockPos.ORIGIN, Direction.DOWN));
+        mc.getConnection().send(new ServerboundPlayerActionPacket(actionPacket, BlockPos.ZERO, Direction.DOWN));
     }
 }

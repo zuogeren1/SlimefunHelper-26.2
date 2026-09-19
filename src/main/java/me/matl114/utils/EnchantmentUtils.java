@@ -3,25 +3,25 @@ package me.matl114.utils;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.effect.EnchantmentEffectEntry;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.condition.AllOfLootCondition;
-import net.minecraft.loot.condition.AnyOfLootCondition;
-import net.minecraft.loot.condition.InvertedLootCondition;
-import net.minecraft.loot.condition.LootCondition;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.ConditionalEffect;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.storage.loot.predicates.AllOfCondition;
+import net.minecraft.world.level.storage.loot.predicates.AnyOfCondition;
+import net.minecraft.world.level.storage.loot.predicates.InvertedLootItemCondition;
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 import org.apache.commons.lang3.mutable.MutableFloat;
 
 public class EnchantmentUtils {
     public static float calculate(ItemStack stack, Calculator<Float> consumer, float baseValue) {
         MutableFloat mutableFloat = new MutableFloat(baseValue);
-        EnchantmentHelper.forEachEnchantment(stack, (enchantment, level) -> {
+        EnchantmentHelper.runIterationOnItem(stack, (enchantment, level) -> {
             mutableFloat.setValue(consumer.calculate(mutableFloat.getValue(), enchantment, level));
         });
         return mutableFloat.getValue();
@@ -29,9 +29,9 @@ public class EnchantmentUtils {
 
     public static float calculate(LivingEntity stack, ContextAwareCalculator<Float> consumer, float baseValue) {
         MutableFloat mutableFloat = new MutableFloat(baseValue);
-        EnchantmentHelper.forEachEnchantment(stack, (enchantment, level, context) -> {
+        EnchantmentHelper.runIterationOnEquipment(stack, (enchantment, level, context) -> {
             mutableFloat.setValue(
-                    consumer.calculate(mutableFloat.getValue(), enchantment, level, context.stack(), context.slot()));
+                    consumer.calculate(mutableFloat.getValue(), enchantment, level, context.itemStack(), context.inSlot()));
         });
         return mutableFloat.getValue();
     }
@@ -50,36 +50,36 @@ public class EnchantmentUtils {
     }
 
     public static boolean matchPartialCondition(
-            EnchantmentEffectEntry<?> effectEntry, Predicate<LootCondition> testCondition) {
+            ConditionalEffect<?> effectEntry, Predicate<LootItemCondition> testCondition) {
         if (effectEntry.requirements().isEmpty()) {
             return true;
         } else {
-            LootCondition condition = effectEntry.requirements().get();
+            LootItemCondition condition = effectEntry.requirements().get();
             return matchPartialCondition(condition, testCondition);
         }
     }
 
-    public static boolean matchPartialCondition(LootCondition condition, Predicate<LootCondition> testCondition) {
-        if (condition instanceof AllOfLootCondition allOf) {
+    public static boolean matchPartialCondition(LootItemCondition condition, Predicate<LootItemCondition> testCondition) {
+        if (condition instanceof AllOfCondition allOf) {
             return allOf.terms.stream().allMatch(s -> matchPartialCondition(s, testCondition));
-        } else if (condition instanceof AnyOfLootCondition anyOf) {
+        } else if (condition instanceof AnyOfCondition anyOf) {
             return anyOf.terms.stream().anyMatch(s -> matchPartialCondition(s, testCondition));
-        } else if (condition instanceof InvertedLootCondition invert) {
+        } else if (condition instanceof InvertedLootItemCondition invert) {
             return !matchPartialCondition(invert.term(), testCondition);
         } else {
             return testCondition.test(condition);
         }
     }
 
-    private static void forEachEnchantments(ItemStack stack, EquipmentSlot slot, EnchantmentHelper.Consumer consumer) {
+    private static void forEachEnchantments(ItemStack stack, EquipmentSlot slot, EnchantmentHelper.EnchantmentVisitor consumer) {
         if (!stack.isEmpty()) {
-            ItemEnchantmentsComponent itemEnchantmentsComponent =
-                    (ItemEnchantmentsComponent) stack.get(DataComponentTypes.ENCHANTMENTS);
+            ItemEnchantments itemEnchantmentsComponent =
+                    (ItemEnchantments) stack.get(DataComponents.ENCHANTMENTS);
             if (itemEnchantmentsComponent != null && !itemEnchantmentsComponent.isEmpty()) {
 
-                for (var entry : itemEnchantmentsComponent.getEnchantmentEntries()) {
-                    RegistryEntry<Enchantment> registryEntry = entry.getKey();
-                    if ((registryEntry.value()).slotMatches(slot)) {
+                for (var entry : itemEnchantmentsComponent.entrySet()) {
+                    Holder<Enchantment> registryEntry = entry.getKey();
+                    if ((registryEntry.value()).matchingSlot(slot)) {
                         consumer.accept(registryEntry, entry.getIntValue());
                     }
                 }
@@ -88,13 +88,13 @@ public class EnchantmentUtils {
     }
 
     public interface Calculator<T> {
-        public T calculate(T current, RegistryEntry<Enchantment> enchantment, int level);
+        public T calculate(T current, Holder<Enchantment> enchantment, int level);
     }
 
     public interface ContextAwareCalculator<T> {
         public T calculate(
                 T current,
-                RegistryEntry<Enchantment> enchantment,
+                Holder<Enchantment> enchantment,
                 int level,
                 ItemStack stack,
                 @Nullable EquipmentSlot slot);

@@ -14,7 +14,7 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.entity.PlayerInputUtils;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.player.LocalPlayer;
 
 public class Sprint extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath moveSpeed = makePath(Configs.MOV_CONFIG, "move-speed");
@@ -80,11 +80,11 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
         enableSprintDirectionalThisTick = false;
     }
 
-    public void onTick(Event<ClientPlayerEntity> event) {
+    public void onTick(Event<LocalPlayer> event) {
         if (autoSprintLegal.get()) {
-            if (!mc.options.sprintKey.isPressed()
+            if (!mc.options.keySprint.isDown()
                     && PlayerInputUtils.of(mc.options).hasWASDMovement()) {
-                mc.options.sprintKey.setPressed(true);
+                mc.options.keySprint.setDown(true);
                 if (logSprint.get()) {
                     logI18N("message.module.sprint.toggle-on");
                 }
@@ -103,10 +103,10 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
     public boolean mayWorkSprint() {
         return !mc.player.isFallFlying()
                 && !mc.player.isSwimming()
-                && !mc.player.isClimbing()
-                && !mc.player.isTouchingWater()
-                && !mc.player.isSubmergedInWater()
-                && !(mc.player.horizontalCollision && !mc.player.collidedSoftly);
+                && !mc.player.onClimbable()
+                && !mc.player.isInWater()
+                && !mc.player.isUnderWater()
+                && !(mc.player.horizontalCollision && !mc.player.minorHorizontalCollision);
     }
 
     @Override
@@ -119,7 +119,7 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
                     && !input.forward()
                     && input.backward()
                     && !movementManagerEvent.context.hasImportantRotation()) {
-                PlayerStateManager.setPlayerYawSafe(player, player.getYaw() + 180);
+                PlayerStateManager.setPlayerYawSafe(player, player.getYRot() + 180);
                 movementManagerEvent.context.markForResetRot();
                 movementManagerEvent.context.markForMoveFix();
             }
@@ -128,7 +128,7 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
 
     @Override
     public void applyAfterInputTick(Event<LegalMovementManager> movementManagerEvent) {
-        ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+        LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
         //                if(player.getVelocity().horizontalLength() > 0.05)
         //                Debug.info("check vc", player.getVelocity().horizontalLength());
 
@@ -153,7 +153,7 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
 
     @Override
     public void applyBeforeMovementPacketModify(Event<LegalMovementManager> movementManagerEvent) {
-        ClientPlayerEntity player = movementManagerEvent.context.playerStatus.entity;
+        LocalPlayer player = movementManagerEvent.context.playerStatus.entity;
         //        if (directionalSprint.get()
         //                && (player.input.playerInput.backward() && !player.input.playerInput.forward())
         //                && player.isSprinting()) {
@@ -194,10 +194,10 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
                     //                        ClientPlayerAccess.of(player).onPlayerInputPackets();
                     //                        fakeSprintThisTick = true;
                     //                        player.setSprinting(false);
-                    //                        //                        mc.getNetworkHandler().sendPacket(new
+                    //                        //                        mc.getConnection().sendPacket(new
                     // ClientCommandC2SPacket(player,
                     //                        // ClientCommandC2SPacket.Mode.STOP_SPRINTING));
-                    //                        //                        mc.getNetworkHandler().sendPacket(new
+                    //                        //                        mc.getConnection().sendPacket(new
                     // ClientCommandC2SPacket(player,
                     //                        // ClientCommandC2SPacket.Mode.START_SPRINTING));
                     //                        PlayerInputUtils.of(player).sprint(false).applyInput(player);
@@ -213,7 +213,7 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
         enableSprintDirectionalThisTick = false;
         lastTickLandingRotateJump = false;
         if (!movementManagerEvent.context.playerStatus.onGround
-                && movementManagerEvent.context.playerStatus.entity.isOnGround()) {
+                && movementManagerEvent.context.playerStatus.entity.onGround()) {
             lastTickLandingRotateJump = true;
         }
 

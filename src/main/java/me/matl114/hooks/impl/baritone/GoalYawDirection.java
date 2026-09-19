@@ -3,7 +3,7 @@ package me.matl114.hooks.impl.baritone;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.SettingsUtil;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 
 public class GoalYawDirection implements Goal {
 

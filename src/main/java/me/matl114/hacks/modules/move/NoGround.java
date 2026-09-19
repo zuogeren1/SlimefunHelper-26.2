@@ -18,10 +18,10 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.CollisionUtil;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class NoGround extends BaseModule {
     public static NoGround INSTANCE;
@@ -45,30 +45,30 @@ public class NoGround extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getPacketPoint().getChannel(PlayerMoveC2SPacket.class), this::onSendMovePacket);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onSendMovePacket);
     }
 
-    public void onSendMovePacket(Event<PlayerMoveC2SPacket> event) {
+    public void onSendMovePacket(Event<ServerboundMovePlayerPacket> event) {
         if (enable.get()) {
             var packet = event.context;
             if (packet.isOnGround()) {
                 mc.player.setOnGround(false);
 
-                if (mode.get().isIn(Mode.GRIM_FAKE_MINE) && packet.changesPosition()) {
+                if (mode.get().isIn(Mode.GRIM_FAKE_MINE) && packet.hasPosition()) {
                     if (PlayerMoveC2SPacketAccess.of(packet).getCause()
                             != PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP) {
-                        Vec3d vec3d = new Vec3d(packet.getX(0.0D), packet.getY(0.0D), packet.getZ(0.0D));
+                        Vec3 vec3d = new Vec3(packet.getX(0.0D), packet.getY(0.0D), packet.getZ(0.0D));
                         if (Objects.equals(vec3d, PlayerStateManager.INSTANCE.getLastPosition())) {
                             event.context(
-                                    packet.changesLook()
+                                    packet.hasRotation()
                                             ? VPacket.newLookAndOnGround(
-                                                    packet.getYaw(0.0F), packet.getPitch(0.0F), false, false)
+                                                    packet.getYRot(0.0F), packet.getXRot(0.0F), false, false)
                                             : VPacket.newOnGroundOnly(false, false));
                         } else {
-                            Box box = mc.player.dimensions.getBoxAt(vec3d);
-                            List<BlockPos> colliding = CollisionUtil.getBoxCollision(mc.world, mc.player, box);
-                            Box boxDown = box.withMinY(box.minY - 0.5).withMaxY(box.minY - 0.001);
-                            List<BlockPos> colliding2 = CollisionUtil.getBoxCollision(mc.world, mc.player, boxDown);
+                            AABB box = mc.player.dimensions.makeBoundingBox(vec3d);
+                            List<BlockPos> colliding = CollisionUtil.getBoxCollision(mc.level, mc.player, box);
+                            AABB boxDown = box.setMinY(box.minY - 0.5).setMaxY(box.minY - 0.001);
+                            List<BlockPos> colliding2 = CollisionUtil.getBoxCollision(mc.level, mc.player, boxDown);
                             Set<BlockPos> poses = new HashSet<>(colliding2);
                             colliding.forEach(poses::remove);
                             for (BlockPos pos : poses) {
@@ -77,7 +77,7 @@ public class NoGround extends BaseModule {
                         }
                     }
                 }
-                if (event.context instanceof PlayerMoveC2SPacket.OnGroundOnly
+                if (event.context instanceof ServerboundMovePlayerPacket.StatusOnly
                         && !PlayerStateManager.INSTANCE.lastOnGround) {
                     event.cancel();
                     return;

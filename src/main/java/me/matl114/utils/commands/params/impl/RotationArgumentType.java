@@ -10,7 +10,7 @@ import me.matl114.utils.commands.params.api.ArgumentType;
 import me.matl114.utils.commands.params.api.CommandExecution;
 import me.matl114.utils.commands.params.api.InputArgument;
 import me.matl114.utils.commands.params.types.ExecuteRotation;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.world.phys.Vec2;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector2f;
 
@@ -102,7 +102,7 @@ public class RotationArgumentType extends AbstractArgumentType<ExecuteRotation>
             String[] rangeArgs = rotationResult.getParsedArgument();
             int len = rangeArgs.length;
             if (len == 0 || rangeArgs[0].isEmpty()) {
-                Vec2f rotation = currentRotation(sender);
+                Vec2 rotation = currentRotation(sender);
                 return Stream.of(ExecuteRotation.fixed(rotation.x, rotation.y), ExecuteRotation.relative(3, 0.0F, 0.0F))
                         .map(ExecuteRotation::asString);
             } else {
@@ -114,7 +114,7 @@ public class RotationArgumentType extends AbstractArgumentType<ExecuteRotation>
                     return Stream.empty();
                 }
                 int leftArg = 2 - len;
-                Vec2f rotation = currentRotation(sender);
+                Vec2 rotation = currentRotation(sender);
                 String[] p1 = {"%.1f".formatted(rotation.x), "%.1f".formatted(rotation.y)};
                 String[] p2 = {"~", "~"};
                 if ((rangeArgs[len - 1].isEmpty())) {
@@ -135,8 +135,8 @@ public class RotationArgumentType extends AbstractArgumentType<ExecuteRotation>
         return Stream.empty();
     }
 
-    private Vec2f currentRotation(CommandExecution sender) {
+    private Vec2 currentRotation(CommandExecution sender) {
         Vector2f vec2 = sender.getExecuteRot();
-        return new Vec2f(vec2.x, vec2.y);
+        return new Vec2(vec2.x, vec2.y);
     }
 }

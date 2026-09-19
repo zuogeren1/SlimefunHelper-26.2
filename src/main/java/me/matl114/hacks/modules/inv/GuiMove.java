@@ -12,11 +12,17 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.managers.input.SimpleInputManager;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.*;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.inventory.*;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
+import net.minecraft.client.gui.screens.inventory.CommandBlockEditScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.SignEditScreen;
+import net.minecraft.client.gui.screens.inventory.StructureBlockEditScreen;
 import org.lwjgl.glfw.GLFW;
 
 public class GuiMove extends BaseModule {
@@ -45,34 +51,34 @@ public class GuiMove extends BaseModule {
         registerListener(Listener.getPostSetScreen(), this::onPostSetScreen);
     }
 
-    public KeyBinding[] inputBindings;
-    public KeyBinding[] inputBindingsNoSneak;
+    public KeyMapping[] inputBindings;
+    public KeyMapping[] inputBindingsNoSneak;
 
     private void initBinding() {
         if (inputBindings == null || inputBindingsNoSneak == null) {
-            inputBindings = new KeyBinding[] {
-                mc.options.forwardKey,
-                mc.options.backKey,
-                mc.options.leftKey,
-                mc.options.rightKey,
-                mc.options.jumpKey,
-                mc.options.sneakKey,
-                mc.options.sprintKey
+            inputBindings = new KeyMapping[] {
+                mc.options.keyUp,
+                mc.options.keyDown,
+                mc.options.keyLeft,
+                mc.options.keyRight,
+                mc.options.keyJump,
+                mc.options.keyShift,
+                mc.options.keySprint
             };
-            inputBindingsNoSneak = new KeyBinding[] {
-                mc.options.forwardKey,
-                mc.options.backKey,
-                mc.options.leftKey,
-                mc.options.rightKey,
-                mc.options.jumpKey,
-                mc.options.sprintKey
+            inputBindingsNoSneak = new KeyMapping[] {
+                mc.options.keyUp,
+                mc.options.keyDown,
+                mc.options.keyLeft,
+                mc.options.keyRight,
+                mc.options.keyJump,
+                mc.options.keySprint
             };
         }
     }
 
-    public KeyBinding[] getBindings() {
+    public KeyMapping[] getBindings() {
         initBinding();
-        return noShiftInChest.get() && mc.currentScreen instanceof HandledScreen<?>
+        return noShiftInChest.get() && mc.gui.screen() instanceof AbstractContainerScreen<?>
                 ? inputBindingsNoSneak
                 : inputBindings;
     }
@@ -89,15 +95,15 @@ public class GuiMove extends BaseModule {
         }
     }
 
-    public boolean handle(KeyBinding keyBinding, int keyCode, int action) {
-        if (keyBinding.boundKey.getCode() != keyCode) {
+    public boolean handle(KeyMapping keyBinding, int keyCode, int action) {
+        if (keyBinding.key.getValue() != keyCode) {
             return false;
         }
         if (action == GLFW.GLFW_PRESS) {
-            keyBinding.setPressed(true);
+            keyBinding.setDown(true);
             return true;
         } else if (action == GLFW.GLFW_RELEASE) {
-            keyBinding.setPressed(false);
+            keyBinding.setDown(false);
             return true;
         }
         return false;
@@ -108,24 +114,24 @@ public class GuiMove extends BaseModule {
         if (enable.get() && event.context != null) {
             initBinding();
             for (var re : getBindings()) {
-                re.setPressed(SimpleInputManager.getInstance().isKeyPressed(re.boundKey.getCode()));
+                re.setDown(SimpleInputManager.getInstance().isKeyPressed(re.key.getValue()));
             }
         }
     }
 
     public boolean skip() {
-        if (mc.currentScreen == null
-                || mc.currentScreen instanceof CreativeInventoryScreen
-                || mc.currentScreen instanceof ChatScreen
-                || mc.currentScreen instanceof SignEditScreen
-                || mc.currentScreen instanceof AnvilScreen
-                || mc.currentScreen instanceof CommandBlockScreen
-                || mc.currentScreen instanceof StructureBlockScreen
-                || mc.currentScreen.getFocused() instanceof TextFieldWidget
-                || (mc.currentScreen.getFocused() instanceof DrawableWidget widget && checkCustomWidget(widget)))
+        if (mc.gui.screen() == null
+                || mc.gui.screen() instanceof CreativeModeInventoryScreen
+                || mc.gui.screen() instanceof ChatScreen
+                || mc.gui.screen() instanceof SignEditScreen
+                || mc.gui.screen() instanceof AnvilScreen
+                || mc.gui.screen() instanceof CommandBlockEditScreen
+                || mc.gui.screen() instanceof StructureBlockEditScreen
+                || mc.gui.screen().getFocused() instanceof EditBox
+                || (mc.gui.screen().getFocused() instanceof DrawableWidget widget && checkCustomWidget(widget)))
             return true;
         if (allGui.get()) return false;
-        return !(mc.currentScreen instanceof HandledScreen<?>);
+        return !(mc.gui.screen() instanceof AbstractContainerScreen<?>);
     }
 
     public boolean checkCustomWidget(DrawableWidget drawableWidget) {

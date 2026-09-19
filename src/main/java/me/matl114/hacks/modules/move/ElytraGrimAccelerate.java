@@ -13,12 +13,12 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.versioned.api.VPacket;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.c2s.play.TeleportConfirmC2SPacket;
-import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.phys.Vec3;
 
 public class ElytraGrimAccelerate extends BaseModule implements LegalMovementManager.MovementModifier {
     static LegalMovementManager.DelegateMovementModifier instance;
@@ -67,25 +67,25 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getPacketPostSendPoint().getChannel(TeleportConfirmC2SPacket.class), this::onSetBackReceive);
-        registerListener(Listener.getPacketPoint().getChannel(EntityVelocityUpdateS2CPacket.class), this::onVcUpdate);
+                Listener.getPacketPostSendPoint().getChannel(ServerboundAcceptTeleportationPacket.class), this::onSetBackReceive);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundSetEntityMotionPacket.class), this::onVcUpdate);
         registerListener(
-                Listener.getPacketPostHandlePoint().getChannel(PlayerPositionLookS2CPacket.class),
+                Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerPositionPacket.class),
                 this::onTeleportConfirm);
     }
 
     public Packet<?> storedPacket = null;
     int setBackCount = 0;
     int lastSendMoveAndWaitSetBackTick = 0;
-    Vec3d lastVelocity;
+    Vec3 lastVelocity;
 
     int lastVelocityTick = 0;
     boolean currentVelocityRevert = false;
 
-    public void onVcUpdate(Event<EntityVelocityUpdateS2CPacket> event) {
+    public void onVcUpdate(Event<ClientboundSetEntityMotionPacket> event) {
 
         // todo: fix it
-        if (mc.player != null && event.context.getEntityId() == mc.player.getId()) {
+        if (mc.player != null && event.context.id() == mc.player.getId()) {
             // Debug.chat("Accept velocity", velocity, Tasks.getTick());
             if (lastWorkingTick + 10 > Tasks.getTick()) {}
         }
@@ -110,7 +110,7 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
 
     int lastWorkingTick = 0;
 
-    public void onSetBackReceive(Event<TeleportConfirmC2SPacket> packet) {
+    public void onSetBackReceive(Event<ServerboundAcceptTeleportationPacket> packet) {
         setBackCount++;
         lastSendMoveAndWaitSetBackTick = 0;
     }
@@ -122,7 +122,7 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
     boolean currentTryWorking = false;
     boolean currentWorking = false;
 
-    public void onTeleportConfirm(Event<PlayerPositionLookS2CPacket> event) {}
+    public void onTeleportConfirm(Event<ClientboundPlayerPositionPacket> event) {}
 
     private void createStorePacket() {
         // fix chunk lag
@@ -139,9 +139,9 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
                         mc.player.getX(),
                         mc.player.getY() + 2.5 * ((Tasks.getTick() % 3) + 1), // - 20 * ((Tasks.getTick() % 2) +1 ),
                         mc.player.getZ(),
-                        mc.player.getYaw(),
-                        mc.player.getPitch(),
-                        mc.player.isOnGround(),
+                        mc.player.getYRot(),
+                        mc.player.getXRot(),
+                        mc.player.onGround(),
                         mc.player.horizontalCollision);
             }
             case CRASH_PACKETS -> {
@@ -149,28 +149,28 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
                         3.9999999E7D,
                         mc.player.getY() + 2.5 * ((Tasks.getTick() % 3) + 1), // - 20 * ((Tasks.getTick() % 2) +1 ),
                         3.9999999E7D,
-                        mc.player.getYaw(),
-                        mc.player.getPitch(),
+                        mc.player.getYRot(),
+                        mc.player.getXRot(),
                         true,
                         mc.player.horizontalCollision);
             }
         }
         PlayerMoveC2SPacketAccess.setCause(
-                (PlayerMoveC2SPacket) storedPacket, PlayerMoveC2SPacketAccess.Cause.TRIGGER_SIMULATION);
+                (ServerboundMovePlayerPacket) storedPacket, PlayerMoveC2SPacketAccess.Cause.TRIGGER_SIMULATION);
     }
 
     @Override
     public void applyPreTickModify(Event<LegalMovementManager> preTickEvent) {
         boolean enable = this.enable.get();
         if (enable && fixOldVersionVelocityShit.get()) {
-            Vec3d velocity = PlayerStateManager.INSTANCE.lastKnownMovementSpeed;
+            Vec3 velocity = PlayerStateManager.INSTANCE.lastKnownMovementSpeed;
             if (Math.abs(velocity.x) >= 3.8 || Math.abs(velocity.z) >= 3.8) {
                 enable = false;
             }
         }
         currentTryWorking = (enable || currentTryWorking)
                 && mc.player.isFallFlying()
-                && !mc.player.isOnGround()
+                && !mc.player.onGround()
                 && !MovTasks.getElytraExtra().canFireworkControlMotion();
         if (currentTryWorking) {
             lastWorkingTick = Tasks.getTick();
@@ -180,7 +180,7 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
     @Override
     public void applyBeforeMovementPacketModify(Event<LegalMovementManager> sendMovementPacketEvent) {
         if (currentTryWorking) {
-            Vec3d velocity = PlayerStateManager.INSTANCE.lastKnownChangePosMovementSpeed;
+            Vec3 velocity = PlayerStateManager.INSTANCE.lastKnownChangePosMovementSpeed;
             double speed = velocity.length();
 
             if (speed > maxVelocityAccept.get()) {
@@ -224,8 +224,8 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
             storedPacket = null;
         }
         if (storedPacket != null) {
-            // mc.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(-rand.nextInt(0, Integer.MAX_VALUE - 1)));
-            mc.getNetworkHandler().sendPacket(storedPacket);
+            // mc.getConnection().sendPacket(new TeleportConfirmC2SPacket(-rand.nextInt(0, Integer.MAX_VALUE - 1)));
+            mc.getConnection().send(storedPacket);
             lastSendMoveAndWaitSetBackTick = Tasks.getTick();
             storedPacket = null;
         }

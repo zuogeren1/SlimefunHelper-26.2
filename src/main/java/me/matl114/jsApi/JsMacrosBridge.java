@@ -1,12 +1,12 @@
 package me.matl114.jsApi;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import xyz.wagyourtail.jsmacros.client.api.classes.inventory.Inventory;
 import xyz.wagyourtail.jsmacros.client.api.classes.math.Pos2D;
 import xyz.wagyourtail.jsmacros.client.api.classes.math.Pos3D;
@@ -70,10 +70,10 @@ public interface JsMacrosBridge {
                 return type.cast(raw);
             }
             if (what instanceof Pos3D pos3) {
-                return type.cast(new Vec3d(pos3.x, pos3.y, pos3.z));
+                return type.cast(new Vec3(pos3.x, pos3.y, pos3.z));
             }
             if (what instanceof Pos2D pos2D) {
-                return type.cast(new Vec2f((float) pos2D.x, (float) pos2D.y));
+                return type.cast(new Vec2((float) pos2D.x, (float) pos2D.y));
             }
             if (what instanceof Inventory<?> inventory) {
                 return type.cast(inventory.getRawContainer());
@@ -97,13 +97,13 @@ public interface JsMacrosBridge {
         @Override
         public Object wrap(Object object) {
             FJavaUtils javaUtils = this.javaUtils;
-            if (object instanceof Vec3d vec3d) {
+            if (object instanceof Vec3 vec3d) {
                 return new Pos3D(vec3d);
             }
-            if (object instanceof Vec2f vec2f) {
+            if (object instanceof Vec2 vec2f) {
                 return new Pos2D(vec2f.x, vec2f.y);
             }
-            if (object instanceof HandledScreen handledScreen) {
+            if (object instanceof AbstractContainerScreen handledScreen) {
                 return Inventory.create(handledScreen);
             }
             Object ret = javaUtils.getHelperFromRaw(object);
@@ -168,10 +168,10 @@ public interface JsMacrosBridge {
                 return type.cast(raw);
             }
             if (what instanceof com.jsmacrosce.jsmacros.api.math.Pos3D pos3) {
-                return type.cast(new Vec3d(pos3.x, pos3.y, pos3.z));
+                return type.cast(new Vec3(pos3.x, pos3.y, pos3.z));
             }
             if (what instanceof com.jsmacrosce.jsmacros.api.math.Pos2D pos2D) {
-                return type.cast(new Vec2f((float) pos2D.x, (float) pos2D.y));
+                return type.cast(new Vec2((float) pos2D.x, (float) pos2D.y));
             }
             if (what instanceof com.jsmacrosce.jsmacros.client.api.classes.inventory.Inventory<?> inventory) {
                 return type.cast(inventory.getRawContainer());
@@ -195,13 +195,13 @@ public interface JsMacrosBridge {
         @Override
         public Object wrap(Object object) {
             com.jsmacrosce.jsmacros.api.library.FJavaUtils javaUtils = this.javaUtils;
-            if (object instanceof Vec3d vec3d) {
+            if (object instanceof Vec3 vec3d) {
                 return new com.jsmacrosce.jsmacros.api.math.Pos3D(vec3d);
             }
-            if (object instanceof Vec2f vec2f) {
+            if (object instanceof Vec2 vec2f) {
                 return new com.jsmacrosce.jsmacros.api.math.Pos2D(vec2f.x, vec2f.y);
             }
-            if (object instanceof HandledScreen handledScreen) {
+            if (object instanceof AbstractContainerScreen handledScreen) {
                 return com.jsmacrosce.jsmacros.client.api.classes.inventory.Inventory.create(handledScreen);
             }
             Object ret = javaUtils.getHelperFromRaw(object);

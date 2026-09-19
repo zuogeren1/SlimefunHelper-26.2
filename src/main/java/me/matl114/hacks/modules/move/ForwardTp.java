@@ -10,9 +10,9 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class ForwardTp extends BaseModule {
     public final ModulePath quickMove = makePath(Configs.MOV_CONFIG, "quick-move");
@@ -41,11 +41,11 @@ public class ForwardTp extends BaseModule {
     final double distance = 0.1;
 
     public boolean quickMovFront() {
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         if (player == null) return false;
-        Vec3d vec3d = player.getPos();
-        Vec3d lookat = player.getRotationVector().normalize();
-        Vec3d lastAvailablePos = calculateAvailableMovPlace(mc.player, vec3d, lookat, distance, maxDistance.get());
+        Vec3 vec3d = player.position();
+        Vec3 lookat = player.getLookAngle().normalize();
+        Vec3 lastAvailablePos = calculateAvailableMovPlace(mc.player, vec3d, lookat, distance, maxDistance.get());
         //        DEBUG_RENDER_COLLISION_RENDERING = true;
         //        STATIC_DEBUG_COLOR = Color.RED;
         //        RenderTasks.debugBox(mc.player.dimensions.getBoxAt(lastAvailablePos));
@@ -67,11 +67,11 @@ public class ForwardTp extends BaseModule {
     }
 
     public boolean quickMovTowardsWall() {
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         if (player == null) return false;
-        Vec3d vec3d = player.getPos();
-        Vec3d lookat = player.getRotationVector().normalize();
-        Vec3d lastAvailablePos = calculateNextWallPosition(mc.player, vec3d, lookat, distance, maxDistance.get());
+        Vec3 vec3d = player.position();
+        Vec3 lookat = player.getLookAngle().normalize();
+        Vec3 lastAvailablePos = calculateNextWallPosition(mc.player, vec3d, lookat, distance, maxDistance.get());
         if (lastAvailablePos != vec3d) {
             if (useTpMethod.get()) {
                 MovTasks.executeTp(lastAvailablePos, 2147483647, false, true);
@@ -85,11 +85,11 @@ public class ForwardTp extends BaseModule {
         }
     }
 
-    public Vec3d calculateAvailableMovPlace(Entity executor, Vec3d curPose, Vec3d lookAt, double delta, double max) {
+    public Vec3 calculateAvailableMovPlace(Entity executor, Vec3 curPose, Vec3 lookAt, double delta, double max) {
         //        double stepHeight = executor.getStepHeight();
         //        boolean onGround = executor.isOnGround();
         lookAt = lookAt.normalize();
-        Vec3d maxinumMovement = lookAt.multiply(max);
+        Vec3 maxinumMovement = lookAt.scale(max);
         // fixme: when max too high , creating cache costs too much
         // fixme: should in lower case and higher case when searching i
         // fixme: most of case we move less than 100
@@ -106,9 +106,9 @@ public class ForwardTp extends BaseModule {
         //            null, null, null
         //        );
 
-        lookAt = lookAt.multiply(delta);
-        Vec3d originalPos = curPose;
-        Vec3d lastAvailablePos = curPose;
+        lookAt = lookAt.scale(delta);
+        Vec3 originalPos = curPose;
+        Vec3 lastAvailablePos = curPose;
         boolean hasWall = false;
         for (double i = 0; i < max; i += delta) {
             curPose = curPose.add(lookAt);
@@ -120,8 +120,8 @@ public class ForwardTp extends BaseModule {
             if (noCollision) {
                 value = true;
             } else {
-                Vec3d totalMovement = curPose.subtract(originalPos);
-                Vec3d sim = engin.simulateMovement(
+                Vec3 totalMovement = curPose.subtract(originalPos);
+                Vec3 sim = engin.simulateMovement(
                         executor,
                         originalPos,
                         totalMovement); // collideWithTrustedList(originalBox, totalMovement, involvedVoxel,
@@ -145,12 +145,12 @@ public class ForwardTp extends BaseModule {
         return lastAvailablePos;
     }
 
-    public static Vec3d calculateNextWallPosition(
-            Entity executor, Vec3d curPose, Vec3d lookAt, double delta, double max) {
+    public static Vec3 calculateNextWallPosition(
+            Entity executor, Vec3 curPose, Vec3 lookAt, double delta, double max) {
         //        double stepHeight = executor.getStepHeight();
         //        boolean onGround = executor.isOnGround();
         lookAt = lookAt.normalize();
-        Vec3d maxinumMovement = lookAt.multiply(max);
+        Vec3 maxinumMovement = lookAt.scale(max);
         //        Box originalBox = executor.getBoundingBox();
         //        Box bigBox = makeCollectorBoxInvolvingCollision(originalBox, maxinumMovement, stepHeight, onGround);
         //        List<VoxelShape> involvedVoxel = new ArrayList<>();
@@ -163,9 +163,9 @@ public class ForwardTp extends BaseModule {
         MovTasks.CollisionContext engin =
                 new MovTasks.CollisionCache(executor, curPose, curPose.add(maxinumMovement), false);
 
-        lookAt = lookAt.multiply(delta);
-        Vec3d originalPos = curPose;
-        Vec3d lastAvailablePos = curPose;
+        lookAt = lookAt.scale(delta);
+        Vec3 originalPos = curPose;
+        Vec3 lastAvailablePos = curPose;
         for (double i = 0; i < max; i += delta) {
             curPose = curPose.add(lookAt);
             //            BlockPos pos1= BlockPos.ofFloored(vec3d);
@@ -174,8 +174,8 @@ public class ForwardTp extends BaseModule {
 
             boolean value;
 
-            Vec3d totalMovement = curPose.subtract(originalPos);
-            Vec3d sim = engin.simulateMovement(
+            Vec3 totalMovement = curPose.subtract(originalPos);
+            Vec3 sim = engin.simulateMovement(
                     executor,
                     originalPos,
                     totalMovement); // collideWithTrustedList(originalBox, totalMovement, involvedVoxel, involvedAABB,

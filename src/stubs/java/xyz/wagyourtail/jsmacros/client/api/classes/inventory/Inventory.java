@@ -1,9 +1,9 @@
 package xyz.wagyourtail.jsmacros.client.api.classes.inventory;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 
-public class Inventory<T extends HandledScreen<?>> {
+public class Inventory<T extends AbstractContainerScreen<?>> {
 
     public T getRawContainer() {
         return null;

@@ -11,9 +11,9 @@ import me.matl114.hacks.utils.render.ItemStackDisplayUtils;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
 import me.matl114.versioned.api.VDrawContext;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 public class EquipmentHud extends IRender2DModule {
     public final ModulePath invHud = createRoot();
@@ -76,14 +76,14 @@ public class EquipmentHud extends IRender2DModule {
     @Override
     public void render2D(VDrawContext vdraw, float partialTicks) {
         for (var re : map.entrySet()) {
-            ItemStack stack = mc.player.getEquippedStack(re.getKey());
+            ItemStack stack = mc.player.getItemBySlot(re.getKey());
             {
                 var pp = re.getValue().get();
                 int startX = pp.getWindowX(mc.getWindow());
                 int startY = pp.getWindowY(mc.getWindow());
                 if (!stack.isEmpty()) {
                     vdraw.drawItem(stack, startX, startY, 999, 0);
-                    vdraw.drawItemInSlot(mc.textRenderer, stack, startX, startY, null);
+                    vdraw.drawItemInSlot(mc.font, stack, startX, startY, null);
                     drawDamageIfAbsent(vdraw, stack, startX, startY);
                 } else {
                     vdraw.drawGuiTexture(Constants.EMPTY_SLOT_TO_SPRITE.get(re.getKey()), startX, startY, 16, 16);
@@ -97,9 +97,9 @@ public class EquipmentHud extends IRender2DModule {
         if (display == ItemStackDisplayUtils.DamageDisplay.NONE) return;
         var damage = stack.getMaxDamage();
         if (damage > 0) {
-            Text text = ItemStackDisplayUtils.getDamageShowText(stack, display);
+            Component text = ItemStackDisplayUtils.getDamageShowText(stack, display);
             if (text != null) {
-                float len = mc.textRenderer.getTextHandler().getWidth(text);
+                float len = mc.font.getSplitter().stringWidth(text);
                 int startXX, startYY;
                 switch (displayDirection.get()) {
                     case UP -> {
@@ -122,8 +122,8 @@ public class EquipmentHud extends IRender2DModule {
                 }
 
                 vdraw.drawText(
-                        mc.textRenderer,
-                        text.asOrderedText(),
+                        mc.font,
+                        text.getVisualOrderText(),
                         startXX,
                         startYY,
                         ItemStackDisplayUtils.getDamageDisplayColor(stack),

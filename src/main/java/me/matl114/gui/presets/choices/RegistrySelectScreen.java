@@ -6,9 +6,9 @@ import me.matl114.gui.basic.ContentDelegateWidget;
 import me.matl114.gui.basic.ElementHandler;
 import me.matl114.gui.presets.lists.ListRegistryMultiSelectWidget;
 import me.matl114.utils.config.ValueAccessor;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.Registry;
+import net.minecraft.network.chat.Component;
 
 public class RegistrySelectScreen<T> extends ConfirmingBigScreen {
     Registry<T> registry;
@@ -16,11 +16,11 @@ public class RegistrySelectScreen<T> extends ConfirmingBigScreen {
     protected static final int WIDTH = 240;
 
     public RegistrySelectScreen(Registry<T> registry, Set<T> currentSelection, Consumer<Set<T>> callback) {
-        super(Text.empty());
+        super(Component.empty());
         this.registry = registry;
         this.callback = callback;
         setTitleLabel(
-                Text.translatable("widget.gui.registry-select-screen.title").formatted(Formatting.AQUA));
+                Component.translatable("widget.gui.registry-select-screen.title").withStyle(ChatFormatting.AQUA));
         this.selectSubScreen = ListRegistryMultiSelectWidget.registry(
                 this.registry, currentSelection, ValueAccessor.holder(""), 0, CONTENT_START_Y + 20, WIDTH, 240, 20);
     }
@@ -40,7 +40,7 @@ public class RegistrySelectScreen<T> extends ConfirmingBigScreen {
             callback.accept(val);
         }
         // move to here
-        this.close();
+        this.onClose();
     }
 
     @Override

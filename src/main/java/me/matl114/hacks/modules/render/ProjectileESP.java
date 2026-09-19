@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.awt.*;
 import java.util.ArrayList;
@@ -16,27 +17,29 @@ import me.matl114.managers.Tasks;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
 import me.matl114.utils.containers.MetaData;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.CrossbowUser;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.AbstractSkeletonEntity;
-import net.minecraft.entity.mob.WitherSkeletonEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.*;
-import net.minecraft.item.BowItem;
-import net.minecraft.item.Items;
-import net.minecraft.item.RangedWeaponItem;
-import net.minecraft.text.Text;
-import net.minecraft.util.Arm;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.entity.projectile.*;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.CrossbowAttackMob;
+import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
+import net.minecraft.world.entity.monster.skeleton.WitherSkeleton;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.arrow.ThrownTrident;
+import net.minecraft.world.entity.projectile.hurtingprojectile.AbstractHurtingProjectile;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector2d;
 
 public class ProjectileESP extends BaseModule {
@@ -76,45 +79,45 @@ public class ProjectileESP extends BaseModule {
     public void onEntitySpawn(Event<Entity> event) {
         if (enable.get()
                 && calculateFireball.get()
-                && event.context() instanceof ExplosiveProjectileEntity projectile) {
-            onVelocityFireballCal(projectile, projectile.getVelocity());
+                && event.context() instanceof AbstractHurtingProjectile projectile) {
+            onVelocityFireballCal(projectile, projectile.getDeltaMovement());
         }
     }
 
-    public void onVelocityFireball(Event<Vec3d> fireballEvent) {
+    public void onVelocityFireball(Event<Vec3> fireballEvent) {
         if (enable.get() && calculateFireball.get()) {
             Entity entity = fireballEvent.getArgs(0);
-            if (entity instanceof ExplosiveProjectileEntity fireball) {
-                Vec3d vec = fireballEvent.context();
+            if (entity instanceof AbstractHurtingProjectile fireball) {
+                Vec3 vec = fireballEvent.context();
                 onVelocityFireballCal(fireball, vec);
             }
         }
     }
 
-    public void onVelocityFireballCal(ExplosiveProjectileEntity fireball, Vec3d vec) {
-        if (vec.lengthSquared() > 1e-10) {
-            EntityAccess<ExplosiveProjectileEntity> access = EntityAccess.of(fireball);
+    public void onVelocityFireballCal(AbstractHurtingProjectile fireball, Vec3 vec) {
+        if (vec.lengthSqr() > 1e-10) {
+            EntityAccess<AbstractHurtingProjectile> access = EntityAccess.of(fireball);
             if (access.getMetadata().get(this, flagCalculateProjectile) == null) {
                 access.getMetadata().put(this, flagCalculateProjectile, Boolean.TRUE);
-                calLineTrace(fireball.getPos(), vec, fireball.getType());
+                calLineTrace(fireball.position(), vec, fireball.getType());
             }
         }
     }
 
-    public void onVelocityArrow(Event<Vec3d> arrowEvent) {
+    public void onVelocityArrow(Event<Vec3> arrowEvent) {
         if (enable.get() && calculateArrow.get()) {
             Entity entity = arrowEvent.getArgs(0);
-            if (entity instanceof TridentEntity trident) {
+            if (entity instanceof ThrownTrident trident) {
 
-            } else if (entity instanceof PersistentProjectileEntity arrow) {
-                Vec3d vec = arrowEvent.context();
-                if (vec.lengthSquared() > 1e-10) {
-                    EntityAccess<PersistentProjectileEntity> access = EntityAccess.of(arrow);
+            } else if (entity instanceof AbstractArrow arrow) {
+                Vec3 vec = arrowEvent.context();
+                if (vec.lengthSqr() > 1e-10) {
+                    EntityAccess<AbstractArrow> access = EntityAccess.of(arrow);
                     MetaData metaData = access.getMetadata();
                     Integer integer = metaData.get(this, flagCalculateProjectile);
                     if (integer != null) {
                         if (integer >= 3) {
-                            arrow.setVelocity(vec);
+                            arrow.setDeltaMovement(vec);
                             calArrowTrace(arrow);
                         }
                         metaData.put(this, flagCalculateProjectile, integer + 1);
@@ -126,18 +129,18 @@ public class ProjectileESP extends BaseModule {
         }
     }
 
-    public static void calLineTrace(Vec3d fireballPosition, Vec3d power, EntityType<?> type) {
+    public static void calLineTrace(Vec3 fireballPosition, Vec3 power, EntityType<?> type) {
         // (x - x0)/px = (y - y0)/py = (z - z0)/pz
         if (mc.player != null) {
             // 给行进方向norm
             power = power.normalize();
-            var playerPos = mc.player.getEyePos();
+            var playerPos = mc.player.getEyePosition();
             var deltaTo = playerPos.subtract(fireballPosition);
             // 求出玩家位置在行进方向上的投影长度
-            var projLen = deltaTo.dotProduct(power);
+            var projLen = deltaTo.dot(power);
             if (projLen > 0) {
                 // 勾股定理求出最短距离
-                var projPoint = fireballPosition.add(power.multiply(projLen));
+                var projPoint = fireballPosition.add(power.scale(projLen));
                 var lookAtProjPoint = projPoint.subtract(playerPos);
                 var minDist = lookAtProjPoint.length();
                 Vector2d planeVec = new Vector2d(lookAtProjPoint.x, lookAtProjPoint.z);
@@ -145,10 +148,10 @@ public class ProjectileESP extends BaseModule {
                 Vector2d playerLookat = EntityUtils.getEntityLookXZ(mc.player);
                 boolean front = planeVec.dot(playerLookat) > 0;
                 Debug.chat(
-                        type.getName(),
+                        type.getDescription(),
                         "trace:",
-                        Text.literal("%.2f".formatted(minDist)).formatted(Formatting.RED),
-                        (front ? Text.literal("in front of") : Text.literal("at back of")).formatted(Formatting.GREEN),
+                        Component.literal("%.2f".formatted(minDist)).withStyle(ChatFormatting.RED),
+                        (front ? Component.literal("in front of") : Component.literal("at back of")).withStyle(ChatFormatting.GREEN),
                         "you");
             } else {
                 Debug.chat("Fireball trace update: not towards you");
@@ -158,27 +161,27 @@ public class ProjectileESP extends BaseModule {
         }
     }
 
-    public static void calArrowTrace(PersistentProjectileEntity arrow) {
+    public static void calArrowTrace(AbstractArrow arrow) {
         if (mc.player != null) {
             if (arrow.getOwner() == mc.player) return;
-            if (mc.player.getPos().squaredDistanceTo(arrow.getPos()) < 0.1) {
+            if (mc.player.position().distanceToSqr(arrow.position()) < 0.1) {
                 // might be shot by player using something
                 return;
             }
             // 给行进方向norm
-            Vec3d vec3d = arrow.getVelocity();
-            Vec3d vecDirection = vec3d.normalize();
-            var playerPos = mc.player.getEyePos();
-            var deltaTo = playerPos.subtract(arrow.getPos());
+            Vec3 vec3d = arrow.getDeltaMovement();
+            Vec3 vecDirection = vec3d.normalize();
+            var playerPos = mc.player.getEyePosition();
+            var deltaTo = playerPos.subtract(arrow.position());
             // 求出玩家位置在行进方向上的投影长度
-            var projLen = deltaTo.dotProduct(vecDirection);
+            var projLen = deltaTo.dot(vecDirection);
             if (projLen > 0) {
                 // 勾股定理求出最短距离
-                List<Vec3d> preciseLine = ArrowPredictor.of(arrow, 0.0F).predictLine(400);
-                Vec3d proj = null;
+                List<Vec3> preciseLine = ArrowPredictor.of(arrow, 0.0F).predictLine(400);
+                Vec3 proj = null;
                 double lenSquared = 144000000;
                 for (var vec : preciseLine) {
-                    double len = vec.squaredDistanceTo(playerPos);
+                    double len = vec.distanceToSqr(playerPos);
                     if (len < lenSquared) {
                         proj = vec;
                         lenSquared = len;
@@ -192,8 +195,8 @@ public class ProjectileESP extends BaseModule {
                 boolean front = planeVec.dot(playerLookat) > 0;
                 Debug.chat(
                         "Arrow trace update:",
-                        Text.literal("%.2f".formatted(minDist)).formatted(Formatting.RED),
-                        (front ? Text.literal("in front of") : Text.literal("at back of")).formatted(Formatting.GREEN),
+                        Component.literal("%.2f".formatted(minDist)).withStyle(ChatFormatting.RED),
+                        (front ? Component.literal("in front of") : Component.literal("at back of")).withStyle(ChatFormatting.GREEN),
                         "you");
             } else {
                 Debug.chat("Arrow trace update: not towards you");
@@ -203,8 +206,8 @@ public class ProjectileESP extends BaseModule {
         }
     }
 
-    public void onRender(Event<MatrixStack> stackE) {
-        if (mc.world == null || mc.player == null) return;
+    public void onRender(Event<PoseStack> stackE) {
+        if (mc.level == null || mc.player == null) return;
         // no render arrow
         //        var whitelist = getWhitelisted();
         // remove whitelist whitelist
@@ -217,21 +220,21 @@ public class ProjectileESP extends BaseModule {
             float tickDelta = (Float) stackE.getArgs(0);
             RenderUtils.startDrawVirtual(stack);
             try {
-                for (var fireball : mc.world.getEntities()) {
-                    if (fireball instanceof ExplosiveProjectileEntity explosive) {
+                for (var fireball : mc.level.entitiesForRendering()) {
+                    if (fireball instanceof AbstractHurtingProjectile explosive) {
                         if (fireballFlag) {
                             RenderUtils.drawStripLineVirtual(stack, predictFireballTrace(explosive), Color.RED);
                         }
                     }
                     if (arrowFlag
-                            && fireball instanceof AbstractSkeletonEntity arrow
-                            && !(arrow instanceof WitherSkeletonEntity)) {
+                            && fireball instanceof AbstractSkeleton arrow
+                            && !(arrow instanceof WitherSkeleton)) {
                         renderSkeletonProjectile(stack, arrow, tickDelta);
-                    } else if (arrowFlag && fireball instanceof PlayerEntity player) {
+                    } else if (arrowFlag && fireball instanceof Player player) {
                         renderPlayerProjectile(stack, player, tickDelta);
-                    } else if (arrowFlag && fireball instanceof CrossbowUser user) {
+                    } else if (arrowFlag && fireball instanceof CrossbowAttackMob user) {
                         renderCrossbowProjectile(stack, user, tickDelta);
-                    } else if (arrowFlag && fireball instanceof PersistentProjectileEntity arrow) {
+                    } else if (arrowFlag && fireball instanceof AbstractArrow arrow) {
                         renderArrowProjectile(stack, arrow, tickDelta);
                     }
                 }
@@ -242,41 +245,41 @@ public class ProjectileESP extends BaseModule {
     }
 
     private static class ArrowPredictor {
-        Vec3d pos;
-        Vec3d vec;
+        Vec3 pos;
+        Vec3 vec;
         Type type;
         Entity owner;
-        private static final Random random = net.minecraft.util.math.random.Random.create();
-        private static Vec3d lastRand;
+        private static final RandomSource random = net.minecraft.util.RandomSource.create();
+        private static Vec3 lastRand;
         private static int lastRandTime = 0;
 
-        private static Vec3d getArrowRand() {
-            if (true) return Vec3d.ZERO;
+        private static Vec3 getArrowRand() {
+            if (true) return Vec3.ZERO;
             if (lastRandTime + 20 < Tasks.getTick()) {
                 lastRandTime = Tasks.getTick();
                 float uncertainty = 1.0f;
-                lastRand = new Vec3d(
-                        random.nextTriangular(0.0, 0.0172275 * (double) uncertainty),
-                        random.nextTriangular(0.0, 0.0172275 * (double) uncertainty),
-                        random.nextTriangular(0.0, 0.0172275 * (double) uncertainty));
+                lastRand = new Vec3(
+                        random.triangle(0.0, 0.0172275 * (double) uncertainty),
+                        random.triangle(0.0, 0.0172275 * (double) uncertainty),
+                        random.triangle(0.0, 0.0172275 * (double) uncertainty));
             }
             return lastRand;
         }
 
-        private static Vec3d calculateVelocity(double x, double y, double z, float power) {
-            return (new Vec3d(x, y, z)).normalize().add(getArrowRand()).multiply((double) power);
+        private static Vec3 calculateVelocity(double x, double y, double z, float power) {
+            return (new Vec3(x, y, z)).normalize().add(getArrowRand()).scale((double) power);
         }
 
-        public static ArrowPredictor of(AbstractSkeletonEntity entity, float tickDelta) {
-            Vec3d originPos = new Vec3d(entity.getX(), entity.getEyeY() - 0.10000000149011612, entity.getZ())
+        public static ArrowPredictor of(AbstractSkeleton entity, float tickDelta) {
+            Vec3 originPos = new Vec3(entity.getX(), entity.getEyeY() - 0.10000000149011612, entity.getZ())
                     .add(RenderUtils.getLerpedDelta(entity, tickDelta));
-            Vec3d facing = entity.getRotationVector();
-            double d = facing.getX();
-            double f = facing.getZ();
+            Vec3 facing = entity.getLookAngle();
+            double d = facing.x();
+            double f = facing.z();
             double g = Math.sqrt(d * d + f * f);
 
             //            Debug.info(entity.getTarget());
-            Vec3d vec3d = calculateVelocity(d, facing.y + g * 0.2, f, 1.6F);
+            Vec3 vec3d = calculateVelocity(d, facing.y + g * 0.2, f, 1.6F);
             return new ArrowPredictor(originPos, vec3d, Type.SKELETON, entity);
         }
 
@@ -290,73 +293,73 @@ public class ProjectileESP extends BaseModule {
             return f;
         }
 
-        private static Vec3d getHandOffset(PlayerEntity player, Hand hand) {
-            double yaw = Math.toRadians(player.getYaw());
-            Arm mainArm = mc.options.getMainArm().getValue();
+        private static Vec3 getHandOffset(Player player, InteractionHand hand) {
+            double yaw = Math.toRadians(player.getYRot());
+            HumanoidArm mainArm = mc.options.mainHand().get();
 
             boolean rightSide =
-                    mainArm == Arm.RIGHT && hand == Hand.MAIN_HAND || mainArm == Arm.LEFT && hand == Hand.OFF_HAND;
+                    mainArm == HumanoidArm.RIGHT && hand == InteractionHand.MAIN_HAND || mainArm == HumanoidArm.LEFT && hand == InteractionHand.OFF_HAND;
 
             double sideMultiplier = rightSide ? -1 : 1;
             double handOffsetX = Math.cos(yaw) * 0.16 * sideMultiplier;
             double handOffsetZ = Math.sin(yaw) * 0.16 * sideMultiplier;
 
-            return new Vec3d(handOffsetX, 0, handOffsetZ);
+            return new Vec3(handOffsetX, 0, handOffsetZ);
         }
 
-        public static ArrowPredictor of(PlayerEntity player, RangedWeaponItem weaponItem, Hand hand, float tickDelta) {
-            Vec3d vec3d;
-            final Vec3d offset = getHandOffset(player, hand);
-            Vec3d pos = new Vec3d(player.getX(), player.getEyeY() - 0.10000000149011612, player.getZ())
+        public static ArrowPredictor of(Player player, ProjectileWeaponItem weaponItem, InteractionHand hand, float tickDelta) {
+            Vec3 vec3d;
+            final Vec3 offset = getHandOffset(player, hand);
+            Vec3 pos = new Vec3(player.getX(), player.getEyeY() - 0.10000000149011612, player.getZ())
                     .add(offset)
                     .add(RenderUtils.getLerpedDelta(player, tickDelta));
             if (weaponItem instanceof BowItem) {
                 int usingTicks =
-                        (player.isUsingItem() && player.getActiveHand() == hand) ? player.getItemUseTime() : 1000;
+                        (player.isUsingItem() && player.getUsedItemHand() == hand) ? player.getTicksUsingItem() : 1000;
                 float progress = getPullProgress(usingTicks);
                 float speed = progress * 3.0f;
-                Vec3d facing = player.getRotationVector();
+                Vec3 facing = player.getLookAngle();
                 vec3d = calculateVelocity(facing.x, facing.y, facing.z, speed);
                 // add player velocity here
-                Vec3d infect0 = player.getVelocity();
-                vec3d = vec3d.add(infect0.x, player.isOnGround() ? 0.0D : infect0.y, infect0.z);
+                Vec3 infect0 = player.getDeltaMovement();
+                vec3d = vec3d.add(infect0.x, player.onGround() ? 0.0D : infect0.y, infect0.z);
             } else {
-                Vec3d facing = player.getRotationVec(1.0f);
+                Vec3 facing = player.getViewVector(1.0f);
                 float speed = 3.15F;
                 vec3d = calculateVelocity(facing.x, facing.y, facing.z, speed);
             }
             return new ArrowPredictor(pos, vec3d, Type.PLAYER, player) {
                 @Override
-                public List<Vec3d> predictLine(int ticks) {
-                    List<Vec3d> list = super.predictLine(ticks);
+                public List<Vec3> predictLine(int ticks) {
+                    List<Vec3> list = super.predictLine(ticks);
                     int size = list.size();
                     if (size == 0) return list;
-                    List<Vec3d> list3d = new ArrayList<>();
+                    List<Vec3> list3d = new ArrayList<>();
                     for (int i = 0; i < size; ++i) {
-                        list3d.add(list.get(i).subtract(offset.multiply(((i + 1) / (double) size))));
+                        list3d.add(list.get(i).subtract(offset.scale(((i + 1) / (double) size))));
                     }
                     return list3d;
                 }
             };
         }
 
-        public static ArrowPredictor of(PersistentProjectileEntity arrow, float tickDelta) {
+        public static ArrowPredictor of(AbstractArrow arrow, float tickDelta) {
             return new ArrowPredictor(
-                    RenderUtils.getLerpedPos(arrow, tickDelta), arrow.getVelocity(), Type.ARROW, arrow);
+                    RenderUtils.getLerpedPos(arrow, tickDelta), arrow.getDeltaMovement(), Type.ARROW, arrow);
         }
 
-        public static ArrowPredictor of(CrossbowUser user, float tickDelta) {
+        public static ArrowPredictor of(CrossbowAttackMob user, float tickDelta) {
             Entity player = (Entity) user;
-            Vec3d facing = (player).getRotationVec(1.0f);
+            Vec3 facing = (player).getViewVector(1.0f);
             float speed = 1.6F;
 
-            Vec3d vec3d = calculateVelocity(facing.x, facing.y, facing.z, speed);
-            Vec3d pos = new Vec3d(player.getX(), player.getEyeY() - 0.10000000149011612, player.getZ())
+            Vec3 vec3d = calculateVelocity(facing.x, facing.y, facing.z, speed);
+            Vec3 pos = new Vec3(player.getX(), player.getEyeY() - 0.10000000149011612, player.getZ())
                     .add(RenderUtils.getLerpedDelta((Entity) user, tickDelta));
             return new ArrowPredictor(pos, vec3d, Type.CROSSBOW, player);
         }
 
-        public ArrowPredictor(Vec3d pos, Vec3d vec, Type type, Entity owner) {
+        public ArrowPredictor(Vec3 pos, Vec3 vec, Type type, Entity owner) {
             this.pos = pos;
             this.vec = vec;
             this.type = type;
@@ -370,23 +373,23 @@ public class ProjectileESP extends BaseModule {
             CROSSBOW;
         }
 
-        public List<Vec3d> predictLine(int ticks) {
-            Vec3d arrowPos = pos;
-            Vec3d arrowMotion = vec;
+        public List<Vec3> predictLine(int ticks) {
+            Vec3 arrowPos = pos;
+            Vec3 arrowMotion = vec;
             double gravity = EntityUtils.getProjectileGravity(Items.BOW);
-            List<Vec3d> path = new ArrayList<>();
-            Vec3d lastPos;
-            if (this.vec.lengthSquared() < 1e-5) {
+            List<Vec3> path = new ArrayList<>();
+            Vec3 lastPos;
+            if (this.vec.lengthSqr() < 1e-5) {
                 return List.of();
             }
             for (int i = 0; i < ticks; i++) {
                 // add to path
                 path.add(arrowPos);
                 // apply motion
-                arrowPos = arrowPos.add(arrowMotion.multiply(0.1));
+                arrowPos = arrowPos.add(arrowMotion.scale(0.1));
 
                 // apply air friction
-                arrowMotion = arrowMotion.multiply(0.999);
+                arrowMotion = arrowMotion.scale(0.999);
 
                 // apply gravity
                 arrowMotion = arrowMotion.add(0, -gravity * 0.1, 0);
@@ -402,13 +405,13 @@ public class ProjectileESP extends BaseModule {
             return path;
         }
 
-        public Pair<List<Vec3d>, HitResult> predictLineWithHitResult(int ticks) {
-            Vec3d arrowPos = pos;
-            Vec3d arrowMotion = vec;
+        public Pair<List<Vec3>, HitResult> predictLineWithHitResult(int ticks) {
+            Vec3 arrowPos = pos;
+            Vec3 arrowMotion = vec;
             double gravity = EntityUtils.getProjectileGravity(Items.BOW);
-            List<Vec3d> path = new ArrayList<>();
-            Vec3d lastPos;
-            if (this.vec.lengthSquared() < 1e-5) {
+            List<Vec3> path = new ArrayList<>();
+            Vec3 lastPos;
+            if (this.vec.lengthSqr() < 1e-5) {
                 return Pair.of(List.of(), null);
             }
             HitResult result = null;
@@ -416,10 +419,10 @@ public class ProjectileESP extends BaseModule {
                 // add to path
                 path.add(arrowPos);
                 // apply motion
-                arrowPos = arrowPos.add(arrowMotion.multiply(0.1));
+                arrowPos = arrowPos.add(arrowMotion.scale(0.1));
 
                 // apply air friction
-                arrowMotion = arrowMotion.multiply(0.999);
+                arrowMotion = arrowMotion.scale(0.999);
 
                 // apply gravity
                 arrowMotion = arrowMotion.add(0, -gravity * 0.1, 0);
@@ -441,26 +444,26 @@ public class ProjectileESP extends BaseModule {
         }
     }
 
-    private static void renderSkeletonProjectile(MatrixStack stack, AbstractSkeletonEntity entity, float tickDelta) {
-        if (entity.isUsingItem() && entity.getActiveItem().getItem() instanceof BowItem) {
+    private static void renderSkeletonProjectile(PoseStack stack, AbstractSkeleton entity, float tickDelta) {
+        if (entity.isUsingItem() && entity.getUseItem().getItem() instanceof BowItem) {
             drawClassicArrowTrajectory(
                     stack, ArrowPredictor.of(entity, tickDelta).predictLine(400), Color.YELLOW);
         }
     }
 
-    private static void renderCrossbowProjectile(MatrixStack stack, CrossbowUser pillagerEntity, float tickDelta) {
+    private static void renderCrossbowProjectile(PoseStack stack, CrossbowAttackMob pillagerEntity, float tickDelta) {
         if (pillagerEntity instanceof LivingEntity entity
                 && entity.isUsingItem()
-                && entity.getActiveItem().getItem() instanceof RangedWeaponItem crossbow) {
+                && entity.getUseItem().getItem() instanceof ProjectileWeaponItem crossbow) {
             drawClassicArrowTrajectory(
                     stack, ArrowPredictor.of(pillagerEntity, tickDelta).predictLine(400), Color.YELLOW);
             return;
         }
     }
 
-    private static void renderPlayerProjectile(MatrixStack stack, PlayerEntity player, float tickDelta) {
-        for (var hand : Hand.values()) {
-            if (player.getStackInHand(hand).getItem() instanceof RangedWeaponItem item) {
+    private static void renderPlayerProjectile(PoseStack stack, Player player, float tickDelta) {
+        for (var hand : InteractionHand.values()) {
+            if (player.getItemInHand(hand).getItem() instanceof ProjectileWeaponItem item) {
                 var data = ArrowPredictor.of(player, item, hand, tickDelta).predictLineWithHitResult(400);
                 drawArrowTrajectoryWithHitResult(stack, data.getFirst(), data.getSecond(), tickDelta);
                 // drawClassicArrowTrajectory(stack, ArrowPredictor.of(player, item, hand).predictLine(400));
@@ -469,21 +472,21 @@ public class ProjectileESP extends BaseModule {
         }
     }
 
-    private static void renderArrowProjectile(MatrixStack stack, PersistentProjectileEntity arrow, float tickDelta) {
+    private static void renderArrowProjectile(PoseStack stack, AbstractArrow arrow, float tickDelta) {
         // filter on ground arrows
-        if (!arrow.isOnGround() && arrow.getVelocity().lengthSquared() > 1e-5) {
+        if (!arrow.onGround() && arrow.getDeltaMovement().lengthSqr() > 1e-5) {
             // fix? velocity does not change
             drawClassicArrowTrajectory(
                     stack, ArrowPredictor.of(arrow, tickDelta).predictLine(400), Color.RED);
         }
     }
 
-    private static void drawClassicArrowTrajectory(MatrixStack stack, List<Vec3d> vec3ds, Color clr) {
+    private static void drawClassicArrowTrajectory(PoseStack stack, List<Vec3> vec3ds, Color clr) {
         // escape little traj
         if (vec3ds.size() <= 3) return;
         RenderUtils.drawStripLineVirtual(stack, vec3ds, clr);
         if (!vec3ds.isEmpty()) {
-            Vec3d finalPosition = vec3ds.get(vec3ds.size() - 1);
+            Vec3 finalPosition = vec3ds.get(vec3ds.size() - 1);
             RenderUtils.drawSolidBox(
                     stack,
                     finalPosition.add(RenderTasks.SMALL_FROM),
@@ -493,12 +496,12 @@ public class ProjectileESP extends BaseModule {
     }
 
     private static void drawArrowTrajectoryWithHitResult(
-            MatrixStack stack, List<Vec3d> vec3ds, HitResult result, float tickDelta) {
+            PoseStack stack, List<Vec3> vec3ds, HitResult result, float tickDelta) {
         if (vec3ds.size() <= 3) return;
         RenderUtils.drawStripLineVirtual(stack, vec3ds, Color.RED);
         if (!vec3ds.isEmpty()) {
             if (result == null || result.getType() != HitResult.Type.ENTITY) {
-                Vec3d finalPosition = vec3ds.get(vec3ds.size() - 1);
+                Vec3 finalPosition = vec3ds.get(vec3ds.size() - 1);
                 RenderUtils.drawSolidBox(
                         stack,
                         finalPosition.add(RenderTasks.SMALL_FROM),
@@ -506,27 +509,27 @@ public class ProjectileESP extends BaseModule {
                         ColorUtils.withAlpha(Color.GREEN, 0.25F));
             } else {
                 Entity hitEntity = ((EntityHitResult) result).getEntity();
-                Box box = RenderUtils.getLerpedBox(hitEntity, tickDelta);
+                AABB box = RenderUtils.getLerpedBox(hitEntity, tickDelta);
                 RenderUtils.drawSolidBox(
-                        stack, box.getMinPos(), box.getMaxPos(), ColorUtils.withAlpha(Color.GREEN, 0.25F));
+                        stack, box.getMinPosition(), box.getMaxPosition(), ColorUtils.withAlpha(Color.GREEN, 0.25F));
             }
         }
     }
 
-    public static ArrayList<Vec3d> predictFireballTrace(ExplosiveProjectileEntity fireball) {
-        ArrayList<Vec3d> trace = new ArrayList<>();
-        Vec3d startpos = fireball.getPos();
-        Vec3d lastPos = startpos;
+    public static ArrayList<Vec3> predictFireballTrace(AbstractHurtingProjectile fireball) {
+        ArrayList<Vec3> trace = new ArrayList<>();
+        Vec3 startpos = fireball.position();
+        Vec3 lastPos = startpos;
 
         float drag = 0.95F;
-        Vec3d motion = fireball.getVelocity();
-        Vec3d power = motion.normalize().multiply(fireball.accelerationPower);
+        Vec3 motion = fireball.getDeltaMovement();
+        Vec3 power = motion.normalize().scale(fireball.accelerationPower);
 
         trace.add(startpos);
 
         for (int i = 0; i < 400; ++i) {
             startpos = startpos.add(motion);
-            motion = motion.add(power).multiply(drag);
+            motion = motion.add(power).scale(drag);
             trace.add(startpos);
             if (trace.size() > 2) {
                 lastPos = trace.get(trace.size() - 2);
