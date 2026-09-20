@@ -2,7 +2,7 @@ plugins {
 	// 26.1 起改用新版 Loom 插件：不 remap Minecraft 与 mod，也不再需要 mappings 声明
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
-	id 'com.gradleup.shadow' version "9.0.0-beta13"
+	id 'com.gradleup.shadow' version "9.6.1"
 	id "com.diffplug.spotless" version "8.1.0"
 }
 loom {
@@ -62,7 +62,14 @@ fabricApi {
 configurations {
 	//buildtoolsImplementation.extendsFrom(compileClasspath)
 	runtimeClasspath.extendsFrom implementation
+	// 打进产物的依赖集合：只取 api 声明的库（houbb / netty-handler-proxy / snakeyaml）。
+	// 不能直接用 runtimeClasspath —— 里面还有 dev-only 的 baritone（localRuntime），
+	// 它是独立 mod，打进来会与正式安装的 baritone 冲突（此前产物里混进 453 个 baritone 类）。
+	shade {
+		canBeConsumed = false
+	}
 }
+configurations.shade.extendsFrom configurations.api
 
 dependencies {
 	// To change the versions see the gradle.properties file
@@ -107,7 +114,7 @@ dependencies {
 shadowJar {
 	minimize()
 	archiveFileName = "${project.properties["archives_base_name"]}-${project.version}.jar"
-	configurations = [project.configurations.runtimeClasspath]
+	configurations = [project.configurations.shade]
 	dependencies {
 		include dependency('com.github.houbb:.*')
 		include dependency('io.netty:netty-handler.*:.*')
@@ -116,6 +123,14 @@ shadowJar {
 		exclude "mappings/mappings.tiny"
 	}
 }
+
+// 移植删掉 remapJar 时，原先的 shadowJar -> finalizedBy(remapJar) 链路一并消失了，
+// shadowJar 不再被任何任务触发；而它与普通 jar 的产物同名，最终 build/libs 里留下的是
+// 精简包（只有模组自身类）。开发环境依赖来自 Gradle classpath 所以看不出问题，
+// 生产环境（启动器安装 jar）没有 snakeyaml / netty / houbb，启动即
+// NoClassDefFoundError: org/yaml/snakeyaml/Yaml。
+// 显式把 shadowJar 接回构建流程，并给普通 jar 加 classifier 避免同名互相覆盖。
+tasks.named('assemble') { dependsOn tasks.named('shadowJar') }
 
 spotless {
 	lineEndings = 'WINDOWS'
@@ -186,6 +201,9 @@ java {
 //}
 
 jar {
+	// 正式产物是 shadowJar 打出的 fat jar（同名），普通 jar 改名为 -thin 避免覆盖
+	archiveClassifier = 'thin'
+
 	from("LICENSE") {
 		rename { "${it}_${project.base.archivesName.get()}"}
 	}
