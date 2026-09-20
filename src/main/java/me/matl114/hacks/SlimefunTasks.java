@@ -14,7 +14,6 @@ import me.matl114.hacks.modules.HackModules;
 import me.matl114.hacks.modules.slimefun.*;
 import me.matl114.hacks.utils.recipes.RecipeEntry;
 import me.matl114.hacks.utils.recipes.RecipeIngredient;
-import me.matl114.managers.Tasks;
 import me.matl114.utils.*;
 import me.matl114.utils.commands.commandGroup.AbstractMainCommand;
 import me.matl114.utils.commands.commandGroup.CommandContext;
@@ -124,19 +123,62 @@ public class SlimefunTasks {
         return ans;
     }
 
-    public static ItemStack GUIDE_ICON;
-    public static ItemStack RTYPE_ICON;
-    public static ItemStack VTYPE_ICON;
-    public static ItemStack SAVED_ICON;
+    // 26.2: ItemStack 必须在组件绑定之后才能构造
+    // （Holder.Reference.components() 会抛 NPE "Components not bound yet"）。
+    // 原先这四个图标在"启动后第 1 tick"的延迟任务里 new，那时组件还没绑定：异常之后
+    // 没有重试，字段全部停在 null，而 SlotElement.instance(null) -> SimpleContainer ->
+    // NonNullList.of 会再抛一次 NPE，Slimefun 指南界面因此打不开。
+    // 改为首次访问时构建（与 RegistryDisplays / BukkitItemStackUtils 的写法一致）。
+    private static ItemStack guideIcon;
+    private static ItemStack rtypeIcon;
+    private static ItemStack vtypeIcon;
+    private static ItemStack savedIcon;
 
-    private static void initIcon() {
-        ItemStack ICON;
-        ICON = new ItemStack(Items.ENCHANTED_BOOK);
-        ItemStackUtils.setCustomModelData(ICON, 2200001);
-        GUIDE_ICON = ICON;
-        RTYPE_ICON = new ItemStack(Items.KNOWLEDGE_BOOK);
-        VTYPE_ICON = new ItemStack(Items.CRAFTING_TABLE);
-        SAVED_ICON = new ItemStack(Items.CHAIN_COMMAND_BLOCK);
+    /** 组件绑定前不能构造 ItemStack；未绑定时退回空图标而不是抛异常。 */
+    private static boolean itemComponentsBound() {
+        return Items.ENCHANTED_BOOK.builtInRegistryHolder().areComponentsBound();
+    }
+
+    public static ItemStack guideIcon() {
+        if (guideIcon == null) {
+            if (!itemComponentsBound()) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack icon = new ItemStack(Items.ENCHANTED_BOOK);
+            ItemStackUtils.setCustomModelData(icon, 2200001);
+            guideIcon = icon;
+        }
+        return guideIcon;
+    }
+
+    public static ItemStack rtypeIcon() {
+        if (rtypeIcon == null) {
+            if (!itemComponentsBound()) {
+                return ItemStack.EMPTY;
+            }
+            rtypeIcon = new ItemStack(Items.KNOWLEDGE_BOOK);
+        }
+        return rtypeIcon;
+    }
+
+    public static ItemStack vtypeIcon() {
+        if (vtypeIcon == null) {
+            if (!itemComponentsBound()) {
+                return ItemStack.EMPTY;
+            }
+            vtypeIcon = new ItemStack(Items.CRAFTING_TABLE);
+        }
+        return vtypeIcon;
+    }
+
+    public static ItemStack savedIcon() {
+        if (savedIcon == null) {
+            if (!itemComponentsBound()) {
+                return ItemStack.EMPTY;
+            }
+            savedIcon = new ItemStack(Items.CHAIN_COMMAND_BLOCK);
+        }
+        return savedIcon;
     }
 
     // vanilla typed screen
@@ -301,16 +343,6 @@ public class SlimefunTasks {
                 amount,
                 removeOrigin,
                 ((screen1, itemStack) -> getItemStackMatchingSlot(screen1, itemStack, true, playerInv)));
-    }
-
-    static {
-        Tasks.scheduleDelayed(
-                () -> {
-                    // post init tasks
-                    Debug.info("Running Slimefun Post Setup Tasks");
-                    initIcon();
-                },
-                1);
     }
 
     public static class SlimefunCommands extends AbstractMainCommand {

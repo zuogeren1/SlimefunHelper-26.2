@@ -64,22 +64,22 @@ public class SlimefunScreen extends GenericBackGroundScreen {
     protected void init() {
         super.init();
         this.guideIcon = ExecutableWidget.instance(this.x - 19, this.y + 16, 18, 18)
-                .setRenderHandler(SlotElement.instance(SlimefunTasks.GUIDE_ICON)
+                .setRenderHandler(SlotElement.instance(SlimefunTasks.guideIcon())
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-screen.all-item.tooltips", ""))))
                 .addTo(this);
         this.rtypeIcon = ExecutableWidget.instance(this.x - 19, this.y + 42, 18, 18)
-                .setRenderHandler(SlotElement.instance(SlimefunTasks.RTYPE_ICON)
+                .setRenderHandler(SlotElement.instance(SlimefunTasks.rtypeIcon())
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-screen.all-type.tooltips", ""))))
                 .addTo(this);
         this.vanillaIcon = ExecutableWidget.instance(this.x - 19, this.y + 68, 18, 18)
-                .setRenderHandler(SlotElement.instance(SlimefunTasks.VTYPE_ICON)
+                .setRenderHandler(SlotElement.instance(SlimefunTasks.vtypeIcon())
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-screen.all-vanilla.tooltips", ""))))
                 .addTo(this);
         this.saveItemIcon = ExecutableWidget.instance(this.x - 19, this.y + 94, 18, 18)
-                .setRenderHandler(SlotElement.instance(SlimefunTasks.SAVED_ICON)
+                .setRenderHandler(SlotElement.instance(SlimefunTasks.savedIcon())
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-screen.all-custom.tooltips", ""))))
                 .addTo(this);
