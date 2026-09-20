@@ -3,9 +3,11 @@ package me.matl114.managers;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import me.matl114.utils.Debug;
+import me.matl114.utils.ThreadUtils;
 
 public class ScheduleService {
-    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+    private static final ScheduledExecutorService scheduler =
+            Executors.newScheduledThreadPool(2, ThreadUtils.daemonThreadFactory("sfh-scheduler"));
     private static final ConcurrentHashMap<String, ScheduledFuture<?>> runningTasks = new ConcurrentHashMap<>();
     private static final AtomicInteger taskIdGenerator = new AtomicInteger(0);
 

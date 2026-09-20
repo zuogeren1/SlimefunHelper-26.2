@@ -135,7 +135,7 @@ public class RenderOptimize extends BaseModule {
     @Override
     public void onCreate() {
         super.onCreate();
-        parallelRaycastExecutor = Executors.newFixedThreadPool(4);
+        parallelRaycastExecutor = Executors.newFixedThreadPool(4, ThreadUtils.daemonThreadFactory("sfh-raycast"));
     }
 
     @Override

@@ -36,6 +36,7 @@ import me.matl114.managers.config.StringRef;
 import me.matl114.managers.file.FileStorage;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
+import me.matl114.utils.ThreadUtils;
 import me.matl114.utils.config.PropertyTracker;
 import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.ChatFormatting;
@@ -360,7 +361,8 @@ public class ServerScanner extends BaseModule {
         Set<String> scanCopy = Set.copyOf(scannedIps);
         CompletableFuture.runAsync(() -> {
             ServerStatusPinger pinger = new ServerStatusPinger();
-            try (ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(16)) {
+            try (ThreadPoolExecutor executor = (ThreadPoolExecutor)
+                    Executors.newFixedThreadPool(16, ThreadUtils.daemonThreadFactory("sfh-server-scan"))) {
                 List<CompletableFuture<Void>> completableFutures = new ArrayList<>(limitSample);
                 int current = range1;
                 Set<String> currentQuery = ConcurrentHashMap.newKeySet();

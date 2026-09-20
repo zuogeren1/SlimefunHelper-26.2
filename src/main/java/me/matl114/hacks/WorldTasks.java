@@ -9,6 +9,7 @@ import me.matl114.events.Listener;
 import me.matl114.events.channels.ListenerPoint;
 import me.matl114.events.impl.BlockUpdate;
 import me.matl114.utils.CommonUtils;
+import me.matl114.utils.ThreadUtils;
 import me.matl114.utils.WorldUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -31,8 +32,10 @@ public class WorldTasks {
             60L,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(2500),
+            ThreadUtils.daemonThreadFactory("sfh-chunk-scan"),
             new ThreadPoolExecutor.CallerRunsPolicy());
-    private static final Executor processExecutor = Executors.newSingleThreadExecutor();
+    private static final Executor processExecutor =
+            Executors.newSingleThreadExecutor(ThreadUtils.daemonThreadFactory("sfh-world-task"));
     static int tickCounter = 0;
 
     public static void onTick(Event<LocalPlayer> eventUpdate) {
