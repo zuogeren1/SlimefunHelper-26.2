@@ -7,6 +7,20 @@ plugins {
 }
 loom {
 	accessWidenerPath = file("src/main/resources/overrideList.accesswidener")
+
+	// 每个 Minecraft 版本用独立的运行目录：run/<minecraft_version>/
+	// 26.1 与 26.2 两条分支共用同一个工作区，若都用默认的 run/，
+	// options.txt / config / saves / mods / logs 会互相覆盖，切分支就串味。
+	// 注：runDatagen 的目录仍是 Loom 默认的 run/datagen（它由 fabricApi 的
+	// configureDataGeneration() 创建，runDir 不在这个 DSL 里，改不动就不用管）。
+	runs {
+		client {
+			runDir = "run/" + project.minecraft_version
+		}
+		server {
+			runDir = "run/" + project.minecraft_version
+		}
+	}
 }
 
 version = project.mod_version
