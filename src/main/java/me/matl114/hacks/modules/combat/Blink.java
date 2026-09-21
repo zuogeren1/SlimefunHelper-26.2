@@ -33,7 +33,7 @@ import net.minecraft.network.protocol.game.GamePacketTypes;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityEvent;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -117,7 +117,7 @@ public class Blink extends BaseModule {
                 Listener.getPacketPoint().getChannel(ClientboundSetEntityMotionPacket.class), this::onPacketVelocity);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.FIREWORK_ROCKET), this::onFireworkOwner);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.FIREWORK_ROCKET), this::onFireworkOwner);
         registerListener(
                 Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityStatus);
     }

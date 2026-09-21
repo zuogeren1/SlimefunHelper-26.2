@@ -31,7 +31,7 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.server.RunningOnDifferentThreadException;
 import net.minecraft.tags.DamageTypeTags;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.Vec3;
 
 public class Velocity extends BaseModule implements LegalMovementManager.MovementModifier {
@@ -119,7 +119,7 @@ public class Velocity extends BaseModule implements LegalMovementManager.Movemen
     public void registerAll() {
         super.registerAll();
         // 在此处注册事件监听器（当前为空）
-        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onVelocity);
+        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityType.PLAYER), this::onVelocity);
         registerListener(Listener.getPlayerExplosionVelocity(), this::onExplosion);
         registerListener(
                 Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onEntityDamage);

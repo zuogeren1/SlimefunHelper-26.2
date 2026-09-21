@@ -13,7 +13,7 @@ public class HotKeyUtils {
     private static final Minecraft mc = Minecraft.getInstance();
 
     public static boolean isValidState() {
-        if (mc.gui.screen() == null) {
+        if (mc.screen == null) {
             return true;
         }
         if (ModuleSettings.INSTANCE.shouldNotExecuteConditionHotkey()) {

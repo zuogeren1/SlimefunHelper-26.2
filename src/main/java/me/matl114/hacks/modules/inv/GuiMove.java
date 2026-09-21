@@ -78,7 +78,7 @@ public class GuiMove extends BaseModule {
 
     public KeyMapping[] getBindings() {
         initBinding();
-        return noShiftInChest.get() && mc.gui.screen() instanceof AbstractContainerScreen<?>
+        return noShiftInChest.get() && mc.screen instanceof AbstractContainerScreen<?>
                 ? inputBindingsNoSneak
                 : inputBindings;
     }
@@ -120,18 +120,17 @@ public class GuiMove extends BaseModule {
     }
 
     public boolean skip() {
-        if (mc.gui.screen() == null
-                || mc.gui.screen() instanceof CreativeModeInventoryScreen
-                || mc.gui.screen() instanceof ChatScreen
-                || mc.gui.screen() instanceof SignEditScreen
-                || mc.gui.screen() instanceof AnvilScreen
-                || mc.gui.screen() instanceof CommandBlockEditScreen
-                || mc.gui.screen() instanceof StructureBlockEditScreen
-                || mc.gui.screen().getFocused() instanceof EditBox
-                || (mc.gui.screen().getFocused() instanceof DrawableWidget widget && checkCustomWidget(widget)))
-            return true;
+        if (mc.screen == null
+                || mc.screen instanceof CreativeModeInventoryScreen
+                || mc.screen instanceof ChatScreen
+                || mc.screen instanceof SignEditScreen
+                || mc.screen instanceof AnvilScreen
+                || mc.screen instanceof CommandBlockEditScreen
+                || mc.screen instanceof StructureBlockEditScreen
+                || mc.screen.getFocused() instanceof EditBox
+                || (mc.screen.getFocused() instanceof DrawableWidget widget && checkCustomWidget(widget))) return true;
         if (allGui.get()) return false;
-        return !(mc.gui.screen() instanceof AbstractContainerScreen<?>);
+        return !(mc.screen instanceof AbstractContainerScreen<?>);
     }
 
     public boolean checkCustomWidget(DrawableWidget drawableWidget) {

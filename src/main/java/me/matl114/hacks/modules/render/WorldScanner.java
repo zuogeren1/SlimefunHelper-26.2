@@ -201,7 +201,7 @@ public class WorldScanner extends BaseModule {
     public void onTick(Event<LocalPlayer> event) {
         if (!checkNull()
                 && pendingRefreshWhenInGame
-                && (mc.gui.screen() == null || mc.gui.screen() instanceof AbstractContainerScreen<?>)) {
+                && (mc.screen == null || mc.screen instanceof AbstractContainerScreen<?>)) {
             // do not refresh when config is open or when player open exit menu
             pendingRefreshWhenInGame = false;
             WorldTasks.restartWorldScanner();

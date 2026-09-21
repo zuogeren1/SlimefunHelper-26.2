@@ -12,7 +12,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockDestructionPacket;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
@@ -27,7 +27,7 @@ public class MiningProgressManager extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getEntityRemoveListener().getChannel(EntityTypes.PLAYER), this::onEntityRemove);
+        registerListener(Listener.getEntityRemoveListener().getChannel(EntityType.PLAYER), this::onEntityRemove);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldChange);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundBlockDestructionPacket.class),

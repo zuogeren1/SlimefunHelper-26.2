@@ -27,7 +27,7 @@ public class ChatLikeInputWidget extends EditBox {
 
     public void setChatFromHistory(int offset) {
         int i = this.messageHistoryIndex + offset;
-        int j = mc.gui.hud.chat.getRecentChat().size();
+        int j = mc.gui.getChat().getRecentChat().size();
         i = Mth.clamp(i, 0, j);
         if (i != this.messageHistoryIndex) {
             if (i == j) {
@@ -39,7 +39,7 @@ public class ChatLikeInputWidget extends EditBox {
                     this.chatLastMessage = getValue();
                 }
 
-                setValue((String) mc.gui.hud.chat.getRecentChat().get(i));
+                setValue((String) mc.gui.getChat().getRecentChat().get(i));
                 // this.chatInputSuggestor.setWindowActive(false);
                 this.messageHistoryIndex = i;
             }
@@ -106,6 +106,6 @@ public class ChatLikeInputWidget extends EditBox {
     }
 
     public void resetHistoryIndex() {
-        this.messageHistoryIndex = mc.gui.hud.chat.getRecentChat().size();
+        this.messageHistoryIndex = mc.gui.getChat().getRecentChat().size();
     }
 }

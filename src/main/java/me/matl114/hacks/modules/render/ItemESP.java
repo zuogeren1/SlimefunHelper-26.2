@@ -24,7 +24,7 @@ import me.matl114.versioned.api.VDataFlag;
 import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VItem;
 import net.minecraft.ChatFormatting;
-import net.minecraft.advancements.predicates.NbtPredicate;
+import net.minecraft.advancements.criterion.NbtPredicate;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -33,7 +33,7 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
@@ -148,11 +148,11 @@ public class ItemESP extends BaseModule {
     public void registerAll() {
         super.registerAll();
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.ITEM), this::handleItemEntityItemData);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.ITEM), this::handleItemEntityItemData);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.ITEM_FRAME), this::handleItemFrameItemData);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.ITEM_FRAME), this::handleItemFrameItemData);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.GLOW_ITEM_FRAME),
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.GLOW_ITEM_FRAME),
                 this::handleItemFrameItemData);
         registerListener(Listener.getPostTick(), this::onUpdate);
         registerListener(RenderListener.getRender3DEvent(), this::onRenderEntity3D);
@@ -204,8 +204,7 @@ public class ItemESP extends BaseModule {
                     () -> {
                         if (pendingUpdateEntities) {
                             if (!checkNull()
-                                    && (mc.gui.screen() == null
-                                            || mc.gui.screen() instanceof AbstractContainerScreen<?>)) {
+                                    && (mc.screen == null || mc.screen instanceof AbstractContainerScreen<?>)) {
                                 pendingUpdateEntities = false;
                                 if (enableSpecial.get()) {
                                     for (var entity : mc.level.entitiesForRendering()) {

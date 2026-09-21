@@ -187,7 +187,7 @@ public class SlimefunTasks {
     // 加入了 switch功能 重写跳转方向
     public static void openOrSwitch(Screen sf) {
         ScreenAccess access = ScreenAccess.of(sf);
-        if (mc.gui.screen() instanceof SlimefunEntryListScreen<?> sf2) {
+        if (mc.screen instanceof SlimefunEntryListScreen<?> sf2) {
             // 当前正在预览配方;,如果要切换到其他配方,使用水平切换
             if (sf instanceof SlimefunEntryListScreen<?>) {
                 // 同级之间水平切换
@@ -199,7 +199,7 @@ public class SlimefunTasks {
             } else {
                 access.openFromCurrent();
             }
-        } else if (mc.gui.screen() instanceof SlimefunChoiceScreen<?> sf3) {
+        } else if (mc.screen instanceof SlimefunChoiceScreen<?> sf3) {
             if (sf instanceof SlimefunChoiceScreen<?>) {
                 // 同级之间切换
                 access.switchFromCurrent();

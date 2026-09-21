@@ -57,7 +57,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
@@ -298,21 +298,21 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onElytraKB);
+        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityType.PLAYER), this::onElytraKB);
         registerListener(Listener.getPlayerFluidVelocityPoint(), this::onElytraLiquidPush);
         registerListener(Listener.getPlayerFallFlyingTick(), this::runElytraUnbreakable);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::handleEntityDataUpdate);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.PLAYER), this::handleEntityDataUpdate);
         registerListener(Listener.getPlayerSwitchFallFlying(), this::onStartFallFlying);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundPlayerPositionPacket.class), this::onSetBack);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onUseFireworks);
         registerListener(
-                Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onPlayerVelocity);
+                Listener.getEntityClientVelocityUpdate().getChannel(EntityType.PLAYER), this::onPlayerVelocity);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.FIREWORK_ROCKET), this::onFireworkOwner);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.FIREWORK_ROCKET), this::onFireworkOwner);
         registerListener(
-                Listener.getEntityRemoveListener().getChannel(EntityTypes.FIREWORK_ROCKET), this::onFireworkRemove);
+                Listener.getEntityRemoveListener().getChannel(EntityType.FIREWORK_ROCKET), this::onFireworkRemove);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::handleMaceAttack);

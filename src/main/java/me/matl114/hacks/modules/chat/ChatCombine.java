@@ -46,7 +46,7 @@ public class ChatCombine extends BaseModule {
         // use translated
         String rawString = ChatUtils.getOrderedTextString(text.getVisualOrderText());
         //       rawString = rawString.replaceAll("§.", "");
-        ChatComponent hud = mc.gui.hud.chat;
+        ChatComponent hud = mc.gui.getChat();
         int amount = 0;
         if (hud != null) {
             var visibleHistory = ChatHudAccess.of(hud).getVisibleLines();

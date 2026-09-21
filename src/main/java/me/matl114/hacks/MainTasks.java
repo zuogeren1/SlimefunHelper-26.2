@@ -270,7 +270,7 @@ public class MainTasks {
         mc.disconnect(new ProgressScreen(true), false);
 
         TitleScreen titleScreen = new TitleScreen();
-        mc.gui.setScreen(new JoinMultiplayerScreen(titleScreen));
+        mc.setScreen(new JoinMultiplayerScreen(titleScreen));
     }
 
     @Getter

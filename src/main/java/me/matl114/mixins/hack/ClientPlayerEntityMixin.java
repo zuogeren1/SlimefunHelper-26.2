@@ -154,7 +154,7 @@ public abstract class ClientPlayerEntityMixin extends AbstractClientPlayer imple
     public void closeHandledScreen(CallbackInfo ci) {
         if (!this.forceCloseInv && InvExtra.INSTANCE.enableKeepInv.get()) {
             // do not keep the inventory handler because we can get accessed to it any time
-            if (this.minecraft.gui.screen() instanceof AbstractContainerScreen handled
+            if (this.minecraft.screen instanceof AbstractContainerScreen handled
                     && !(handled.getMenu() instanceof InventoryMenu)
                     && !(handled.getMenu() instanceof CreativeModeInventoryScreen.ItemPickerMenu)) {
                 keepedInv = handled;

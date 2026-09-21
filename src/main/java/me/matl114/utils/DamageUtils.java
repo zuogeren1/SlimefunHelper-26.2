@@ -6,10 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
-import net.minecraft.advancements.predicates.*;
-import net.minecraft.advancements.predicates.DamageSourcePredicate;
-import net.minecraft.advancements.predicates.entity.EntityPredicate;
-import net.minecraft.advancements.predicates.entity.EntityTypePredicate;
+import net.minecraft.advancements.criterion.*;
+import net.minecraft.advancements.criterion.DamageSourcePredicate;
+import net.minecraft.advancements.criterion.EntityPredicate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentType;
@@ -502,13 +501,11 @@ public class DamageUtils {
         if (entity == null) {
             return false;
         }
-        // 26.2: EntityPredicate 不再暴露 entityType() getter，
-        // 改为遍历 parts 取出 EntityTypePredicate 进行判断。
-        for (var part : predicate.parts.values()) {
-            if (part instanceof EntityTypePredicate typePredicate
-                    && !typePredicate.matches(entity.getType().builtInRegistryHolder())) {
-                return false;
-            }
+        // 26.1.2 的 EntityPredicate 是 record，直接暴露 entityType()。
+        // （26.2 改成 final class + parts map，那里才需要遍历 parts 取 EntityTypePredicate。）
+        if (predicate.entityType().isPresent()
+                && !predicate.entityType().get().matches(entity.getType().builtInRegistryHolder())) {
+            return false;
         }
         return true;
     }

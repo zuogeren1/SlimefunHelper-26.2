@@ -82,7 +82,7 @@ public class GuiInteract extends BaseModule {
 
     public void onInput(Event<Void> event) {
         if (checkNull()) return;
-        if (enable.get() && mc.gui.screen() != null) {
+        if (enable.get() && mc.screen != null) {
             if (useWhenScreenOpen.get()) {
                 if (event.isCancelled()) {
                     event.cancel(false);

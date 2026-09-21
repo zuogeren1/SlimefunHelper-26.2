@@ -22,7 +22,6 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
@@ -68,8 +67,8 @@ public class EntityUtils {
             if (Pattern.matches(value, "monster")) {
                 for (net.minecraft.world.entity.EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
                     if (entityType.getCategory() == MobCategory.MONSTER) {
-                        if (!(entityType == EntityTypes.ZOMBIFIED_PIGLIN)
-                                && !(entityType == net.minecraft.world.entity.EntityTypes.ENDERMAN)) {
+                        if (!(entityType == EntityType.ZOMBIFIED_PIGLIN)
+                                && !(entityType == net.minecraft.world.entity.EntityType.ENDERMAN)) {
                             collection.add(entityType);
                         }
                     }

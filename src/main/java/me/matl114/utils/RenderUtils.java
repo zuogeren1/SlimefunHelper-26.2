@@ -41,13 +41,13 @@ public class RenderUtils {
     // viewMatrix是正常传参中的玩家位置matrixStack.position
     @ApiMethod
     public static Vec3 getCameraPos() {
-        var d = mc.gameRenderer.mainCamera();
+        var d = mc.gameRenderer.getMainCamera();
         return d == null ? Vec3.ZERO : d.position();
     }
 
     @ApiMethod
     public static Vec3 getCameraEntityPos() {
-        var d = mc.gameRenderer.mainCamera();
+        var d = mc.gameRenderer.getMainCamera();
         if (d == null) return Vec3.ZERO;
         Entity entity = d.entity();
         if (entity == null) {
@@ -59,7 +59,7 @@ public class RenderUtils {
 
     @ApiMethod
     public static BlockPos getCameraBlockPos() {
-        Camera camera = mc.gameRenderer.mainCamera();
+        Camera camera = mc.gameRenderer.getMainCamera();
         if (camera == null) return BlockPos.ZERO;
 
         return camera.blockPosition();
@@ -67,7 +67,7 @@ public class RenderUtils {
 
     @ApiMethod
     public static Vec3 getCameraLookVec(float partialTicks) {
-        Camera camera = mc.gameRenderer.mainCamera();
+        Camera camera = mc.gameRenderer.getMainCamera();
         Vector3fc vector3f = camera.forwardVector();
         return new Vec3(vector3f.x(), vector3f.y(), vector3f.z());
     }
@@ -214,7 +214,7 @@ public class RenderUtils {
     @ApiMethod
     public static Quaternionf getBillboardRotation(Display.BillboardConstraints renderState, float pitch, float yaw) {
         Quaternionf rotation = new Quaternionf();
-        Camera camera = mc.gameRenderer.mainCamera();
+        Camera camera = mc.gameRenderer.getMainCamera();
         Quaternionf var10000;
         switch (renderState) {
             case FIXED -> var10000 = rotation.rotationYXZ(-0.017453292F * yaw, 0.017453292F * pitch, 0.0F);
@@ -367,7 +367,7 @@ public class RenderUtils {
     }
 
     public static Vector2d translate2D(Vec3 pos, float tickProgress) {
-        Quaternionf rotation = mc.gameRenderer.mainCamera().rotation().conjugate(new Quaternionf());
+        Quaternionf rotation = mc.gameRenderer.getMainCamera().rotation().conjugate(new Quaternionf());
         Matrix4f modelView = new Matrix4f().rotation(rotation);
         // 26.2: GameRenderer 不再提供 getProjectionMatrix(float)，
         // 投影矩阵从 gameRenderState 的 cameraRenderState 取。

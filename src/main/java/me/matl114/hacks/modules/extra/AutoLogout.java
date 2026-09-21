@@ -17,7 +17,7 @@ import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityEvent;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Items;
 
 public class AutoLogout extends BaseModule {
@@ -128,7 +128,7 @@ public class AutoLogout extends BaseModule {
     public void onPlayerSpawn(Event<ClientboundAddEntityPacket> event) {
         if (enable.get() && strangerPlayerEnable.get() && mc.player != null) {
             ClientboundAddEntityPacket spawn = event.context();
-            if (spawn.getType() == EntityTypes.PLAYER && spawn.getId() != mc.player.getId()) {
+            if (spawn.getType() == EntityType.PLAYER && spawn.getId() != mc.player.getId()) {
                 Entity entity = mc.level.getEntity(spawn.getId());
                 if (entity != null && CombatTasks.getTargetSelector().isNotFriend(entity)) {
                     MainTasks.scheduleDisconnect();

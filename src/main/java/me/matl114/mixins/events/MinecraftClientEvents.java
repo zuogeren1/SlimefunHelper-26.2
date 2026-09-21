@@ -78,7 +78,7 @@ public abstract class MinecraftClientEvents {
         Listener.getServerLeavePoint().handleValue(new Event<>(null, false, false, false));
     }
 
-    // 26.2: GameRenderer.render(DeltaTracker, boolean) 的调用点从 runTick 搬到了 renderFrame
+    // GameRenderer.render(DeltaTracker, boolean) 由 Minecraft.renderFrame 调用（26.1 / 26.2 都是）
     @WrapWithCondition(
             method = "renderFrame",
             at =
@@ -114,16 +114,15 @@ public abstract class MinecraftClientEvents {
     }
 
     @Inject(
-            method = "crash(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;I)V",
+            method = "crash(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;)V",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/Minecraft;saveReportAndShutdownSoundManager(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;I)I",
+                                    "Lnet/minecraft/client/Minecraft;saveReportAndShutdownSoundManager(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;)I",
                             shift = At.Shift.AFTER),
             cancellable = true)
-    private static void onSystemExit(
-            Minecraft client, File runDirectory, CrashReport crashReport, int exitCode, CallbackInfo ci) {
+    private static void onSystemExit(Minecraft client, File runDirectory, CrashReport crashReport, CallbackInfo ci) {
         if (client == null) {
             return;
         }
@@ -273,13 +272,13 @@ public abstract class MinecraftClientEvents {
             method = "tick",
             at =
                     @At(
-                            value = "INVOKE",
+                            value = "FIELD",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
-                            shift = At.Shift.BEFORE))
+                                    "Lnet/minecraft/client/Minecraft;overlay:Lnet/minecraft/client/gui/screens/Overlay;",
+                            shift = At.Shift.BEFORE,
+                            ordinal = 2))
     public void onInputEventIfScreenOpen(CallbackInfo ci, @Local ProfilerFiller profiler) {
-        if (Minecraft.getInstance().gui.screen() != null
-                || Minecraft.getInstance().gui.overlay() != null) {
+        if (Minecraft.getInstance().screen != null || Minecraft.getInstance().getOverlay() != null) {
             profiler.popPush("Keybindings");
             if (Minecraft.getInstance().player != null) {
                 Event<Void> re = new Event<>(null, true, false);

@@ -15,7 +15,7 @@ import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VItem;
-import net.minecraft.advancements.predicates.NbtPredicate;
+import net.minecraft.advancements.criterion.NbtPredicate;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;

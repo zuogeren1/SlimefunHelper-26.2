@@ -185,7 +185,7 @@ public class ChatExtra extends BaseModule {
             // ignore two default input
             if (!chatInput.isEmpty() && !Objects.equals("/", chatInput)) {
                 if (mc.gui != null) {
-                    mc.gui.hud.chat.addRecentChat(chatInput);
+                    mc.gui.getChat().addRecentChat(chatInput);
                 }
             }
         }

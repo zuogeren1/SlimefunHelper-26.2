@@ -51,7 +51,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -354,7 +354,7 @@ public class AutoMine extends BaseModule {
             AABB box = mc.player
                     .getBoundingBox()
                     .inflate(collectSearchRadius.get(), SEARCH_VERTICAL_MARGIN, collectSearchRadius.get());
-            for (ItemEntity item : mc.level.getEntities(EntityTypes.ITEM, box, this::isCollectibleDrop)) {
+            for (ItemEntity item : mc.level.getEntities(EntityType.ITEM, box, this::isCollectibleDrop)) {
                 lockedCollectDrops.add(item.getUUID());
             }
         }
@@ -444,7 +444,7 @@ public class AutoMine extends BaseModule {
                 .inflate(collectSearchRadius.get(), SEARCH_VERTICAL_MARGIN, collectSearchRadius.get());
         return mc
                 .level
-                .getEntities(EntityTypes.ITEM, box, item -> {
+                .getEntities(EntityType.ITEM, box, item -> {
                     if (!isCollectibleDrop(item)) {
                         return false;
                     }

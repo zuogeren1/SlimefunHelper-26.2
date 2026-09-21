@@ -31,7 +31,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.TrialSpawnerBlock;
 import net.minecraft.world.level.block.VaultBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityTypes;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
 import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
 import net.minecraft.world.level.block.entity.vault.VaultBlockEntity;
@@ -83,7 +83,7 @@ public class TrialInfoESP extends BaseModule {
                     Set<BlockPos> sets = new HashSet<>();
                     for (var blockEntities : ChunkAccess.of(chunk).blockEntityEntries()) {
                         var bt = blockEntities.getValue().getType();
-                        if (bt == BlockEntityTypes.VAULT || bt == BlockEntityTypes.TRIAL_SPAWNER) {
+                        if (bt == BlockEntityType.VAULT || bt == BlockEntityType.TRIAL_SPAWNER) {
                             sets.add(blockEntities.getKey());
                         }
                     }

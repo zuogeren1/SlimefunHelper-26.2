@@ -7,6 +7,20 @@ plugins {
 }
 loom {
 	accessWidenerPath = file("src/main/resources/overrideList.accesswidener")
+
+	// 每个 Minecraft 版本用独立的运行目录：run/<minecraft_version>/
+	// 26.1 与 26.2 两条分支共用同一个工作区，若都用默认的 run/，
+	// options.txt / config / saves / mods / logs 会互相覆盖，切分支就串味。
+	// 注：runDatagen 的目录仍是 Loom 默认的 run/datagen（它由 fabricApi 的
+	// configureDataGeneration() 创建，runDir 不在这个 DSL 里，改不动就不用管）。
+	runs {
+		client {
+			runDir = "run/" + project.minecraft_version
+		}
+		server {
+			runDir = "run/" + project.minecraft_version
+		}
+	}
 }
 
 version = project.mod_version
@@ -80,13 +94,15 @@ dependencies {
 	// 新版 Loom 不再 remap，modImplementation / modCompileOnly 已移除，改用标准 configuration
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-	compileOnly files("libs/baritone-meteor-26.2.jar")
+	compileOnly files("libs/baritone-meteor-26.1.2.jar")
 	// 开发环境专用：把 baritone 加进 runClient 的运行时类路径。
 	// baritone 是可选前置（compileOnly），但本项目有 7 个 baritone mixin，
 	// 只有它真的在类路径上，才能验证 ElytraBehaviour / ElytraProcess 等 hook 的注入是否成立。
 	// 新版 Loom 不再 remap，这里用 localRuntime 以原始 jar 加入；
 	// Fabric Loader 的 ClasspathModCandidateFinder 会扫描运行时类路径并把它当 mod 加载。
-	localRuntime files("libs/baritone-meteor-26.2.jar")
+	// 26.1.2 版 baritone 来自 maven.meteordev.org/snapshots/meteordevelopment/baritone/26.1-SNAPSHOT/，
+	// 其 fabric.mod.json 已声明支持 26.1 / 26.1.1 / 26.1.2。
+	localRuntime files("libs/baritone-meteor-26.1.2.jar")
 //	compileOnly files("libs/xaeroworldmap-fabric-26.2-1.41.0.jar")
 //	compileOnly files("libs/xaerominimap-fabric-26.2-26.1.0.jar")
 //	compileOnly files("libs/XaeroPlus-2.32.1+fabric-26.2-WM1.41.0-MM26.1.0.jar")

@@ -114,7 +114,7 @@ public class ChatTasks {
             chatText = getChatExtra().normalizeSendText(chatText);
             // in world
             if (addToHistory) {
-                Minecraft.getInstance().gui.hud.chat.addRecentChat(chatText);
+                Minecraft.getInstance().gui.getChat().addRecentChat(chatText);
             }
             if (chatText.startsWith("/")) {
                 Minecraft.getInstance().player.connection.sendCommand(chatText.substring(1));
@@ -128,7 +128,7 @@ public class ChatTasks {
     private static final LimitedSpeedExecutor chatExecutor = new LimitedSpeedExecutor(new IntRef(5));
 
     public static void sendDelayChatMessage(Component text) {
-        chatExecutor.addDelayedExecuteTask(() -> mc.gui.hud.chat.addClientSystemMessage(text));
+        chatExecutor.addDelayedExecuteTask(() -> mc.gui.getChat().addClientSystemMessage(text));
     }
 
     static {

@@ -24,7 +24,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.phys.AABB;
 
 public class EntityESP extends BaseModule {
@@ -62,9 +61,9 @@ public class EntityESP extends BaseModule {
                     BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.COLOR_TYPE,
                     Map.of(
-                            EntityTypes.PLAYER,
+                            EntityType.PLAYER,
                                     Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.YELLOW)),
-                            EntityTypes.ARMOR_STAND,
+                            EntityType.ARMOR_STAND,
                                     Objects.requireNonNull(TextColor.fromLegacyFormat(ChatFormatting.GREEN))),
                     TextColor.fromLegacyFormat(ChatFormatting.RED)))
             .build();
@@ -76,9 +75,9 @@ public class EntityESP extends BaseModule {
                     BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.BOOLEAN_TYPE,
                     Map.of(
-                            EntityTypes.PLAYER, true,
-                            EntityTypes.END_CRYSTAL, true,
-                            EntityTypes.WITHER, true),
+                            EntityType.PLAYER, true,
+                            EntityType.END_CRYSTAL, true,
+                            EntityType.WITHER, true),
                     false))
             .build();
 
@@ -89,9 +88,9 @@ public class EntityESP extends BaseModule {
                     BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.BOOLEAN_TYPE,
                     Map.of(
-                            EntityTypes.PLAYER, true,
-                            EntityTypes.END_CRYSTAL, false,
-                            EntityTypes.WITHER, true),
+                            EntityType.PLAYER, true,
+                            EntityType.END_CRYSTAL, false,
+                            EntityType.WITHER, true),
                     false))
             .build();
 
@@ -102,9 +101,9 @@ public class EntityESP extends BaseModule {
                     BuiltInRegistries.ENTITY_TYPE,
                     NBTTypes.BOOLEAN_TYPE,
                     Map.of(
-                            EntityTypes.PLAYER, true,
-                            EntityTypes.END_CRYSTAL, true,
-                            EntityTypes.WITHER, true),
+                            EntityType.PLAYER, true,
+                            EntityType.END_CRYSTAL, true,
+                            EntityType.WITHER, true),
                     true))
             .build();
 
@@ -131,7 +130,7 @@ public class EntityESP extends BaseModule {
         var whitelist = whiteList.get().set();
         var glowMap = highLightSettings.get();
         for (Entity entity : mc.level.entitiesForRendering()) {
-            if (entity == mc.gameRenderer.mainCamera().entity()) continue;
+            if (entity == mc.gameRenderer.getMainCamera().entity()) continue;
             if (entity == null || entity.isRemoved()) {
                 continue;
             } else {

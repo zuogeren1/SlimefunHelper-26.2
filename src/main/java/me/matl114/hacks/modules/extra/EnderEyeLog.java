@@ -15,7 +15,7 @@ import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.projectile.EyeOfEnder;
 import net.minecraft.world.phys.Vec3;
 
@@ -40,7 +40,7 @@ public class EnderEyeLog extends BaseModule {
 
     public void onEnderEye(Event<ClientboundAddEntityPacket> event) {
         ClientboundAddEntityPacket packet = event.context();
-        if (enable.get() && packet.getType() == EntityTypes.EYE_OF_ENDER) {
+        if (enable.get() && packet.getType() == EntityType.EYE_OF_ENDER) {
             Vec3 pos = new Vec3(packet.getX(), packet.getY(), packet.getZ());
             int id = packet.getId();
             tracked.put(id, pos);

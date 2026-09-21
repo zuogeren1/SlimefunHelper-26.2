@@ -55,7 +55,7 @@ public class ScreenUtils {
 
     public static Slot getSelectingOrHandSlot() {
         if (mc.player == null) return null;
-        if (mc.gui.screen() instanceof AbstractContainerScreen<?> s) {
+        if (mc.screen instanceof AbstractContainerScreen<?> s) {
             Point mouseCoord = ScreenUtils.getMouseCoord(mc);
             Slot slot = HandledScreenAccess.of(s).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {
@@ -73,7 +73,7 @@ public class ScreenUtils {
 
     public static ItemStack getSelectingOrHandItem() {
         if (mc.player == null) return null;
-        if (mc.gui.screen() instanceof AbstractContainerScreen<?> s) {
+        if (mc.screen instanceof AbstractContainerScreen<?> s) {
             Point mouseCoord = ScreenUtils.getMouseCoord(mc);
             Slot slot = HandledScreenAccess.of(s).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {
@@ -92,7 +92,7 @@ public class ScreenUtils {
             var packet = packetEvent.context();
             int syncId = packet.getContainerId();
             if (currentSyncId != syncId && syncId != 0) {
-                if (mc.gui.screen() instanceof AbstractContainerScreen<?> handled) {
+                if (mc.screen instanceof AbstractContainerScreen<?> handled) {
                     Listener.addPostPacketCatcher(
                             new PacketCatcherImpl<>(ClientboundContainerSetContentPacket.class, (packet2Event) -> {
                                 var packet2 = packet2Event.context();
@@ -196,8 +196,8 @@ public class ScreenUtils {
     public static void openChatScreen(String originalText) {
         ChatComponent.ChatMethod method =
                 originalText.startsWith("/") ? ChatComponent.ChatMethod.COMMAND : ChatComponent.ChatMethod.MESSAGE;
-        mc.gui.openChatScreen(method);
-        if (mc.gui.screen() instanceof ChatScreen chat) {
+        mc.openChatScreen(method);
+        if (mc.screen instanceof ChatScreen chat) {
             chat.insertText(originalText, true);
         }
     }
@@ -316,7 +316,7 @@ public class ScreenUtils {
                             screen.afterKeyboardAction();
                             bls[0] = screen.keyPressed(keyInput);
                             if (bls[0]) {
-                                if (mc.gui.screen() == null) {
+                                if (mc.screen == null) {
                                     key2 = InputConstants.getKey(keyInput);
                                     KeyMapping.set(key2, false);
                                 }
@@ -391,7 +391,7 @@ public class ScreenUtils {
         }
 
         boolean[] bls = new boolean[] {false};
-        if (mc.gui.overlay() == null) {
+        if (mc.getOverlay() == null) {
             double d = mouse.xpos()
                     * (double) mc.getWindow().getGuiScaledWidth()
                     / (double) mc.getWindow().getScreenWidth();
@@ -434,7 +434,7 @@ public class ScreenUtils {
         double d = (Double) mc.options.mouseWheelSensitivity().get();
         double e = (bl ? Math.signum(horizontal) : horizontal) * d;
         double f = (bl ? Math.signum(vertical) : vertical) * d;
-        if (mc.gui.overlay() == null) {
+        if (mc.getOverlay() == null) {
             if (screen != null) {
                 double g = mc.mouseHandler.xpos()
                         * (double) mc.getWindow().getGuiScaledWidth()

@@ -44,7 +44,7 @@ public class BeaconEffectSelectButton extends AbstractButton {
             this.currentSprite = null;
         } else {
             this.currentEffect = EFFECTS_BEACON.get(currentIndex - 1);
-            this.currentSprite = net.minecraft.client.gui.Hud.getMobEffectSprite(this.currentEffect);
+            this.currentSprite = net.minecraft.client.gui.Gui.getMobEffectSprite(this.currentEffect);
         }
         setTooltip(Tooltip.create(createNarrationMessage()));
     }

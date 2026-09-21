@@ -35,7 +35,6 @@ import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
@@ -157,7 +156,7 @@ public class EntityLog extends BaseModule {
         if (enable.get()) {
             if (whiteList.get().test(packet.getType())) {
                 EntityType<?> type = packet.getType();
-                if (type == EntityTypes.PLAYER) {
+                if (type == EntityType.PLAYER) {
                     if (chatLog.get()) {
                         String name = null;
                         if (Minecraft.getInstance().level != null) {

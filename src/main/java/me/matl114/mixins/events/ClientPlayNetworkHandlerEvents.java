@@ -56,7 +56,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 public abstract class ClientPlayNetworkHandlerEvents {
     @Inject(method = "handleOpenScreen", at = @At("RETURN"))
     private void onPostInventoryOpen(ClientboundOpenScreenPacket packet, CallbackInfo ci) {
-        if (Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> screen) {
+        if (Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen) {
             Listener.getPostOpenHandledScreen().broadcast(screen);
         }
     }
@@ -160,7 +160,7 @@ public abstract class ClientPlayNetworkHandlerEvents {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/multiplayer/ClientLevel;<init>(Lnet/minecraft/client/multiplayer/ClientPacketListener;Lnet/minecraft/client/multiplayer/ClientLevel$ClientLevelData;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/core/Holder;IILnet/minecraft/client/renderer/extract/LevelExtractor;ZJI)V",
+                                    "Lnet/minecraft/client/multiplayer/ClientLevel;<init>(Lnet/minecraft/client/multiplayer/ClientPacketListener;Lnet/minecraft/client/multiplayer/ClientLevel$ClientLevelData;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/core/Holder;IILnet/minecraft/client/renderer/LevelRenderer;ZJI)V",
                             shift = At.Shift.AFTER))
     private void onPlayerSwitchDimension0(ClientboundRespawnPacket packet, CallbackInfo ci) {
         worldChangeOnRespawn = true;

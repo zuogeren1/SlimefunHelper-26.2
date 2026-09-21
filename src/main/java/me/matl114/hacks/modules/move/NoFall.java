@@ -28,7 +28,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Input;
@@ -125,11 +125,11 @@ public class NoFall extends BaseModule implements LegalMovementManager.MovementM
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getTeleportationConfirm(), this::onSetback);
-        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onVcUpdate);
+        registerListener(Listener.getEntityClientVelocityUpdate().getChannel(EntityType.PLAYER), this::onVcUpdate);
         registerListener(Listener.getPlayerInitConfiguration(), this::onPlayerInit);
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onPresetLoad);
         registerListener(
-                Listener.getEntityClientVelocityUpdate().getChannel(EntityTypes.PLAYER), this::onPlayerTickVelocity);
+                Listener.getEntityClientVelocityUpdate().getChannel(EntityType.PLAYER), this::onPlayerTickVelocity);
         registerListener(
                 Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMovePacketSend);
         registerListener(Listener.getPlayerNotFlyJumpPoint(), this::onPlayerJump);

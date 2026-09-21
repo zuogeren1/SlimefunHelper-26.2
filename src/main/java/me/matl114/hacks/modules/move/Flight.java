@@ -453,7 +453,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
 
     private void restoreKeyPresses() {
         // bugfix when shift click in screen, this key is reset to fall
-        if (mc.gui.screen() == null) {
+        if (mc.screen == null) {
 
             KeyBindAccess.of(mc.options.keyJump).resetKeyState();
             KeyBindAccess.of(mc.options.keyShift).resetKeyState();

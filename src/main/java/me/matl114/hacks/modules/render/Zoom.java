@@ -88,7 +88,7 @@ public class Zoom extends BaseModule {
 
     public void tickFov(Event<Float> eventFov) {
         if (enable.get()) {
-            if (holdUse.get().isAllPressed() && mc.gui.screen() == null) {
+            if (holdUse.get().isAllPressed() && mc.screen == null) {
                 if (currentScale == null) {
                     currentScale = defaultZoom.get();
                 }

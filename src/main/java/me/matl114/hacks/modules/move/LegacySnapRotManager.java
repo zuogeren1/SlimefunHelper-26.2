@@ -10,7 +10,7 @@ import me.matl114.utils.EntityUtils;
 import me.matl114.versioned.api.VPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -26,7 +26,7 @@ public class LegacySnapRotManager extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(Listener.getEntityPreTickListener().getChannel(EntityTypes.PLAYER), this::onPrePlayerTick);
+        registerListener(Listener.getEntityPreTickListener().getChannel(EntityType.PLAYER), this::onPrePlayerTick);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onInteractItem);
         registerListener(
                 Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class),

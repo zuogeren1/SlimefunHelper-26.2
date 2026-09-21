@@ -71,7 +71,6 @@ import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityEvent;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.PositionMoveRotation;
@@ -200,7 +199,7 @@ public class PlayerStateManager extends BaseModule {
         registerListener(Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onTotemPop);
         registerListener(Listener.getServerLeavePoint(), this::onLeave);
         registerListener(
-                Listener.getEntityRemoveListener().getChannel(EntityTypes.PLAYER), this::onOtherPlayerRemoveDeath);
+                Listener.getEntityRemoveListener().getChannel(EntityType.PLAYER), this::onOtherPlayerRemoveDeath);
         registerListener(Listener.getPostClickSlot(), this::onClickSlot);
         registerListener(
                 Listener.getPacketPoint().getChannel(ClientboundContainerSetContentPacket.class),
@@ -212,15 +211,15 @@ public class PlayerStateManager extends BaseModule {
                 Listener.getPacketPoint().getChannel(ServerboundContainerClosePacket.class), this::onInventoryClose);
         registerListener(Listener.getPacketPoint().getChannel(ClientboundRespawnPacket.class), this::onRespawn);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::onEntityTrackedDataUpdate);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.PLAYER), this::onEntityTrackedDataUpdate);
         registerListener(
                 Listener.getPacketPoint().getChannel(ClientboundEntityEventPacket.class), this::onEntityConsume);
         registerListener(
-                Listener.getEntityRemoveListener().getChannel(EntityTypes.SPLASH_POTION), this::onSplashedPotionHit);
+                Listener.getEntityRemoveListener().getChannel(EntityType.SPLASH_POTION), this::onSplashedPotionHit);
         registerListener(
-                Listener.getEntityRemoveListener().getChannel(EntityTypes.LINGERING_POTION), this::onLingerPotionHit);
+                Listener.getEntityRemoveListener().getChannel(EntityType.LINGERING_POTION), this::onLingerPotionHit);
         registerListener(
-                Listener.getEntityPreTickListener().getChannel(EntityTypes.AREA_EFFECT_CLOUD),
+                Listener.getEntityPreTickListener().getChannel(EntityType.AREA_EFFECT_CLOUD),
                 this::onAreaEffectCloudTick);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundUpdateMobEffectPacket.class),
@@ -826,7 +825,7 @@ public class PlayerStateManager extends BaseModule {
     }
 
     public void onPlayerEnterVisualRange(Event<ClientboundAddEntityPacket> event) {
-        if (event.context.getType() == EntityTypes.PLAYER) {
+        if (event.context.getType() == EntityType.PLAYER) {
             UUID uid = event.context.getUUID();
             Tasks.scheduleDelayedPre(
                     () -> {
@@ -915,7 +914,7 @@ public class PlayerStateManager extends BaseModule {
                                                                     (instance) -> {
                                                                         if (!(instance.getEffect()
                                                                                         .value())
-                                                                                .isInstantaneous()) {
+                                                                                .isInstantenous()) {
                                                                             status.visibleStatusEffects
                                                                                     .computeIfAbsent(
                                                                                             instance.getEffect(),
@@ -1021,7 +1020,7 @@ public class PlayerStateManager extends BaseModule {
                         Holder<MobEffect> effectType = effectInstance.getEffect();
                         MobEffect effect = effectType.value();
 
-                        if (!effect.isInstantaneous()) {
+                        if (!effect.isInstantenous()) {
                             // 持续效果：持续时间随衰减因子和 durationScale 缩放
                             int originalDuration = effectInstance.getDuration(); // 假设有此方法，原代码通过 mapDuration 获取
                             int newDuration = (int) (attenuation * originalDuration * durationScale + 0.5);
@@ -1118,7 +1117,7 @@ public class PlayerStateManager extends BaseModule {
                     // 施加每个效果
                     for (MobEffectInstance effect : effectList) {
                         MobEffect statusEffect = effect.getEffect().value();
-                        if (!statusEffect.isInstantaneous()) {
+                        if (!statusEffect.isInstantenous()) {
                             getOrCreateStatus(target)
                                     .visibleStatusEffects
                                     .computeIfAbsent(effect.getEffect(), EffectTracker::new)

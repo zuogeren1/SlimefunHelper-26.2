@@ -335,7 +335,7 @@ public class MineESP extends BaseModule {
     }
 
     private float getGridRotationRadians() {
-        float yaw = mc.gameRenderer.mainCamera().yRot();
+        float yaw = mc.gameRenderer.getMainCamera().yRot();
         return (float) Math.toRadians(180 - yaw);
     }
 

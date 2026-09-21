@@ -37,7 +37,7 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityEvent;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ContainerInput;
@@ -74,10 +74,10 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getCustomListener().getChannel(ModulePreset.class), this::onModulePreset);
-        registerListener(Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::onServerSyncSneak);
+        registerListener(Listener.getEntityTrackDataUpdate().getChannel(EntityType.PLAYER), this::onServerSyncSneak);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundInteractPacket.class), this::onInteractSend);
         registerListener(Listener.getPlayerWebSlowPoint(), this::onWeb);
-        registerListener(Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.PLAYER), this::onEntityDataUpdate);
+        registerListener(Listener.getEntityTrackDataUpdate().getChannel(EntityType.PLAYER), this::onEntityDataUpdate);
         registerListener(
                 Listener.getPacketPostHandlePoint().getChannel(ClientboundEntityEventPacket.class), this::onConsume);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onSendStartUse);

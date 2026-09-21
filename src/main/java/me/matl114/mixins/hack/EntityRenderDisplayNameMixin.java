@@ -12,10 +12,9 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(EntityRenderer.class)
 public abstract class EntityRenderDisplayNameMixin {
     @WrapOperation(
-            // 26.2: shouldShowName 的调用点在 extractNameTags(T,S,float,double,double) 里，
-            // 不在 extractRenderState 里
+            // shouldShowName 的调用点在 EntityRenderer.extractRenderState(T,S,float) 里
             method =
-                    "extractNameTags(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FDD)V",
+                    "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
             at =
                     @At(
                             value = "INVOKE",

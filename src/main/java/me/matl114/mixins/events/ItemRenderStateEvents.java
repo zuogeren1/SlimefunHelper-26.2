@@ -92,7 +92,7 @@ public abstract class ItemRenderStateEvents implements ItemRenderStateAccess {
                     return;
                 }
                 if (inGui) {
-                    Minecraft.getInstance().gameRenderer.lighting().setupFor(Lighting.Entry.ITEMS_FLAT);
+                    Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
                 }
                 for (var entry : attachedRenders) {
                     if (entry.stackTransformer() != null) {

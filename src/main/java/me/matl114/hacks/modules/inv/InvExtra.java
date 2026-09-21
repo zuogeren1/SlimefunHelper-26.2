@@ -93,7 +93,7 @@ public class InvExtra extends BaseModule {
 
     public void onInvClick(int syncId) {
         // check if it is manually clicked
-        if (mc.gui.screen() instanceof AbstractContainerScreen<?> handled && handled.getMenu().containerId == syncId) {
+        if (mc.screen instanceof AbstractContainerScreen<?> handled && handled.getMenu().containerId == syncId) {
             // do not fix all of them
             // some module may use MultiAction to gain advantage
             if (invSprintGrimFix.get()) {

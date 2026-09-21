@@ -244,7 +244,7 @@ public class ServerScanner extends BaseModule {
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(300, 30, 100, 20)
                 .setElementHandler(
                         new ButtonElement(TextProvider.of(Component.literal("Back")), ButtonAction.run(() -> {
-                            if (mc.gui.screen() != null) mc.gui.screen().onClose();
+                            if (mc.screen != null) mc.screen.onClose();
                         }))));
 
         return subScreenWidget;
@@ -793,7 +793,7 @@ public class ServerScanner extends BaseModule {
     }
 
     private void connect(ServerData serverInfo) {
-        Screen screen = mc.gui.screen();
+        Screen screen = mc.screen;
         if (screen != null) {
             ConnectScreen.startConnecting(
                     screen, mc, ServerAddress.parseString(serverInfo.ip), serverInfo, false, null);

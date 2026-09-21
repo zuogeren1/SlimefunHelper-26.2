@@ -29,7 +29,6 @@ import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.entity.BlockEntityTypes;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.AABB;
@@ -62,15 +61,15 @@ public class ChestESP extends BaseModule {
                     BuiltInRegistries.BLOCK_ENTITY_TYPE,
                     NBTTypes.COLOR_TYPE,
                     Map.of(
-                            BlockEntityTypes.CHEST, color(ChatFormatting.GREEN),
-                            BlockEntityTypes.BARREL, color(ChatFormatting.GREEN),
-                            BlockEntityTypes.SHULKER_BOX, color(Color.MAGENTA),
-                            BlockEntityTypes.TRAPPED_CHEST, TextColor.fromRgb(0xFF8000),
-                            BlockEntityTypes.FURNACE, color(ChatFormatting.WHITE),
-                            BlockEntityTypes.ENDER_CHEST, color(Color.CYAN),
-                            BlockEntityTypes.DROPPER, color(ChatFormatting.WHITE),
-                            BlockEntityTypes.DISPENSER, color(ChatFormatting.WHITE),
-                            BlockEntityTypes.HOPPER, color(ChatFormatting.AQUA)),
+                            BlockEntityType.CHEST, color(ChatFormatting.GREEN),
+                            BlockEntityType.BARREL, color(ChatFormatting.GREEN),
+                            BlockEntityType.SHULKER_BOX, color(Color.MAGENTA),
+                            BlockEntityType.TRAPPED_CHEST, TextColor.fromRgb(0xFF8000),
+                            BlockEntityType.FURNACE, color(ChatFormatting.WHITE),
+                            BlockEntityType.ENDER_CHEST, color(Color.CYAN),
+                            BlockEntityType.DROPPER, color(ChatFormatting.WHITE),
+                            BlockEntityType.DISPENSER, color(ChatFormatting.WHITE),
+                            BlockEntityType.HOPPER, color(ChatFormatting.AQUA)),
                     color(ChatFormatting.GREEN)))
             .build();
 

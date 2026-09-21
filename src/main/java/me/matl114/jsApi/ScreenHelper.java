@@ -47,7 +47,7 @@ public class ScreenHelper {
     }
 
     public static boolean isScreenOpen() {
-        return mc.gui.screen() instanceof AbstractContainerScreen<?>;
+        return mc.screen instanceof AbstractContainerScreen<?>;
     }
 
     @Nonnull

@@ -8,7 +8,6 @@ import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.screens.Screen;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,14 +20,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * 屏幕事件：PreSetScreen / MidSetScreen / PostSetScreen。
  *
- * <p>26.2 把屏幕管理整体从 {@code Minecraft} 搬到了 {@link Gui}
- * （{@code Minecraft.screen} 字段与 {@code Minecraft.setScreen} 均已移除，
- * 变为 {@code Gui.screen} / {@code Gui.setScreen}），所以这三个注入点从
- * {@code MinecraftClientEvents} 迁移到这里。挂在 {@code Gui.setScreen} 上
- * 也顺带覆盖了所有直接调用 {@code mc.gui.setScreen(...)} 的路径。
+ * <p>屏幕管理在 26.1.2 属于 {@link Minecraft}（{@code Minecraft.screen} 字段 +
+ * {@code Minecraft.setScreen}）；26.2 才整体搬进 {@code Gui}
+ * （{@code Gui.screen} / {@code Gui.setScreen}）。所以这里挂在 {@code Minecraft.setScreen}。
  */
 @Environment(EnvType.CLIENT)
-@Mixin(Gui.class)
+@Mixin(Minecraft.class)
 public abstract class GuiScreenEvents implements GuiScreenAccess {
 
     @Unique
@@ -39,7 +36,7 @@ public abstract class GuiScreenEvents implements GuiScreenAccess {
 
     @Shadow
     @Nullable
-    private Screen screen;
+    public Screen screen;
 
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     public void onPreSetScreen(Screen screen, CallbackInfo ci, @Local(argsOnly = true) LocalRef<Screen> screenRef) {
@@ -57,15 +54,20 @@ public abstract class GuiScreenEvents implements GuiScreenAccess {
     }
 
     /**
-     * 在 {@code this.screen = screen} 赋值之后触发（Gui.setScreen 中对该字段的第 3 次访问），
-     * 此时 {@code this.screen} 已是新屏幕、但尚未 {@code added()/init()}。
+     * 在 {@code this.screen = screen} 赋值之后触发，此时 {@code this.screen} 已是新屏幕、
+     * 但尚未 {@code added()/init()}。
+     *
+     * <p>ordinal 数的是**字节码里对 screen 字段的访问序号（读+写都算）**。26.1.2 的
+     * {@code Minecraft.setScreen} 里依次是 ①getfield(判空) ②getfield(removed)
+     * ③putfield(赋值) ④getfield(判空) ⑤getfield(added)，所以赋值那次是 ordinal = 2。
+     * 这个数只能用 javap 数，源码里数会漏掉读操作。
      */
     @Inject(
             method = "setScreen",
             at =
                     @At(
                             value = "FIELD",
-                            target = "Lnet/minecraft/client/gui/Gui;screen:Lnet/minecraft/client/gui/screens/Screen;",
+                            target = "Lnet/minecraft/client/Minecraft;screen:Lnet/minecraft/client/gui/screens/Screen;",
                             ordinal = 2,
                             shift = At.Shift.AFTER),
             cancellable = true)
@@ -87,7 +89,7 @@ public abstract class GuiScreenEvents implements GuiScreenAccess {
     }
 
     @Inject(method = "setScreen", at = @At("RETURN"))
-    public void onPostSetScreen(Screen screen, CallbackInfo ci) {
+    public void onPostSetScreen(Screen callbackScreen, CallbackInfo ci) {
         Listener.getPostSetScreen().broadcast(this.screen);
     }
 }

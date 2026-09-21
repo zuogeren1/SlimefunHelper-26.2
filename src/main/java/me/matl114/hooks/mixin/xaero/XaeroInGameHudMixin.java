@@ -7,8 +7,8 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(Hud.class)
+@Mixin(Gui.class)
 public abstract class XaeroInGameHudMixin {
     @Shadow
     @Final
@@ -32,17 +32,17 @@ public abstract class XaeroInGameHudMixin {
     private void onTransparentGuiFix(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (XaeroHelper.INSTANCE.transparentGuiMapFix.get()
                 && XaeroHooks.getInstance().isXaeroPlusEnable()
-                && XaeroHooks.getInstance().isGuiMap(minecraft.gui.screen())) {
-            cachedScreen = minecraft.gui.screen();
+                && XaeroHooks.getInstance().isGuiMap(minecraft.screen)) {
+            cachedScreen = minecraft.screen;
             // 裸字段写入：不能用 gui.setScreen()，那会每帧触发整套屏幕生命周期
-            ((GuiScreenAccess) minecraft.gui).setScreenRaw(null);
+            ((GuiScreenAccess) minecraft).setScreenRaw(null);
         }
     }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"), order = 99999)
     private void onTransparentGuiRestore(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (cachedScreen != null) {
-            ((GuiScreenAccess) minecraft.gui).setScreenRaw(cachedScreen);
+            ((GuiScreenAccess) minecraft).setScreenRaw(cachedScreen);
             cachedScreen = null;
         }
     }

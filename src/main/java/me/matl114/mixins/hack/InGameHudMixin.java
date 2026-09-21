@@ -7,8 +7,8 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Final;
@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(value = Hud.class, priority = 10)
+@Mixin(value = Gui.class, priority = 10)
 public abstract class InGameHudMixin {
     @Shadow
     @Final
@@ -42,8 +42,8 @@ public abstract class InGameHudMixin {
     private void rejectWurstHud(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (RenderExtra.INSTANCE.noWurstHud.get()) {
             this.tmpValue3 = true;
-            this.tmpValue2 = Minecraft.getInstance().gameRenderer.gameRenderState.guiRenderState.isHudHidden;
-            minecraft.gameRenderer.gameRenderState.guiRenderState.isHudHidden = false;
+            this.tmpValue2 = Minecraft.getInstance().gameRenderer.gameRenderState.optionsRenderState.hideGui;
+            minecraft.gameRenderer.gameRenderState.optionsRenderState.hideGui = false;
             if (!this.minecraft.debugEntries.isOverlayVisible()) {
                 this.tmpValue = true;
                 this.minecraft.debugEntries.isOverlayVisible = true; // setF3Enabled(true);
@@ -64,7 +64,7 @@ public abstract class InGameHudMixin {
     private void resetHudData(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (tmpValue3) {
             tmpValue3 = false;
-            minecraft.gameRenderer.gameRenderState.guiRenderState.isHudHidden = this.tmpValue2;
+            minecraft.gameRenderer.gameRenderState.optionsRenderState.hideGui = this.tmpValue2;
             if (this.tmpValue) {
                 minecraft.debugEntries.isOverlayVisible = false;
             }
@@ -77,8 +77,8 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Hud;extractSpyglassOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
-    private boolean onRenderSpyGlass(Hud instance, GuiGraphicsExtractor context, float scale) {
+                                    "Lnet/minecraft/client/gui/Gui;extractSpyglassOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+    private boolean onRenderSpyGlass(Gui instance, GuiGraphicsExtractor context, float scale) {
         if (NoRender.INSTANCE.noItemOverlay()) {
             return false;
         }
@@ -91,9 +91,9 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Hud;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+                                    "Lnet/minecraft/client/gui/Gui;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
                             ordinal = 0))
-    private boolean onRenderHeadItem(Hud instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+    private boolean onRenderHeadItem(Gui instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
         if (NoRender.INSTANCE.noItemOverlay()) {
             return false;
         }
@@ -106,9 +106,9 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Hud;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+                                    "Lnet/minecraft/client/gui/Gui;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
                             ordinal = 1))
-    private boolean onRenderFreeze(Hud instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+    private boolean onRenderFreeze(Gui instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
         if (NoRender.INSTANCE.noFreezeOverlay()) {
             return false;
         }
@@ -121,8 +121,8 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Hud;extractPortalOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
-    private boolean onRenderPortal(Hud instance, GuiGraphicsExtractor context, float scale) {
+                                    "Lnet/minecraft/client/gui/Gui;extractPortalOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+    private boolean onRenderPortal(Gui instance, GuiGraphicsExtractor context, float scale) {
         if (NoRender.INSTANCE.noPortalOverlay()) {
             return false;
         }
@@ -135,8 +135,8 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Hud;extractVignette(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/entity/Entity;)V"))
-    private boolean onRenderVignette(Hud instance, GuiGraphicsExtractor context, Entity entity) {
+                                    "Lnet/minecraft/client/gui/Gui;extractVignette(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/entity/Entity;)V"))
+    private boolean onRenderVignette(Gui instance, GuiGraphicsExtractor context, Entity entity) {
         if (NoRender.INSTANCE.noVignetteOverlay()) {
             return false;
         }

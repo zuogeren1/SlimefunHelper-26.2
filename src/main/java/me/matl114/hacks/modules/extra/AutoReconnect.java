@@ -91,11 +91,11 @@ public class AutoReconnect extends BaseModule {
                             counter--;
                             return false;
                         }
-                        if (enable.get() && mc.gui.screen() instanceof DisconnectedScreen) {
+                        if (enable.get() && mc.screen instanceof DisconnectedScreen) {
                             reconect(disconnected.parent);
                             return true;
                         }
-                        return mc.gui.screen() != null;
+                        return mc.screen != null;
                     },
                     1,
                     1);

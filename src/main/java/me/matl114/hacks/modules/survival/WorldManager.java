@@ -39,7 +39,7 @@ import net.minecraft.nbt.LongTag;
 import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerData;
@@ -83,7 +83,7 @@ public class WorldManager extends BaseModule {
         registerListener(Listener.getPostGameTick(), this::onGameTick);
         registerListener(Listener.getEntityRemoveListener(), this::onEntityDeath);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.VILLAGER), this::onVillagerProfessionUpdate);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.VILLAGER), this::onVillagerProfessionUpdate);
         registerListener(
                 Listener.getPacketPreHandlePoint().getChannel(ClientboundMerchantOffersPacket.class),
                 this::onVillagerTradeUpdate);

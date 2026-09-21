@@ -42,7 +42,7 @@ public class CopyId extends BaseModule {
         var player = Minecraft.getInstance().player;
         if (player == null || client == null) return false;
         ItemStack heldItem = null;
-        if (client.gui.screen() instanceof AbstractContainerScreen<?> s) {
+        if (client.screen instanceof AbstractContainerScreen<?> s) {
             Point mouseCoord = ScreenUtils.getMouseCoord(client);
             Slot slot = HandledScreenAccess.of(s).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {

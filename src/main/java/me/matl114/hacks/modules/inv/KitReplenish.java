@@ -189,8 +189,8 @@ public class KitReplenish extends BaseModule {
                     return;
                 }
                 if (transaction.stage == Transaction.STAGE_REORDER_INVENTORY) {
-                    if (mc.gui.screen() != null) {
-                        mc.gui.screen().onClose();
+                    if (mc.screen != null) {
+                        mc.screen.onClose();
                     }
                     if (transaction.rule.type() == Type.AUTO) {
                         resortInventories(
@@ -227,7 +227,7 @@ public class KitReplenish extends BaseModule {
                 }
                 if (transaction.stage == Transaction.STAGE_USE_ENDER_CHEST) {
                     if (!enderChestRequest) {
-                        if (mc.gui.screen() instanceof ContainerScreen screen) {
+                        if (mc.screen instanceof ContainerScreen screen) {
                             var handler = screen.getMenu();
                             Container inventory = handler.getContainer();
                             IndexEntry<ItemStack> stack = findShulker(inventory, transaction);
@@ -358,14 +358,14 @@ public class KitReplenish extends BaseModule {
                     enderChestRequest = false;
                 }
             }
-            if (ChestHistory.isEnderChest(mc.gui.screen())) {
+            if (ChestHistory.isEnderChest(mc.screen)) {
                 if (log.get()) {
                     logI18N("message.kit-manager.kit-replenish.success.open-ender-chest");
                 }
                 enderChestRequest = false;
             } else {
-                if (mc.gui.screen() != null) {
-                    mc.gui.screen().onClose();
+                if (mc.screen != null) {
+                    mc.screen.onClose();
                 }
                 if (slowInteract.canRun(5)) {
                     BlockPos pos = findCurrentOpenEnderChest();

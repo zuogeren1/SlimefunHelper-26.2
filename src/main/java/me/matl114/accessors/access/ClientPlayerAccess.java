@@ -25,7 +25,7 @@ public interface ClientPlayerAccess extends ClientPlayerEntityAccess {
     // get the Screen object which handler related to the server(should)
     default AbstractContainerScreen getServerOpeningScreen() {
         if (getKeepedInv() != null) return getKeepedInv();
-        else return Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> han ? han : null;
+        else return Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> han ? han : null;
     }
 
     @Nonnull

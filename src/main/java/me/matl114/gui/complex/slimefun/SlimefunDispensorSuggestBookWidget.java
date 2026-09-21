@@ -195,16 +195,14 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
         multiblockExecuteOneWidget = ExecutableWidget.instance(30, 0, 18, 8)
                 .setElementHandler(new ButtonElement(TextProvider.of(MULTIBLOCK_EXECUTE), ButtonAction.run(() -> {
                             SlimefunTasks.getMultiBlockHelper()
-                                    .onMultiBlockExecute(
-                                            Minecraft.getInstance().gui.screen(), false, false);
+                                    .onMultiBlockExecute(Minecraft.getInstance().screen, false, false);
                             Tasks.scheduleDelayed(this::refreshContents, 2);
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-dispensor-suggest-book-widget.multiblock-execute-one.tooltips",
                                 "")))
                         .withActiveActionCondition((el) -> {
-                            return Minecraft.getInstance().gui.screen() instanceof TileInventory tile
-                                    && !tile.isVirtual();
+                            return Minecraft.getInstance().screen instanceof TileInventory tile && !tile.isVirtual();
                         }))
                 .addToSub(this);
         prevPage = ExecutableWidget.instance(52, 0, 8, 8)
@@ -236,20 +234,19 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
                 .setElementHandler(new ButtonElement(TextProvider.of(MULTIBLOCK_EXECUTE), ButtonAction.run(() -> {
                             SlimefunTasks.getMultiBlockHelper()
                                     .onMultiBlockExecute(
-                                            Minecraft.getInstance().gui.screen(), true, ScreenUtils.hasShiftDown());
+                                            Minecraft.getInstance().screen, true, ScreenUtils.hasShiftDown());
                             Tasks.scheduleDelayed(this::refreshContents, 5);
                         }))
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-dispensor-suggest-book-widget.multiblock-execute.tooltips", "")))
                         .withActiveActionCondition((el) -> {
-                            return Minecraft.getInstance().gui.screen() instanceof TileInventory tile
-                                    && !tile.isVirtual();
+                            return Minecraft.getInstance().screen instanceof TileInventory tile && !tile.isVirtual();
                         }))
                 .addToSub(this);
         multiblockAutoExecute = ExecutableWidget.instance(DX - 30, 0, 18, 8)
                 .setElementHandler(new ButtonElement(
                                 TextProvider.of(MULTIBLOCK_AUTO), ((element, widget, mouseButton) -> {
-                                    if (Minecraft.getInstance().gui.screen() instanceof TileInventory handledScreen) {
+                                    if (Minecraft.getInstance().screen instanceof TileInventory handledScreen) {
                                         MultiBlockHelper multiBlockHelper = SlimefunTasks.getMultiBlockHelper();
                                         if (multiBlockHelper.isMultiBlockExecuting(handledScreen)) {
                                             widget.setAlpha(0.4f);
@@ -265,8 +262,7 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
                         .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
                                 "widget.gui.slimefun-dispensor-suggest-book-widget.multiblock-auto.tooltips", "")))
                         .withActiveActionCondition((el) -> {
-                            return Minecraft.getInstance().gui.screen() instanceof TileInventory tile
-                                    && !tile.isVirtual();
+                            return Minecraft.getInstance().screen instanceof TileInventory tile && !tile.isVirtual();
                         }))
                 .setAlpha(SlimefunTasks.getMultiBlockHelper().isMultiBlockExecuting(this.tile) ? 1.0F : 0.4f)
                 .addToSub(this);
@@ -311,8 +307,7 @@ public class SlimefunDispensorSuggestBookWidget extends SubScreenWidget {
             // impl here
             // todo: add a empty recipe to clear the slots in one click
             recipes = Minecraft.getInstance().player != null
-                    ? SlimefunTasks.getInventoryRelativeRecipes(
-                            Minecraft.getInstance().gui.screen(), refreshHard)
+                    ? SlimefunTasks.getInventoryRelativeRecipes(Minecraft.getInstance().screen, refreshHard)
                     : SlimefunTasks.getAllSlimefunRecipeEntry().toList();
         } else {
             recipes = SlimefunTasks.getAllSlimefunRecipeEntry().toList();

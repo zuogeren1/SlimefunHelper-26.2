@@ -61,9 +61,9 @@ public abstract class MouseEvents {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;"))
+                                    "Lnet/minecraft/client/Minecraft;getOverlay()Lnet/minecraft/client/gui/screens/Overlay;"))
     private void onMouseScroll(long handle, double xOffset, double yOffset, CallbackInfo ci) { // 暂时没东西
-        if (Minecraft.getInstance().gui.overlay() == null) {
+        if (Minecraft.getInstance().getOverlay() == null) {
             if (SimpleInputManager.getInstance().onMouseScroll(xOffset, yOffset)) {
                 ci.cancel();
             }
@@ -77,7 +77,7 @@ public abstract class MouseEvents {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
+                                    "Lnet/minecraft/client/Minecraft;getOverlay()Lnet/minecraft/client/gui/screens/Overlay;",
                             ordinal = 0,
                             shift = At.Shift.BEFORE))
     private void onMouseClick(
@@ -129,8 +129,7 @@ public abstract class MouseEvents {
             cancellable = true)
     private void onScreenNull(CallbackInfo ci) {
         // handle screen is null case, we should also send Events
-        if (Minecraft.getInstance().gui.screen() == null
-                && Minecraft.getInstance().gui.overlay() == null) {
+        if (Minecraft.getInstance().screen == null && Minecraft.getInstance().getOverlay() == null) {
             double f = xpos()
                     * (double) this.minecraft.getWindow().getGuiScaledWidth()
                     / (double) this.minecraft.getWindow().getScreenWidth();

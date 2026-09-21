@@ -40,6 +40,7 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.fog.FogRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 
@@ -181,8 +182,8 @@ public class SleepMode extends BaseModule {
                 //                }
                 sleepingScreenInstance = null;
                 currentRenderingSleeping = null;
-                if (mc.gui.screen() == null) {
-                    mc.gui.setScreen(null);
+                if (mc.screen == null) {
+                    mc.setScreen(null);
                 }
             }
             return true;
@@ -351,7 +352,7 @@ public class SleepMode extends BaseModule {
         } else {
             currentRenderingSleeping = null;
             // reset cursor and keybinds
-            if (mc.gui.screen() != null) {
+            if (mc.screen != null) {
                 mc.mouseHandler.releaseMouse();
                 KeyMapping.releaseAll();
             } else {
@@ -381,7 +382,7 @@ public class SleepMode extends BaseModule {
             // clear current  view
             RenderSystem.getDevice()
                     .createCommandEncoder()
-                    .clearDepthTexture(mc.gameRenderer.mainRenderTarget().getDepthTexture(), 1.0);
+                    .clearDepthTexture(mc.getMainRenderTarget().getDepthTexture(), 1.0);
             mc.gameRenderer.gameRenderState.guiRenderState.reset();
             //            mc.getFramebuffer().clear(true);
             //            mc.getFramebuffer().endRead();
@@ -413,7 +414,7 @@ public class SleepMode extends BaseModule {
                             mc.level == null ? 0L : mc.level.getGameTime(),
                             tickCounter,
                             mc.options.getMenuBackgroundBlurriness(),
-                            mc.gameRenderer.mainCamera().position(),
+                            mc.gameRenderer.getMainCamera().position(),
                             mc.options.textureFiltering().get() == TextureFilteringMethod.RGSS);
 
                     int i = (int) (mc.mouseHandler.xpos()
@@ -423,17 +424,27 @@ public class SleepMode extends BaseModule {
                             * (double) mc.getWindow().getGuiScaledHeight()
                             / (double) mc.getWindow().getScreenHeight());
 
+                    // 必须连**颜色**缓冲一起清：vanilla 是在 GameRenderer.render() 开头做
+                    // clearColorAndDepthTextures(...)，而这里把整个 render() 取消了，
+                    // 只清深度的话颜色缓冲会留着上一帧 → 画面"卡在世界渲染的最后一帧"；
+                    // 上游的表现是纯黑，就是因为它清成了 clearColorOverride。
                     RenderSystem.getDevice()
                             .createCommandEncoder()
-                            .clearDepthTexture(
-                                    mc.gameRenderer.mainRenderTarget().getDepthTexture(), 1.0);
+                            .clearColorAndDepthTextures(
+                                    mc.getMainRenderTarget().getColorTexture(),
+                                    mc.gameRenderer.gameRenderState.guiRenderState.clearColorOverride,
+                                    mc.getMainRenderTarget().getDepthTexture(),
+                                    1.0);
                     mc.gameRenderer.gameRenderState.guiRenderState.reset();
                     GuiGraphicsExtractor drawContext =
                             new GuiGraphicsExtractor(mc, mc.gameRenderer.gameRenderState.guiRenderState, i, j);
 
                     currentRenderingSleeping.extractRenderState(drawContext, i, j, tickCounter.getGameTimeDeltaTicks());
-                    // 26.2: GuiRenderer.render() 无参，且 incrementFrameNumber() 已移除
-                    mc.gameRenderer.guiRenderer.render();
+                    // 26.1.2: GuiRenderer.render(GpuBufferSlice) 需要一个雾缓冲参数（26.2 才改成无参）
+                    mc.gameRenderer.guiRenderer.render(mc.gameRenderer.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
+                    // vanilla 在 render() 之后会跟一次 endFrame()（内部是 itemAtlas.endFrame()），
+                    // 取消 render() 的场景下别漏掉
+                    mc.gameRenderer.guiRenderer.endFrame();
                     drawContext.applyCursor(mc.getWindow());
                     mc.gameRenderer.resourcePool.endFrame();
                 }
@@ -459,12 +470,17 @@ public class SleepMode extends BaseModule {
                 return;
             }
             if (sleepingScreenInstance != null) {
+                // KeyboardInput 通道的载荷就是 KeyboardAction 记录，四个值都在里面。
+                // 这里以前读的是 event.extraArgs[0..3]，但发布方（SimpleInputManager.onKeyInput）
+                // 构造 Event 时没传 extraArgs，所以那个数组长度为 0 →
+                // 睡眠模式期间按任意非唤醒键都会抛 ArrayIndexOutOfBoundsException。
+                KeyboardAction action = event.context();
                 ScreenUtils.simulateKeyAction(
                         sleepingScreenInstance,
-                        (Integer) event.extraArgs[0],
-                        (Integer) event.extraArgs[1],
-                        (Integer) event.extraArgs[2],
-                        (Integer) event.extraArgs[3]);
+                        action.keyCode(),
+                        action.scannCode(),
+                        action.action(),
+                        action.modifier());
             }
         }
     }
@@ -534,7 +550,7 @@ public class SleepMode extends BaseModule {
         if (setScreen.context instanceof SleepOverlay) {
             setScreen.cancel();
             //
-            mc.gui.setScreen(null);
+            mc.setScreen(null);
         }
     }
 

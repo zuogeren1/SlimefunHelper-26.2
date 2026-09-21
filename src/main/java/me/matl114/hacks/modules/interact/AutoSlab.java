@@ -33,7 +33,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -116,7 +116,7 @@ public class AutoSlab extends BaseModule {
     {
         for (var re : BuiltInRegistries.BLOCK) {
             try {
-                if (re.defaultBlockState().isValidSpawn(null, null, EntityTypes.CREEPER)) {
+                if (re.defaultBlockState().isValidSpawn(null, null, EntityType.CREEPER)) {
                     canSpawnOnBlocks.add(re);
                 }
             } catch (Throwable e) {
@@ -157,7 +157,7 @@ public class AutoSlab extends BaseModule {
                         } catch (Throwable e) {
                         }
                         if (!NaturalSpawner.isValidEmptySpawnBlock(
-                                null, null, state, state.getFluidState(), EntityTypes.CREEPER)) {
+                                null, null, state, state.getFluidState(), EntityType.CREEPER)) {
                             availableBlocks.add(re);
                         }
                     }
@@ -201,7 +201,7 @@ public class AutoSlab extends BaseModule {
             BlockPos testPos = pos.offset(re);
             BlockState testState = mc.level.getBlockState(testPos);
             if (testState.isAir() || testState.liquid() || testState.canBeReplaced()) {
-                if (WorldUtils.canEntitySpawnAt(mc.level, testPos, EntityTypes.CREEPER)) {
+                if (WorldUtils.canEntitySpawnAt(mc.level, testPos, EntityType.CREEPER)) {
                     boxCollector.submit(new AABB(testPos), color.get().withAlpha(255));
                     fillBlockPoses.add(testPos);
                 }

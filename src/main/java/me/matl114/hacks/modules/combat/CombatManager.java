@@ -23,7 +23,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
@@ -248,7 +248,7 @@ public class CombatManager extends BaseModule {
                 minPos.getZ() + 32);
         trackedEndCrystals.clear();
         trackedEndCrystals.addAll(
-                mc.level.getEntities(EntityTypes.END_CRYSTAL, currentTrackedBox, Predicates.alwaysTrue()));
+                mc.level.getEntities(EntityType.END_CRYSTAL, currentTrackedBox, Predicates.alwaysTrue()));
     }
 
     public void onChunkData(Event<ChunkPos> event) {

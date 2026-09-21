@@ -124,12 +124,12 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
     }
 
     public void resetHistoryIndex() {
-        this.messageHistoryIndex = mc.gui.hud.chat.getRecentChat().size();
+        this.messageHistoryIndex = mc.gui.getChat().getRecentChat().size();
     }
 
     public void setChatFromHistory(int offset) {
         int i = this.messageHistoryIndex + offset;
-        int j = mc.gui.hud.chat.getRecentChat().size();
+        int j = mc.gui.getChat().getRecentChat().size();
         i = Mth.clamp(i, 0, j);
         if (i != this.messageHistoryIndex) {
             if (i == j) {
@@ -142,7 +142,7 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
                 }
 
                 this.chatFieldWidget.getDelegate().setValue((String)
-                        mc.gui.hud.chat.getRecentChat().get(i));
+                        mc.gui.getChat().getRecentChat().get(i));
                 // this.chatInputSuggestor.setWindowActive(false);
                 this.messageHistoryIndex = i;
             }

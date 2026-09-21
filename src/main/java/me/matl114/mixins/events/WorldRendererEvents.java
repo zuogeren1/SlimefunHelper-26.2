@@ -18,18 +18,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public abstract class WorldRendererEvents {
     /**
-     * 26.2 的世界渲染改为两阶段：先 {@code submitFeatures(...)} 把所有内容提交进
-     * {@link SubmitNodeCollector}，随后 {@code prepareFrame(...)} 统一排序渲染。
-     *
-     * <p>因此自定义几何的注入点从旧的 {@code renderLevel} RETURN 改到 {@code submitFeatures}
-     * 的 RETURN —— 此时 vanilla 内容已提交完毕，我们追加的几何会与之一起参与排序与渲染，
+     * 自定义几何的提交点：在 vanilla 把实体 / 方块实体 / 粒子 / 破坏动画全部提交完之后、
+     * 真正开始渲染之前追加，这样我们提交的几何会与 vanilla 内容一起参与排序与渲染，
      * 深度与遮挡关系保持正确。
+     *
+     * <p>26.2 里这一步是
+     * {@code LevelRenderer.submitFeatures(LevelRenderState, SubmitNodeCollector, boolean)} 的 RETURN；
+     * 26.1.2 没有该方法，最后一个提交动作是
+     * {@code submitBlockDestroyAnimation(PoseStack, SubmitNodeCollector, LevelRenderState)}，
+     * 因此挂它的 RETURN。
      */
-    @Inject(method = "submitFeatures", at = @At("RETURN"))
+    @Inject(method = "submitBlockDestroyAnimation", at = @At("RETURN"))
     private void onAfterSubmitFeatures(
-            LevelRenderState levelRenderState,
+            PoseStack poseStack,
             SubmitNodeCollector submitNodeCollector,
-            boolean renderOutline,
+            LevelRenderState levelRenderState,
             CallbackInfo ci) {
         CameraRenderState cameraState = levelRenderState.cameraRenderState;
         RenderListener.setWorldModelViewMatrix(new Matrix4f(cameraState.viewRotationMatrix));

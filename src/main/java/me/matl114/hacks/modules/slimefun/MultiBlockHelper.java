@@ -102,7 +102,7 @@ public class MultiBlockHelper extends BaseModule {
     public void onTick(Event<LocalPlayer> player) {
         if (!screens.isEmpty()) {
             long currentMs = System.currentTimeMillis();
-            if (currentMs > (lastAutoTick + (null == mc.gui.screen() ? 2 : 1) * 300)) {
+            if (currentMs > (lastAutoTick + (null == mc.screen ? 2 : 1) * 300)) {
                 if (mc.player != null && mc.player.isShiftKeyDown()) {
                     Debug.chat(Component.literal("[自动多方块] 检测到长按下蹲,清除全部的执行中多方块"));
                     clearMultiBlockExecuteTasks();
@@ -336,7 +336,7 @@ public class MultiBlockHelper extends BaseModule {
             return;
         }
         // opening current Executing
-        if (mc.gui.screen() instanceof TileInventory tileExecute && Objects.equals(pos, tileExecute.getPos())) {
+        if (mc.screen instanceof TileInventory tileExecute && Objects.equals(pos, tileExecute.getPos())) {
             boolean hasItem = false;
             for (var slot : tileExecute.castHandled().getMenu().slots) {
                 if (slot.container instanceof Inventory) {

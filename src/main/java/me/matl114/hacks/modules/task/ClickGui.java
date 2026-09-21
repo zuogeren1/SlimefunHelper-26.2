@@ -117,7 +117,7 @@ public class ClickGui extends BaseModule {
         if (HotKeyUtils.isValidState()) {
             openClickGui();
             return true;
-        } else if (mc.gui.screen() instanceof ClickGuiMainScreen gui) {
+        } else if (mc.screen instanceof ClickGuiMainScreen gui) {
             gui.onClose();
             return true;
         } else return false;
@@ -196,7 +196,7 @@ public class ClickGui extends BaseModule {
     }
 
     public void resetGui() {
-        if (mc.gui.screen() instanceof ClickGuiMainScreen guiMain) {
+        if (mc.screen instanceof ClickGuiMainScreen guiMain) {
             guiMain.onClose();
         }
         internalGuiData.write(new CompoundTag(), NbtOps.INSTANCE);

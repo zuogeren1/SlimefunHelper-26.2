@@ -74,8 +74,8 @@ public class InputHelper {
 
     public static void charAction(int codePoint, int modifiers) {
         mc.execute(() -> {
-            GuiEventListener element = mc.gui.screen();
-            if (element != null && mc.gui.overlay() == null) {
+            GuiEventListener element = mc.screen;
+            if (element != null && mc.getOverlay() == null) {
                 if (Character.charCount(codePoint) == 1) {
                     ScreenUtils.wrapScreenError(
                             () -> {

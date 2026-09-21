@@ -40,7 +40,7 @@ public abstract class ChatScreenMixin extends Screen implements CustomFocusBehav
 
     @Unique
     public void resetMessageHistoryIndex() {
-        historyPos = Minecraft.getInstance().gui.hud.chat.getRecentChat().size();
+        historyPos = Minecraft.getInstance().gui.getChat().getRecentChat().size();
     }
 
     @Accessor("commandSuggestions")

@@ -19,7 +19,6 @@ import me.matl114.utils.config.ValueAccessor;
 import me.matl114.utils.config.kv.EnumAttrKeyValue;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -263,8 +262,8 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                         .setRenderHandler(new AbstractElement()
                                 .combineRender(RenderHandler.ofSingleItem(
                                         () -> itemFilter.blacklist
-                                                ? new ItemStack(Items.WOOL.pick(DyeColor.BLACK))
-                                                : new ItemStack(Items.WOOL.pick(DyeColor.WHITE)),
+                                                ? new ItemStack(Items.BLACK_WOOL)
+                                                : new ItemStack(Items.WHITE_WOOL),
                                         1,
                                         1,
                                         false))

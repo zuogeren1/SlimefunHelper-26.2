@@ -44,7 +44,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerData;
@@ -252,7 +252,7 @@ public class AutoLibrarian extends BaseModule {
             return;
         }
         List<Villager> allVillagersInWorkSpace = mc.level.getEntities(
-                EntityTypes.VILLAGER, mc.player.getBoundingBox().inflate(100, 100, 100), this::isRefreshTradeVillager);
+                EntityType.VILLAGER, mc.player.getBoundingBox().inflate(100, 100, 100), this::isRefreshTradeVillager);
         if (allVillagersInWorkSpace.isEmpty()) {
             clearTarget();
             return;
@@ -313,7 +313,7 @@ public class AutoLibrarian extends BaseModule {
         if (!(isRefreshTradeVillager(targetVillager))) {
             clearTarget();
             // end
-            if (mc.gui.screen() instanceof MerchantScreen merchant) {
+            if (mc.screen instanceof MerchantScreen merchant) {
                 merchant.onClose();
             }
             return;
@@ -365,7 +365,7 @@ public class AutoLibrarian extends BaseModule {
         // refresh a trade
         if (Objects.equals(professionRegistryKey, VillagerProfession.LIBRARIAN)) {
             // we pretend that this is the screen
-            if (mc.gui.screen() instanceof MerchantScreen merchantScreen) {
+            if (mc.screen instanceof MerchantScreen merchantScreen) {
                 MerchantMenu handler = merchantScreen.getMenu();
                 if (lastMerchantScreenSyncId != handler.containerId) {
                     lastMerchantScreenSyncId = handler.containerId;
@@ -384,7 +384,7 @@ public class AutoLibrarian extends BaseModule {
                 } else if (!WorldManager.canVillagerResetTrade(merchantScreen.getMenu())) {
                     WorldManager.INSTANCE.setVillagerTradeLock(targetVillager, true);
                 }
-            } else if (mc.gui.screen() == null || mc.gui.screen() instanceof AbstractContainerScreen<?>) {
+            } else if (mc.screen == null || mc.screen instanceof AbstractContainerScreen<?>) {
                 if (!hasOpened && lastInteractTick + 5 < Tasks.getTick()) {
                     Interact.INSTANCE.interactEntity(targetVillager);
                     lastInteractTick = Tasks.getTick();
@@ -537,7 +537,7 @@ public class AutoLibrarian extends BaseModule {
             BlockPos doNotIntersect = targetVillager.blockPosition();
             AABB doNotIntersectBox = new AABB(doNotIntersect).inflate(0, 1, 0);
             List<ItemEntity> nearbyLecterns = mc.level.getEntities(
-                    EntityTypes.ITEM,
+                    EntityType.ITEM,
                     mc.player.getBoundingBox().inflate(6, 2, 6),
                     (item) -> !doNotIntersectBox.intersects(item.getBoundingBox())
                             && (item).getItem().is(Items.LECTERN));

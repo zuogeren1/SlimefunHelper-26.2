@@ -4,8 +4,8 @@ import me.matl114.events.RenderListener;
 import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Hud.class)
+@Mixin(Gui.class)
 public abstract class InGameHudEvents {
     @Shadow
     @Final
@@ -29,7 +29,7 @@ public abstract class InGameHudEvents {
                     .broadcast(
                             vdraw,
                             tickCounter.getGameTimeDeltaPartialTick(false),
-                            minecraft.gameRenderer.gameRenderState.guiRenderState.isHudHidden);
+                            minecraft.gameRenderer.gameRenderState.optionsRenderState.hideGui);
         } finally {
             vdraw.popMatrix();
         }

@@ -84,7 +84,7 @@ public class ConfigurateNewStyleScreen extends IndexedScreen<Config, ConfigureLi
     static {
         Listener.getHotKeyTriggeredListener().registerHandler(iHotKeyEvent -> {
             // do not use any hotkeys in configure screen because we may use keyBindConfigurate
-            if (Minecraft.getInstance().gui.screen() instanceof ConfigurateNewStyleScreen) {
+            if (Minecraft.getInstance().screen instanceof ConfigurateNewStyleScreen) {
                 iHotKeyEvent.cancel();
             }
         });

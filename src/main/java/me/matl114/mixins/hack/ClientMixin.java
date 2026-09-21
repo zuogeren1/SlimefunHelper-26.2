@@ -69,14 +69,18 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
         return this.rightClickDelay;
     }
 
+    // 26.1.2 的 Minecraft.handleKeybinds 里 setScreen 有两次调用：
+    //   ordinal 0 = SocialInteractionsScreen（Minecraft.java:1963）
+    //   ordinal 1 = InventoryScreen（:1972）   ← 要拦的是这个
+    // 26.2 把社交界面挪进了 Gui.handleKeybinds，所以那边 InventoryScreen 才是 ordinal 0。
     @ModifyArg(
             method = "handleKeybinds",
             at =
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
-                            ordinal = 0))
+                                    "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
+                            ordinal = 1))
     public Screen onRedirectInventoryKeyPress(Screen screen) {
         if (InvExtra.INSTANCE.enableKeepInv.get()) {
             LocalPlayer player = Minecraft.getInstance().player;

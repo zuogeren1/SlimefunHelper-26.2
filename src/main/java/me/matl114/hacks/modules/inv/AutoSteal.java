@@ -67,7 +67,7 @@ public class AutoSteal extends BaseModule {
     }
 
     public void onInventoryTick(Event<LocalPlayer> event) {
-        if (mc.gui.screen() instanceof AbstractContainerScreen<?> handle && enable.get()) {
+        if (mc.screen instanceof AbstractContainerScreen<?> handle && enable.get()) {
             Component text = handle.getTitle();
             String titleName = text == null ? "" : ChatUtils.textToPlainString(text);
             if (titleRegex.get().test(titleName)) {

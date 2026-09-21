@@ -140,12 +140,12 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
 
     @Unique
     public void open() {
-        Minecraft.getInstance().gui.setScreen((Screen) (Object) this);
+        Minecraft.getInstance().setScreen((Screen) (Object) this);
     }
 
     @Unique
     public void openFromCurrent() {
-        parent = Minecraft.getInstance().gui.screen();
+        parent = Minecraft.getInstance().screen;
         open();
     }
 
@@ -160,18 +160,18 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
         Screen p = this.parent;
         this.parent = null;
         ScreenAccess.of(anotherScreen).setParent(p);
-        Minecraft.getInstance().gui.setScreen(anotherScreen);
+        Minecraft.getInstance().setScreen(anotherScreen);
     }
 
     public void switchFromCurrent() {
-        Screen current = Minecraft.getInstance().gui.screen();
+        Screen current = Minecraft.getInstance().screen;
         if (current == null) {
             this.parent = null;
         } else {
             this.parent = ((ScreenEvents) (Object) current).parent;
             ((ScreenEvents) (Object) current).parent = null;
         }
-        Minecraft.getInstance().gui.setScreen((Screen) (Object) this);
+        Minecraft.getInstance().setScreen((Screen) (Object) this);
     }
 
     @ModifyArgs(
@@ -180,7 +180,7 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lnet/minecraft/client/gui/Gui;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V"))
+                                    "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V"))
     public void onRedirectReturnScreen(Args args) {
         if (parent != null) {
             args.set(0, parent);

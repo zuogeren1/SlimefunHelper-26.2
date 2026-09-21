@@ -34,10 +34,8 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -98,7 +96,7 @@ public class SearchLabel extends BaseModule {
                     searchControl.add("important-entities"), EntrySet.<EntityType<?>>parameter())
             .defaultValue(new EntrySet<>(
                     BuiltInRegistries.ENTITY_TYPE,
-                    List.of(EntityTypes.PLAYER, EntityTypes.CHEST_MINECART, EntityTypes.HOPPER_MINECART)))
+                    List.of(EntityType.PLAYER, EntityType.CHEST_MINECART, EntityType.HOPPER_MINECART)))
             .build();
 
     public final IntRef importantEntitiesCount =
@@ -107,7 +105,7 @@ public class SearchLabel extends BaseModule {
     public final NBTRef<EntrySet<EntityType<?>>> instantEntities = builder(
                     searchControl.add("instant-entities"), EntrySet.<EntityType<?>>parameter())
             .defaultValue(new EntrySet<>(
-                    BuiltInRegistries.ENTITY_TYPE, List.of(EntityTypes.MINECART, EntityTypes.HOPPER_MINECART)))
+                    BuiltInRegistries.ENTITY_TYPE, List.of(EntityType.MINECART, EntityType.HOPPER_MINECART)))
             .build();
 
     public final FlagRef labelInWorldMap = builder(searchControl.add("label-in-world-map"), Boolean.class)
@@ -321,9 +319,9 @@ public class SearchLabel extends BaseModule {
         registerListener(Listener.getServerEntitySpawnListener(), this::onEntitySpawn);
         registerListener(Listener.getChunkUpdateListener(), this::onChunkPostLoad);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.ITEM), this::handleItemEntityItemData);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.ITEM), this::handleItemEntityItemData);
         registerListener(
-                Listener.getEntityTrackDataUpdate().getChannel(EntityTypes.ITEM_FRAME), this::handleItemFrameItemData);
+                Listener.getEntityTrackDataUpdate().getChannel(EntityType.ITEM_FRAME), this::handleItemFrameItemData);
     }
 
     ChunkPos lastChunkPos = null;
@@ -550,16 +548,16 @@ public class SearchLabel extends BaseModule {
             Blocks.CHISELED_TUFF,
             Blocks.CHISELED_TUFF_BRICKS,
             Blocks.TERRACOTTA,
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.WHITE),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.BLUE),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.LIGHT_BLUE),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.RED),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.GRAY),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.GREEN),
-            Blocks.DYED_TERRACOTTA.pick(DyeColor.BLACK),
+            Blocks.WHITE_TERRACOTTA,
+            Blocks.ORANGE_TERRACOTTA,
+            Blocks.BLUE_TERRACOTTA,
+            Blocks.LIGHT_BLUE_TERRACOTTA,
+            Blocks.RED_TERRACOTTA,
+            Blocks.YELLOW_TERRACOTTA,
+            Blocks.BROWN_TERRACOTTA,
+            Blocks.GRAY_TERRACOTTA,
+            Blocks.GREEN_TERRACOTTA,
+            Blocks.BLACK_TERRACOTTA,
             Blocks.OBSIDIAN,
             Blocks.CRYING_OBSIDIAN);
 

@@ -12,7 +12,7 @@ public class ClientUtils {
     private static final Minecraft mc = Minecraft.getInstance();
 
     public static boolean isPlayerOnline() {
-        return mc.player != null && !mc.gui.clientLevelTeardownInProgress;
+        return mc.player != null && !mc.clientLevelTeardownInProgress;
     }
 
     public static boolean isNetworkConnecting() {

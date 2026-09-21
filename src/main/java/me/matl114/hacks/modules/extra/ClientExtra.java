@@ -327,8 +327,8 @@ public class ClientExtra extends BaseModule {
     int lastCrashTick = 0;
 
     protected void checkClientData(Screen screen) {
-        ScreenAccess currentScreen = ScreenAccess.of(mc.gui.screen());
-        Screen parentScreen = (currentScreen instanceof QuestionScreen ? currentScreen.getParent() : mc.gui.screen());
+        ScreenAccess currentScreen = ScreenAccess.of(mc.screen);
+        Screen parentScreen = (currentScreen instanceof QuestionScreen ? currentScreen.getParent() : mc.screen);
         // continue crash, force exit
         boolean shouldKeep = keepInServer.get() && lastCrashTick < Tasks.getTick() - 10;
         if (shouldKeep

@@ -266,7 +266,7 @@ public class PathingSchedular {
             exploreChestBlock = null;
             return;
         }
-        if (mc.gui.screen() instanceof AbstractContainerScreen<?> screen
+        if (mc.screen instanceof AbstractContainerScreen<?> screen
                 && screen instanceof TileInventory tileInventoryScreen
                 && Objects.equals(tileInventoryScreen.getContainerPosition(), exploreChestBlock)) {
             analysisContainer(exploreChestBlock, InventoryUtils.getTopInventory(screen));
@@ -382,7 +382,7 @@ public class PathingSchedular {
                         .orElseThrow();
             }
             BlockPos leftPos = currentReplenishActionTarget.getFirst().getPos();
-            if (mc.gui.screen() instanceof TileInventory tile
+            if (mc.screen instanceof TileInventory tile
                     && Objects.equals(tile.getContainerPosition(), currentReplenishActionTarget)) {
                 AbstractContainerScreen<?> screen = tile.castHandled();
                 if (replenishAction != null) {
@@ -509,7 +509,7 @@ public class PathingSchedular {
                 SchedularSettings.INSTANCE.logNoSuitableContainer();
             } else {
                 BlockPos leftPos = currentDischargeActionTarget.getFirst().getPos();
-                if (mc.gui.screen() instanceof TileInventory tile
+                if (mc.screen instanceof TileInventory tile
                         && Objects.equals(tile.getContainerPosition(), currentDischargeActionTarget)) {
                     AbstractContainerScreen<?> screen = tile.castHandled();
                     Container topInventory = InventoryUtils.getTopInventory(screen);
@@ -602,7 +602,7 @@ public class PathingSchedular {
         }
         if (currentWaitingOpenContainer != null) {
             if (mc.level.getBlockEntity(currentWaitingOpenContainer) != null) {
-                if (mc.gui.screen() instanceof TileInventory tileInventory
+                if (mc.screen instanceof TileInventory tileInventory
                         && tileInventory.getContainerPosition() != null
                         && tileInventory.getContainerPosition().contains(currentWaitingOpenContainer)) {
                     currentWaitingOpenContainer = null;
@@ -646,7 +646,7 @@ public class PathingSchedular {
                                     s -> s.getCenterPosition().distanceToSqr(mc.player.position())))
                             .orElseThrow();
                 }
-                if (mc.gui.screen() instanceof TileInventory tileInventory
+                if (mc.screen instanceof TileInventory tileInventory
                         && Objects.equals(tileInventory.getContainerPosition(), currentExpansionActionTarget)) {
                     AbstractContainerScreen<?> screen = tileInventory.castHandled();
                     Container topInventory = InventoryUtils.getTopInventory(screen);

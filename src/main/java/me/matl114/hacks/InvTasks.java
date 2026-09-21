@@ -77,7 +77,7 @@ public class InvTasks {
         if (player instanceof ClientPlayerAccess access) {
             nowScreen = access.getServerOpeningScreen();
         } else {
-            nowScreen = Minecraft.getInstance().gui.screen();
+            nowScreen = Minecraft.getInstance().screen;
         }
         // ignore Creative screen as it is not handled by server
         if (nowScreen instanceof CreativeModeInventoryScreen) {
@@ -330,7 +330,7 @@ public class InvTasks {
 
     @ApiMethod
     public static int getTopInventorySize() {
-        if (mc.gui.screen() instanceof AbstractContainerScreen handledScreen && handledScreen.getMenu() != null) {
+        if (mc.screen instanceof AbstractContainerScreen handledScreen && handledScreen.getMenu() != null) {
             int idx = 0;
             for (var slot : handledScreen.getMenu().slots) {
                 if (slot.container instanceof Inventory) {
