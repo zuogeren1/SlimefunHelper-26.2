@@ -19,7 +19,11 @@ public abstract class InGameOverlayRendererMixin {
     // 26.2 起渲染改为"提交节点"模式：
     // renderTex/renderWater/renderFire (MultiBufferSource) -> submitBlockSprite/submitWater/submitFire
     // (SubmitNodeCollector)
+    //#if MC >= 26.2
     @Inject(method = "submitBlockSprite", at = @At("HEAD"), cancellable = true)
+    //#else
+    //$$ @Inject(method = "renderTex", at = @At("HEAD"), cancellable = true)
+    //#endif
     private static void onNoRender0(
             TextureAtlasSprite sprite,
             PoseStack matrices,
@@ -31,7 +35,11 @@ public abstract class InGameOverlayRendererMixin {
         }
     }
 
+    //#if MC >= 26.2
     @Inject(method = "submitWater", at = @At("HEAD"), cancellable = true)
+    //#else
+    //$$ @Inject(method = "renderWater", at = @At("HEAD"), cancellable = true)
+    //#endif
     private static void onNoRender1(
             Minecraft client, PoseStack matrices, SubmitNodeCollector submitNodeCollector, CallbackInfo ci) {
         if (NoRender.INSTANCE.noLiquidOverlay()) {
@@ -39,7 +47,11 @@ public abstract class InGameOverlayRendererMixin {
         }
     }
 
+    //#if MC >= 26.2
     @Inject(method = "submitFire", at = @At("HEAD"), cancellable = true)
+    //#else
+    //$$ @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
+    //#endif
     private static void onNoRender2(
             PoseStack matrices, SubmitNodeCollector submitNodeCollector, TextureAtlasSprite sprite, CallbackInfo ci) {
         if (NoRender.INSTANCE.noFireOverlay()) {

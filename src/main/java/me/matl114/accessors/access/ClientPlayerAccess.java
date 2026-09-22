@@ -1,5 +1,7 @@
 package me.matl114.accessors.access;
 
+import me.matl114.utils.ClientUtils;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.matl114.accessors.events.ClientPlayerEntityAccess;
@@ -25,7 +27,7 @@ public interface ClientPlayerAccess extends ClientPlayerEntityAccess {
     // get the Screen object which handler related to the server(should)
     default AbstractContainerScreen getServerOpeningScreen() {
         if (getKeepedInv() != null) return getKeepedInv();
-        else return Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> han ? han : null;
+        else return ClientUtils.getScreen() instanceof AbstractContainerScreen<?> han ? han : null;
     }
 
     @Nonnull

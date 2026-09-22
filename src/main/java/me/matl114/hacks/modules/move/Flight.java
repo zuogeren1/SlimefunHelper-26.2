@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.move;
 
+import me.matl114.utils.ClientUtils;
+
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.accessors.hacks.KeyBindAccess;
 import me.matl114.events.Event;
@@ -453,7 +455,7 @@ public class Flight extends BaseModule implements LegalMovementManager.MovementM
 
     private void restoreKeyPresses() {
         // bugfix when shift click in screen, this key is reset to fall
-        if (mc.gui.screen() == null) {
+        if (ClientUtils.getScreen(mc) == null) {
 
             KeyBindAccess.of(mc.options.keyJump).resetKeyState();
             KeyBindAccess.of(mc.options.keyShift).resetKeyState();

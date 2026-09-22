@@ -75,8 +75,13 @@ public abstract class ClientMixin implements Cloneable, ClientAccess {
                     @At(
                             value = "INVOKE",
                             target =
+//#if MC >= 26.2
                                     "Lnet/minecraft/client/gui/Gui;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
                             ordinal = 0))
+//#else
+//$$                                 "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
+//$$                         ordinal = 1))
+//#endif
     public Screen onRedirectInventoryKeyPress(Screen screen) {
         if (InvExtra.INSTANCE.enableKeepInv.get()) {
             LocalPlayer player = Minecraft.getInstance().player;

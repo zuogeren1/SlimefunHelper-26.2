@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.interact;
 
+import me.matl114.utils.ClientUtils;
+
 import com.google.common.base.Suppliers;
 import java.util.HashSet;
 import java.util.Set;
@@ -82,7 +84,7 @@ public class GuiInteract extends BaseModule {
 
     public void onInput(Event<Void> event) {
         if (checkNull()) return;
-        if (enable.get() && mc.gui.screen() != null) {
+        if (enable.get() && ClientUtils.getScreen(mc) != null) {
             if (useWhenScreenOpen.get()) {
                 if (event.isCancelled()) {
                     event.cancel(false);

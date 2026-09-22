@@ -25,7 +25,11 @@ public abstract class WorldRendererEvents {
      * 的 RETURN —— 此时 vanilla 内容已提交完毕，我们追加的几何会与之一起参与排序与渲染，
      * 深度与遮挡关系保持正确。
      */
+    //#if MC >= 26.2
     @Inject(method = "submitFeatures", at = @At("RETURN"))
+    //#else
+    //$$ @Inject(method = "submitBlockDestroyAnimation", at = @At("RETURN"))
+    //#endif
     private void onAfterSubmitFeatures(
             LevelRenderState levelRenderState,
             SubmitNodeCollector submitNodeCollector,

@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.extra;
 
+import me.matl114.utils.ClientUtils;
+
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.gui.basic.*;
@@ -91,11 +93,11 @@ public class AutoReconnect extends BaseModule {
                             counter--;
                             return false;
                         }
-                        if (enable.get() && mc.gui.screen() instanceof DisconnectedScreen) {
+                        if (enable.get() && ClientUtils.getScreen(mc) instanceof DisconnectedScreen) {
                             reconect(disconnected.parent);
                             return true;
                         }
-                        return mc.gui.screen() != null;
+                        return ClientUtils.getScreen(mc) != null;
                     },
                     1,
                     1);

@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.render;
 
+import net.minecraft.client.renderer.fog.FogRenderer;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -181,8 +183,8 @@ public class SleepMode extends BaseModule {
                 //                }
                 sleepingScreenInstance = null;
                 currentRenderingSleeping = null;
-                if (mc.gui.screen() == null) {
-                    mc.gui.setScreen(null);
+                if (ClientUtils.getScreen(mc) == null) {
+                    ClientUtils.setScreen(mc, null);
                 }
             }
             return true;
@@ -351,7 +353,7 @@ public class SleepMode extends BaseModule {
         } else {
             currentRenderingSleeping = null;
             // reset cursor and keybinds
-            if (mc.gui.screen() != null) {
+            if (ClientUtils.getScreen(mc) != null) {
                 mc.mouseHandler.releaseMouse();
                 KeyMapping.releaseAll();
             } else {
@@ -386,9 +388,9 @@ public class SleepMode extends BaseModule {
             RenderSystem.getDevice()
                     .createCommandEncoder()
                     .clearColorAndDepthTextures(
-                            mc.gameRenderer.mainRenderTarget().getColorTexture(),
+                            ClientUtils.getMainRenderTarget(mc).getColorTexture(),
                             mc.gameRenderer.gameRenderState.guiRenderState.clearColorOverride,
-                            mc.gameRenderer.mainRenderTarget().getDepthTexture(),
+                            ClientUtils.getMainRenderTarget(mc).getDepthTexture(),
                             1.0);
             mc.gameRenderer.gameRenderState.guiRenderState.reset();
             //            mc.getFramebuffer().clear(true);
@@ -435,9 +437,9 @@ public class SleepMode extends BaseModule {
                     RenderSystem.getDevice()
                             .createCommandEncoder()
                             .clearColorAndDepthTextures(
-                                    mc.gameRenderer.mainRenderTarget().getColorTexture(),
+                                    ClientUtils.getMainRenderTarget(mc).getColorTexture(),
                                     mc.gameRenderer.gameRenderState.guiRenderState.clearColorOverride,
-                                    mc.gameRenderer.mainRenderTarget().getDepthTexture(),
+                                    ClientUtils.getMainRenderTarget(mc).getDepthTexture(),
                                     1.0);
                     mc.gameRenderer.gameRenderState.guiRenderState.reset();
                     GuiGraphicsExtractor drawContext =
@@ -445,7 +447,12 @@ public class SleepMode extends BaseModule {
 
                     currentRenderingSleeping.extractRenderState(drawContext, i, j, tickCounter.getGameTimeDeltaTicks());
                     // 26.2: GuiRenderer.render() 无参，且 incrementFrameNumber() 已移除
+                    //#if MC >= 26.2
                     mc.gameRenderer.guiRenderer.render();
+                    //#else
+                    //$$ mc.gameRenderer.guiRenderer.render(
+                    //$$         mc.gameRenderer.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
+                    //#endif
                     // vanilla 在 render() 之后会跟一次 endFrame()（内部是 itemAtlas.endFrame()），
                     // 取消 render() 的场景下别漏掉
                     mc.gameRenderer.guiRenderer.endFrame();
@@ -554,7 +561,7 @@ public class SleepMode extends BaseModule {
         if (setScreen.context instanceof SleepOverlay) {
             setScreen.cancel();
             //
-            mc.gui.setScreen(null);
+            ClientUtils.setScreen(mc, null);
         }
     }
 

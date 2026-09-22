@@ -1,5 +1,7 @@
 package me.matl114.mixins.events;
 
+import me.matl114.utils.ClientUtils;
+
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -63,7 +65,7 @@ public abstract class MouseEvents {
                             target =
                                     "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;"))
     private void onMouseScroll(long handle, double xOffset, double yOffset, CallbackInfo ci) { // 暂时没东西
-        if (Minecraft.getInstance().gui.overlay() == null) {
+        if (ClientUtils.getOverlay() == null) {
             if (SimpleInputManager.getInstance().onMouseScroll(xOffset, yOffset)) {
                 ci.cancel();
             }
@@ -129,8 +131,8 @@ public abstract class MouseEvents {
             cancellable = true)
     private void onScreenNull(CallbackInfo ci) {
         // handle screen is null case, we should also send Events
-        if (Minecraft.getInstance().gui.screen() == null
-                && Minecraft.getInstance().gui.overlay() == null) {
+        if (ClientUtils.getScreen() == null
+                && ClientUtils.getOverlay() == null) {
             double f = xpos()
                     * (double) this.minecraft.getWindow().getGuiScaledWidth()
                     / (double) this.minecraft.getWindow().getScreenWidth();

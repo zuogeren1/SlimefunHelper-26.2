@@ -5,7 +5,11 @@ import me.matl114.events.RenderListener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
+//#if MC >= 260200
 import net.minecraft.client.renderer.extract.LevelExtractor;
+//#else
+//$$ import net.minecraft.client.renderer.LevelRenderer;
+//#endif
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -34,7 +38,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * </ul>
  */
 @Environment(EnvType.CLIENT)
+//#if MC >= 260200
 @Mixin(LevelExtractor.class)
+//#else
+//$$ @Mixin(LevelRenderer.class)
+//#endif
 public abstract class EntityCullMixin {
 
     @Inject(method = "extractEntity", at = @At("RETURN"))

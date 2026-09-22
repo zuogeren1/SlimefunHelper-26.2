@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.extra;
 
+import me.matl114.utils.ClientUtils;
+
 import com.google.common.util.concurrent.Runnables;
 import java.util.Comparator;
 import java.util.List;
@@ -327,8 +329,8 @@ public class ClientExtra extends BaseModule {
     int lastCrashTick = 0;
 
     protected void checkClientData(Screen screen) {
-        ScreenAccess currentScreen = ScreenAccess.of(mc.gui.screen());
-        Screen parentScreen = (currentScreen instanceof QuestionScreen ? currentScreen.getParent() : mc.gui.screen());
+        ScreenAccess currentScreen = ScreenAccess.of(ClientUtils.getScreen(mc));
+        Screen parentScreen = (currentScreen instanceof QuestionScreen ? currentScreen.getParent() : ClientUtils.getScreen(mc));
         // continue crash, force exit
         boolean shouldKeep = keepInServer.get() && lastCrashTick < Tasks.getTick() - 10;
         if (shouldKeep

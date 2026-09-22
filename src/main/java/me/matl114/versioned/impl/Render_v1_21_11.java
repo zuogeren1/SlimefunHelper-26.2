@@ -1,6 +1,10 @@
 package me.matl114.versioned.impl;
 
+//#if MC >= 260200
 import com.mojang.blaze3d.PrimitiveTopology;
+//#else
+//$$ import com.mojang.blaze3d.vertex.VertexFormat;
+//#endif
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
@@ -115,8 +119,13 @@ public class Render_v1_21_11 implements VRender, VRender.WrapRenderOperation {
             RenderPipelines.register(RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
                     .withLocation(Identifier.tryParse("slimefunhelper:pipeline/debug_lines_strip"))
                     .withDepthStencilState(NO_DEPTH_TEST_STATE)
+                    //#if MC >= 260200
                     .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH)
                     .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINE_STRIP)
+                    //#else
+                    //$$ .withVertexFormat(
+                    //$$         DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH, VertexFormat.Mode.DEBUG_LINE_STRIP)
+                    //#endif
                     .withCull(false)
                     .build());
 
@@ -143,8 +152,12 @@ public class Render_v1_21_11 implements VRender, VRender.WrapRenderOperation {
             RenderPipelines.register(RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
                     .withLocation(Identifier.tryParse("slimefunhelper:pipeline/debug_rects"))
                     .withDepthStencilState(NO_DEPTH_TEST_STATE)
+                    //#if MC >= 260200
                     .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
                     .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+                    //#else
+                    //$$ .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+                    //#endif
                     .build());
 
     public static final RenderType RECTS = RenderType.create(
@@ -155,8 +168,12 @@ public class Render_v1_21_11 implements VRender, VRender.WrapRenderOperation {
             RenderPipelines.register(RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
                     .withLocation(Identifier.tryParse("slimefunhelper:pipeline/debug_rects"))
                     .withDepthStencilState(NO_DEPTH_TEST_STATE)
+                    //#if MC >= 260200
                     .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
                     .withPrimitiveTopology(PrimitiveTopology.TRIANGLE_STRIP)
+                    //#else
+                    //$$ .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLE_STRIP)
+                    //#endif
                     .build());
 
     public static final RenderType RECTS_STRIP = RenderType.create(

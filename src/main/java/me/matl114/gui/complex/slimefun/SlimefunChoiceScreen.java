@@ -263,8 +263,16 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                         .setRenderHandler(new AbstractElement()
                                 .combineRender(RenderHandler.ofSingleItem(
                                         () -> itemFilter.blacklist
+//#if MC >= 26.2
                                                 ? new ItemStack(Items.WOOL.pick(DyeColor.BLACK))
+//#else
+//$$ ? new ItemStack(Items.BLACK_WOOL)
+//#endif
+//#if MC >= 26.2
                                                 : new ItemStack(Items.WOOL.pick(DyeColor.WHITE)),
+//#else
+//$$ : new ItemStack(Items.WHITE_WOOL),
+//#endif
                                         1,
                                         1,
                                         false))

@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.survival;
 
+import me.matl114.utils.ClientUtils;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.util.*;
@@ -313,7 +315,7 @@ public class AutoLibrarian extends BaseModule {
         if (!(isRefreshTradeVillager(targetVillager))) {
             clearTarget();
             // end
-            if (mc.gui.screen() instanceof MerchantScreen merchant) {
+            if (ClientUtils.getScreen(mc) instanceof MerchantScreen merchant) {
                 merchant.onClose();
             }
             return;
@@ -365,7 +367,7 @@ public class AutoLibrarian extends BaseModule {
         // refresh a trade
         if (Objects.equals(professionRegistryKey, VillagerProfession.LIBRARIAN)) {
             // we pretend that this is the screen
-            if (mc.gui.screen() instanceof MerchantScreen merchantScreen) {
+            if (ClientUtils.getScreen(mc) instanceof MerchantScreen merchantScreen) {
                 MerchantMenu handler = merchantScreen.getMenu();
                 if (lastMerchantScreenSyncId != handler.containerId) {
                     lastMerchantScreenSyncId = handler.containerId;
@@ -384,7 +386,7 @@ public class AutoLibrarian extends BaseModule {
                 } else if (!WorldManager.canVillagerResetTrade(merchantScreen.getMenu())) {
                     WorldManager.INSTANCE.setVillagerTradeLock(targetVillager, true);
                 }
-            } else if (mc.gui.screen() == null || mc.gui.screen() instanceof AbstractContainerScreen<?>) {
+            } else if (ClientUtils.getScreen(mc) == null || ClientUtils.getScreen(mc) instanceof AbstractContainerScreen<?>) {
                 if (!hasOpened && lastInteractTick + 5 < Tasks.getTick()) {
                     Interact.INSTANCE.interactEntity(targetVillager);
                     lastInteractTick = Tasks.getTick();

@@ -8,7 +8,11 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//#if MC >= 260200
 import net.minecraft.client.gui.Hud;
+//#else
+//$$ import net.minecraft.client.gui.Gui;
+//#endif
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Final;
@@ -20,7 +24,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
+//#if MC >= 260200
 @Mixin(value = Hud.class, priority = 10)
+//#else
+//$$ @Mixin(value = Gui.class, priority = 10)
+//#endif
 public abstract class InGameHudMixin {
     @Shadow
     @Final
@@ -42,8 +50,16 @@ public abstract class InGameHudMixin {
     private void rejectWurstHud(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (RenderExtra.INSTANCE.noWurstHud.get()) {
             this.tmpValue3 = true;
+//#if MC >= 260200
             this.tmpValue2 = Minecraft.getInstance().gameRenderer.gameRenderState.guiRenderState.isHudHidden;
+//#else
+//$$             this.tmpValue2 = Minecraft.getInstance().gameRenderer.gameRenderState.optionsRenderState.hideGui;
+//#endif
+//#if MC >= 260200
             minecraft.gameRenderer.gameRenderState.guiRenderState.isHudHidden = false;
+//#else
+//$$             minecraft.gameRenderer.gameRenderState.optionsRenderState.hideGui = false;
+//#endif
             if (!this.minecraft.debugEntries.isOverlayVisible()) {
                 this.tmpValue = true;
                 this.minecraft.debugEntries.isOverlayVisible = true; // setF3Enabled(true);
@@ -64,7 +80,11 @@ public abstract class InGameHudMixin {
     private void resetHudData(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (tmpValue3) {
             tmpValue3 = false;
+//#if MC >= 260200
             minecraft.gameRenderer.gameRenderState.guiRenderState.isHudHidden = this.tmpValue2;
+//#else
+//$$             minecraft.gameRenderer.gameRenderState.optionsRenderState.hideGui = this.tmpValue2;
+//#endif
             if (this.tmpValue) {
                 minecraft.debugEntries.isOverlayVisible = false;
             }
@@ -77,8 +97,16 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
+//#if MC >= 260200
                                     "Lnet/minecraft/client/gui/Hud;extractSpyglassOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+//#else
+//$$                                     "Lnet/minecraft/client/gui/Gui;extractSpyglassOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+//#endif
+//#if MC >= 260200
     private boolean onRenderSpyGlass(Hud instance, GuiGraphicsExtractor context, float scale) {
+//#else
+//$$     private boolean onRenderSpyGlass(Gui instance, GuiGraphicsExtractor context, float scale) {
+//#endif
         if (NoRender.INSTANCE.noItemOverlay()) {
             return false;
         }
@@ -91,9 +119,17 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
+//#if MC >= 260200
                                     "Lnet/minecraft/client/gui/Hud;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+//#else
+//$$                                     "Lnet/minecraft/client/gui/Gui;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+//#endif
                             ordinal = 0))
+//#if MC >= 260200
     private boolean onRenderHeadItem(Hud instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+//#else
+//$$     private boolean onRenderHeadItem(Gui instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+//#endif
         if (NoRender.INSTANCE.noItemOverlay()) {
             return false;
         }
@@ -106,9 +142,17 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
+//#if MC >= 260200
                                     "Lnet/minecraft/client/gui/Hud;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+//#else
+//$$                                     "Lnet/minecraft/client/gui/Gui;extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+//#endif
                             ordinal = 1))
+//#if MC >= 260200
     private boolean onRenderFreeze(Hud instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+//#else
+//$$     private boolean onRenderFreeze(Gui instance, GuiGraphicsExtractor context, Identifier texture, float opacity) {
+//#endif
         if (NoRender.INSTANCE.noFreezeOverlay()) {
             return false;
         }
@@ -121,8 +165,16 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
+//#if MC >= 260200
                                     "Lnet/minecraft/client/gui/Hud;extractPortalOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+//#else
+//$$                                     "Lnet/minecraft/client/gui/Gui;extractPortalOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V"))
+//#endif
+//#if MC >= 260200
     private boolean onRenderPortal(Hud instance, GuiGraphicsExtractor context, float scale) {
+//#else
+//$$     private boolean onRenderPortal(Gui instance, GuiGraphicsExtractor context, float scale) {
+//#endif
         if (NoRender.INSTANCE.noPortalOverlay()) {
             return false;
         }
@@ -135,8 +187,16 @@ public abstract class InGameHudMixin {
                     @At(
                             value = "INVOKE",
                             target =
+//#if MC >= 260200
                                     "Lnet/minecraft/client/gui/Hud;extractVignette(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/entity/Entity;)V"))
+//#else
+//$$                                     "Lnet/minecraft/client/gui/Gui;extractVignette(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/entity/Entity;)V"))
+//#endif
+//#if MC >= 260200
     private boolean onRenderVignette(Hud instance, GuiGraphicsExtractor context, Entity entity) {
+//#else
+//$$     private boolean onRenderVignette(Gui instance, GuiGraphicsExtractor context, Entity entity) {
+//#endif
         if (NoRender.INSTANCE.noVignetteOverlay()) {
             return false;
         }

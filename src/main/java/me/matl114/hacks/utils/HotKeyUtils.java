@@ -1,5 +1,7 @@
 package me.matl114.hacks.utils;
 
+import me.matl114.utils.ClientUtils;
+
 import java.util.function.BooleanSupplier;
 import me.matl114.hacks.modules.task.ModuleSettings;
 import me.matl114.managers.config.Config;
@@ -13,7 +15,7 @@ public class HotKeyUtils {
     private static final Minecraft mc = Minecraft.getInstance();
 
     public static boolean isValidState() {
-        if (mc.gui.screen() == null) {
+        if (ClientUtils.getScreen(mc) == null) {
             return true;
         }
         if (ModuleSettings.INSTANCE.shouldNotExecuteConditionHotkey()) {

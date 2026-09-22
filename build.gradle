@@ -1,280 +1,94 @@
+// 注意：**不要在这个多版本工程里用 spotless / palantir-java-format** ——
+// 它会在 `//` 之后插入一个空格，把 `//#if MC >= 260200` 变成 `// #if ...`、
+// 把 `//$` 变成 `// $`，预处理器标记就此失效。
 plugins {
-	// 26.1 起改用新版 Loom 插件：不 remap Minecraft 与 mod，也不再需要 mappings 声明
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
-	id 'com.gradleup.shadow' version "9.6.1"
-	id "com.diffplug.spotless" version "8.1.0"
-}
-loom {
-	accessWidenerPath = file("src/main/resources/overrideList.accesswidener")
+	// 26.1 起改用新版 Loom 插件：不 remap Minecraft 与 mod，也不再需要 mappings 声明
+	id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+	id 'com.gradleup.shadow' version '9.6.1' apply false
 
-	// 每个 Minecraft 版本用独立的运行目录：run/<minecraft_version>/
-	// 26.1 与 26.2 两条分支共用同一个工作区，若都用默认的 run/，
-	// options.txt / config / saves / mods / logs 会互相覆盖，切分支就串味。
-	// 注：runDatagen 的目录仍是 Loom 默认的 run/datagen（它由 fabricApi 的
-	// configureDataGeneration() 创建，runDir 不在这个 DSL 里，改不动就不用管）。
-	runs {
-		client {
-			runDir = "run/" + project.minecraft_version
-		}
-		server {
-			runDir = "run/" + project.minecraft_version
+	// https://github.com/ReplayMod/preprocessor
+	// https://github.com/Fallen-Breath/preprocessor
+	id 'com.replaymod.preprocess' version 'c5abb4fb12'
+}
+
+// 版本节点：数字是预处理器的 MC 版本号，源码里用 //#if MC >= 260200 这种标记区分版本。
+// 26.1.2 -> 260102，26.2 -> 260200。
+// 注意 link 的方向是「旧 -> 新」：mc2612.link(mc262) 表示 26.2 建立在 26.1.2 之上，
+// 也就是 **26.2 是根节点**（源码即 src/ 原样），只有 26.1.2 需要预处理生成。
+// 新增版本时在这里加节点并 link 到最近的节点即可。
+preprocess {
+	strictExtraMappings = false
+
+	def mc2612 = createNode('26.1.2', 26_01_02, '')
+	def mc262 = createNode('26.2', 26_02_00, '')
+
+	// 第三个参数是「额外映射表」：把 26.1.2 的名字映射到 26.2 的名字，
+	// 预处理器生成 26.1.2 源码时会自动反向套用（类改名 / 方法改名都靠它）。
+	// 写法见 https://github.com/Fallen-Breath/tweakermore 的 versions/mapping-*.txt
+	mc2612.link(mc262, file('versions/mapping-26.1.2-26.2.txt'))
+
+	for (final def node in getNodes()) {
+		findProject(node.project).ext.mcVersion = node.mcVersion
+	}
+}
+
+// 预处理插件会把**关联版本**（这里是根节点 26.2）工程的 compileClasspath 挂到
+// preprocessCode 任务上 —— 它要读那个 classpath 来推断两个版本之间的成员映射。
+// 但 26.2 是根节点，它自己没有 preprocessCode 任务，于是那个工程不会进入执行图、
+// 也就不会被 Gradle 锁住；任务执行期再去解析它的配置就报：
+//   "Resolution of the configuration ':26.2:compileClasspath' was attempted
+//    without an exclusive lock"
+// （对照：模板里每个节点都有 preprocessCode，链条一路往上，所以从不触发。）
+// 这里显式让预处理任务依赖另一个版本的 compileJava，把那个工程拉进执行图。
+gradle.projectsEvaluated {
+	subprojects.each { p ->
+		p.tasks.matching { it.name == 'preprocessCode' }.configureEach { t ->
+			subprojects.findAll { it != p }.each { other ->
+				other.tasks.matching { it.name == 'compileJava' }.configureEach { ct ->
+					t.dependsOn(ct)
+				}
+			}
 		}
 	}
 }
 
-version = project.mod_version
-group = project.maven_group
-
-base {
-	archivesName = project.archives_base_name
-}
-
+// 一次性构建所有版本并把 jar 汇总到根 build/libs
 repositories {
-	gradlePluginPortal()
-	mavenLocal()
 	mavenCentral()
-
-	// 本地映射仓库：自建 yarn 映射以 Maven 坐标形式引用（me.matl114:yarn-special）。
-	// mavenLocal() 会强制查找 POM，而该 artifact 只有 jar；用 artifact() 元数据源跳过 POM 查找。
-	maven {
-		name = 'localM2Artifacts'
-		url = uri("${System.getProperty('user.home')}/.m2/repository")
-		metadataSources { artifact() }
-	}
-
 	maven {
 		url 'https://maven.aliyun.com/nexus/content/groups/public'
 	}
-	maven {
-		url 'https://repository.hanbings.io/proxy'
-	}
-	maven {
-		url 'https://jitpack.io'
-	}
-	maven {
-		url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots'
-	}
-	maven {
-		url "https://maven.meteordev.org/snapshots"
-	}
-	maven {
-		url = "https://maven.meteordev.org/releases"
-	}
-}
-sourceSets {
-	stubs{
-		compileClasspath += configurations.runtimeClasspath
-	}
-}
-//apply plugin: 'com.gradleup.shadow'
-//apply plugin: 'java'
-
-fabricApi {
-	configureDataGeneration()
-}
-configurations {
-	//buildtoolsImplementation.extendsFrom(compileClasspath)
-	runtimeClasspath.extendsFrom implementation
-	// 打进产物的依赖集合：只取 api 声明的库（houbb / netty-handler-proxy / snakeyaml）。
-	// 不能直接用 runtimeClasspath —— 里面还有 dev-only 的 baritone（localRuntime），
-	// 它是独立 mod，打进来会与正式安装的 baritone 冲突（此前产物里混进 453 个 baritone 类）。
-	shade {
-		canBeConsumed = false
-	}
-}
-configurations.shade.extendsFrom configurations.api
-
-dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft ("com.mojang:minecraft:${project.minecraft_version}"){
-		transitive = false
-	}
-	// 26.1 起 Minecraft 官方 jar 不再混淆，无需任何 mappings 声明
-	// 新版 Loom 不再 remap，modImplementation / modCompileOnly 已移除，改用标准 configuration
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-	compileOnly files("libs/baritone-meteor-26.2.jar")
-	// 开发环境专用：把 baritone 加进 runClient 的运行时类路径。
-	// baritone 是可选前置（compileOnly），但本项目有 7 个 baritone mixin，
-	// 只有它真的在类路径上，才能验证 ElytraBehaviour / ElytraProcess 等 hook 的注入是否成立。
-	// 新版 Loom 不再 remap，这里用 localRuntime 以原始 jar 加入；
-	// Fabric Loader 的 ClasspathModCandidateFinder 会扫描运行时类路径并把它当 mod 加载。
-	localRuntime files("libs/baritone-meteor-26.2.jar")
-//	compileOnly files("libs/xaeroworldmap-fabric-26.2-1.41.0.jar")
-//	compileOnly files("libs/xaerominimap-fabric-26.2-26.1.0.jar")
-//	compileOnly files("libs/XaeroPlus-2.32.1+fabric-26.2-WM1.41.0-MM26.1.0.jar")
-	compileOnly "meteordevelopment:meteor-client:${project.meteor_version}"
-
-	// bridge
-	// 原为 sourceSets.stubs.output：它同时包含 build/classes/java/stubs 与 build/resources/stubs。
-	// 而 stubs 源集没有资源（processStubsResources 为 NO-SOURCE），该资源目录始终不存在，
-	// 于是 compileClasspath 混入一个无效条目，Loom 的 migrateMappings 因 JDT classpath 校验失败
-	// 报 "invalid environment settings"。改为只引用 classesDirs。
-	compileOnly sourceSets.stubs.output.classesDirs
-	// api
-	api 'com.github.houbb:pinyin:0.4.0'  // 拼音
-	api 'io.netty:netty-handler-proxy:4.1.97.Final' // proxy
-	api 'org.yaml:snakeyaml:1.30' // yml
-
-	// annotations
-	compileOnly 'org.projectlombok:lombok:1.18.48'
-	compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
-	annotationProcessor 'org.projectlombok:lombok:1.18.48'
-
-
 }
 
-shadowJar {
-	minimize()
-	archiveFileName = "${project.properties["archives_base_name"]}-${project.version}.jar"
-	configurations = [project.configurations.shade]
-	dependencies {
-		include dependency('com.github.houbb:.*')
-		include dependency('io.netty:netty-handler.*:.*')
-		include dependency('io.netty:netty-codec.*:.*')
-		include dependency('org.yaml:snakeyaml:.*')
-		exclude "mappings/mappings.tiny"
+// 便捷入口：gradlew client262 / client2612 / server262 / server2612
+// 必须带工程前缀 —— 不带前缀的 `gradlew runClient` 会在**所有**含该任务的子工程里各跑一次，
+// 结果是两个版本的客户端同时启动。
+def targetVersions = new groovy.json.JsonSlurper().parseText(file('settings.json').text).versions
+targetVersions.each { v ->
+	def suffix = v.replace('.', '')
+	tasks.register("client${suffix}") { dependsOn(":${v}:runClient") }
+	tasks.register("server${suffix}") { dependsOn(":${v}:runServer") }
+}
+
+tasks.register('buildAndGather') {
+
+	subprojects {
+		dependsOn project.tasks.named('build').get()
 	}
-}
-
-// 移植删掉 remapJar 时，原先的 shadowJar -> finalizedBy(remapJar) 链路一并消失了，
-// shadowJar 不再被任何任务触发；而它与普通 jar 的产物同名，最终 build/libs 里留下的是
-// 精简包（只有模组自身类）。开发环境依赖来自 Gradle classpath 所以看不出问题，
-// 生产环境（启动器安装 jar）没有 snakeyaml / netty / houbb，启动即
-// NoClassDefFoundError: org/yaml/snakeyaml/Yaml。
-// 显式把 shadowJar 接回构建流程，并给普通 jar 加 classifier 避免同名互相覆盖。
-tasks.named('assemble') { dependsOn tasks.named('shadowJar') }
-
-spotless {
-	lineEndings = 'WINDOWS'
-
-	java {
-		// 使用 PalantirJavaFormat（更简单，不需要配置文件）
-		palantirJavaFormat('2.98.0')
-				.style('PALANTIR')
-
-		removeUnusedImports()
-		trimTrailingWhitespace()
-		endWithNewline()
-	}
-}
-
-//loom {
-//	// 禁用自动下载
-//	skipDownloadAssets = true
-//	skipDownloadMcLibraries = true
-//
-////	// 或者设置自定义缓存路径
-////	customMinecraftCache = file("${project.gradle.gradleUserHomeDir}/caches/fabric-loom")
-//}
-
-// 新版 Loom 不再 remap，remapJar 任务已不存在，产物由 shadowJar 直接输出
-
-processResources {
-	inputs.property "version", project.version
-	inputs.property "minecraft_version", project.minecraft_version
-
-	filesMatching("fabric.mod.json") {
-		expand (
-			"version": project.version,
-			"minecraft_version": project.minecraft_version
-		)
-
-
-	}
-}
-
-tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
-	options.annotationProcessorPath = configurations.annotationProcessor
-}
-
-java {
-	withSourcesJar()
-
-	sourceCompatibility = JavaVersion.VERSION_25
-	targetCompatibility = JavaVersion.VERSION_25
-}
-//afterEvaluate {
-//
-//	configurations.runtimeClasspath.forEach { file ->
-//
-//		if (file.name.startsWith("sponge-mixin")) {
-//
-//			tasks.named("runClient", JavaExec) {
-//
-//				jvmArgs("-javaagent:${file.absolutePath}")
-//
-//			}
-//
-//		}
-//
-//	}
-//
-//}
-
-jar {
-	// 正式产物是 shadowJar 打出的 fat jar（同名），普通 jar 改名为 -thin 避免覆盖
-	archiveClassifier = 'thin'
-
-	from("LICENSE") {
-		rename { "${it}_${project.base.archivesName.get()}"}
-	}
-
-}
-tasks.named("runClient", JavaExec) {
-	jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:-OmitStackTraceInFastThrow"
-			, "-Dmixin.debug.export=true"
-			, "-Xmx6G", "-Xms3G"
-	)
-	systemProperties = [
-			"https.proxyHost": "127.0.0.1",
-			"https.proxyPort": "7890",
-			"http.proxyHost": "127.0.0.1",
-			"http.proxyPort": "7890"
-	]
-}
-//
-//tasks.named('downloadAssets', JavaExec) {
-//	// 设置任务级别的系统属性（不推荐，可能不生效）
-//	systemProperties = [
-//			'https.proxyHost': '127.0.0.1',
-//			'https.proxyPort': '7890',
-//			'http.proxyHost': '127.0.0.1',
-//			'http.proxyPort': '7890'
-//	]
-//}
-//
-//tasks.named("build"){
-//	//why can not it be directly accessed, I don't understand
-//	//shit gradle
-//	systemProperties = [
-//			"https.proxyHost": "127.0.0.1",
-//			"https.proxyPort": "7890",
-//			"http.proxyHost": "127.0.0.1",
-//			"http.proxyPort": "7890"
-//	]
-//}
-
-
-// 26.2 移植收尾：格式化已恢复（palantir-java-format 2.98.0，兼容 Java 25）
-build.dependsOn spotlessApply
-
-// configure the maven publication
-publishing {
-	publications {
-		create("mavenJava", MavenPublication) {
-			artifactId = project.archives_base_name
-			from components.java
+	doFirst {
+		println 'Gathering builds'
+		def buildLibs = { p -> p.buildDir.toPath().resolve('libs') }
+		delete fileTree(buildLibs(rootProject)) { include '*' }
+		subprojects {
+			copy {
+				from(buildLibs(project)) {
+					include '*.jar'
+					exclude '*-dev.jar', '*-sources.jar', '*-thin.jar'
+				}
+				into buildLibs(rootProject)
+				duplicatesStrategy = DuplicatesStrategy.INCLUDE
+			}
 		}
-	}
-
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-	repositories {
-		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
 	}
 }

@@ -1,5 +1,7 @@
 package me.matl114.mixins.hack;
 
+import me.matl114.utils.ClientUtils;
+
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -154,7 +156,7 @@ public abstract class ClientPlayerEntityMixin extends AbstractClientPlayer imple
     public void closeHandledScreen(CallbackInfo ci) {
         if (!this.forceCloseInv && InvExtra.INSTANCE.enableKeepInv.get()) {
             // do not keep the inventory handler because we can get accessed to it any time
-            if (this.minecraft.gui.screen() instanceof AbstractContainerScreen handled
+            if (ClientUtils.getScreen(minecraft) instanceof AbstractContainerScreen handled
                     && !(handled.getMenu() instanceof InventoryMenu)
                     && !(handled.getMenu() instanceof CreativeModeInventoryScreen.ItemPickerMenu)) {
                 keepedInv = handled;

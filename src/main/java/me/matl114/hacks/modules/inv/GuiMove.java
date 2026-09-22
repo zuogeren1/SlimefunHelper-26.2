@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.inv;
 
+import me.matl114.utils.ClientUtils;
+
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.events.impl.KeyboardAction;
@@ -78,7 +80,7 @@ public class GuiMove extends BaseModule {
 
     public KeyMapping[] getBindings() {
         initBinding();
-        return noShiftInChest.get() && mc.gui.screen() instanceof AbstractContainerScreen<?>
+        return noShiftInChest.get() && ClientUtils.getScreen(mc) instanceof AbstractContainerScreen<?>
                 ? inputBindingsNoSneak
                 : inputBindings;
     }
@@ -120,18 +122,18 @@ public class GuiMove extends BaseModule {
     }
 
     public boolean skip() {
-        if (mc.gui.screen() == null
-                || mc.gui.screen() instanceof CreativeModeInventoryScreen
-                || mc.gui.screen() instanceof ChatScreen
-                || mc.gui.screen() instanceof SignEditScreen
-                || mc.gui.screen() instanceof AnvilScreen
-                || mc.gui.screen() instanceof CommandBlockEditScreen
-                || mc.gui.screen() instanceof StructureBlockEditScreen
-                || mc.gui.screen().getFocused() instanceof EditBox
-                || (mc.gui.screen().getFocused() instanceof DrawableWidget widget && checkCustomWidget(widget)))
+        if (ClientUtils.getScreen(mc) == null
+                || ClientUtils.getScreen(mc) instanceof CreativeModeInventoryScreen
+                || ClientUtils.getScreen(mc) instanceof ChatScreen
+                || ClientUtils.getScreen(mc) instanceof SignEditScreen
+                || ClientUtils.getScreen(mc) instanceof AnvilScreen
+                || ClientUtils.getScreen(mc) instanceof CommandBlockEditScreen
+                || ClientUtils.getScreen(mc) instanceof StructureBlockEditScreen
+                || ClientUtils.getScreen(mc).getFocused() instanceof EditBox
+                || (ClientUtils.getScreen(mc).getFocused() instanceof DrawableWidget widget && checkCustomWidget(widget)))
             return true;
         if (allGui.get()) return false;
-        return !(mc.gui.screen() instanceof AbstractContainerScreen<?>);
+        return !(ClientUtils.getScreen(mc) instanceof AbstractContainerScreen<?>);
     }
 
     public boolean checkCustomWidget(DrawableWidget drawableWidget) {

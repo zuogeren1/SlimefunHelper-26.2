@@ -1,5 +1,7 @@
 package me.matl114.mixins.hack;
 
+import me.matl114.utils.ClientUtils;
+
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -40,7 +42,7 @@ public abstract class ChatScreenMixin extends Screen implements CustomFocusBehav
 
     @Unique
     public void resetMessageHistoryIndex() {
-        historyPos = Minecraft.getInstance().gui.hud.chat.getRecentChat().size();
+        historyPos = ClientUtils.getChat().getRecentChat().size();
     }
 
     @Accessor("commandSuggestions")

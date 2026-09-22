@@ -1,5 +1,7 @@
 package me.matl114.jsApi;
 
+import me.matl114.utils.ClientUtils;
+
 import java.util.List;
 import javax.annotation.Nonnull;
 import me.matl114.accessors.access.ClientPlayerAccess;
@@ -47,7 +49,7 @@ public class ScreenHelper {
     }
 
     public static boolean isScreenOpen() {
-        return mc.gui.screen() instanceof AbstractContainerScreen<?>;
+        return ClientUtils.getScreen(mc) instanceof AbstractContainerScreen<?>;
     }
 
     @Nonnull

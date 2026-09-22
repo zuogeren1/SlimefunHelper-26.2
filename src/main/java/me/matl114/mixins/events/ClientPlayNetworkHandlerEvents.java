@@ -1,5 +1,7 @@
 package me.matl114.mixins.events;
 
+import me.matl114.utils.ClientUtils;
+
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -56,7 +58,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 public abstract class ClientPlayNetworkHandlerEvents {
     @Inject(method = "handleOpenScreen", at = @At("RETURN"))
     private void onPostInventoryOpen(ClientboundOpenScreenPacket packet, CallbackInfo ci) {
-        if (Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> screen) {
+        if (ClientUtils.getScreen() instanceof AbstractContainerScreen<?> screen) {
             Listener.getPostOpenHandledScreen().broadcast(screen);
         }
     }

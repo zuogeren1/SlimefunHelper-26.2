@@ -550,16 +550,56 @@ public class SearchLabel extends BaseModule {
             Blocks.CHISELED_TUFF,
             Blocks.CHISELED_TUFF_BRICKS,
             Blocks.TERRACOTTA,
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.WHITE),
+//#else
+//$$ Blocks.WHITE_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE),
+//#else
+//$$ Blocks.ORANGE_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.BLUE),
+//#else
+//$$ Blocks.BLUE_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.LIGHT_BLUE),
+//#else
+//$$ Blocks.LIGHT_BLUE_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.RED),
+//#else
+//$$ Blocks.RED_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW),
+//#else
+//$$ Blocks.YELLOW_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN),
+//#else
+//$$ Blocks.BROWN_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.GRAY),
+//#else
+//$$ Blocks.GRAY_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.GREEN),
+//#else
+//$$ Blocks.GREEN_TERRACOTTA,
+//#endif
+//#if MC >= 26.2
             Blocks.DYED_TERRACOTTA.pick(DyeColor.BLACK),
+//#else
+//$$ Blocks.BLACK_TERRACOTTA,
+//#endif
             Blocks.OBSIDIAN,
             Blocks.CRYING_OBSIDIAN);
 

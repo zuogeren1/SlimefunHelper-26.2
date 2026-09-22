@@ -1,5 +1,7 @@
 package me.matl114.jsApi;
 
+import me.matl114.utils.ClientUtils;
+
 import me.matl114.managers.input.KeyCode;
 import me.matl114.managers.input.SimpleInputManager;
 import me.matl114.utils.ApiMethod;
@@ -74,8 +76,8 @@ public class InputHelper {
 
     public static void charAction(int codePoint, int modifiers) {
         mc.execute(() -> {
-            GuiEventListener element = mc.gui.screen();
-            if (element != null && mc.gui.overlay() == null) {
+            GuiEventListener element = ClientUtils.getScreen(mc);
+            if (element != null && ClientUtils.getOverlay(mc) == null) {
                 if (Character.charCount(codePoint) == 1) {
                     ScreenUtils.wrapScreenError(
                             () -> {

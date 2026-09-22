@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.chat;
 
+import me.matl114.utils.ClientUtils;
+
 import io.github.reserveword.imblocker.common.gui.FocusableObject;
 import java.util.List;
 import me.matl114.accessors.access.ChatScreenAccess;
@@ -101,7 +103,7 @@ public class ChatTools extends BaseModule {
     }
 
     public void onRemoveCommandPrefix() {
-        if (mc.gui.screen() instanceof ChatScreen chatScreen) {
+        if (ClientUtils.getScreen(mc) instanceof ChatScreen chatScreen) {
             if (chatScreen.getFocused() instanceof EditBox widget
                     && widget.getValue().startsWith("/")) {
                 widget.setValue(widget.getValue().substring(1));
@@ -176,7 +178,7 @@ public class ChatTools extends BaseModule {
 
     @Nullable
     private EditBox findCurrentFocusing() {
-        if (mc.gui.screen() instanceof ChatScreen chat && chat.getFocused() instanceof EditBox textField) {
+        if (ClientUtils.getScreen(mc) instanceof ChatScreen chat && chat.getFocused() instanceof EditBox textField) {
             return textField;
         } else if (basicSubScreenWidget != null
                 && basicSubScreenWidget.isFocused()
@@ -346,7 +348,7 @@ public class ChatTools extends BaseModule {
             } else {
                 delegateToolScreen.setContentDelegate(null);
             }
-            if (mc.gui.screen() instanceof ChatScreen chat) {
+            if (ClientUtils.getScreen(mc) instanceof ChatScreen chat) {
                 ScreenAccess access = ScreenAccess.of(chat);
                 // do not make concurrent modification
                 Tasks.scheduleDelayed(
@@ -394,10 +396,10 @@ public class ChatTools extends BaseModule {
         if (keepChatInv.get()
                 && mc.player != null
                 && mc.level != null
-                && mc.gui.screen() != null
-                && mc.gui.screen().getClass() == ChatScreen.class
+                && ClientUtils.getScreen(mc) != null
+                && ClientUtils.getScreen(mc).getClass() == ChatScreen.class
                 && ScreenUtils.hasEnterDown()) {
-            ChatScreenAccess access = ChatScreenAccess.of((ChatScreen) mc.gui.screen());
+            ChatScreenAccess access = ChatScreenAccess.of((ChatScreen) ClientUtils.getScreen(mc));
             access.resetMessageHistoryIndex();
             event.cancel();
         }

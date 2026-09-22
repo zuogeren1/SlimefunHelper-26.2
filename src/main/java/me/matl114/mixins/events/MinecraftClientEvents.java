@@ -1,5 +1,7 @@
 package me.matl114.mixins.events;
 
+import me.matl114.utils.ClientUtils;
+
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -113,6 +115,7 @@ public abstract class MinecraftClientEvents {
         }
     }
 
+    //#if MC >= 26.2
     @Inject(
             method = "crash(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;I)V",
             at =
@@ -124,6 +127,19 @@ public abstract class MinecraftClientEvents {
             cancellable = true)
     private static void onSystemExit(
             Minecraft client, File runDirectory, CrashReport crashReport, int exitCode, CallbackInfo ci) {
+    //#else
+    //$$ @Inject(
+    //$$         method = "crash(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;)V",
+    //$$         at =
+    //$$                 @At(
+    //$$                         value = "INVOKE",
+    //$$                         target =
+    //$$                                 "Lnet/minecraft/client/Minecraft;saveReportAndShutdownSoundManager(Lnet/minecraft/client/Minecraft;Ljava/io/File;Lnet/minecraft/CrashReport;)I",
+    //$$                         shift = At.Shift.AFTER),
+    //$$         cancellable = true)
+    //$$ private static void onSystemExit(
+    //$$         Minecraft client, File runDirectory, CrashReport crashReport, CallbackInfo ci) {
+    //#endif
         if (client == null) {
             return;
         }
@@ -272,14 +288,23 @@ public abstract class MinecraftClientEvents {
     @Inject(
             method = "tick",
             at =
+                    //#if MC >= 26.2
                     @At(
                             value = "INVOKE",
                             target =
                                     "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
                             shift = At.Shift.BEFORE))
+    //#else
+    //$$                 @At(
+    //$$                         value = "FIELD",
+    //$$                         target =
+    //$$                                 "Lnet/minecraft/client/Minecraft;overlay:Lnet/minecraft/client/gui/screens/Overlay;",
+    //$$                         shift = At.Shift.BEFORE,
+    //$$                         ordinal = 2))
+    //#endif
     public void onInputEventIfScreenOpen(CallbackInfo ci, @Local ProfilerFiller profiler) {
-        if (Minecraft.getInstance().gui.screen() != null
-                || Minecraft.getInstance().gui.overlay() != null) {
+        if (ClientUtils.getScreen() != null
+                || ClientUtils.getOverlay() != null) {
             profiler.popPush("Keybindings");
             if (Minecraft.getInstance().player != null) {
                 Event<Void> re = new Event<>(null, true, false);

@@ -57,7 +57,11 @@ public abstract class EditBoxWidgetMixin extends AbstractTextAreaWidget implemen
 
     public EditBoxWidgetMixin(int i, int j, int k, int l, Component text) {
         // 26.2: AbstractTextAreaWidget 构造新增 ScrollbarSettings 参数
+        //#if MC >= 26.2
         super(i, j, k, l, text, net.minecraft.client.gui.components.AbstractScrollArea.ScrollbarSettings.NO_SCROLL);
+        //#else
+        //$$ super(i, j, k, l, text, net.minecraft.client.gui.components.AbstractScrollArea.defaultSettings(0));
+        //#endif
     }
     // override ALL EditBox behaviour
     @Override

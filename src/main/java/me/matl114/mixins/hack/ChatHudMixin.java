@@ -1,5 +1,7 @@
 package me.matl114.mixins.hack;
 
+import me.matl114.utils.ClientUtils;
+
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import java.util.List;
@@ -81,7 +83,7 @@ public abstract class ChatHudMixin {
             @Local(argsOnly = true) LocalRef<ChatComponent.DisplayMode> displayModeRef) {
         if (XaeroHelper.INSTANCE.transparentGuiMapFix.get()
                 && XaeroHooks.getInstance().isXaeroWorldMapEnable()
-                && XaeroHooks.getInstance().isGuiMap(minecraft.gui.screen())) {
+                && XaeroHooks.getInstance().isGuiMap(ClientUtils.getScreen(minecraft))) {
             // 聊天受限时原版传 FOREGROUND_RESTRICTED，无条件覆盖会让它退化成 FOREGROUND，
             // 导致"聊天受限"提示不再渲染（旧版无此概念），故受限时保持原样。
             if (displayModeRef.get() != ChatComponent.DisplayMode.FOREGROUND_RESTRICTED) {

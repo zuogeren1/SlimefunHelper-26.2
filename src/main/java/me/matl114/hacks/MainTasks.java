@@ -1,5 +1,7 @@
 package me.matl114.hacks;
 
+import me.matl114.utils.ClientUtils;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -270,7 +272,7 @@ public class MainTasks {
         mc.disconnect(new ProgressScreen(true), false);
 
         TitleScreen titleScreen = new TitleScreen();
-        mc.gui.setScreen(new JoinMultiplayerScreen(titleScreen));
+        ClientUtils.setScreen(mc, new JoinMultiplayerScreen(titleScreen));
     }
 
     @Getter

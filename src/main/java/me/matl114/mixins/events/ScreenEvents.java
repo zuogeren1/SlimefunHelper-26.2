@@ -1,5 +1,7 @@
 package me.matl114.mixins.events;
 
+import me.matl114.utils.ClientUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -140,12 +142,12 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
 
     @Unique
     public void open() {
-        Minecraft.getInstance().gui.setScreen((Screen) (Object) this);
+        ClientUtils.setScreen(Minecraft.getInstance(), (Screen) (Object) this);
     }
 
     @Unique
     public void openFromCurrent() {
-        parent = Minecraft.getInstance().gui.screen();
+        parent = ClientUtils.getScreen();
         open();
     }
 
@@ -160,18 +162,18 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
         Screen p = this.parent;
         this.parent = null;
         ScreenAccess.of(anotherScreen).setParent(p);
-        Minecraft.getInstance().gui.setScreen(anotherScreen);
+        ClientUtils.setScreen(Minecraft.getInstance(), anotherScreen);
     }
 
     public void switchFromCurrent() {
-        Screen current = Minecraft.getInstance().gui.screen();
+        Screen current = ClientUtils.getScreen();
         if (current == null) {
             this.parent = null;
         } else {
             this.parent = ((ScreenEvents) (Object) current).parent;
             ((ScreenEvents) (Object) current).parent = null;
         }
-        Minecraft.getInstance().gui.setScreen((Screen) (Object) this);
+        ClientUtils.setScreen(Minecraft.getInstance(), (Screen) (Object) this);
     }
 
     @ModifyArgs(
@@ -180,7 +182,11 @@ public abstract class ScreenEvents extends AbstractContainerEventHandler impleme
                     @At(
                             value = "INVOKE",
                             target =
+//#if MC >= 26.2
                                     "Lnet/minecraft/client/gui/Gui;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V"))
+//#else
+//$$                                 "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V"))
+//#endif
     public void onRedirectReturnScreen(Args args) {
         if (parent != null) {
             args.set(0, parent);

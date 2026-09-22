@@ -6,10 +6,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
+//#if MC >= 260200
 import net.minecraft.advancements.predicates.*;
 import net.minecraft.advancements.predicates.DamageSourcePredicate;
 import net.minecraft.advancements.predicates.entity.EntityPredicate;
 import net.minecraft.advancements.predicates.entity.EntityTypePredicate;
+//#else
+//$$ import net.minecraft.advancements.criterion.*;
+//$$ import net.minecraft.advancements.criterion.DamageSourcePredicate;
+//$$ import net.minecraft.advancements.criterion.EntityPredicate;
+//#endif
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentType;
@@ -502,6 +508,7 @@ public class DamageUtils {
         if (entity == null) {
             return false;
         }
+        //#if MC >= 260200
         // 26.2: EntityPredicate 不再暴露 entityType() getter，
         // 改为遍历 parts 取出 EntityTypePredicate 进行判断。
         for (var part : predicate.parts.values()) {
@@ -510,6 +517,13 @@ public class DamageUtils {
                 return false;
             }
         }
+        //#else
+        //$$ // 26.1.2: EntityPredicate 是 record，直接暴露 entityType()。
+        //$$ if (predicate.entityType().isPresent()
+        //$$         && !predicate.entityType().get().matches(entity.getType().builtInRegistryHolder())) {
+        //$$     return false;
+        //$$ }
+        //#endif
         return true;
     }
 

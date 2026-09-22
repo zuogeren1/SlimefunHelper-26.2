@@ -1,5 +1,7 @@
 package me.matl114.gui.complex.other;
 
+import me.matl114.utils.ClientUtils;
+
 import java.util.function.Consumer;
 import me.matl114.gui.McWidgetHelpers;
 import me.matl114.gui.basic.ContentDelegateWidget;
@@ -124,12 +126,12 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
     }
 
     public void resetHistoryIndex() {
-        this.messageHistoryIndex = mc.gui.hud.chat.getRecentChat().size();
+        this.messageHistoryIndex = ClientUtils.getChat(mc).getRecentChat().size();
     }
 
     public void setChatFromHistory(int offset) {
         int i = this.messageHistoryIndex + offset;
-        int j = mc.gui.hud.chat.getRecentChat().size();
+        int j = ClientUtils.getChat(mc).getRecentChat().size();
         i = Mth.clamp(i, 0, j);
         if (i != this.messageHistoryIndex) {
             if (i == j) {
@@ -142,7 +144,7 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
                 }
 
                 this.chatFieldWidget.getDelegate().setValue((String)
-                        mc.gui.hud.chat.getRecentChat().get(i));
+                        ClientUtils.getChat(mc).getRecentChat().get(i));
                 // this.chatInputSuggestor.setWindowActive(false);
                 this.messageHistoryIndex = i;
             }

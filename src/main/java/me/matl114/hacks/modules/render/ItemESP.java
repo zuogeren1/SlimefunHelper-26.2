@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.render;
 
+import me.matl114.utils.ClientUtils;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.events.EntityAccess;
@@ -204,8 +206,8 @@ public class ItemESP extends BaseModule {
                     () -> {
                         if (pendingUpdateEntities) {
                             if (!checkNull()
-                                    && (mc.gui.screen() == null
-                                            || mc.gui.screen() instanceof AbstractContainerScreen<?>)) {
+                                    && (ClientUtils.getScreen(mc) == null
+                                            || ClientUtils.getScreen(mc) instanceof AbstractContainerScreen<?>)) {
                                 pendingUpdateEntities = false;
                                 if (enableSpecial.get()) {
                                     for (var entity : mc.level.entitiesForRendering()) {

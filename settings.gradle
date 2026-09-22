@@ -4,6 +4,31 @@ pluginManagement {
 			name = 'Fabric'
 			url = 'https://repository.hanbings.io/proxy'
 		}
+		maven {
+			name = 'Jitpack'
+			url = 'https://jitpack.io'
+			content { includeGroupAndSubgroups('com.github') }
+		}
+		mavenCentral()
 		gradlePluginPortal()
 	}
+	resolutionStrategy {
+		eachPlugin {
+			switch (requested.id.id) {
+				case 'com.replaymod.preprocess': {
+					useModule("com.github.Fallen-Breath:preprocessor:${requested.version}")
+					break
+				}
+			}
+		}
+	}
+}
+
+def settings = new groovy.json.JsonSlurper().parseText(file('settings.json').text)
+for (String version : settings.versions) {
+	include(":$version")
+
+	def proj = project(":$version")
+	proj.projectDir = file("versions/$version")
+	proj.buildFileName = '../../common.gradle'
 }

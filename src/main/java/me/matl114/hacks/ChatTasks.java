@@ -1,5 +1,7 @@
 package me.matl114.hacks;
 
+import me.matl114.utils.ClientUtils;
+
 import com.google.common.base.Predicates;
 import com.mojang.brigadier.tree.CommandNode;
 import java.util.*;
@@ -114,7 +116,7 @@ public class ChatTasks {
             chatText = getChatExtra().normalizeSendText(chatText);
             // in world
             if (addToHistory) {
-                Minecraft.getInstance().gui.hud.chat.addRecentChat(chatText);
+                ClientUtils.getChat().addRecentChat(chatText);
             }
             if (chatText.startsWith("/")) {
                 Minecraft.getInstance().player.connection.sendCommand(chatText.substring(1));
@@ -128,7 +130,7 @@ public class ChatTasks {
     private static final LimitedSpeedExecutor chatExecutor = new LimitedSpeedExecutor(new IntRef(5));
 
     public static void sendDelayChatMessage(Component text) {
-        chatExecutor.addDelayedExecuteTask(() -> mc.gui.hud.chat.addClientSystemMessage(text));
+        chatExecutor.addDelayedExecuteTask(() -> ClientUtils.getChat(mc).addClientSystemMessage(text));
     }
 
     static {

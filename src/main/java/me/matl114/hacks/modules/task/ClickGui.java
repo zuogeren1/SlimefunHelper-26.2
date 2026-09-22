@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.task;
 
+import me.matl114.utils.ClientUtils;
+
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -117,7 +119,7 @@ public class ClickGui extends BaseModule {
         if (HotKeyUtils.isValidState()) {
             openClickGui();
             return true;
-        } else if (mc.gui.screen() instanceof ClickGuiMainScreen gui) {
+        } else if (ClientUtils.getScreen(mc) instanceof ClickGuiMainScreen gui) {
             gui.onClose();
             return true;
         } else return false;
@@ -196,7 +198,7 @@ public class ClickGui extends BaseModule {
     }
 
     public void resetGui() {
-        if (mc.gui.screen() instanceof ClickGuiMainScreen guiMain) {
+        if (ClientUtils.getScreen(mc) instanceof ClickGuiMainScreen guiMain) {
             guiMain.onClose();
         }
         internalGuiData.write(new CompoundTag(), NbtOps.INSTANCE);

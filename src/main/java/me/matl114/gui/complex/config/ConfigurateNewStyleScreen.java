@@ -1,5 +1,7 @@
 package me.matl114.gui.complex.config;
 
+import me.matl114.utils.ClientUtils;
+
 import java.util.List;
 import me.matl114.events.Listener;
 import me.matl114.gui.basic.*;
@@ -84,7 +86,7 @@ public class ConfigurateNewStyleScreen extends IndexedScreen<Config, ConfigureLi
     static {
         Listener.getHotKeyTriggeredListener().registerHandler(iHotKeyEvent -> {
             // do not use any hotkeys in configure screen because we may use keyBindConfigurate
-            if (Minecraft.getInstance().gui.screen() instanceof ConfigurateNewStyleScreen) {
+            if (ClientUtils.getScreen() instanceof ConfigurateNewStyleScreen) {
                 iHotKeyEvent.cancel();
             }
         });

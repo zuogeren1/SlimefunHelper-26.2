@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.render;
 
+import me.matl114.utils.ClientUtils;
+
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
@@ -88,7 +90,7 @@ public class Zoom extends BaseModule {
 
     public void tickFov(Event<Float> eventFov) {
         if (enable.get()) {
-            if (holdUse.get().isAllPressed() && mc.gui.screen() == null) {
+            if (holdUse.get().isAllPressed() && ClientUtils.getScreen(mc) == null) {
                 if (currentScale == null) {
                     currentScale = defaultZoom.get();
                 }

@@ -14,7 +14,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(GameRenderer.class)
 public abstract class GameRenderMixin {
 
+    //#if MC >= 26.2
     @Inject(method = "nightVisionScale", at = @At("HEAD"), cancellable = true)
+    //#else
+    //$$ @Inject(method = "getNightVisionScale", at = @At("HEAD"), cancellable = true)
+    //#endif
     private static void getNightVisionStrength(
             LivingEntity entity, float tickDelta, CallbackInfoReturnable<Float> cir) {
         if (RenderExtra.INSTANCE.nightVision.get()) {

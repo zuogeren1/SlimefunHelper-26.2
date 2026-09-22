@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.render;
 
+import me.matl114.utils.ClientUtils;
+
 import static me.matl114.utils.ColorUtils.*;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -201,7 +203,7 @@ public class WorldScanner extends BaseModule {
     public void onTick(Event<LocalPlayer> event) {
         if (!checkNull()
                 && pendingRefreshWhenInGame
-                && (mc.gui.screen() == null || mc.gui.screen() instanceof AbstractContainerScreen<?>)) {
+                && (ClientUtils.getScreen(mc) == null || ClientUtils.getScreen(mc) instanceof AbstractContainerScreen<?>)) {
             // do not refresh when config is open or when player open exit menu
             pendingRefreshWhenInGame = false;
             WorldTasks.restartWorldScanner();

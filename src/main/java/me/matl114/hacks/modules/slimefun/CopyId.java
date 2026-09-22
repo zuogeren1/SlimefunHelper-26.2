@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.slimefun;
 
+import me.matl114.utils.ClientUtils;
+
 import static me.matl114.utils.ItemStackUtils.getSfId;
 
 import java.util.Locale;
@@ -42,7 +44,7 @@ public class CopyId extends BaseModule {
         var player = Minecraft.getInstance().player;
         if (player == null || client == null) return false;
         ItemStack heldItem = null;
-        if (client.gui.screen() instanceof AbstractContainerScreen<?> s) {
+        if (ClientUtils.getScreen(client) instanceof AbstractContainerScreen<?> s) {
             Point mouseCoord = ScreenUtils.getMouseCoord(client);
             Slot slot = HandledScreenAccess.of(s).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {

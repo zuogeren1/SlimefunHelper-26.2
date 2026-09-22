@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.inv;
 
+import me.matl114.utils.ClientUtils;
+
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Runnables;
 import com.mojang.datafixers.util.Pair;
@@ -189,8 +191,8 @@ public class KitReplenish extends BaseModule {
                     return;
                 }
                 if (transaction.stage == Transaction.STAGE_REORDER_INVENTORY) {
-                    if (mc.gui.screen() != null) {
-                        mc.gui.screen().onClose();
+                    if (ClientUtils.getScreen(mc) != null) {
+                        ClientUtils.getScreen(mc).onClose();
                     }
                     if (transaction.rule.type() == Type.AUTO) {
                         resortInventories(
@@ -227,7 +229,7 @@ public class KitReplenish extends BaseModule {
                 }
                 if (transaction.stage == Transaction.STAGE_USE_ENDER_CHEST) {
                     if (!enderChestRequest) {
-                        if (mc.gui.screen() instanceof ContainerScreen screen) {
+                        if (ClientUtils.getScreen(mc) instanceof ContainerScreen screen) {
                             var handler = screen.getMenu();
                             Container inventory = handler.getContainer();
                             IndexEntry<ItemStack> stack = findShulker(inventory, transaction);
@@ -358,14 +360,14 @@ public class KitReplenish extends BaseModule {
                     enderChestRequest = false;
                 }
             }
-            if (ChestHistory.isEnderChest(mc.gui.screen())) {
+            if (ChestHistory.isEnderChest(ClientUtils.getScreen(mc))) {
                 if (log.get()) {
                     logI18N("message.kit-manager.kit-replenish.success.open-ender-chest");
                 }
                 enderChestRequest = false;
             } else {
-                if (mc.gui.screen() != null) {
-                    mc.gui.screen().onClose();
+                if (ClientUtils.getScreen(mc) != null) {
+                    ClientUtils.getScreen(mc).onClose();
                 }
                 if (slowInteract.canRun(5)) {
                     BlockPos pos = findCurrentOpenEnderChest();

@@ -1,5 +1,7 @@
 package me.matl114.mixins.events;
 
+import me.matl114.utils.ClientUtils;
+
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import me.matl114.accessors.access.GuiScreenAccess;
@@ -25,10 +27,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * （{@code Minecraft.screen} 字段与 {@code Minecraft.setScreen} 均已移除，
  * 变为 {@code Gui.screen} / {@code Gui.setScreen}），所以这三个注入点从
  * {@code MinecraftClientEvents} 迁移到这里。挂在 {@code Gui.setScreen} 上
- * 也顺带覆盖了所有直接调用 {@code mc.gui.setScreen(...)} 的路径。
+ * 也顺带覆盖了所有直接调用 {@code ClientUtils.setScreen(mc, ...)} 的路径。
  */
 @Environment(EnvType.CLIENT)
+//#if MC >= 26.2
 @Mixin(Gui.class)
+//#else
+//$$ @Mixin(Minecraft.class)
+//#endif
 public abstract class GuiScreenEvents implements GuiScreenAccess {
 
     @Unique
@@ -65,7 +71,11 @@ public abstract class GuiScreenEvents implements GuiScreenAccess {
             at =
                     @At(
                             value = "FIELD",
+                            //#if MC >= 26.2
                             target = "Lnet/minecraft/client/gui/Gui;screen:Lnet/minecraft/client/gui/screens/Screen;",
+                            //#else
+                            //$$ target = "Lnet/minecraft/client/Minecraft;screen:Lnet/minecraft/client/gui/screens/Screen;",
+                            //#endif
                             ordinal = 2,
                             shift = At.Shift.AFTER),
             cancellable = true)

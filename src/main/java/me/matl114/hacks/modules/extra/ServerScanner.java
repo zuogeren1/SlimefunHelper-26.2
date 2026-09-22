@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.extra;
 
+import me.matl114.utils.ClientUtils;
+
 import com.google.gson.*;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.serialization.JavaOps;
@@ -244,7 +246,7 @@ public class ServerScanner extends BaseModule {
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(300, 30, 100, 20)
                 .setElementHandler(
                         new ButtonElement(TextProvider.of(Component.literal("Back")), ButtonAction.run(() -> {
-                            if (mc.gui.screen() != null) mc.gui.screen().onClose();
+                            if (ClientUtils.getScreen(mc) != null) ClientUtils.getScreen(mc).onClose();
                         }))));
 
         return subScreenWidget;
@@ -793,7 +795,7 @@ public class ServerScanner extends BaseModule {
     }
 
     private void connect(ServerData serverInfo) {
-        Screen screen = mc.gui.screen();
+        Screen screen = ClientUtils.getScreen(mc);
         if (screen != null) {
             ConnectScreen.startConnecting(
                     screen, mc, ServerAddress.parseString(serverInfo.ip), serverInfo, false, null);

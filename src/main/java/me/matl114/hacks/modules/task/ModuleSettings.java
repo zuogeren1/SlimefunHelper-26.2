@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.task;
 
+import me.matl114.utils.ClientUtils;
+
 import java.util.List;
 import me.matl114.accessors.events.ChatHudAccess;
 import me.matl114.accessors.gui.TextFieldAccess;
@@ -62,7 +64,7 @@ public class ModuleSettings extends BaseModule {
             .build();
 
     public boolean shouldNotExecuteConditionHotkey() {
-        if (mc.gui.screen() != null) {
+        if (ClientUtils.getScreen(mc) != null) {
             if (hotkeyPolicy.getValue() == HotkeyPolicy.RUN_IN_ALL_SCREEN) {
                 return false;
             }
@@ -74,7 +76,7 @@ public class ModuleSettings extends BaseModule {
                     return true;
                 }
                 case WHEN_NO_INPUT_SCREEN: {
-                    var focused = mc.gui.screen().getFocused();
+                    var focused = ClientUtils.getScreen(mc).getFocused();
                     if (focused instanceof TextFieldAccess) {
                         return true;
                     }
@@ -104,7 +106,7 @@ public class ModuleSettings extends BaseModule {
         if (checkNull()) return;
         if (moduleToggleNotify.get()) {
             StringFormat format = result ? moduleOnNotifyFormat.get() : moduleOffNotify.get();
-            ChatHudAccess access = ChatHudAccess.of(mc.gui.hud.chat);
+            ChatHudAccess access = ChatHudAccess.of(ClientUtils.getChat(mc));
             String uniqueId = TOGGLE_UNIQUE_ID + message;
             if (moduleToggleCompress.get()) {
                 access.clearUniqueMessages(uniqueId);

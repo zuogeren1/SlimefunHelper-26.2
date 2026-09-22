@@ -31,10 +31,10 @@ public class Debug {
         if (Minecraft.getInstance().player != null) {
             // do not log async
             if (Minecraft.getInstance().isSameThread()) {
-                Minecraft.getInstance().gui.hud.chat.addClientSystemMessage(text);
+                ClientUtils.getChat().addClientSystemMessage(text);
             } else {
                 Minecraft.getInstance().execute(() -> {
-                    Minecraft.getInstance().gui.hud.chat.addClientSystemMessage(text);
+                    ClientUtils.getChat().addClientSystemMessage(text);
                 });
             }
         } else {

@@ -1,0 +1,205 @@
+final int mcVersion = project.mcVersion
+final boolean unobfuscated = mcVersion >= 26_00_00
+
+apply plugin: 'maven-publish'
+apply plugin: unobfuscated ? 'net.fabricmc.fabric-loom' : 'net.fabricmc.fabric-loom-remap'
+apply plugin: 'com.replaymod.preprocess'
+apply plugin: 'com.gradleup.shadow'
+
+// 产物命名沿用本项目既有约定：<名称>-<MC版本>-<mod版本>.jar
+// （模板默认是 <名称>-<mod版本>-mc<MC版本>，这里按本项目的习惯调过）
+base {
+	archivesName = project.archives_base_name + '-' + project.minecraft_version
+}
+version = project.mod_version
+group = project.maven_group
+
+repositories {
+	gradlePluginPortal()
+	mavenLocal()
+	mavenCentral()
+	maven {
+		url 'https://maven.aliyun.com/nexus/content/groups/public'
+	}
+	maven {
+		url 'https://repository.hanbings.io/proxy'
+	}
+	maven {
+		url 'https://jitpack.io'
+	}
+	maven {
+		url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots'
+	}
+	maven {
+		url "https://maven.meteordev.org/snapshots"
+	}
+	maven {
+		url = "https://maven.meteordev.org/releases"
+	}
+}
+
+loom {
+	// 每个 MC 版本一份 access widener，放在 versions/<mc版本>/ 下
+	accessWidenerPath = file("overrideList.accesswidener")
+
+	runConfigs.configureEach {
+		ideConfigGenerated = true
+		// 每个版本独立运行目录：run/<mc版本>/（与原来两条分支时的布局一致）
+		runDir "../../run/${project.minecraft_version}"
+	}
+}
+
+// src/stubs/java 里是第三方 mod 的空桩（jsmacros / viaversion / litematica / sodium / xaero ...），
+// 让那些可选前置的 hook 能编译。它们**不能**放进主源集（会打进产物、运行时遮蔽真类），
+// 所以原来用一个独立的 stubs 源集。
+//
+// 多版本改造后不能再用源集：预处理器会给每个源集注册 preprocessXxxCode 任务，
+// 而它会在配置阶段去解析**另一个工程**的 stubsCompileClasspath，于是报
+//   "Resolution of the configuration ':26.2:stubsCompileClasspath' was attempted
+//    without an exclusive lock"
+// （用 files({...}) 惰性包装也一样，因为解析是插件主动发起的）。
+// 改为注册一个独立的 JavaCompile 任务：既保持不进产物，又完全绕开预处理器。
+def compileStubs = tasks.register('compileStubs', JavaCompile) {
+	source = rootProject.fileTree('src/stubs/java')
+	classpath = files({ configurations.runtimeClasspath })
+	destinationDirectory = layout.buildDirectory.dir('classes/java/stubs')
+	options.release = 25
+	options.encoding = 'UTF-8'
+}
+// 注意：这里必须用 compileStubs.map { ... } 这种**从任务映射出来**的 Provider。
+// 直接写 layout.buildDirectory.dir('classes/java/stubs') 虽然路径一样，但它与
+// compileStubs 任务没有任何关联，Gradle 不会先跑那个任务 —— 结果是编译时
+// 桩目录还不存在，冒出几百个“程序包 xaero/viaversion/xaeroplus 不存在”的假错误。
+def stubsClasses = compileStubs.map { it.destinationDirectory }
+
+fabricApi {
+	configureDataGeneration()
+}
+
+configurations {
+	runtimeClasspath.extendsFrom implementation
+	// 打进产物的依赖集合：只取 api 声明的库（houbb / netty-handler-proxy / snakeyaml）。
+	// 不能直接用 runtimeClasspath —— 里面还有 dev-only 的 baritone（localRuntime），
+	// 它是独立 mod，打进来会与正式安装的 baritone 冲突（此前产物里混进 453 个 baritone 类）。
+	shade {
+		canBeConsumed = false
+	}
+}
+configurations.shade.extendsFrom configurations.api
+
+dependencies {
+	minecraft("com.mojang:minecraft:${project.minecraft_version}") {
+		transitive = false
+	}
+	// 26.1 起 Minecraft 官方 jar 不再混淆，无需任何 mappings 声明
+	// 新版 Loom 不再 remap，modImplementation / modCompileOnly 已移除，改用标准 configuration
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// baritone 是可选前置（compileOnly），但本项目有 7 个 baritone mixin，
+	// 只有它真的在类路径上，才能验证 ElytraBehaviour / ElytraProcess 等 hook 的注入是否成立。
+	// 每个 MC 版本对应不同的 baritone 构建，用 versions/<mc版本>/gradle.properties 里的 baritone_jar 指定。
+	compileOnly files(rootProject.file(project.baritone_jar))
+	localRuntime files(rootProject.file(project.baritone_jar))
+
+	compileOnly "meteordevelopment:meteor-client:${project.meteor_version}"
+
+	// bridge：第三方 mod 的空桩（见上面 compileStubs 任务的说明）
+	compileOnly files(stubsClasses)
+
+	// api
+	api 'com.github.houbb:pinyin:0.4.0'  // 拼音
+	api 'io.netty:netty-handler-proxy:4.1.97.Final' // proxy
+	api 'org.yaml:snakeyaml:1.30' // yml
+
+	// annotations
+	compileOnly 'org.projectlombok:lombok:1.18.48'
+	compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+	annotationProcessor 'org.projectlombok:lombok:1.18.48'
+}
+
+shadowJar {
+	minimize()
+	archiveFileName = "${project.archives_base_name}-${project.minecraft_version}-${project.mod_version}.jar"
+	configurations = [project.configurations.shade]
+	dependencies {
+		include dependency('com.github.houbb:.*')
+		include dependency('io.netty:netty-handler.*:.*')
+		include dependency('io.netty:netty-codec.*:.*')
+		include dependency('org.yaml:snakeyaml:.*')
+		exclude "mappings/mappings.tiny"
+	}
+}
+
+// 移植删掉 remapJar 时，原先的 shadowJar -> finalizedBy(remapJar) 链路一并消失了，
+// shadowJar 不再被任何任务触发；而它与普通 jar 的产物同名，最终 build/libs 里留下的是
+// 精简包（只有模组自身类）。开发环境依赖来自 Gradle classpath 所以看不出问题，
+// 生产环境（启动器安装 jar）没有 snakeyaml / netty / houbb，启动即
+// NoClassDefFoundError: org/yaml/snakeyaml/Yaml。
+// 显式把 shadowJar 接回构建流程，并给普通 jar 加 classifier 避免同名互相覆盖。
+tasks.named('assemble') { dependsOn tasks.named('shadowJar') }
+
+processResources {
+	inputs.property "version", project.mod_version
+	inputs.property "minecraft_version", project.minecraft_version
+
+	// access widener 每版本一份放在 versions/<mc版本>/ 下（Loom 编译期用 loom.accessWidenerPath 读它），
+	// 这里再把它放进 jar 根目录 —— fabric.mod.json 的 accessWidener 字段指的就是这个名字，
+	// 运行期由 Fabric Loader 从 jar 里读。
+	from(file("overrideList.accesswidener"))
+
+	filesMatching("fabric.mod.json") {
+		expand(
+				"version": project.mod_version,
+				"minecraft_version": project.minecraft_version
+		)
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	options.encoding = "UTF-8"
+	options.annotationProcessorPath = configurations.annotationProcessor
+	// javac 默认只报前 100 条错误，多版本适配时会把后面的差异挡住，看不到全貌
+	options.compilerArgs << "-Xmaxerrs" << "10000"
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// Gradle 9 会校验任务之间的隐式依赖：sourcesJar 读的是预处理产物里的 resources，
+// 不显式声明就会报 "uses this output of task ':xx:preprocessResources' without
+// declaring an explicit or implicit dependency"。
+tasks.named('sourcesJar') {
+	dependsOn tasks.matching { it.name.startsWith('preprocess') }
+}
+
+jar {
+	// 正式产物是 shadowJar 打出的 fat jar（同名），普通 jar 改名为 -thin 避免覆盖
+	archiveClassifier = 'thin'
+
+	from(rootProject.file("LICENSE")) {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+}
+
+tasks.named("runClient", JavaExec) {
+	jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:-OmitStackTraceInFastThrow",
+			"-Dmixin.debug.export=true",
+			"-Xmx6G", "-Xms3G")
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			artifactId = project.archives_base_name
+			from components.java
+		}
+	}
+	repositories {
+	}
+}

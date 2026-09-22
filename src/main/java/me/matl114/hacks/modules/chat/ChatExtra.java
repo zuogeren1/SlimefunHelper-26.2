@@ -1,5 +1,7 @@
 package me.matl114.hacks.modules.chat;
 
+import me.matl114.utils.ClientUtils;
+
 import com.google.common.hash.Hashing;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -185,7 +187,7 @@ public class ChatExtra extends BaseModule {
             // ignore two default input
             if (!chatInput.isEmpty() && !Objects.equals("/", chatInput)) {
                 if (mc.gui != null) {
-                    mc.gui.hud.chat.addRecentChat(chatInput);
+                    ClientUtils.getChat(mc).addRecentChat(chatInput);
                 }
             }
         }
