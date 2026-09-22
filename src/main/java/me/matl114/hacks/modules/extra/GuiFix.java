@@ -116,12 +116,59 @@ public class GuiFix extends BaseModule {
         }
     }
 
+    /** SFH 自己固定在顶栏左侧的 Scanner 按钮占位，要和 ServerScanner 里的 (0, 5, 50, 20) 保持一致 */
+    private static final int SCANNER_X = 0;
+
+    private static final int SCANNER_Y = 5;
+    private static final int SCANNER_W = 50;
+    private static final int SCANNER_H = 20;
+
+    /** 挪开之后留出的间隙 */
+    private static final int RELOCATE_GAP = 4;
+
+    /** AuthMe 的登录按钮所在包（可选前置，不能直接引用它的类） */
+    private static final String AUTHME_PACKAGE = "me.axieum.mcmod.authme.";
+
+    /**
+     * 把压在 Scanner 上的第三方按钮挪到 Scanner 右侧同一行。
+     *
+     * <p>目前已知的是 AuthMe 的登录按钮：它默认落在 (6, 6) 上，而 Scanner 占了 (0, 5) 起 50x20，
+     * 于是它被盖住、点不到。
+     *
+     * <p>两个注意点：
+     * <ul>
+     *   <li>它的位置来自 AuthMe 自己的配置（authme.jsonc 的 authButton.x/y）而且**可以拖动**，
+     *       所以这里只在真的重叠时才挪 —— 用户自己拖到别处的位置不去动它
+     *   <li>必须在 {@link #onResize} **之前**做：那个函数按右边缘降序、从右往左紧凑排列，
+     *       先把目标放到 Scanner 右边（右边缘更大）就会被当成"已经摆好"而不被再动
+     * </ul>
+     */
+    private void relocateOverlappingTopButtons(JoinMultiplayerScreen screen) {
+        int scannerRight = SCANNER_X + SCANNER_W;
+        for (GuiEventListener child : screen.children()) {
+            if (!child.getClass().getName().startsWith(AUTHME_PACKAGE)) {
+                continue;
+            }
+            if (!(child instanceof LayoutElement element)) {
+                continue;
+            }
+            boolean overlapX = element.getX() < scannerRight && element.getX() + element.getWidth() > SCANNER_X;
+            boolean overlapY =
+                    element.getY() < SCANNER_Y + SCANNER_H && element.getY() + element.getHeight() > SCANNER_Y;
+            if (overlapX && overlapY) {
+                element.setX(scannerRight + RELOCATE_GAP);
+            }
+        }
+    }
+
     public void onServerListMenuRelocateButtons(Event<JoinMultiplayerScreen> screenEvent) {
         if (optimizeServerScreen.get()) {
             var screen = screenEvent.context;
             // reschedule top buttons
 
             try {
+                // 先把压在 Scanner 上的第三方按钮挪开，再走下面的通用重排
+                relocateOverlappingTopButtons(screen);
                 // filter title, only buttons
                 List<LayoutElement> widgets = screen.children().stream()
                         .filter(s -> s instanceof LayoutElement
