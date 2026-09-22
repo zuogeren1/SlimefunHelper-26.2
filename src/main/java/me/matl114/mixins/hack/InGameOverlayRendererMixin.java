@@ -18,7 +18,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class InGameOverlayRendererMixin {
     // 26.2 起渲染改为"提交节点"模式：
     // renderTex/renderWater/renderFire (MultiBufferSource) -> submitBlockSprite/submitWater/submitFire
-    // (SubmitNodeCollector)
+    // (SubmitNodeCollector)。renderTex 在 26.1.2 还少一个 int color 参数 ——
+    // 所以不仅 method 名要分版本，handler 的参数表也得跟着分。
+    // MultiBufferSource 只在 26.1.2 存在（26.2 已删除），所以那一行不写 import、
+    // 直接用全限定名；它在 26.2 视图里本来就是 //$$ 注释，不影响编译。
     //#if MC >= 26.2
     @Inject(method = "submitBlockSprite", at = @At("HEAD"), cancellable = true)
     //#else
@@ -27,8 +30,12 @@ public abstract class InGameOverlayRendererMixin {
     private static void onNoRender0(
             TextureAtlasSprite sprite,
             PoseStack matrices,
+            //#if MC >= 26.2
             SubmitNodeCollector submitNodeCollector,
             int color,
+            //#else
+            //$$ net.minecraft.client.renderer.MultiBufferSource bufferSource,
+            //#endif
             CallbackInfo ci) {
         if (NoRender.INSTANCE.noWallOverlay()) {
             ci.cancel();
@@ -41,7 +48,14 @@ public abstract class InGameOverlayRendererMixin {
     //$$ @Inject(method = "renderWater", at = @At("HEAD"), cancellable = true)
     //#endif
     private static void onNoRender1(
-            Minecraft client, PoseStack matrices, SubmitNodeCollector submitNodeCollector, CallbackInfo ci) {
+            Minecraft client,
+            PoseStack matrices,
+            //#if MC >= 26.2
+            SubmitNodeCollector submitNodeCollector,
+            //#else
+            //$$ net.minecraft.client.renderer.MultiBufferSource bufferSource,
+            //#endif
+            CallbackInfo ci) {
         if (NoRender.INSTANCE.noLiquidOverlay()) {
             ci.cancel();
         }
@@ -53,7 +67,14 @@ public abstract class InGameOverlayRendererMixin {
     //$$ @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
     //#endif
     private static void onNoRender2(
-            PoseStack matrices, SubmitNodeCollector submitNodeCollector, TextureAtlasSprite sprite, CallbackInfo ci) {
+            PoseStack matrices,
+            //#if MC >= 26.2
+            SubmitNodeCollector submitNodeCollector,
+            //#else
+            //$$ net.minecraft.client.renderer.MultiBufferSource bufferSource,
+            //#endif
+            TextureAtlasSprite sprite,
+            CallbackInfo ci) {
         if (NoRender.INSTANCE.noFireOverlay()) {
             ci.cancel();
         }

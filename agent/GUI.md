@@ -56,8 +56,8 @@ list.addTo(screen);
 - 自动处理坐标缩放和事件转发
 
 |||java
-ContentDelegateWidget<ButtonWidget> wrapper = new ContentDelegateWidget<>(10, 10, 100, 20);
-wrapper.setContentDelegate(ButtonWidget.builder(Text.literal("Click"), button -> {}).build());
+ContentDelegateWidget<Button> wrapper = new ContentDelegateWidget<>(10, 10, 100, 20);
+wrapper.setContentDelegate(Button.builder(Component.literal("Click"), button -> {}).build());
 |||
 
 ### `DelegateWidget`
@@ -96,8 +96,8 @@ return true;
 内置工厂方法：
 - `ofMatchingElement(Identifier)` – 根据组件纹理大小自动适配 UV
 - `ofResource(Identifier, float)` – 按固定像素大小绘制
-- `ofScrollableText(Text, int)` – 可滚动文本（长文本自动滚动）
-- `ofAutoScaleText(Text, int)` – 自动缩放文本以适配组件大小
+- `ofScrollableText(Component, int)` – 可滚动文本（长文本自动滚动）
+- `ofAutoScaleText(Component, int)` – 自动缩放文本以适配组件大小
 - `ofSingleItem(Supplier<ItemStack>, int, int, boolean)` – 绘制单个物品
 
 |||java
@@ -108,7 +108,7 @@ widget.setRenderHandler(RenderHandler.ofMatchingElement(new Identifier("textures
 工具提示渲染器，继承自 `RenderHandler`，在 `renderExtraAbsoluteCoord` 中根据鼠标悬停显示提示文本。
 
 |||java
-TooltipHandler tip = TooltipHandler.of(List.of(Text.literal("这是一个提示")));
+TooltipHandler tip = TooltipHandler.of(List.of(Component.literal("这是一个提示")));
 widget.setRenderHandler(tip); // 或通过 AbstractElement 组合
 |||
 
@@ -157,7 +157,7 @@ PlateElement plate = PlateElement.catchInteract(); // 拦截点击事件
 显示单行文本，支持缩放和颜色。
 
 |||java
-RawTextElement text = RawTextElement.instance(Text.literal("Hello"))
+RawTextElement text = RawTextElement.instance(Component.literal("Hello"))
 .setColor(Colors.RED)
 .setAlignment(-1);  // -1左对齐, 0居中, 1右对齐
 |||
@@ -184,7 +184,7 @@ icon.setActive(true);
 Minecraft 风格按钮，包含文本标签。
 
 |||java
-ButtonElement btn = new ButtonElement(TextProvider.of(Text.literal("确认")), (e, x, y, b) -> true);
+ButtonElement btn = new ButtonElement(TextProvider.of(Component.literal("确认")), (e, x, y, b) -> true);
 |||
 
 ### `ScrollElement`
@@ -200,7 +200,7 @@ ExecutableWidget btn = ExecutableWidget.instance(10, 10, 80, 20);
 btn.setElementHandler(new AbstractElement() {
 @Override
 public void renderCentered0(DrawableWidget element, VDrawContext context, int mouseX, int mouseY, float delta, float alpha, boolean shouldHighlight) {
-context.drawCenteredTextWithShadow(mc.textRenderer, "Click", 40, 5, 0xFFFFFF);
+context.drawCenteredTextWithShadow(mc.font, "Click", 40, 5, 0xFFFFFF);
 }
 @Override
 public boolean onClick(ExecutableWidget element, double mouseX, double mouseY, int button) {
@@ -210,7 +210,7 @@ return true;
 });
 
 SlotElement slot = SlotElement.instance(new ItemStack(Items.EMERALD))
-.withTooltips(TooltipHandler.of(List.of(Text.literal("绿宝石"))));
+.withTooltips(TooltipHandler.of(List.of(Component.literal("绿宝石"))));
 
 panel.addDrawableChild(btn);
 panel.addDrawableChild(slot);

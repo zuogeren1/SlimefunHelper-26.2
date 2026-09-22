@@ -24,6 +24,10 @@ public abstract class WorldRendererEvents {
      * <p>因此自定义几何的注入点从旧的 {@code renderLevel} RETURN 改到 {@code submitFeatures}
      * 的 RETURN —— 此时 vanilla 内容已提交完毕，我们追加的几何会与之一起参与排序与渲染，
      * 深度与遮挡关系保持正确。
+     *
+     * <p>26.1.2 没有 {@code submitFeatures}，最后一个提交动作是
+     * {@code submitBlockDestroyAnimation(PoseStack, SubmitNodeCollector, LevelRenderState)}，
+     * 因此挂它的 RETURN —— 位置等价。两版参数表不同，所以要分版本写。
      */
     //#if MC >= 26.2
     @Inject(method = "submitFeatures", at = @At("RETURN"))
@@ -31,9 +35,15 @@ public abstract class WorldRendererEvents {
     //$$ @Inject(method = "submitBlockDestroyAnimation", at = @At("RETURN"))
     //#endif
     private void onAfterSubmitFeatures(
+            //#if MC >= 26.2
             LevelRenderState levelRenderState,
             SubmitNodeCollector submitNodeCollector,
             boolean renderOutline,
+            //#else
+            //$$ PoseStack poseStack,
+            //$$ SubmitNodeCollector submitNodeCollector,
+            //$$ LevelRenderState levelRenderState,
+            //#endif
             CallbackInfo ci) {
         CameraRenderState cameraState = levelRenderState.cameraRenderState;
         RenderListener.setWorldModelViewMatrix(new Matrix4f(cameraState.viewRotationMatrix));

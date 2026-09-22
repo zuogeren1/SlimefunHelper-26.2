@@ -17,7 +17,11 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class EntityTypeEvents {
     @WrapOperation(
             method =
+                    //#if MC >= 26.2
                     "create(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/EntitySpawnRequest;)Lnet/minecraft/world/entity/Entity;",
+                    //#else
+                    //$$ "create(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/EntitySpawnReason;)Lnet/minecraft/world/entity/Entity;",
+                    //#endif
             at =
                     @At(
                             value = "INVOKE",

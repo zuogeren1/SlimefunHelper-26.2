@@ -63,7 +63,11 @@ public abstract class MouseEvents {
                     @At(
                             value = "INVOKE",
                             target =
+                                    //#if MC >= 26.2
                                     "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;"))
+                                    //#else
+                                    //$$ "Lnet/minecraft/client/Minecraft;getOverlay()Lnet/minecraft/client/gui/screens/Overlay;"))
+                                    //#endif
     private void onMouseScroll(long handle, double xOffset, double yOffset, CallbackInfo ci) { // 暂时没东西
         if (ClientUtils.getOverlay() == null) {
             if (SimpleInputManager.getInstance().onMouseScroll(xOffset, yOffset)) {
@@ -79,7 +83,11 @@ public abstract class MouseEvents {
                     @At(
                             value = "INVOKE",
                             target =
+                                    //#if MC >= 26.2
                                     "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
+                                    //#else
+                                    //$$ "Lnet/minecraft/client/Minecraft;getOverlay()Lnet/minecraft/client/gui/screens/Overlay;",
+                                    //#endif
                             ordinal = 0,
                             shift = At.Shift.BEFORE))
     private void onMouseClick(
