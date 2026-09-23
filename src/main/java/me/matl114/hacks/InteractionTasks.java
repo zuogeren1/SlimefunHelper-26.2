@@ -18,6 +18,7 @@ import me.matl114.hacks.modules.interact.*;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.utils.*;
@@ -78,6 +79,28 @@ public class InteractionTasks {
     //    public static void placeBlock(int idx, BlockHitResult result){
     //
     //    }
+
+    public static void interactItem(InteractionHand hand, Vec3 rot, boolean realInteract, boolean swingHand) {
+        Vec2 pitchYaw = EntityUtils.rotationToPitchYaw(rot);
+        interactItem(hand, pitchYaw.x, pitchYaw.y, realInteract, swingHand);
+    }
+
+    public static void interactItem(
+            InteractionHand hand, float pitch, float yaw, boolean realInteract, boolean swingHand) {
+        if (realInteract || !ViaFabricPlusHooks.isSupportDupRot()) {
+            Vec2 storePY = new Vec2(mc.player.getXRot(), mc.player.getYRot());
+            EntityUtils.setEntityPitchSafe(mc.player, pitch);
+            PlayerStateManager.setPlayerYawSafe(mc.player, yaw);
+            var actionResult = mc.gameMode.useItem(mc.player, hand);
+            if (swingHand) {
+                InteractUtils.swingHandIfSuccess(actionResult, hand);
+            }
+            mc.player.setXRot(storePY.x);
+            mc.player.setYRot(storePY.y);
+        } else {
+            LegacySnapRotManager.INSTANCE.snapAt(pitch, yaw, false);
+        }
+    }
 
     public static void interactBlock(InteractionHand hand, BlockHitResult result, boolean swing) {
         Vec2 storePY = new Vec2(mc.player.getXRot(), mc.player.getYRot());

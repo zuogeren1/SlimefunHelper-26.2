@@ -114,7 +114,7 @@ public class NoInteract extends BaseModule {
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
         acceptor.accept(WidgetUtils.withCondition(
-                createTitleLabel("widget.block-rotate.yaw-deceive.use-argument", 0, dblank, dx, dy),
+                createTitle("widget.block-rotate.yaw-deceive.use-argument", 0, dblank, dx, dy),
                 correctState::get));
     }
 

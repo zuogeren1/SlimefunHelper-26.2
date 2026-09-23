@@ -262,6 +262,9 @@ public class CombatTasks {
     private static AutoWeb autoWeb;
 
     @Getter
+    private static AntiReplenish antiReplenish;
+
+    @Getter
     private static AnchorAura anchorAura;
 
     @Getter
@@ -305,6 +308,7 @@ public class CombatTasks {
         crystalAura = new CrystalAura().register(m);
         autoWeb = new AutoWeb().register(m);
         anchorAura = new AnchorAura().register(m);
+        antiReplenish = new AntiReplenish().register(m);
         elytraBot = new ElytraBot().register(m);
         // transactionBlocker = new TransactionBlocker().register(m);
     }

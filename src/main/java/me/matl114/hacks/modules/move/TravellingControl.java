@@ -1111,7 +1111,7 @@ public class TravellingControl extends BaseModule implements LegalMovementManage
 
     @Override
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
-        acceptor.accept(createTitleLabel("widget.travelling-control.command", 0, dblank, dx, dy));
+        acceptor.accept(createTitle("widget.travelling-control.command", 0, dblank, dx, dy));
     }
 
     public static TravelInfo travelTask;
