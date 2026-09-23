@@ -37,6 +37,7 @@ import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
@@ -45,6 +46,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerData;
 import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.inventory.MerchantMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.ItemCost;
@@ -90,6 +93,10 @@ public class WorldManager extends BaseModule {
                 this::onVillagerTradeUpdate);
         registerListener(
                 Listener.getBlockUpdateListener().getChannel(Blocks.TRIAL_SPAWNER), this::onTrialSpawnerStateUpdate);
+
+        registerListener(
+                Listener.getServerEntitySpawnListener().getChannel(EntityTypes.ENDER_PEARL),
+                this::onThrownOwnerDataUpdate);
         registerListener(ServerStorage.getServerStorageSave(), this::onSave);
         registerListener(ServerStorage.getServerStorageLoad(), this::onLoad);
     }
@@ -242,6 +249,46 @@ public class WorldManager extends BaseModule {
         }
     }
 
+    public static final String KEY_PEARL_INFO = "slimefunhelper:thrown/owner_info";
+
+    public static final String KEY_PEARL_NAME = "slimefunhelper:owner_info/name";
+
+    public static final String KEY_PEARL_UUID = "slimefunhelper:owner_info/uid";
+
+    public void onThrownOwnerDataUpdate(Event<Entity> data) {
+        if (data.context instanceof Projectile thrown) {
+            getStatus(thrown, true).setUpdateCallback((lv) -> {
+                if (lv instanceof Projectile thrown2 && thrown2.getOwner() instanceof Player pl) {
+                    var bc = getStatus(lv, true);
+                    var sub = NBTUtils.ensurePath(bc.getDataContainer(), KEY_PEARL_INFO);
+                    sub.put(KEY_PEARL_NAME, StringTag.valueOf(pl.getScoreboardName()));
+                    NBTUtils.putValue(sub, KEY_PEARL_UUID, pl.getUUID(), UUIDUtil.CODEC);
+                    bc.markDirty();
+                }
+            });
+        }
+    }
+
+    public UUID getThrownEntityOwner(Projectile thrown) {
+        var status = getStatus(thrown, false);
+        if (status != null) {
+            var uuid = NBTUtils.resolve(status.getDataContainer(), KEY_PEARL_INFO, KEY_PEARL_UUID);
+            if (uuid != null) {
+                return NBTUtils.toValue(uuid, UUIDUtil.CODEC);
+            }
+        }
+        return null;
+    }
+
+    public String getThrownEntityOwnerName(Projectile thrown) {
+        var status = getStatus(thrown, false);
+        return status != null
+                        && NBTUtils.resolve(status.getDataContainer(), KEY_PEARL_INFO, KEY_PEARL_NAME)
+                                instanceof StringTag str
+                ? str.value()
+                : null;
+    }
+
     public OptionalLong getTrialSpawnerCooldownStartTime(BlockEntity be) {
         var container = getStatus(be, false);
         if (container == null) {
@@ -315,8 +362,12 @@ public class WorldManager extends BaseModule {
         }
     }
 
-    public EntityStatus getStatus(LivingEntity entity, boolean create) {
-        if (entity.getHealth() > 0) {
+    private boolean isAlive(Entity entity) {
+        return (!(entity instanceof LivingEntity lv) || lv.getHealth() > 0.0);
+    }
+
+    public EntityStatus getStatus(Entity entity, boolean create) {
+        if (isAlive(entity)) {
             return create
                     ? currentEntities.computeIfAbsent(entity.getUUID(), EntityStatus::new)
                     : currentEntities.get(entity.getUUID());
@@ -414,7 +465,7 @@ public class WorldManager extends BaseModule {
                 .apply(instance, EntityStatus::new));
 
         @Setter
-        public Consumer<LivingEntity> updateCallback;
+        public Consumer<Entity> updateCallback;
 
         public EntityStatus(UUID self, Optional<UUID> owner, long lastUpdatedMs, CompoundTag dataContainer) {
             this.self = self;
