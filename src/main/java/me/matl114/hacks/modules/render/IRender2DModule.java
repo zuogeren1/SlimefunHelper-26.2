@@ -60,7 +60,7 @@ public abstract class IRender2DModule extends BaseModule {
 
     public void onRender(Event<Render2D> event) {
         if (checkNull()) return;
-        if (enable.get() && !event.<Boolean>getArgs(1)) {
+        if (enable.get() && !event.context.hudHidden()) {
             VDrawContext vdraw = event.context.drawContext();
             vdraw.pushMatrix();
             try {
