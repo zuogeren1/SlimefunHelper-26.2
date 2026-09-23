@@ -50,6 +50,10 @@ public class RaycastUtils {
         return re != null && re.getType() != HitResult.Type.MISS;
     }
 
+    public static boolean raycastHitAnyBlockOrEntity(Entity owner, Vec3 from, Vec3 to) {
+        return raycastAnySolidBlock(owner, from, to) || raycastHitAnyEntity(owner, from, to);
+    }
+
     public static EntityHitResult raycastHitEntityExceptPlayerResult(Entity e, Vec3 from, Vec3 to) {
         return ProjectileUtil.getEntityHitResult(
                 e, from, to, new AABB(from, to), es -> !es.isSpectator() && es.isPickable() && es != mc.player, 16384);

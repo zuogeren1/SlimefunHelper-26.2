@@ -70,6 +70,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableObject;
+import me.matl114.utils.RaycastUtils;
 
 public class InteractionTasks {
     public static void init() {}
@@ -315,6 +316,44 @@ public class InteractionTasks {
                 .anyMatch(eye -> eye.subtract(plateCenter).dot(directionVec) > 0);
     }
 
+    public static boolean checkPositionPlace(BlockHitResult hitResult) {
+        if (hitResult.isInside()) {
+            return checkInHead(hitResult.getBlockPos(), mc.player.position());
+        } else {
+            return checkPositionPlace(hitResult.getBlockPos(), hitResult.getDirection(), hitResult.getLocation());
+        }
+    }
+
+    public static BlockHitResult createHitResult(BlockPos pos, Vec3 playerPos) {
+        Vec3 lookVec = Vec3.atCenterOf(pos).subtract(playerPos.add(0, mc.player.getEyeHeight(), 0));
+        Direction dir = Direction.getApproximateNearest(lookVec.x, lookVec.y, lookVec.z).getOpposite();
+        List<Direction> list = new ArrayList<>();
+        list.add(dir);
+        for (var direction : new Direction[] {
+            Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST
+        }) {
+            if (direction != dir) {
+                list.add(direction);
+            }
+        }
+        for (var direction : list) {
+            if (checkInHead(pos, playerPos) || checkPositionPlace(pos, dir, playerPos)) {
+                return new BlockHitResult(Vec3.atCenterOf(pos).relative(direction, 0.5), direction, pos, true);
+            }
+        }
+        return RaycastUtils.createHitResult(pos, dir);
+    }
+
+    public static BlockHitResult createHitResult(BlockPos pos, Direction blockFace) {
+        Vec3 endVec = Vec3.atCenterOf(pos).relative(blockFace, 0.5);
+        return new BlockHitResult(endVec, blockFace, pos, checkInHead(pos, mc.player.position()));
+    }
+
+    public static FlagEntry<BlockHitResult> getInteractEntry(BlockHitResult result) {
+        boolean mayInteract = InteractUtils.isInteractAcceptable(
+                mc.level, mc.player, result.getBlockPos(), mc.level.getBlockState(result.getBlockPos()));
+        return new FlagEntry<>(mayInteract, result);
+    }
     public static boolean checkInteractRange(BlockPos interactBlockPos, Vec3 playerPos, double range) {
         return interactExtra.isWithinInteractRange(playerPos, interactBlockPos, range);
     }
