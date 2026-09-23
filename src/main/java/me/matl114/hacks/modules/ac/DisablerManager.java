@@ -5,10 +5,12 @@ import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.impl.EventContainer;
+import me.matl114.events.impl.SlotClickAction;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
+import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.ConfigEnum;
@@ -92,8 +94,13 @@ public class DisablerManager extends BaseModule {
                 Integer.MAX_VALUE - 1);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onFlying);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundPongPacket.class), this::onPingPong);
+        registerListener(Listener.getPreClickSlot(), this::onGhostHandSwapBack);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundSetCarriedItemPacket.class),
+                this::onGhostHandSwap,
+                Integer.MAX_VALUE - 1);
     }
-
+    // already fixed ,
     public void onRespawn(Event<ClientboundRespawnPacket> respawn) {
         if (!grimSelfCheckDisabler) {
             grimSelfCheckDisabler = true;
@@ -161,7 +168,7 @@ public class DisablerManager extends BaseModule {
                     if (ViaFabricPlusHooks.isSupportDupRot()) {
                         LegacySnapRotManager.INSTANCE.snapAt(mc.player.getXRot(), mc.player.getYRot(), true);
                     } else {
-                        int selected = InventoryUtils.getSelectedSlot();
+                        int selected = PlayerStateManager.INSTANCE.lastSelectedSlot;
                         int next = selected == 8 ? 7 : 8;
                         Listener.sendPacketNoEvents(new ServerboundSetCarriedItemPacket(next));
                         Listener.sendPacketNoEvents(new ServerboundSetCarriedItemPacket(selected));
@@ -180,7 +187,24 @@ public class DisablerManager extends BaseModule {
         }
         return false;
     }
+    // flush delayPlaceQueue when use Inv_Swap ghost hand
+    public void onGhostHandSwapBack(Event<SlotClickAction> eventSlot) {
+        if (eventSlot.isCancelled()) return;
+        // do not flush on high version because they need to pass the post-flying rotation check
+        if (enable.get()
+                && hasAnyPlaceActionGrimQueue
+                && autoFlushPlaceQueue.get()
+                && ViaFabricPlusHooks.isSupportDupRot()) {
+            flushACPlaceQueue0();
+        }
+    }
 
+    // grim flush its delayPlaceQueue when swap
+    public void onGhostHandSwap(Event<ServerboundSetCarriedItemPacket> event) {
+        if (event.isCancelled()) return;
+        hasAnyPlaceActionGrimQueue = false;
+    }
+    // MultiPlace bypass, fix place before delayQueuePlace flush -> grim flag AirLiquidPlace
     public void onPlace(Event<ServerboundUseItemOnPacket> blockPlace) {
         if (blockPlace.isCancelled()) return;
         BlockHitResult hitResult = blockPlace.context.getHitResult();
@@ -210,7 +234,7 @@ public class DisablerManager extends BaseModule {
         lastCursor = cursor;
         lastPos = blockPos;
     }
-
+    // fix break before delayQueuePlace flush -> grim flag AirLiquidBreak
     public void onBreakAction(Event<ServerboundPlayerActionPacket> eventBreak) {
         if (eventBreak.isCancelled()) return;
         switch (eventBreak.context.getAction()) {

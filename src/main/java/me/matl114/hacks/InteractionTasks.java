@@ -21,6 +21,7 @@ import me.matl114.hacks.utils.entity.LegalMovementManager;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
+import me.matl114.hacks.InvTasks;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import net.minecraft.client.Minecraft;
@@ -1285,6 +1286,10 @@ public class InteractionTasks {
         // 不再有 Action 多态，故此处无需判断 action 类型。
         lastInteractEntity = mc.level.getEntity(packet.entityId);
         lastInteractTimestamp = Tasks.getTick();
+    }
+
+    public static BlockPos predictBlockScreenFrom(Predicate<Block> targetBlock) {
+        return InvTasks.predictScreenFrom(targetBlock);
     }
 
     public static Entity predictScreenFrom(Predicate<Entity> targetBlock) {
