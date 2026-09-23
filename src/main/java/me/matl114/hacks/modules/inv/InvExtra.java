@@ -16,6 +16,7 @@ import me.matl114.hacks.MovTasks;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.utils.HotKeyUtils;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.hooks.ViaProtocols;
 import me.matl114.managers.Configs;
@@ -164,6 +165,19 @@ public class InvExtra extends BaseModule {
         return Runnables.doNothing();
     }
 
+    public Runnable swapItemToHand(int hand, boolean offhand, GhostHandMode mode) {
+        if (offhand) {
+            return swapInventoryIndexToOffhand(hand);
+        }
+        if (hand == 40) {
+            return swapInventoryIndexToHand(40);
+        }
+        return switch (mode) {
+            case INV_SWAP, INV_CLICK -> swapInventoryIndexToHand(hand);
+            case HOT_BAR_ONLY -> swapInventoryHotBar(hand);
+        };
+    }
+
     public Runnable swapInventoryIndexToHand(int hand) {
         int selected = InventoryUtils.getSelectedSlot();
         if (selected != hand) {
@@ -221,6 +235,20 @@ public class InvExtra extends BaseModule {
         } else {
             return null;
         }
+    }
+
+    private Runnable swapInventoryHotBar(int hand) {
+        if (hand < 0 || hand >= 9) return null;
+        int selected = InventoryUtils.getSelectedSlot();
+        if (selected == hand) {
+            return Runnables.doNothing();
+        }
+        PlayerInteractionAccess.of(mc.gameMode).syncSelectedHotbar(hand);
+        syncAttr();
+        return () -> {
+            PlayerInteractionAccess.of(mc.gameMode).syncSelectedHotbar(selected);
+            syncAttr();
+        };
     }
 
     //    public Runnable swapInventoryIndex(int a, int b){
