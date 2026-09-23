@@ -4,6 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Comparator;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render2D;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.RenderTasks;
@@ -214,21 +216,21 @@ public class MineESP extends BaseModule {
         return WorldUtils.calcBlockBreakingDelta(blockState, mc.level, pos, speed);
     }
 
-    public void onRender3D(Event<PoseStack> event) {
+    public void onRender3D(Event<Render3D> event) {
         if (checkNull()) return;
         if (enable.get()) {
-            RenderUtils.startDrawVirtual(event.context);
+            RenderUtils.startDrawVirtual(event.context.stack());
             try {
-                frameRenderer.render3D(event.context);
-                progressRenderer.render3D(event.context);
-                textRenderer.render3D(event.context);
+                frameRenderer.render3D(event.context.stack());
+                progressRenderer.render3D(event.context.stack());
+                textRenderer.render3D(event.context.stack());
             } finally {
-                RenderUtils.stopDrawVirtual(event.context);
+                RenderUtils.stopDrawVirtual(event.context.stack());
             }
         }
     }
 
-    public void onRender2D(Event<VDrawContext> event) {
+    public void onRender2D(Event<Render2D> event) {
         if (checkNull()) return;
         if (!enable.get() || !renderGrid2D.get() || event.<Boolean>getArgs(1)) {
             return;
@@ -246,7 +248,7 @@ public class MineESP extends BaseModule {
         float playerOffsetX = getPlayerCellOffsetX(player);
         float playerOffsetY = getPlayerCellOffsetY(player);
 
-        VDrawContext vdraw = event.context;
+        VDrawContext vdraw = event.context.drawContext();
         vdraw.pushMatrix();
         try {
             vdraw.getMatrices().translate(startX, startY);

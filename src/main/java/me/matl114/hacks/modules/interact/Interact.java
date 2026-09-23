@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -770,7 +771,7 @@ public class Interact extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<PoseStack> event) {
+    public void onRender3D(Event<Render3D> event) {
         if (renderAttackTarget.get() && currentInteractTarget != null) {
             float tickDelta = (Float) event.extraArgs[0];
             AABB currentBox;
@@ -789,7 +790,7 @@ public class Interact extends BaseModule {
             } else {
                 return;
             }
-            RenderUtils.startDrawVirtual(event.context);
+            RenderUtils.startDrawVirtual(event.context.stack());
             try {
                 float dist = (float) currentBox
                         .getCenter()
@@ -797,12 +798,12 @@ public class Interact extends BaseModule {
                         .length();
                 float opacity = Math.min(0.6F, 0.20F + dist * 0.02F);
                 RenderUtils.drawSolidBox(
-                        event.context,
+                        event.context.stack(),
                         currentBox.getMinPosition(),
                         currentBox.getMaxPosition(),
                         ColorUtils.withAlpha(renderAttackColor.get().color(), opacity));
             } finally {
-                RenderUtils.stopDrawVirtual(event.context);
+                RenderUtils.stopDrawVirtual(event.context.stack());
             }
         }
     }

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import me.matl114.SlimefunHelper;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render2D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.gui.presets.single.IIcon;
@@ -273,7 +274,7 @@ public abstract class INameTag extends BaseModule {
         }
     }
 
-    public abstract void onRender(Event<VDrawContext> event);
+    public abstract void onRender(Event<Render2D> event);
 
     protected static final IIcon<MobEffect> statusEffectRenderer =
             RegistryDisplays.getIcon(MobEffect.class);

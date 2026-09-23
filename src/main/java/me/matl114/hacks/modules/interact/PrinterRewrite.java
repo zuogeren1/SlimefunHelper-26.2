@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -641,8 +642,8 @@ public class PrinterRewrite extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> event) {
-        PoseStack stack = event.context();
+    public void onRender(Event<Render3D> event) {
+        PoseStack stack = event.context().stack();
         if (enable.get() && render.get()) {
             RenderUtils.startDrawVirtual(stack);
             try {

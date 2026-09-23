@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import me.matl114.accessors.events.EntityAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.RenderTasks;
@@ -208,7 +209,7 @@ public class ProjectileESP extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> stackE) {
+    public void onRender(Event<Render3D> stackE) {
         if (mc.level == null || mc.player == null) return;
         // no render arrow
         //        var whitelist = getWhitelisted();
@@ -216,10 +217,10 @@ public class ProjectileESP extends BaseModule {
 
         // if(!arrowItem)return;
         if (enable.get()) {
-            var stack = stackE.context;
+            var stack = stackE.context.stack();
             boolean arrowFlag = renderArrow.get();
             boolean fireballFlag = renderFireball.get();
-            float tickDelta = (Float) stackE.getArgs(0);
+            float tickDelta = (Float) stackE.context.partialTicks();
             RenderUtils.startDrawVirtual(stack);
             try {
                 for (var fireball : mc.level.entitiesForRendering()) {

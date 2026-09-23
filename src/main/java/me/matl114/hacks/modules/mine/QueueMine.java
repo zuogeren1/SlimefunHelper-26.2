@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Queue;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -184,13 +185,13 @@ public class QueueMine extends BaseModule {
         return true;
     }
 
-    public void onRender(Event<PoseStack> eventRender) {
+    public void onRender(Event<Render3D> eventRender) {
         if (render.get()) {
-            RenderUtils.startDrawVirtual(eventRender.context);
+            RenderUtils.startDrawVirtual(eventRender.context.stack());
             try {
-                outline.render3D(eventRender.context);
+                outline.render3D(eventRender.context.stack());
             } finally {
-                RenderUtils.stopDrawVirtual(eventRender.context);
+                RenderUtils.stopDrawVirtual(eventRender.context.stack());
             }
         }
     }

@@ -6,6 +6,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.events.EntityAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.MetadataUpdate;
+import me.matl114.events.impl.Render2D;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -242,23 +245,23 @@ public class ItemESP extends BaseModule {
         }
     }
 
-    public void handleItemEntityItemData(Event<SynchedEntityData.DataValue<?>> entryUpdateEvent) {
+    public void handleItemEntityItemData(Event<MetadataUpdate> entryUpdateEvent) {
         if (enableSpecial.get()) {
-            var entry = entryUpdateEvent.context();
+            var entry = entryUpdateEvent.context().metadata();
             if (entry.id() == VDataFlag.ID_ITEM_ITEMSTACK
                     && (entry.value()) instanceof ItemStack stack
-                    && entryUpdateEvent.getArgs(0) instanceof ItemEntity item) {
+                    && entryUpdateEvent.context.entity() instanceof ItemEntity item) {
                 onItemEntity(item, stack);
             }
         }
     }
 
-    public void handleItemFrameItemData(Event<SynchedEntityData.DataValue<?>> entryUpdateEvent) {
+    public void handleItemFrameItemData(Event<MetadataUpdate> entryUpdateEvent) {
         if (enableSpecial.get() && enableFrame.get()) {
-            var entry = entryUpdateEvent.context();
+            var entry = entryUpdateEvent.context().metadata();
             if (entry.id() == VDataFlag.ID_ITEM_FRAME_ITEMSTACK
                     && entry.value() instanceof ItemStack stack
-                    && entryUpdateEvent.getArgs(0) instanceof ItemFrame item) {
+                    && entryUpdateEvent.context.entity() instanceof ItemFrame item) {
                 onItemEntity(item, stack);
             }
         }
@@ -348,9 +351,9 @@ public class ItemESP extends BaseModule {
         }
     }
 
-    public void onRenderEntity3D(Event<PoseStack> event) {
+    public void onRenderEntity3D(Event<Render3D> event) {
         if (enable.get()) {
-            PoseStack stack = event.context();
+            PoseStack stack = event.context().stack();
             RenderUtils.startDrawVirtual(stack);
             try {
                 boxCollector.render3D(stack);
@@ -361,10 +364,10 @@ public class ItemESP extends BaseModule {
         }
     }
 
-    public void onRenderEntity2D(Event<VDrawContext> vdrawEvent) {
+    public void onRenderEntity2D(Event<Render2D> vdrawEvent) {
         if (enable.get()) {
-            // tracerCollector.render2D(vdrawEvent.context);
-            textCollector.render2D(vdrawEvent.context);
+            // tracerCollector.render2D(vdrawEvent.context.drawContext());
+            textCollector.render2D(vdrawEvent.context.drawContext());
         }
     }
 }

@@ -9,6 +9,7 @@ import lombok.With;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.accessors.hacks.EntityInternalAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -202,8 +203,8 @@ public class Attack extends BaseModule {
     private Entity lastTickTarget;
     private int lastTick;
 
-    public void onRenderTarget(Event<PoseStack> stackE) {
-        var stack = stackE.context;
+    public void onRenderTarget(Event<Render3D> stackE) {
+        var stack = stackE.context.stack();
         if (enable.get() && mc.player != null && renderAttackTarget.get()) {
             float tickDelta = (Float) stackE.extraArgs[0];
             if (mc.player.isUsingItem()) {

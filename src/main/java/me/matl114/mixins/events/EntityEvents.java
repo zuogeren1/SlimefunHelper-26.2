@@ -72,12 +72,6 @@ public abstract class EntityEvents<T extends Entity> implements EntityAccess<T> 
         Listener.getEntityMidTickListener().broadcast(entity);
     }
 
-    @Inject(method = "onSyncedDataUpdated(Ljava/util/List;)V", at = @At("HEAD"))
-    public void onEntityDataUpdate(List<SynchedEntityData.DataValue<?>> dataEntries, CallbackInfo ci) {
-        Entity entity = (Entity) (Object) (this);
-        Listener.getEntityDataListener().broadcast(entity, dataEntries);
-    }
-
     @Inject(method = "setRemoved", at = @At("RETURN"))
     public void onEntityRemoved(Entity.RemovalReason reason, CallbackInfo ci) {
         Listener.getEntityRemoveListener().broadcast((Entity) (Object) this, reason);

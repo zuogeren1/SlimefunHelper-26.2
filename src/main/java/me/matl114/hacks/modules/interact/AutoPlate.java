@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.List;
 import java.util.stream.IntStream;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -239,13 +240,13 @@ public class AutoPlate extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<PoseStack> eventVDraw) {
+    public void onRender3D(Event<Render3D> eventVDraw) {
         if (enable.get() && render.get()) {
-            RenderUtils.startDrawVirtual(eventVDraw.context);
+            RenderUtils.startDrawVirtual(eventVDraw.context.stack());
             try {
-                drawOutlines.render3D(eventVDraw.context);
+                drawOutlines.render3D(eventVDraw.context.stack());
             } finally {
-                RenderUtils.stopDrawVirtual(eventVDraw.context);
+                RenderUtils.stopDrawVirtual(eventVDraw.context.stack());
             }
         }
     }

@@ -17,6 +17,7 @@ import me.matl114.events.annotations.*;
 import me.matl114.events.catchers.AbstractTypedPacketCatcher;
 import me.matl114.events.catchers.PacketCatcher;
 import me.matl114.events.channels.EventChannel;
+import me.matl114.events.impl.MetadataUpdate;
 import me.matl114.events.channels.EventChannelDispatcher;
 import me.matl114.events.channels.PacketEventChannel;
 import me.matl114.events.impl.*;
@@ -512,9 +513,8 @@ public class Listener {
     @Modifiable
     @ApiStatus.Experimental
     @Dispatch(by = "Entity.getType")
-    @ExtraArgs({Entity.class})
-    private static final EventChannelDispatcher<SynchedEntityData.DataValue<?>> entityTrackDataUpdate =
-            new EventChannelDispatcher<>(e -> e.<Entity>getArgs(0).getType(), true);
+    private static final EventChannelDispatcher<MetadataUpdate> entityTrackDataUpdate =
+            new EventChannelDispatcher<>(e -> e.context.entity().getType(), true);
 
     @Getter
     @Broadcast
@@ -626,13 +626,6 @@ public class Listener {
     private static final EventChannelDispatcher<Entity> entityPostTickListener =
             new EventChannelDispatcher<>(Entity::getType);
 
-    @Getter
-    @Broadcast
-    @ExtraArgs(
-            value = {List.class},
-            names = {"updatedEntry"})
-    private static final EventChannelDispatcher<Entity> entityDataListener =
-            new EventChannelDispatcher<>(Entity::getType);
 
     @Getter
     @Cancelable
@@ -711,12 +704,10 @@ public class Listener {
     @Getter
     @Cancelable
     @Modifiable
-    @ExtraArgs({InteractionHand.class})
     private static final EventChannel<UseItem> prePlayerUseItem = new EventChannel<>();
 
     @Getter
     @Modifiable
-    @ExtraArgs({InteractionHand.class})
     private static final EventChannel<UseItem> postPlayerUseItem = new EventChannel<>();
 
     @Getter // player interact at block
@@ -726,7 +717,7 @@ public class Listener {
 
     @Getter
     @Broadcast
-    private static final EventChannel<UseItemOnBlock> postPlayerUseItemAtBlock = new EventChannel<>();
+    private static final EventChannel<UseItemOnBlock> postPlayerUseItemOnBlock = new EventChannel<>();
 
     @Getter // player attack at block
     @Cancelable

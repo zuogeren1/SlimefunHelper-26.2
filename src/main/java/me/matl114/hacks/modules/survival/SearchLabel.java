@@ -5,6 +5,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.*;
 import lombok.With;
 import me.matl114.events.Event;
+import me.matl114.events.impl.MetadataUpdate;
 import me.matl114.events.Listener;
 import me.matl114.gui.presets.single.RegistryDisplays;
 import me.matl114.hacks.WorldTasks;
@@ -377,23 +378,23 @@ public class SearchLabel extends BaseModule {
         }
     }
 
-    public void handleItemEntityItemData(Event<SynchedEntityData.DataValue<?>> entryUpdateEvent) {
+    public void handleItemEntityItemData(Event<MetadataUpdate> entryUpdateEvent) {
         if (enable.get() && labelImportantItems.get()) {
-            var entry = entryUpdateEvent.context();
+            var entry = entryUpdateEvent.context().metadata();
             if (entry.id() == VDataFlag.ID_ITEM_ITEMSTACK
                     && (entry.value()) instanceof ItemStack stack
-                    && entryUpdateEvent.getArgs(0) instanceof ItemEntity item) {
+                    && entryUpdateEvent.context.entity() instanceof ItemEntity item) {
                 onItemEntity(item, stack);
             }
         }
     }
 
-    public void handleItemFrameItemData(Event<SynchedEntityData.DataValue<?>> entryUpdateEvent) {
+    public void handleItemFrameItemData(Event<MetadataUpdate> entryUpdateEvent) {
         if (enable.get() && labelImportantItems.get()) {
-            var entry = entryUpdateEvent.context();
+            var entry = entryUpdateEvent.context().metadata();
             if (entry.id() == VDataFlag.ID_ITEM_FRAME_ITEMSTACK
                     && entry.value() instanceof ItemStack stack
-                    && entryUpdateEvent.getArgs(0) instanceof ItemFrame item) {
+                    && entryUpdateEvent.context.entity() instanceof ItemFrame item) {
                 onItemEntity(item, stack);
             }
         }

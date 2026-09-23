@@ -9,6 +9,8 @@ import me.matl114.events.annotations.Cancelable;
 import me.matl114.events.annotations.ExtraArgs;
 import me.matl114.events.annotations.Modifiable;
 import me.matl114.events.channels.EventChannel;
+import me.matl114.events.impl.Render2D;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.model.GuiModel;
 import me.matl114.utils.Debug;
 import me.matl114.versioned.api.VDrawContext;
@@ -93,22 +95,18 @@ public class RenderListener {
     // 在屏幕之上渲染的
     @Getter
     @Broadcast
-    @ExtraArgs(
-            value = {float.class},
-            names = {"ticksDelta"})
-    private static final EventChannel<PoseStack> render3DEvent = new EventChannel<>();
+    private static final EventChannel<Render3D> render3DEvent = new EventChannel<>();
 
     @Getter
     @Broadcast
-    @ExtraArgs(value = {float.class, boolean.class})
-    private static final EventChannel<VDrawContext> render2DEvent = new EventChannel<>();
+    private static final EventChannel<Render2D> render2DEvent = new EventChannel<>();
 
     public static void renderWorldTasks(PoseStack stack, float tickDelta) {
         // GL11.glEnable(GL11.GL_LINE_SMOOTH);
 
         try {
             // This stack start with the position with RenderUtils.getCameraPose();
-            Event<PoseStack> renderEvent = new Event<>(stack, false, false, tickDelta);
+            Event<Render3D> renderEvent = new Event<>(new Render3D(stack, tickDelta), false, false);
 
             render3DEvent.handleValue(renderEvent);
         } catch (ConcurrentModificationException | NullPointerException | ReportedException e) {

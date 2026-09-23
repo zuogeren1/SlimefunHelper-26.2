@@ -5,6 +5,7 @@ import java.awt.*;
 import java.util.HashSet;
 import java.util.Set;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.RenderListener;
@@ -272,18 +273,18 @@ public class BackTrack extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> eventMatrixStack) {
+    public void onRender(Event<Render3D> eventMatrixStack) {
         if (render.get() && shouldDelay && lastTrackingPosition != null && currentTarget != null) {
             AABB boundingBox = currentTarget.dimensions.makeBoundingBox(lastTrackingPosition);
-            RenderUtils.startDrawVirtual(eventMatrixStack.context);
+            RenderUtils.startDrawVirtual(eventMatrixStack.context.stack());
             try {
                 RenderUtils.drawOutlinedBox(
-                        eventMatrixStack.context,
+                        eventMatrixStack.context.stack(),
                         boundingBox.getMinPosition(),
                         boundingBox.getMaxPosition(),
                         Color.ORANGE);
             } finally {
-                RenderUtils.stopDrawVirtual(eventMatrixStack.context);
+                RenderUtils.stopDrawVirtual(eventMatrixStack.context.stack());
             }
         }
     }

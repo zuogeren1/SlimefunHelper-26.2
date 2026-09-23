@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render2D;
 import me.matl114.events.RenderListener;
 import me.matl114.gui.Constants;
 import me.matl114.hacks.api.ModulePath;
@@ -53,12 +54,12 @@ public class NameTag extends INameTag {
 
     public FlagRef hideName;
 
-    public void onRender(Event<VDrawContext> event) {
+    public void onRender(Event<Render2D> event) {
         if (checkNull()) {
             return;
         }
         if (enable.get() && !event.<Boolean>getArgs(1) && nameTagInfos != null) {
-            var stack = event.context;
+            var stack = event.context.drawContext();
             Matrix4f cam = RenderListener.getWorldModelViewMatrix();
             Matrix4f proj = RenderListener.getWorldBasicProjectionMatrix();
             Function<Vec3, Vector2d> projector = RenderUtils.createProjector(cam, proj);

@@ -9,6 +9,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.BiPredicate;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.WorldTasks;
@@ -271,10 +272,10 @@ public class WorldScanner extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> event) {
+    public void onRender(Event<Render3D> event) {
         if (checkNull()) return;
         if (enable.get()) {
-            PoseStack stack = event.context();
+            PoseStack stack = event.context().stack();
             RenderUtils.startDrawVirtual(stack);
             try {
                 boxSolidCollector.render3D(stack);

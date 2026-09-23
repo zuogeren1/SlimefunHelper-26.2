@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render2D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.gui.basic.DrawableWidget;
@@ -183,13 +184,13 @@ public class BlockFarm extends BaseModule {
         }
     }
 
-    public void onRender2D(Event<VDrawContext> vdraw) {
+    public void onRender2D(Event<Render2D> vdraw) {
         if (enable.get() && render.get()) {
-            vdraw.context.pushMatrix();
+            vdraw.context.drawContext().pushMatrix();
             try {
-                textRenderer.render2D(vdraw.context);
+                textRenderer.render2D(vdraw.context.drawContext());
             } finally {
-                vdraw.context.popMatrix();
+                vdraw.context.drawContext().popMatrix();
             }
         }
     }

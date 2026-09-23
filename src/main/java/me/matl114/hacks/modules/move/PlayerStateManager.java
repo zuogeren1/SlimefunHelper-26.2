@@ -10,6 +10,7 @@ import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.accessors.access.PlayerMoveC2SPacketAccess;
 import me.matl114.accessors.interfaces.MetadataHolder;
 import me.matl114.events.CombatListener;
+import me.matl114.events.impl.MetadataUpdate;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.events.impl.CombatPlayer;
@@ -859,10 +860,10 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onEntityTrackedDataUpdate(Event<SynchedEntityData.DataValue<?>> eventDataUpdate) {
-        if (eventDataUpdate.getArgs(0) instanceof Player pl) {
-            if (eventDataUpdate.context.id() == VDataFlag.ID_POTION_SWIRLS
-                    && eventDataUpdate.context.value() instanceof List<?> lst) {
+    public void onEntityTrackedDataUpdate(Event<MetadataUpdate> eventDataUpdate) {
+        if (eventDataUpdate.context.entity() instanceof Player pl) {
+            if (eventDataUpdate.context.metadata().id() == VDataFlag.ID_POTION_SWIRLS
+                    && eventDataUpdate.context.metadata().value() instanceof List<?> lst) {
                 // update visible effect list
                 List<ParticleOptions> particles = (List<ParticleOptions>) lst;
                 PlayerStatus status = getOrCreateStatus(pl);
@@ -884,8 +885,8 @@ public class PlayerStateManager extends BaseModule {
                 for (var re : keys) {
                     status.visibleStatusEffects.remove(re);
                 }
-            } else if (eventDataUpdate.context.id() == VDataFlag.ID_LIVING_FLAGS
-                    && eventDataUpdate.context.value() instanceof Number lst) {
+            } else if (eventDataUpdate.context.metadata().id() == VDataFlag.ID_LIVING_FLAGS
+                    && eventDataUpdate.context.metadata().value() instanceof Number lst) {
                 byte byteValue = lst.byteValue();
                 PlayerStatus status = getOrCreateStatus(pl);
                 boolean useItem = (byteValue & VDataFlag.USING_ITEM_FLAG_INDEX) > 0;

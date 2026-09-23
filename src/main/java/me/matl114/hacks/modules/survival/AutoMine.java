@@ -13,6 +13,7 @@ import java.util.function.Supplier;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.MineTasks;
@@ -193,7 +194,7 @@ public class AutoMine extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> event) {
+    public void onRender(Event<Render3D> event) {
         if (enable.get() && mode.get() == Mode.BATCH) {
             pathingSchedular.renderPathing(event);
         }

@@ -1,6 +1,7 @@
 package me.matl114.mixins.events;
 
 import me.matl114.events.RenderListener;
+import me.matl114.events.impl.Render2D;
 import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -34,13 +35,13 @@ public abstract class InGameHudEvents {
         vdraw.pushMatrix();
         try {
             RenderListener.getRender2DEvent()
-                    .broadcast(
+                    .broadcast(new Render2D(
                             vdraw,
                             tickCounter.getGameTimeDeltaPartialTick(false),
 //#if MC >= 260200
-                            minecraft.gameRenderer.gameRenderState.guiRenderState.isHudHidden);
+                            minecraft.gameRenderer.gameRenderState.guiRenderState.isHudHidden));
 //#else
-//$$                             minecraft.gameRenderer.gameRenderState.optionsRenderState.hideGui);
+//$$                             minecraft.gameRenderer.gameRenderState.optionsRenderState.hideGui));
 //#endif
         } finally {
             vdraw.popMatrix();

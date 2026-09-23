@@ -142,7 +142,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
         InteractionResult acc = actionResult.getValue();
         Event<UseItemOnBlock> eventResult =
                 new Event<>(new UseItemOnBlock(hitResult, acc, placeBlock.getValue(), hand), false, true);
-        Listener.getPostPlayerUseItemAtBlock().handleValue(eventResult);
+        Listener.getPostPlayerUseItemOnBlock().handleValue(eventResult);
         actionResult.setValue(eventResult.context.actionResult());
     }
 

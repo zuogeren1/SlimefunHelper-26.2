@@ -5,6 +5,8 @@ import java.util.*;
 import lombok.AllArgsConstructor;
 import me.matl114.commands.MainCommand;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render2D;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -389,21 +391,21 @@ public class EntityLog extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> eventMatrixStack) {
+    public void onRender(Event<Render3D> eventMatrixStack) {
         if (enable.get() && renderLogPosition.get()) {
-            RenderUtils.startDrawVirtual(eventMatrixStack.context);
+            RenderUtils.startDrawVirtual(eventMatrixStack.context.stack());
             try {
-                boxing.render3D(eventMatrixStack.context);
-                tracing.render3D(eventMatrixStack.context);
+                boxing.render3D(eventMatrixStack.context.stack());
+                tracing.render3D(eventMatrixStack.context.stack());
             } finally {
-                RenderUtils.stopDrawVirtual(eventMatrixStack.context);
+                RenderUtils.stopDrawVirtual(eventMatrixStack.context.stack());
             }
         }
     }
 
-    public void onRender2D(Event<VDrawContext> eventVDraw) {
+    public void onRender2D(Event<Render2D> eventVDraw) {
         if (enable.get() && renderLogPosition.get()) {
-            texting.render2D(eventVDraw.context);
+            texting.render2D(eventVDraw.context.drawContext());
         }
     }
 

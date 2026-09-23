@@ -14,6 +14,7 @@ import lombok.experimental.Accessors;
 import me.matl114.accessors.access.ChunkAccess;
 import me.matl114.accessors.interfaces.TileInventory;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.hacks.modules.interact.Interact;
 import me.matl114.hacks.modules.interact.InteractExtra;
 import me.matl114.hacks.modules.inv.ChestHistory;
@@ -861,15 +862,15 @@ public class PathingSchedular {
         }
     }
 
-    public void renderPathing(Event<PoseStack> event) {
+    public void renderPathing(Event<Render3D> event) {
         if (!SchedularSettings.INSTANCE.enableRender.get()) {
             return;
         }
-        RenderUtils.startDrawVirtual(event.context);
+        RenderUtils.startDrawVirtual(event.context.stack());
         try {
-            renderCollector.render3D(event.context);
+            renderCollector.render3D(event.context.stack());
         } finally {
-            RenderUtils.stopDrawVirtual(event.context);
+            RenderUtils.stopDrawVirtual(event.context.stack());
         }
     }
 

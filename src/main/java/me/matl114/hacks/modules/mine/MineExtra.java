@@ -8,6 +8,7 @@ import me.matl114.accessors.access.PlayerMoveC2SPacketAccess;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
 import me.matl114.events.*;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.impl.EventContainer;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
@@ -620,10 +621,10 @@ public class MineExtra extends BaseModule {
         return true;
     }
 
-    public void onRender(Event<PoseStack> renderEvent) {
+    public void onRender(Event<Render3D> renderEvent) {
         if (mineRender.get()) {
 
-            RenderUtils.startDrawVirtual(renderEvent.context);
+            RenderUtils.startDrawVirtual(renderEvent.context.stack());
             try {
                 if (mc.gameMode != null && mc.player != null && mc.level != null) {
                     BlockPos blockPos = PlayerInteractionAccess.of(mc.gameMode).getCurrentMiningPos();
@@ -631,7 +632,7 @@ public class MineExtra extends BaseModule {
                     // 超过200格的不渲染
                     if (mc.player.position().distanceToSqr(pos) < 40000 && shouldRenderMine()) {
                         RenderUtils.drawOutlinedBox(
-                                renderEvent.context,
+                                renderEvent.context.stack(),
                                 pos,
                                 pos.add(1.0, 1.0, 1.0),
                                 ColorUtils.withAlpha(frameColor.get().color(), 1.0F));
@@ -653,7 +654,7 @@ public class MineExtra extends BaseModule {
                             Vec3 vec3d = pos.add(box.getCenter());
                             float clamped = Mth.clamp(progress, 0.0F, 1.0F);
                             RenderUtils.drawSolidBox(
-                                    renderEvent.context,
+                                    renderEvent.context.stack(),
                                     vec3d.add(vec3.scale(-clamped)),
                                     vec3d.add(vec3.scale(clamped)),
                                     ColorUtils.withAlpha(progressColor.get().color(), 0.25F));
@@ -669,7 +670,7 @@ public class MineExtra extends BaseModule {
                             float progressFail =
                                     PlayerInteractionAccess.of(mc.gameMode).getFailBreakMiningProgress();
                             RenderUtils.drawOutlinedBox(
-                                    renderEvent.context,
+                                    renderEvent.context.stack(),
                                     doubleMineVec,
                                     doubleMineVec.add(1.0, 1.0, 1.0),
                                     ColorUtils.withAlpha(doubleBreakColor.get().color(), 1.0F));
@@ -689,7 +690,7 @@ public class MineExtra extends BaseModule {
                                 Vec3 vec3d = doubleMineVec.add(box.getCenter());
                                 float clamped = Mth.clamp(progressFail, 0.0F, 1.0F);
                                 RenderUtils.drawSolidBox(
-                                        renderEvent.context,
+                                        renderEvent.context.stack(),
                                         vec3d.add(vec3.scale(-clamped)),
                                         vec3d.add(vec3.scale(clamped)),
                                         ColorUtils.withAlpha(progressColor.get().color(), 0.25F));
@@ -698,7 +699,7 @@ public class MineExtra extends BaseModule {
                     }
                 }
             } finally {
-                RenderUtils.stopDrawVirtual(renderEvent.context);
+                RenderUtils.stopDrawVirtual(renderEvent.context.stack());
             }
         }
     }

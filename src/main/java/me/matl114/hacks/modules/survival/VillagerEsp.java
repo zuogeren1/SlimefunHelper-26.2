@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -95,15 +96,15 @@ public class VillagerEsp extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<PoseStack> event) {
+    public void onRender3D(Event<Render3D> event) {
         if (!enable.get()) {
             return;
         }
-        RenderUtils.startDrawVirtual(event.context());
+        RenderUtils.startDrawVirtual(event.context().stack());
         try {
-            textCollector.render3D(event.context());
+            textCollector.render3D(event.context().stack());
         } finally {
-            RenderUtils.stopDrawVirtual(event.context());
+            RenderUtils.stopDrawVirtual(event.context().stack());
         }
     }
 
