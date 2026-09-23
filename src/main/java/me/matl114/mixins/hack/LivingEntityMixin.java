@@ -7,7 +7,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import me.matl114.accessors.access.LivingEntityAccess;
 import me.matl114.hacks.MovTasks;
 import me.matl114.hacks.modules.move.ElytraExtra;
-import me.matl114.utils.EntityUtils;
+import me.matl114.hacks.utils.EntityUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.player.LocalPlayer;

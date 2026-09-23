@@ -42,6 +42,7 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector2d;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class ProjectileESP extends BaseModule {
     public final ModulePath detectEntity = makePath(Configs.RENDER_CONFIG, "detect-entity");

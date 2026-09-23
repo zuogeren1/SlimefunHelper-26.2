@@ -55,6 +55,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import org.apache.commons.lang3.mutable.MutableInt;
 import me.matl114.managers.config.DoubleRef;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class ChatTasks {
     public static void init() {}

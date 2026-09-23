@@ -61,6 +61,7 @@ import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.stream.Streams;
 import org.joml.Vector2f;
 import org.joml.Vector3d;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class InteractManager extends BaseModule {
     public static InteractManager INSTANCE;

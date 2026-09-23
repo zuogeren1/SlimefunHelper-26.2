@@ -103,6 +103,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector2f;
 import org.joml.Vector3d;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class PlayerStateManager extends BaseModule {
     public static PlayerStateManager INSTANCE;

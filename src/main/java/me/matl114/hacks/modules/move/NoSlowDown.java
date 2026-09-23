@@ -47,6 +47,7 @@ import net.minecraft.world.item.component.UseEffects;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class NoSlowDown extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath moveSpeed = makePath(Configs.MOV_CONFIG, "move-speed");

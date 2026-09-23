@@ -63,6 +63,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class Attack extends BaseModule {
     public static Attack INSTANCE;

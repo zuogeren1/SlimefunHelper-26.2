@@ -71,6 +71,7 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableObject;
 import me.matl114.utils.RaycastUtils;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class InteractionTasks {
     public static void init() {}
