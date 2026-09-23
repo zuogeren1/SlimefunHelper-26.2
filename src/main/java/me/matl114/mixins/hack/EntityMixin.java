@@ -11,6 +11,8 @@ import me.matl114.managers.Tasks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,7 +27,7 @@ public abstract class EntityMixin<T extends Entity> implements EntityAccess<T>, 
     int spawnTicks = Tasks.getTick();
 
     @Inject(method = "<init>", at = @At("RETURN"))
-    private void onInit(CallbackInfo ci) {
+    private void onInit(EntityType<?> type, Level level, CallbackInfo ci) {
         spawnTicks = Tasks.getTick();
     }
 
