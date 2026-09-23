@@ -109,10 +109,9 @@ public class ConnectionProxy extends BaseModule {
                 (v) -> createEditRenderHandler(v, index),
                 30,
                 220);
-        ListModifyWidget listSelect = new ListModifyWidget(controller, 0, 0, 320, 260);
         ConfirmingWidgetScreen confirmScreen = new ConfirmingWidgetScreen(
                 Component.translatable("widget.connection-proxy.proxy-list-editor.title"),
-                listSelect,
+                (screen) -> new ListModifyWidget(controller, 0, 0, 330, screen.getContentHeight()),
                 () -> true,
                 () -> {
                     List<ProxyEntry> newProxies = currentList.stream()

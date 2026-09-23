@@ -20,6 +20,7 @@ import me.matl114.versioned.api.VItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NumericTag;
@@ -29,6 +30,8 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -115,6 +118,12 @@ public class InventoryUtils {
     public static Stream<ItemStack> streamInventory(Container inv) {
         return IntStream.range(0, inv instanceof Inventory pinv ? getPlayerInvSize() : inv.getContainerSize())
                 .mapToObj(inv::getItem);
+    }
+
+    public static boolean isContainer(AbstractContainerMenu handler) {
+        return !(handler instanceof CreativeModeInventoryScreen.ItemPickerMenu)
+                && !(handler instanceof InventoryMenu)
+                && !(handler instanceof CraftingMenu);
     }
 
     public static Container getTopInventory(AbstractContainerScreen<?> screen) {

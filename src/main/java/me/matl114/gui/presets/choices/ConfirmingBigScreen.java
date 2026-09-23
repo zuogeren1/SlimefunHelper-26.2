@@ -29,6 +29,10 @@ public abstract class ConfirmingBigScreen extends GenericBackGroundScreen {
     private static final Component CONFIRM =
             Component.translatable("widget.gui.confirming-big-screen.confirm").withStyle(ChatFormatting.GREEN);
 
+    public int getContentHeight() {
+        return content_end_y - CONTENT_START_Y;
+    }
+
     @Override
     protected void init() {
         super.init();
