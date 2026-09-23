@@ -22,7 +22,6 @@ import me.matl114.hooks.ViaProtocols;
 import me.matl114.managers.Configs;
 import me.matl114.managers.TaskManagers;
 import me.matl114.managers.config.FlagRef;
-import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.KeyCode;
 import me.matl114.managers.input.MultiKeyBind;
@@ -38,7 +37,6 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
@@ -359,6 +357,7 @@ public class InvExtra extends BaseModule {
             ItemStack toStack = toSlotInstance.getItem();
             int maxSize = toStack.getMaxStackSize();
             boolean overStack = fromStack.getCount() + toStack.getCount() > maxSize;
+            ItemStack stackInCursor = handler.getCarried();
             mc.gameMode.handleContainerInput(handler.containerId, from, 0, ContainerInput.PICKUP, mc.player);
             mc.gameMode.handleContainerInput(handler.containerId, to, 0, ContainerInput.PICKUP, mc.player);
             if (overStack) {
@@ -381,10 +380,10 @@ public class InvExtra extends BaseModule {
     }
 
     public boolean onPickItem() {
-        Player player = mc.player;
-        if (player == null) return false;
-        Screen nowScreen = InvTasks.getCurrentServerScreen(player);
-        if (!player.isCreative() && nowScreen instanceof AbstractContainerScreen<?> handled) {
+
+        if (mc.player == null) return false;
+        Screen nowScreen = InvTasks.getCurrentServerScreen(mc.player);
+        if (!mc.player.isCreative() && nowScreen instanceof AbstractContainerScreen<?> handled) {
             Point mouseCoord = ScreenUtils.getMouseCoord(mc);
             Slot slot = HandledScreenAccess.of(handled).reallyGetSlotAt(mouseCoord.x, mouseCoord.y);
             if (slot != null) {
