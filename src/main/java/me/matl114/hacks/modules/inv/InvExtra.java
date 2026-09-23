@@ -176,7 +176,7 @@ public class InvExtra extends BaseModule {
         };
     }
 
-    public Runnable swapInventoryIndexToHand(int hand) {
+    private Runnable swapInventoryIndexToHand(int hand) {
         int selected = InventoryUtils.getSelectedSlot();
         if (selected != hand) {
             //            if (hand < 9) {
@@ -210,7 +210,7 @@ public class InvExtra extends BaseModule {
         return Runnables.doNothing();
     }
 
-    public Runnable swapInventoryIndexToOffhand(int hand) {
+    private Runnable swapInventoryIndexToOffhand(int hand) {
         if (hand == 40) return Runnables.doNothing();
         OptionalInt slotIndex = mc.player.containerMenu.findSlot(mc.player.getInventory(), hand);
         if (slotIndex.isPresent()) {
