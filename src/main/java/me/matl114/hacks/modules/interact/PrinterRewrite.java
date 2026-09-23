@@ -599,7 +599,7 @@ public class PrinterRewrite extends BaseModule {
                     hitResult = InteractionTasks.createSpecificStateHitResult(
                             pos, targetState, airplace.get(), !mode.get().isLegal());
                 } else {
-                    hitResult = new FlagEntry<>(false, RaycastUtils.createHitResult(pos, mc.player.getEyePosition()));
+                    hitResult = new FlagEntry<>(false, InteractionTasks.createHitResult(pos, mc.player.position()));
                 }
                 if (InteractUtils.canInteractAndPlace(mc.player, hitResult)) {
                     Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(re.index());

@@ -273,13 +273,13 @@ public class Interact extends BaseModule {
                 } else {
                     BlockPos pos = enableBlock.get() ? searchInteractableBlock() : null;
                     if (pos != null) {
-                        currentInteractTarget = RaycastUtils.createHitResult(pos, mc.player.getEyePosition());
+                        currentInteractTarget = InteractionTasks.createHitResult(pos, mc.player.position());
                     }
                 }
             } else {
                 BlockPos pos = enableBlock.get() ? searchInteractableBlock() : null;
                 if (pos != null) {
-                    currentInteractTarget = RaycastUtils.createHitResult(pos, mc.player.getEyePosition());
+                    currentInteractTarget = InteractionTasks.createHitResult(pos, mc.player.position());
                 } else {
                     Entity targetEntity = enableEntity.get() ? searchInteractableEntity() : null;
                     if (targetEntity != null) {
@@ -735,7 +735,7 @@ public class Interact extends BaseModule {
 
     @ApiMethod
     public boolean interactBlock(BlockPos pos) {
-        return interactBlock(RaycastUtils.createHitResult(pos, mc.player.getEyePosition()));
+        return interactBlock(InteractionTasks.createHitResult(pos, mc.player.position()));
     }
 
     @ApiMethod

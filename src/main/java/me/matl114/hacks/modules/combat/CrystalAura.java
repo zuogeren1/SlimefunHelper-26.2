@@ -638,7 +638,7 @@ public class CrystalAura extends BaseModule {
         }
         InteractionTasks.handlePlaceMode(
                 mode.get(),
-                RaycastUtils.createHitResult(basePos, mc.player.getEyePosition()),
+                InteractionTasks.createHitResult(basePos, mc.player.position()),
                 offhand.get() ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND,
                 swingHand.get());
         callback.run();

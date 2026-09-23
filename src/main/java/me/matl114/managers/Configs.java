@@ -46,11 +46,6 @@ public class Configs {
         }
     }
 
-    static {
-        // load Enums
-
-    }
-
     public static final Predicate<String> REGEX_VALIDATOR = x -> {
         try {
             Pattern.compile(x);

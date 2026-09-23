@@ -335,7 +335,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
         }
         if (placeCnt < mul) {
             for (var test : pendingMine) {
-                BlockHitResult selfHitResult = RaycastUtils.createHitResult(test, mc.player.getEyePosition());
+                BlockHitResult selfHitResult = InteractionTasks.createHitResult(test, mc.player.position());
                 if (placeCnt == 0) {
                     var supply = supplyBlocks();
                     if (supply == null) {

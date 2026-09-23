@@ -23,6 +23,7 @@ import me.matl114.hacks.utils.world.BlockStorage;
 import me.matl114.hacks.utils.world.EntityStorage;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.FlagRef;
+import me.matl114.utils.MathUtils;
 import me.matl114.utils.NBTUtils;
 import me.matl114.utils.algorithms.SerialExecutor;
 import me.matl114.utils.world.BlockLocation;
@@ -39,7 +40,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
@@ -97,6 +97,7 @@ public class WorldManager extends BaseModule {
         registerListener(
                 Listener.getServerEntitySpawnListener().getChannel(EntityTypes.ENDER_PEARL),
                 this::onThrownOwnerDataUpdate);
+
         registerListener(ServerStorage.getServerStorageSave(), this::onSave);
         registerListener(ServerStorage.getServerStorageLoad(), this::onLoad);
     }
@@ -194,9 +195,9 @@ public class WorldManager extends BaseModule {
     }
 
     public void onVillagerProfessionUpdate(Event<MetadataUpdate> eventDataUpdate) {
-        if (eventDataUpdate.context.entity() instanceof Villager villager) {
-            if (eventDataUpdate.context.metadata().id() == VDataFlag.ID_VILLAGER_PROFESSION_DATA
-                    && eventDataUpdate.context.metadata().value() instanceof VillagerData data) {
+        if (eventDataUpdate.context().entity() instanceof Villager villager) {
+            if (eventDataUpdate.context().metadata().id() == VDataFlag.ID_VILLAGER_PROFESSION_DATA
+                    && eventDataUpdate.context().metadata().value() instanceof VillagerData data) {
                 asyncExecutor.execute(() -> {
                     var profession = data.profession().unwrapKey().orElse(null);
                     if (Objects.equals(profession, VillagerProfession.NONE)
@@ -356,14 +357,11 @@ public class WorldManager extends BaseModule {
         var iter2 = currentEntities.entrySet().iterator();
         while (iter2.hasNext()) {
             var re = iter2.next();
-            if (mc.level.getEntities().get(re.getKey()) instanceof LivingEntity entity) {
+            var entity = mc.level.getEntities().get(re.getKey());
+            if (isAlive(entity)) {
                 re.getValue().update(entity);
             }
         }
-    }
-
-    private boolean isAlive(Entity entity) {
-        return (!(entity instanceof LivingEntity lv) || lv.getHealth() > 0.0);
     }
 
     public EntityStatus getStatus(Entity entity, boolean create) {
@@ -387,17 +385,31 @@ public class WorldManager extends BaseModule {
         });
     }
 
+    private boolean isAlive(Entity entity) {
+        return (!(entity instanceof LivingEntity lv) || lv.getHealth() > 0.0);
+    }
+
     public void onEntityDeath(Event<Entity> event) {
         if (checkNull()) return;
         Entity entity = event.context;
-        if (entity instanceof LivingEntity lv && lv.getHealth() <= 0) {
-            currentEntities.remove(entity.getUUID());
-            var meta = ServerStorage.getStorage();
-            if (meta != null) {
-                EntityStorage storage = meta.getEntityStorage(entity.getUUID(), false);
-                if (storage != null) {
-                    storage.put(ENTITY_DATA_KEY, null);
-                }
+        if (entity instanceof LivingEntity lv) {
+            if (lv.getHealth() <= 0) {
+                onConfirmDeathEntities(entity);
+            }
+        } else {
+            if (entity.position().distanceToSqr(mc.player.position()) < MathUtils.s2(60)) {
+                onConfirmDeathEntities(entity);
+            }
+        }
+    }
+
+    private void onConfirmDeathEntities(Entity entity) {
+        currentEntities.remove(entity.getUUID());
+        var meta = ServerStorage.getStorage();
+        if (meta != null) {
+            EntityStorage storage = meta.getEntityStorage(entity.getUUID(), false);
+            if (storage != null) {
+                storage.put(ENTITY_DATA_KEY, null);
             }
         }
     }
@@ -487,7 +499,7 @@ public class WorldManager extends BaseModule {
             lastUpdatedMs = System.currentTimeMillis();
         }
 
-        public void update(LivingEntity entity) {
+        public void update(Entity entity) {
             updateTime();
             if (updateCallback != null) {
                 updateCallback.accept(entity);
