@@ -9,19 +9,19 @@ import me.matl114.utils.config.WrapperFactory;
 public class WrapperAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable {
     public final WrapperFactory<T, W> wrapperFactory;
     public final AttrKeyValue<W> delegate;
-    public final CustomWidgetFactory<T> factoryOverride;
+    public final CustomWidgetGenerator<T> factoryOverride;
     public final WrapperFactory<String, T> stringifyFactory;
 
     public WrapperAttrKeyValue(AttrKeyValue<W> attrKeyValue, WrapperFactory<T, W> wrapperFactory) {
-        this(attrKeyValue, wrapperFactory, (CustomWidgetFactory<T>) null);
+        this(attrKeyValue, wrapperFactory, (CustomWidgetGenerator<T>) null);
     }
     // create may never throw
     public WrapperAttrKeyValue(AttrKeyValue<W> attrKeyValue, WrapperFactory<T, W> wrapperFactory, NBTType<T> nbtType) {
-        this(attrKeyValue, wrapperFactory, nbtType.customWidgetFactory());
+        this(attrKeyValue, wrapperFactory, nbtType.customWidgetGenerator());
     }
 
     public WrapperAttrKeyValue(
-            AttrKeyValue<W> attrKeyValue, WrapperFactory<T, W> wrapperFactory, CustomWidgetFactory<T> factoryOverride) {
+            AttrKeyValue<W> attrKeyValue, WrapperFactory<T, W> wrapperFactory, CustomWidgetGenerator<T> factoryOverride) {
         this.wrapperFactory = wrapperFactory;
         this.delegate = attrKeyValue;
         this.factoryOverride = factoryOverride;
@@ -40,13 +40,13 @@ public class WrapperAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable {
     }
 
     @Override
-    public String getValue() {
-        return delegate.getValue();
+    public String getInput() {
+        return delegate.getInput();
     }
 
     @Override
-    public T getOriginValue() {
-        return wrapperFactory.get(delegate.getOriginValue());
+    public T get() {
+        return wrapperFactory.get(delegate.get());
     }
 
     @Override
@@ -77,8 +77,8 @@ public class WrapperAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable {
     }
 
     @Override
-    public String updateValue(T val) {
-        return delegate.updateValue(wrapperFactory.create(val));
+    public String toInput(T val) {
+        return delegate.toInput(wrapperFactory.create(val));
     }
 
     @Override
@@ -97,11 +97,11 @@ public class WrapperAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable {
     }
 
     @Override
-    public CustomWidgetFactory<T> getCustomWidgetFactory() {
+    public CustomWidgetGenerator<T> getCustomWidgetFactory() {
         if (factoryOverride != null) {
             return factoryOverride;
         }
-        return (CustomWidgetFactory<T>) delegate.getCustomWidgetFactory();
+        return (CustomWidgetGenerator<T>) delegate.getCustomWidgetFactory();
     }
 
     @Override
@@ -110,8 +110,8 @@ public class WrapperAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable {
     }
 
     @Override
-    public void valueChange(Object object, String string) {
-        delegate.valueChange(object, string);
+    public void setInput(String string) {
+        delegate.setInput(string);
     }
 
     @Override

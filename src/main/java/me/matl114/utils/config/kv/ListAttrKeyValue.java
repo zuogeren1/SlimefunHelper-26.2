@@ -16,9 +16,9 @@ public abstract class ListAttrKeyValue<T> extends BaseAttrKeyValue<List<T>> {
     public ListAttrKeyValue(
             String key,
             List<T> value,
-            CustomWidgetFactory<List<T>> customWidgetFactory,
+            CustomWidgetGenerator<List<T>> customWidgetGenerator,
             WrapperFactory<String, List<T>> wrapperFactory) {
-        super(key, value, customWidgetFactory, wrapperFactory);
+        super(key, value, customWidgetGenerator, wrapperFactory);
     }
 
     public <W extends AttrKeyValue<List<T>>> W copy() {

@@ -142,13 +142,13 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
     private static final ItemFilterRule itemFilter = new ItemFilterRule();
 
     private void resetNbtFilter() {
-        nbtFilter.valueChange(null, NbtFilterRule.ANY.detailKey);
+        nbtFilter.setInput(NbtFilterRule.ANY.detailKey);
         executeFilterTask();
     }
 
     public Supplier<List<T>> wrapOriginValueProviders(Supplier<List<T>> originValue) {
         return () -> originValue.get().stream()
-                .filter(i -> nbtFilter.getOriginValue().itemFilter.test(itemFilterFunction.apply(i)))
+                .filter(i -> nbtFilter.get().itemFilter.test(itemFilterFunction.apply(i)))
                 .filter(i -> itemFilter.acceptable(itemFilterFunction.apply(i)))
                 .toList();
     }
@@ -208,7 +208,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                     if (ScreenUtils.hasShiftDown()) {
                         // avoid recursive call
 
-                        if (nbtFilter.getOriginValue() != NbtFilterRule.ANY) {
+                        if (nbtFilter.get() != NbtFilterRule.ANY) {
                             resetNbtFilter();
                             // will definitely refresh in resetNbtFilter
                             return;
@@ -223,7 +223,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                             "widget.gui.slimefun-choice-screen.nbt-filter.tooltips", ""));
                     builder.add(Component.translatable(
                             "widget.gui.slimefun-choice-screen.nbt-filter.current-option",
-                            nbtFilter.getOriginValue().detail));
+                            nbtFilter.get().detail));
                     return builder.build();
                 })))
                 .addTo(this);

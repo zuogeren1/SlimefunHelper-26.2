@@ -76,7 +76,7 @@ public class FilterService {
                 0,
                 dx - dy,
                 dy,
-                (t, r) -> {
+                (r) -> {
                     if (!Objects.equals(accessor.getValue(), r)) {
                         accessor.setValue(r);
                         updateListener.accept(r);
@@ -126,7 +126,7 @@ public class FilterService {
                 0,
                 dx - 2 * dy,
                 dy,
-                (t, r) -> {
+                (r) -> {
                     if (!Objects.equals(accessor.getValue(), r)) {
                         accessor.setValue(r);
                         acceptor.accept(r, useRegex.getValue());

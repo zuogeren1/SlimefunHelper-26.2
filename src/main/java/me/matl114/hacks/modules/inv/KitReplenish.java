@@ -1443,12 +1443,12 @@ public class KitReplenish extends BaseModule {
         ruleMax.addListener(s -> record.set(ruleKey, record.<Rule>get(ruleKey).withTo(s)));
         ruleMax.addValidator(Configs.intRange(0, InventoryUtils.getPlayerInvSize()));
         Runnable reload = () -> {
-            name.valueChangeInternal(null, record.getOrPut(nameKey, ""));
-            maxSize.valueChangeInternal(null, record.getOrPut(maxSizeKey, 0));
+            name.accept(record.getOrPut(nameKey, ""));
+            maxSize.accept(record.getOrPut(maxSizeKey, 0));
             Rule newRule = record.getOrPut(ruleKey, Rule.DEFAULT);
-            rulesType.valueChangeInternal(null, newRule.type());
-            ruleMin.valueChangeInternal(null, newRule.from());
-            ruleMax.valueChangeInternal(null, newRule.to());
+            rulesType.accept(newRule.type());
+            ruleMin.accept(newRule.from());
+            ruleMax.accept(newRule.to());
         };
         widget.addDrawableChild(rulesType.generateKeyValueInput(30, 24, 30, 0, 60, 20));
         widget.addDrawableChild(ruleMin.generateKeyValueInput(120, 24, 30, 0, 20, 20));
@@ -1495,7 +1495,7 @@ public class KitReplenish extends BaseModule {
                             ButtonAction.run(() -> {
                                 if (mc.player != null) {
                                     Kit saveKit = saveInventory(
-                                            name.getOriginValue(),
+                                            name.get(),
                                             mc.player.getInventory(),
                                             InventoryUtils.getPlayerInvSize(),
                                             record.getOrPut(ruleKey, record.getOrPut(ruleKey, Rule.DEFAULT)));

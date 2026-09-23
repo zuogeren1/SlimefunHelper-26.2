@@ -6,7 +6,6 @@ import me.matl114.accessors.gui.TextFieldAccess;
 import me.matl114.gui.McWidgetHelpers;
 import me.matl114.gui.basic.ColorProvider;
 import me.matl114.utils.ScreenUtils;
-import me.matl114.utils.config.PropertyTracker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -45,11 +44,6 @@ public abstract class EditBoxWidgetMixin extends AbstractTextAreaWidget implemen
 
     @Shadow
     protected abstract void seekCursorScreen(double mouseX, double mouseY);
-
-    @Unique
-    public void setListener(PropertyTracker<TextFieldAccess, String> tracker) {
-        setValueListener((str) -> tracker.valueChange(this, str));
-    }
 
     @Unique
     @Nonnull

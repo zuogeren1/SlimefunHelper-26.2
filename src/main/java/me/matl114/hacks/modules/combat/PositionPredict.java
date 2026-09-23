@@ -319,11 +319,11 @@ public class PositionPredict extends BaseModule {
                     SubScreenWidget subScreenWidget = SubScreenWidget.instance(x, y, dx, dy);
                     int half = dx / 4;
                     WrapperFactory<Double, PredictArgument> firstWrapper =
-                            WrapperFactory.of((d) -> s.getOriginValue().withTicksLater(d), PredictArgument::ticksLater);
+                            WrapperFactory.of((d) -> s.get().withTicksLater(d), PredictArgument::ticksLater);
                     WrapperFactory<Integer, PredictArgument> secondWrapper = WrapperFactory.of(
-                            (d) -> s.getOriginValue().withTicksHistory(d), PredictArgument::ticksHistory);
+                            (d) -> s.get().withTicksHistory(d), PredictArgument::ticksHistory);
                     WrapperFactory<Mode, PredictArgument> thirdWrapper =
-                            WrapperFactory.of((d) -> s.getOriginValue().withMode(d), PredictArgument::mode);
+                            WrapperFactory.of((d) -> s.get().withMode(d), PredictArgument::mode);
 
                     return subScreenWidget
                             .addDrawableChild(DisplayWidget.instance(0, 0, dy, dy)
@@ -354,7 +354,7 @@ public class PositionPredict extends BaseModule {
                             .addDrawableChild(new TypeConvertAttrKeyValue<>(
                                             s,
                                             thirdWrapper,
-                                            EnumAttrKeyValue.createEnumWidgetFactory(Mode.class),
+                                            EnumAttrKeyValue.createEnumWidgetGenerator(Mode.class),
                                             WrapperFactory.of(Mode::valueOf, Mode::name))
                                     .generateValueWidget(2 * half + dy, 0, 2 * half - dy, dy));
                 },

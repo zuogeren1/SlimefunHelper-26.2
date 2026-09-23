@@ -431,7 +431,7 @@ public class SeedOre extends BaseModule {
             Map<Ore, Set<Vec3>> chunk = chunkSeedCache.get(chunkKey);
 
             for (Map.Entry<Ore, Set<Vec3>> oreRenders : chunk.entrySet()) {
-                if (oreRenders.getKey().active.getOriginValue() == Boolean.TRUE) {
+                if (oreRenders.getKey().active.get() == Boolean.TRUE) {
                     Color color = oreRenders.getKey().color;
                     for (Vec3 pos : oreRenders.getValue()) {
                         Vec3 centerPos = Vec3.atCenterOf(BlockPos.containing(pos));
@@ -946,9 +946,9 @@ public class SeedOre extends BaseModule {
                 var regex = Pattern.compile(value).asMatchPredicate();
                 for (var ore : oreSettings) {
                     if (regex.test(ore.getKeyName().toLowerCase(Locale.ROOT))) {
-                        ore.valueChange(ore, "true");
+                        ore.setInput("true");
                     } else {
-                        ore.valueChange(ore, "false");
+                        ore.setInput("false");
                     }
                 }
             } catch (Throwable e) {

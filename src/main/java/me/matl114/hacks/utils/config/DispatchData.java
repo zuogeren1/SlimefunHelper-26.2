@@ -84,19 +84,19 @@ public class DispatchData<T extends ConfigEnum> implements NBTParsable<DispatchD
                     TypeConvertAttrKeyValue<DispatchData<T>, WrapEnum<T>> typeConvert = new TypeConvertAttrKeyValue<>(
                             custom,
                             WrapperFactory.of(
-                                    (s) -> custom.getOriginValue().withSelection(s), DispatchData::getEnumType),
+                                    (s) -> custom.get().withSelection(s), DispatchData::getEnumType),
                             WrapEnum.TYPE.cast());
                     currentWidget.addDrawableChild(typeConvert.generateValueWidget(0, 0, dx / 2, dy));
                     Map<T, DrawableWidget> cacheMap = new HashMap<>();
                     DynamicContentWidget<DrawableWidget> dynamic = new DynamicContentWidget<>(
                             () -> {
                                 return cacheMap.computeIfAbsent(
-                                        custom.getOriginValue().getEnumType().get(), (v) -> {
+                                        custom.get().getEnumType().get(), (v) -> {
                                             TypeConvertAttrKeyValue<DispatchData<T>, RecordData> typeConvert2 =
                                                     new TypeConvertAttrKeyValue<>(
                                                             custom,
                                                             WrapperFactory.of(
-                                                                    (s) -> custom.getOriginValue()
+                                                                    (s) -> custom.get()
                                                                             .withDispatchData(v, s),
                                                                     (s) -> s.getDispatch(v)),
                                                             RecordData.TYPE);

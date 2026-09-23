@@ -39,7 +39,6 @@ import me.matl114.managers.file.FileStorage;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.Debug;
 import me.matl114.utils.ThreadUtils;
-import me.matl114.utils.config.PropertyTracker;
 import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.EditBox;
@@ -168,7 +167,7 @@ public class ServerScanner extends BaseModule {
                 .setRenderHandler(
                         new ButtonElement(TextProvider.of(Component.literal("Add Server")), ButtonAction.empty())));
         ContentDelegateWidget<EditBox> textField = McWidgetHelpers.createTextFieldEditBox(
-                80, 10, 100, 20, PropertyTracker.event(s -> this.currentInputAdd = s), this.currentInputAdd);
+                80, 10, 100, 20, s -> this.currentInputAdd = s, this.currentInputAdd);
         subScreenWidget.addDrawableChild(textField);
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(180, 10, 20, 20)
                 .setElementHandler(new ButtonElement(
@@ -220,7 +219,7 @@ public class ServerScanner extends BaseModule {
                 .setElementHandler(
                         new ButtonElement(TextProvider.of(Component.literal("Remove Server")), ButtonAction.empty())));
         ContentDelegateWidget<EditBox> textField2 = McWidgetHelpers.createTextFieldEditBox(
-                80, 30, 100, 20, PropertyTracker.event(s -> this.currentInputRemove = s), this.currentInputRemove);
+                80, 30, 100, 20, s -> this.currentInputRemove = s, this.currentInputRemove);
         subScreenWidget.addDrawableChild(textField2);
         subScreenWidget.addDrawableChild(ExecutableWidget.instance(180, 30, 20, 20)
                 .setElementHandler(new ButtonElement(

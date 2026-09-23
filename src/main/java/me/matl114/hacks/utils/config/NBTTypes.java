@@ -53,17 +53,17 @@ public interface NBTTypes {
                     return DataResult.error(() -> "Not a primitive type: " + t.typeName());
                 }
             });
-    public NBTType<Integer> INT_TYPE = new NBTType<>("int", Codec.INT, getWidgetFactory(), INT_FACTORY, 0);
+    public NBTType<Integer> INT_TYPE = new NBTType<>("int", Codec.INT, getWidgetGenerator(), INT_FACTORY, 0);
 
-    public NBTType<Long> LONG_TYPE = new NBTType<>("long", Codec.LONG, getWidgetFactory(), LONG_FACTORY, 0L);
+    public NBTType<Long> LONG_TYPE = new NBTType<>("long", Codec.LONG, getWidgetGenerator(), LONG_FACTORY, 0L);
 
     public NBTType<Double> DOUBLE_TYPE =
-            new NBTType<>("double", Codec.DOUBLE, getWidgetFactory(), DOUBLE_FACTORY, 0.0D);
+            new NBTType<>("double", Codec.DOUBLE, getWidgetGenerator(), DOUBLE_FACTORY, 0.0D);
 
     public NBTType<Boolean> BOOLEAN_TYPE =
             new NBTType<>("boolean", Codec.BOOL, BOOLEAN_WIDGET_FACTORY, BOOL_FACTORY, false);
 
-    public NBTType<String> STRING_TYPE = new NBTType<>("string", Codec.STRING, getWidgetFactory(), STRING_FACTORY, "");
+    public NBTType<String> STRING_TYPE = new NBTType<>("string", Codec.STRING, getWidgetGenerator(), STRING_FACTORY, "");
 
     public NBTType<TextColor> COLOR_TYPE = new NBTType<>(
             "color",
@@ -121,7 +121,7 @@ public interface NBTTypes {
     public NBTType<CompoundTag> NBT_COMPOUND_TYPE = new NBTType<CompoundTag>(
             "nbtcompound",
             CompoundTag.CODEC,
-            BaseAttrKeyValue.<CompoundTag>getWidgetFactory(),
+            BaseAttrKeyValue.<CompoundTag>getWidgetGenerator(),
             NBT_COMPOUND_FACTORY,
             new CompoundTag());
 
@@ -170,7 +170,7 @@ public interface NBTTypes {
                 type.typeCodec().<T>xmap(wrapper::create, wrapper::get),
                 (attr, x, y, dx, dy) -> {
                     return new TypeConvertAttrKeyValue<>(
-                                    attr, wrapper, type.customWidgetFactory(), type.stringifyFactory())
+                                    attr, wrapper, type.customWidgetGenerator(), type.stringifyFactory())
                             .generateValueWidget(x, y, dx, dy);
                 },
                 type.stringifyFactory().concat(wrapper),
@@ -193,7 +193,7 @@ public interface NBTTypes {
                                 wrapper::get),
                 (attr, x, y, dx, dy) -> {
                     return new TypeConvertAttrKeyValue<>(
-                                    attr, wrapper, type.customWidgetFactory(), type.stringifyFactory())
+                                    attr, wrapper, type.customWidgetGenerator(), type.stringifyFactory())
                             .generateValueWidget(x, y, dx, dy);
                 },
                 type.stringifyFactory().concat(wrapper),
@@ -262,8 +262,8 @@ public interface NBTTypes {
             NBTType<K2> k2Type,
             String name2,
             PairLikeFactory<K1, K2, T> pairFactory,
-            UnaryOperator<AttrKeyValue.CustomWidgetFactory<K1>> k1Resize,
-            UnaryOperator<AttrKeyValue.CustomWidgetFactory<K2>> k2Resize) {
+            UnaryOperator<AttrKeyValue.CustomWidgetGenerator<K1>> k1Resize,
+            UnaryOperator<AttrKeyValue.CustomWidgetGenerator<K2>> k2Resize) {
 
         return new NBTType<>(
                 targetClass,
@@ -274,14 +274,14 @@ public interface NBTTypes {
                 (s, x, y, dx, dy) -> {
                     AttrKeyValue<T> sourceAttr = s;
                     AttrKeyValue<K1> key1Attr =
-                            new TypeConvertAttrKeyValue<>(s, pairFactory.asFirstWrapper(s::getOriginValue), k1Type);
+                            new TypeConvertAttrKeyValue<>(s, pairFactory.asFirstWrapper(s::get), k1Type);
                     AttrKeyValue<K2> key2Attr =
-                            new TypeConvertAttrKeyValue<>(s, pairFactory.asSecondWrapper(s::getOriginValue), k2Type);
+                            new TypeConvertAttrKeyValue<>(s, pairFactory.asSecondWrapper(s::get), k2Type);
                     SubScreenWidget subScreenWidget = new SubScreenWidget(x, y, dx, dy);
                     subScreenWidget
                             .addDrawableChild(
-                                    k1Resize.apply(k1Type.customWidgetFactory()).generateWidget(key1Attr, 0, 0, dx, dy))
-                            .addDrawableChild(k2Resize.apply(k2Type.customWidgetFactory())
+                                    k1Resize.apply(k1Type.customWidgetGenerator()).generateWidget(key1Attr, 0, 0, dx, dy))
+                            .addDrawableChild(k2Resize.apply(k2Type.customWidgetGenerator())
                                     .generateWidget(key2Attr, 0, 0, dx, dy));
                     return subScreenWidget;
                 },
@@ -308,8 +308,8 @@ public interface NBTTypes {
             NBTType<K2> k2Type,
             String name2,
             PairLikeFactory<K1, K2, T> pairFactory,
-            WidgetFactory<K1> k1Factory,
-            UnaryOperator<AttrKeyValue.CustomWidgetFactory<K2>> k2Resize) {
+            WidgetGenerator<K1> k1Factory,
+            UnaryOperator<AttrKeyValue.CustomWidgetGenerator<K2>> k2Resize) {
 
         return new NBTType<>(
                 targetClass,
@@ -319,13 +319,13 @@ public interface NBTTypes {
                         .apply(instance, pairFactory::create)),
                 (s, x, y, dx, dy) -> {
                     AttrKeyValue<T> sourceAttr = s;
-                    K1 k1Value = pairFactory.getFirst(sourceAttr.getOriginValue());
+                    K1 k1Value = pairFactory.getFirst(sourceAttr.get());
                     AttrKeyValue<K2> key2Attr =
-                            new TypeConvertAttrKeyValue<>(s, pairFactory.asSecondWrapper(s::getOriginValue), k2Type);
+                            new TypeConvertAttrKeyValue<>(s, pairFactory.asSecondWrapper(s::get), k2Type);
                     SubScreenWidget subScreenWidget = new SubScreenWidget(x, y, dx, dy);
                     subScreenWidget
                             .addDrawableChild(k1Factory.generateWidget(k1Value, 0, 0, dx, dy))
-                            .addDrawableChild(k2Resize.apply(k2Type.customWidgetFactory())
+                            .addDrawableChild(k2Resize.apply(k2Type.customWidgetGenerator())
                                     .generateWidget(key2Attr, 0, 0, dx, dy));
                     return subScreenWidget;
                 },
@@ -339,8 +339,8 @@ public interface NBTTypes {
             NBTType<K2> k2Type,
             String name2,
             WrapperFactory<Map<K1, K2>, T> mapLike,
-            UnaryOperator<AttrKeyValue.CustomWidgetFactory<K1>> k1Resize,
-            UnaryOperator<AttrKeyValue.CustomWidgetFactory<K2>> k2Resize,
+            UnaryOperator<AttrKeyValue.CustomWidgetGenerator<K1>> k1Resize,
+            UnaryOperator<AttrKeyValue.CustomWidgetGenerator<K2>> k2Resize,
             int width,
             int height) {
         return createArrayMapLike(
@@ -367,8 +367,8 @@ public interface NBTTypes {
             Supplier<K2> k2Supplier,
             String name2,
             WrapperFactory<Map<K1, K2>, T> mapLike,
-            UnaryOperator<AttrKeyValue.CustomWidgetFactory<K1>> k1Resize,
-            UnaryOperator<AttrKeyValue.CustomWidgetFactory<K2>> k2Resize,
+            UnaryOperator<AttrKeyValue.CustomWidgetGenerator<K1>> k1Resize,
+            UnaryOperator<AttrKeyValue.CustomWidgetGenerator<K2>> k2Resize,
             int width,
             int height) {
         PairLikeFactory<K1, K2, Pair<K1, K2>> pairFactory =
@@ -404,7 +404,7 @@ public interface NBTTypes {
                 factory.wrapCodecXmap(type.typeCodec()),
                 (attr, x, y, dx, dy) -> {
                     return new TypeConvertAttrKeyValue<Optional<T>, T>(
-                                    attr, factory, type.customWidgetFactory(), stringifyFactory2)
+                                    attr, factory, type.customWidgetGenerator(), stringifyFactory2)
                             .generateValueWidget(x, y, dx, dy);
                 },
                 stringifyFactory,
@@ -430,7 +430,7 @@ public interface NBTTypes {
                 factory.wrapCodecComapFlatMap(type.typeCodec()),
                 (attr, x, y, dx, dy) -> {
                     return new TypeConvertAttrKeyValue<Optional<T>, T>(
-                                    attr, factory, type.customWidgetFactory(), stringifyFactory2)
+                                    attr, factory, type.customWidgetGenerator(), stringifyFactory2)
                             .generateValueWidget(x, y, dx, dy);
                 },
                 stringifyFactory,
@@ -442,7 +442,7 @@ public interface NBTTypes {
         return new NBTType<>(
                 targetClass,
                 CodecUtils.finiteMapCodec(finiteLookup, string),
-                EnumAttrKeyValue.createFiniteLookupWidgetFactory(finiteLookup),
+                EnumAttrKeyValue.createFiniteLookupWidgetGenerator(finiteLookup),
                 EnumAttrKeyValue.createFiniteMapLookup(finiteLookup),
                 finiteLookup.values().iterator().next());
     }
@@ -472,7 +472,7 @@ public interface NBTTypes {
             AttrKeyValue<Map<T, W>> keyValue,
             List<T> keyBound,
             NBTType<W> valueType,
-            WidgetFactory<T> keyWidget,
+            WidgetGenerator<T> keyWidget,
             int x,
             int y,
             int dx,
@@ -504,7 +504,7 @@ public interface NBTTypes {
                         keyValue,
                         type,
                         supplier,
-                        (lst) -> keyValue.valueChangeInternal(null, lst),
+                        (lst) -> keyValue.accept(lst),
                         listWidth,
                         listHeight))
                 .openFromCurrent();
@@ -514,11 +514,11 @@ public interface NBTTypes {
             AttrKeyValue<Map<T, W>> keyValue,
             List<T> bound,
             NBTType<W> type,
-            WidgetFactory<T> keyWidget,
+            WidgetGenerator<T> keyWidget,
             int keyLabelWidth,
             int listWidth,
             int listHeight) {
-        Map<T, W> twMap = keyValue.getOriginValue();
+        Map<T, W> twMap = keyValue.get();
         boolean add = false;
         for (var re : bound) {
             if (!twMap.containsKey(re)) {
@@ -528,13 +528,13 @@ public interface NBTTypes {
             }
         }
         if (add) {
-            keyValue.valueChangeInternal(null, twMap);
+            keyValue.accept(twMap);
         }
         NBTBoundedListScreen<T, W> listModifyScreenImmutable = new NBTBoundedListScreen<>(
                 keyValue,
                 type,
                 keyWidget,
-                (map) -> keyValue.valueChangeInternal(null, map),
+                (map) -> keyValue.accept(map),
                 keyLabelWidth,
                 listWidth,
                 listHeight);

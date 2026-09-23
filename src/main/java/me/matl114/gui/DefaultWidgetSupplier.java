@@ -132,7 +132,7 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
                     builder.changedListener.accept(str);
                 }
                 if (builder.listener != null) {
-                    builder.listener.valueChange(TextFieldAccess.of(textFieldWidget), str);
+                    builder.listener.accept(str);
                 }
             });
         }

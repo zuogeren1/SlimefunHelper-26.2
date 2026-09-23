@@ -8,7 +8,6 @@ import me.matl114.gui.basic.ContentDelegateWidget;
 import me.matl114.gui.basic.DrawableWidget;
 import me.matl114.gui.basic.RenderHandler;
 import me.matl114.gui.basic.SubScreenWidget;
-import me.matl114.utils.config.PropertyTracker;
 import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.CommandSuggestions;
@@ -35,7 +34,7 @@ public class ChatLikeInputSubScreen extends SubScreenWidget {
     protected void init() {
         resetHistoryIndex();
         chatFieldWidget = McWidgetHelpers.createTextFieldEditBox(
-                0, 0, this.dx, this.dy, PropertyTracker.event(this::onChatInputUpdate), "");
+                0, 0, this.dx, this.dy, this::onChatInputUpdate, "");
         chatFieldWidget.getDelegate().setBordered(false);
         chatFieldWidget.addToSub(this);
 

@@ -19,7 +19,6 @@ import me.matl114.gui.basic.TextProvider;
 import me.matl114.gui.basic.TooltipHandler;
 import me.matl114.gui.elements.ButtonElement;
 import me.matl114.gui.elements.IconElement;
-import me.matl114.utils.config.PropertyTracker;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -237,7 +236,7 @@ public interface WidgetSupplier {
         public String text = "";
         public int maxLength = 32768;
         public Consumer<String> changedListener;
-        public PropertyTracker<TextFieldAccess, String> listener;
+        public Consumer<String> listener;
         public ColorProvider borderColorProvider;
         public Boolean drawsBackground;
         public Boolean focusUnlocked;
