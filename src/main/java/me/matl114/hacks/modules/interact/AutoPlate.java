@@ -17,6 +17,7 @@ import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.modules.ac.DisablerManager;
 import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.utils.config.WrapColor;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hacks.utils.render.RenderCollectors;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
@@ -52,9 +53,9 @@ public class AutoPlate extends BaseModule {
 
     public List<Vec3i> blocksSeq = new ArrayList<>();
 
-    public final EnumRef<Configs.LegalInteractMode> mode = builder(
-                    autoPlate.add("mode"), Configs.LegalInteractMode.class)
-            .defaultValue(Configs.LegalInteractMode.NONE)
+    public final EnumRef<LegalInteractMode> mode = builder(
+                    autoPlate.add("mode"), LegalInteractMode.class)
+            .defaultValue(LegalInteractMode.NONE)
             .build();
 
     public final FlagRef airplace = flagBuilder(autoPlate.add("air-place")).build();
@@ -252,7 +253,7 @@ public class AutoPlate extends BaseModule {
     }
 
     public void onPresetReload(Event<EventContainer<ModulePreset>> event) {
-        mode.set(Configs.LegalInteractMode.getFromPreset(event.context.getValue()));
+        mode.set(LegalInteractMode.getFromPreset(event.context.getValue()));
         airplace.set(!event.context.getValue().hasAC());
     }
 }

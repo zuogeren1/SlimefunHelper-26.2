@@ -18,6 +18,7 @@ import me.matl114.hacks.modules.interact.*;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
@@ -180,12 +181,12 @@ public class InteractionTasks {
         }
     }
 
-    public static void handlePlaceMode(Configs.LegalInteractMode mode, BlockHitResult result, InteractionHand hand) {
+    public static void handlePlaceMode(LegalInteractMode mode, BlockHitResult result, InteractionHand hand) {
         handlePlaceMode(mode, result, hand, true);
     }
 
     public static void handlePlaceMode(
-            Configs.LegalInteractMode mode, BlockHitResult result, InteractionHand hand, boolean swingHand) {
+            LegalInteractMode mode, BlockHitResult result, InteractionHand hand, boolean swingHand) {
         Vec3 bestEyePos = InteractExtra.INSTANCE.getBestInteractEyePos(mc.player.position(), result);
         switch (mode) {
             case USEITEM_PACKET -> {
@@ -235,7 +236,7 @@ public class InteractionTasks {
     }
 
     public static void handlePlaceModeMulti(
-            Configs.LegalInteractMode mode,
+            LegalInteractMode mode,
             Vec3 targetCenter,
             List<Pair<BlockHitResult, InteractionHand>> resultList,
             boolean swingHand) {

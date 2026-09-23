@@ -25,6 +25,7 @@ import me.matl114.hacks.utils.config.NBTTypes;
 import me.matl114.hacks.utils.config.OptionalPrimitive;
 import me.matl114.hacks.utils.config.WrapColor;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.LegalTargetingMode;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
@@ -82,9 +83,9 @@ public class Attack extends BaseModule {
             .build();
 
     //    public final FlagRef legalMode = flagBuilder(attack.add("legal-mode")).build();
-    public final EnumRef<Configs.LegalTargetingMode> legalTargetingMode = builder(
-                    attack.add("legal-targeting"), Configs.LegalTargetingMode.class)
-            .defaultValue(Configs.LegalTargetingMode.DELAY_MOVEMENT)
+    public final EnumRef<LegalTargetingMode> legalTargetingMode = builder(
+                    attack.add("legal-targeting"), LegalTargetingMode.class)
+            .defaultValue(LegalTargetingMode.DELAY_MOVEMENT)
             .build();
 
     public final NBTRef<OptionalPrimitive<Double>> tpRange = builder(
@@ -104,13 +105,13 @@ public class Attack extends BaseModule {
 
     public final FlagRef targetPredict = flagBuilder(attack.add("use-delay-movement-pos-predict"))
             .show(() -> !legalTargetingMode.get().isLegal()
-                    && legalTargetingMode.get().isIn(Configs.LegalTargetingMode.DELAY_MOVEMENT))
+                    && legalTargetingMode.get().isIn(LegalTargetingMode.DELAY_MOVEMENT))
             .build();
 
     public final FlagRef postFix = builder(attack.add("attack-post-fix"), Boolean.class)
             .defaultValue(true)
             .show(() -> !legalTargetingMode.get().isLegal()
-                    && legalTargetingMode.get().isIn(Configs.LegalTargetingMode.DELAY_MOVEMENT))
+                    && legalTargetingMode.get().isIn(LegalTargetingMode.DELAY_MOVEMENT))
             .build();
 
     public final FlagRef autoAntiShield =
@@ -1157,7 +1158,7 @@ public class Attack extends BaseModule {
 
     public void onModulePreset(Event<EventContainer<ModulePreset>> event) {
         ModulePreset preset = event.context().getValue();
-        legalTargetingMode.set(Configs.LegalTargetingMode.getFromPreset(preset));
+        legalTargetingMode.set(LegalTargetingMode.getFromPreset(preset));
         switch (preset) {
             case HACKING, VANILLA -> {
                 if (tpRange.get().getValue() < 0) {

@@ -10,6 +10,7 @@ import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.modules.inv.InvExtra;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.EnumRef;
 import me.matl114.managers.config.FlagRef;
@@ -77,9 +78,9 @@ public class Scaffold extends BaseModule {
     //    public final FlagRef legal =
     //            flagBuilder(Configs.INTERACT_CONFIG, INTERACT_SCAFFOLD_LEGAL).build();
 
-    public final EnumRef<Configs.LegalInteractMode> legalMode = builder(
-                    scaffold.add("legal-targeting"), Configs.LegalInteractMode.class)
-            .defaultValue(Configs.LegalInteractMode.USEITEM_PACKET)
+    public final EnumRef<LegalInteractMode> legalMode = builder(
+                    scaffold.add("legal-targeting"), LegalInteractMode.class)
+            .defaultValue(LegalInteractMode.USEITEM_PACKET)
             .build();
 
     public final FlagRef airplace = flagBuilder(scaffold.add("air-place")).build();
@@ -277,7 +278,7 @@ public class Scaffold extends BaseModule {
     }
 
     public void onPresetReload(Event<EventContainer<ModulePreset>> event) {
-        legalMode.set(Configs.LegalInteractMode.getFromPreset(event.context.getValue()));
+        legalMode.set(LegalInteractMode.getFromPreset(event.context.getValue()));
         airplace.set(!event.context.getValue().hasAC());
     }
 }

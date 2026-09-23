@@ -25,6 +25,7 @@ import me.matl114.hacks.modules.mine.MineExtra;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.hacks.utils.config.Regex;
+import me.matl114.hacks.utils.enums.MineTargetingMode;
 import me.matl114.hacks.utils.move.PathingSchedular;
 import me.matl114.hacks.utils.move.goal.GoalNear;
 import me.matl114.hacks.utils.move.goal.IPathGoal;
@@ -143,9 +144,9 @@ public class AutoMine extends BaseModule {
             .validator(Configs.INT_NONNEGATIVE)
             .build();
 
-    public final EnumRef<Configs.MineTargetingMode> legalMode = builder(
-                    root.add("legal-mode"), Configs.MineTargetingMode.class)
-            .defaultValue(Configs.MineTargetingMode.NO_BYPASS)
+    public final EnumRef<MineTargetingMode> legalMode = builder(
+                    root.add("legal-mode"), MineTargetingMode.class)
+            .defaultValue(MineTargetingMode.NO_BYPASS)
             .build();
 
     public final FlagRef considerCooldown = builder(root.add("consider-cooldown"), Boolean.class)

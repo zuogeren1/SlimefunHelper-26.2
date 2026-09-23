@@ -158,7 +158,7 @@ public class Sprint extends BaseModule implements LegalMovementManager.MovementM
         //                && (player.input.playerInput.backward() && !player.input.playerInput.forward())
         //                && player.isSprinting()) {
         //            PlayerInputUtils.Input input = PlayerInputUtils.of(player);
-        //            if (directionalSprintMode.getValue() == Configs.BypassMode.BYPASS_GRIM) {
+        //            if (directionalSprintMode.getValue() == BypassMode.BYPASS_GRIM) {
         //                // do not use mixin, modify the input
         //                // enableSprintDirectionalThisTick = false;
         //                workRotationThisTick = true;

@@ -21,6 +21,8 @@ import me.matl114.hacks.modules.move.LegacySnapRotManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.*;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
+import me.matl114.hacks.utils.enums.LegalTargetingMode;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.EnumRef;
@@ -76,14 +78,14 @@ public class Interact extends BaseModule {
     public final FlagRef enableBlock =
             builder(root.add("enable-block"), Boolean.class).defaultValue(false).build();
 
-    public final EnumRef<Configs.LegalTargetingMode> entityMode = builder(
-                    root.add("entity-mode"), Configs.LegalTargetingMode.class)
-            .defaultValue(Configs.LegalTargetingMode.NONE)
+    public final EnumRef<LegalTargetingMode> entityMode = builder(
+                    root.add("entity-mode"), LegalTargetingMode.class)
+            .defaultValue(LegalTargetingMode.NONE)
             .build();
 
-    public final EnumRef<Configs.LegalInteractMode> blockMode = builder(
-                    root.add("block-mode"), Configs.LegalInteractMode.class)
-            .defaultValue(Configs.LegalInteractMode.NONE)
+    public final EnumRef<LegalInteractMode> blockMode = builder(
+                    root.add("block-mode"), LegalInteractMode.class)
+            .defaultValue(LegalInteractMode.NONE)
             .build();
 
     public final NBTRef<EntityTypeRegex> interactWhiteList = builder(
@@ -809,7 +811,7 @@ public class Interact extends BaseModule {
     }
 
     public void onModulePreset(Event<EventContainer<ModulePreset>> event) {
-        entityMode.set(Configs.LegalTargetingMode.getFromPreset(event.context.getValue()));
-        blockMode.set(Configs.LegalInteractMode.getFromPreset(event.context.getValue()));
+        entityMode.set(LegalTargetingMode.getFromPreset(event.context.getValue()));
+        blockMode.set(LegalInteractMode.getFromPreset(event.context.getValue()));
     }
 }

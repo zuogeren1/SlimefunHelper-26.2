@@ -19,6 +19,7 @@ import me.matl114.hacks.modules.move.PlayerInputManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.*;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
@@ -86,9 +87,9 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
             .validator(Configs.INT_POSITIVE)
             .build();
 
-    public final EnumRef<Configs.LegalInteractMode> mode = builder(
-                    autoSurround.add("mode"), Configs.LegalInteractMode.class)
-            .defaultValue(Configs.LegalInteractMode.DELAY_MOVEMENT)
+    public final EnumRef<LegalInteractMode> mode = builder(
+                    autoSurround.add("mode"), LegalInteractMode.class)
+            .defaultValue(LegalInteractMode.DELAY_MOVEMENT)
             .build();
 
     public final FlagRef airplace = flagBuilder(autoSurround.add("air-place")).build();
@@ -434,7 +435,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
     }
 
     public void onModulePreset(Event<EventContainer<ModulePreset>> event) {
-        this.mode.set(Configs.LegalInteractMode.getFromPreset(event.context.getValue()));
+        this.mode.set(LegalInteractMode.getFromPreset(event.context.getValue()));
         this.airplace.set(!event.context.getValue().hasAC());
     }
 }
