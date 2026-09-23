@@ -1,4 +1,4 @@
-package me.matl114.gui;
+package me.matl114.gui.interfaces;
 
 import java.awt.Color;
 import java.util.ArrayList;
@@ -8,7 +8,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import me.matl114.accessors.gui.TextFieldAccess;
 import me.matl114.gui.basic.ButtonAction;
 import me.matl114.gui.basic.ColorProvider;
 import me.matl114.gui.basic.ColorSampler;
@@ -23,8 +22,8 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
-public interface WidgetSupplier {
-    WidgetSupplier DEFAULT = DefaultWidgetSupplier.INSTANCE;
+public interface ElementSupplier {
+    ElementSupplier DEFAULT = DefaultElementSupplier.INSTANCE;
 
     static ButtonBuilder button() {
         return ButtonBuilder.builder();
@@ -53,7 +52,7 @@ public interface WidgetSupplier {
     @Setter
     @Accessors(chain = true, fluent = true)
     abstract class AbstractElementBuilder<B extends AbstractElementBuilder<B>> {
-        public WidgetSupplier factory = DEFAULT;
+        public ElementSupplier factory = DEFAULT;
         public boolean showTooltips = true;
         public TooltipHandler tooltipHandler;
         public List<RenderHandler> extraRenders = new ArrayList<>();
@@ -62,7 +61,7 @@ public interface WidgetSupplier {
         public Predicate<ElementHandler> presentCondition;
         public Predicate<ElementHandler> activeActionCondition;
 
-        protected final WidgetSupplier resolveFactory() {
+        protected final ElementSupplier resolveFactory() {
             return factory == null ? DEFAULT : factory;
         }
 
@@ -75,7 +74,7 @@ public interface WidgetSupplier {
             return build(resolveFactory());
         }
 
-        public abstract ElementHandler build(WidgetSupplier factory);
+        public abstract ElementHandler build(ElementSupplier factory);
 
         public B tooltips(List<Component> tooltips) {
             this.tooltipHandler = tooltips == null ? null : TooltipHandler.of(tooltips);
@@ -170,7 +169,7 @@ public interface WidgetSupplier {
         }
 
         @Override
-        public ElementHandler build(WidgetSupplier factory) {
+        public ElementHandler build(ElementSupplier factory) {
             return factory.create(this);
         }
     }
@@ -196,7 +195,7 @@ public interface WidgetSupplier {
         }
 
         @Override
-        public ElementHandler build(WidgetSupplier factory) {
+        public ElementHandler build(ElementSupplier factory) {
             return factory.create(this);
         }
     }
@@ -223,7 +222,7 @@ public interface WidgetSupplier {
         }
 
         @Override
-        public ElementHandler build(WidgetSupplier factory) {
+        public ElementHandler build(ElementSupplier factory) {
             return factory.create(this);
         }
     }
@@ -253,7 +252,7 @@ public interface WidgetSupplier {
         }
 
         @Override
-        public ElementHandler build(WidgetSupplier factory) {
+        public ElementHandler build(ElementSupplier factory) {
             return factory.create(this);
         }
     }
