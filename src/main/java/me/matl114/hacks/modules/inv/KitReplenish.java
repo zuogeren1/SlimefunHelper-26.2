@@ -1341,11 +1341,7 @@ public class KitReplenish extends BaseModule {
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
         SubScreenWidget kitEditEntry = new SubScreenWidget(0, dblank, dx, dy);
-        kitEditEntry.addDrawableChild(createRefKeyLabel(
-                () -> Component.translatable("widget.kit-manager.kit-save-map"),
-                () -> ChatUtils.parseTooltipsTranslation("widget.kit-manager.kit-save-map.tooltips", "暂无介绍"),
-                indexWidth,
-                dy));
+        kitEditEntry.addDrawableChild(createLabel("widget.kit-manager.kit-save-map", 0, 0, indexWidth, dy));
         kitEditEntry.addDrawableChild(createExecuteButton(
                 "widget.kit-manager.open-kit-list",
                 ButtonAction.run(this::openKitEditScreen),

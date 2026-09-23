@@ -38,6 +38,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
+import me.matl114.gui.complex.BoxElement;
+import me.matl114.gui.elements.ColorBoxElement;
+import me.matl114.utils.config.ValueAccessor;
 
 public abstract class BaseModule implements ModuleListProvider {
     protected static final Minecraft mc = Minecraft.getInstance();
@@ -466,13 +469,27 @@ public abstract class BaseModule implements ModuleListProvider {
     protected static final int indexWidth = 140;
     protected static final int blankWidth = 10;
 
-    public DrawableWidget createRefKeyLabel(
-            Supplier<Component> text, Supplier<List<Component>> tooltips, int dx, int dy) {
-        return ExecutableWidget.instance(0, 0, dx, dy)
+    public static SubScreenWidget createSubWidget(int x, int y, int dx, int dy) {
+        return new SubScreenWidget(x, y, dx, dy);
+    }
+
+    public static DrawableWidget createLabel(String translationKey, int x, int y, int dx, int dy) {
+        return ExecutableWidget.instance(x, y, dx, dy)
+                .setElementHandler(new ColorLabelTextElement(
+                                TextProvider.of(Component.translatable(translationKey)),
+                                () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
+                                () -> ClickGui.INSTANCE.configColor.get().withAlpha(ClickGui.INSTANCE.labelAlpha.get()))
+                        .withTooltips(TooltipHandler.of(
+                                ChatUtils.parseTooltipsTranslation(translationKey + ".tooltips", ""))));
+    }
+
+    public static DrawableWidget createLabel(
+            Supplier<Component> text, Supplier<List<Component>> tooltips, int x, int y, int dx, int dy) {
+        return ExecutableWidget.instance(x, y, dx, dy)
                 .setElementHandler(new ColorLabelTextElement(
                                 el -> text.get(),
                                 () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
-                                () -> ClickGui.INSTANCE.configColor.get().withAlpha(255))
+                                () -> ClickGui.INSTANCE.configColor.get().withAlpha(ClickGui.INSTANCE.labelAlpha.get()))
                         .withTooltips(TooltipHandler.of(tooltips)));
     }
 
@@ -486,20 +503,195 @@ public abstract class BaseModule implements ModuleListProvider {
                                 ChatUtils.parseTooltipsTranslation(translationKey + ".tooltips", ""))));
     }
 
-    public DrawableWidget createExecuteButton(
+    public static DrawableWidget createExecuteButton(
             String translationKey, ButtonAction action, int x, int y, int dx, int dy) {
+        return createExecuteButton(translationKey, action, () -> true, x, y, dx, dy);
+    }
+
+    public static DrawableWidget createExecuteButton(
+            String translationKey, ButtonAction action, BooleanSupplier active, int x, int y, int dx, int dy) {
         return ExecutableWidget.instance(x, y, dx, dy)
-                .setElementHandler(new ButtonElement(TextProvider.of(Component.translatable(translationKey)), action)
+                .setElementHandler(new ColorBoxElement(
+                                action,
+                                TextProvider.of(Component.translatable(translationKey)),
+                                () -> ClickGui.INSTANCE
+                                        .configColor
+                                        .get()
+                                        .withAlpha(
+                                                active.getAsBoolean()
+                                                        ? ClickGui.INSTANCE.buttonActiveAlpha.get()
+                                                        : ClickGui.INSTANCE.buttonInactiveAlpha.get()),
+                                () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
+                                (el, bl) -> {
+                                    if (bl) {
+                                        return -1;
+                                    } else return null;
+                                })
                         .withTooltips(TooltipHandler.of(
                                 ChatUtils.parseTooltipsTranslation(translationKey + ".tooltips", ""))));
     }
 
-    public DrawableWidget createRefEditor(String path, Ref<?> ref, int x, int y, int dx, int dy) {
+    public static DrawableWidget createExecuteButton(
+            Supplier<Component> text,
+            Supplier<List<Component>> tooltips,
+            ButtonAction action,
+            BooleanSupplier condition,
+            int x,
+            int y,
+            int dx,
+            int dy) {
+        return ExecutableWidget.instance(x, y, dx, dy)
+                .setElementHandler(new ColorBoxElement(
+                                action,
+                                el -> (text.get()),
+                                () -> ClickGui.INSTANCE
+                                        .configColor
+                                        .get()
+                                        .withAlpha(
+                                                condition.getAsBoolean()
+                                                        ? ClickGui.INSTANCE.buttonActiveAlpha.get()
+                                                        : ClickGui.INSTANCE.buttonInactiveAlpha.get()),
+                                () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
+                                (el, bl) -> {
+                                    if (bl) {
+                                        return -1;
+                                    } else return null;
+                                })
+                        .withTooltips(TooltipHandler.of(tooltips)));
+    }
+
+    public static DrawableWidget createExecuteButton(
+            Supplier<Component> text,
+            Supplier<List<Component>> tooltips,
+            ButtonAction action,
+            int x,
+            int y,
+            int dx,
+            int dy) {
+        return createExecuteButton(text, tooltips, action, () -> true, x, y, dx, dy);
+    }
+
+    public static DrawableWidget createToggleButton(
+            String translationKey, ValueAccessor<Boolean> value, int x, int y, int dx, int dy) {
+        return createToggleButton(translationKey, value, x, y, dx, dy, true);
+    }
+
+    public static DrawableWidget createToggleButton(
+            String translationKey, ValueAccessor<Boolean> value, int x, int y, int dx, int dy, boolean frame) {
+        return ExecutableWidget.instance(x, y, dx, dy)
+                .setElementHandler(new ColorBoxElement(
+                                ButtonAction.run(() -> {
+                                    value.setValue(!value.getValue());
+                                }),
+                                TextProvider.of(Component.translatable(translationKey)),
+                                () -> ClickGui.INSTANCE
+                                        .configColor
+                                        .get()
+                                        .withAlpha(
+                                                value.getValue()
+                                                        ? ClickGui.INSTANCE.buttonActiveAlpha.get()
+                                                        : ClickGui.INSTANCE.buttonInactiveAlpha.get()),
+                                () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
+                                (el, nl) -> {
+                                    if (frame && value.getValue()) {
+                                        return ClickGui.INSTANCE
+                                                .moduleListColor
+                                                .get()
+                                                .withAlpha(255);
+                                    } else if (nl) {
+                                        return -1;
+                                    } else return null;
+                                })
+                        .withTooltips(TooltipHandler.of(
+                                ChatUtils.parseTooltipsTranslation(translationKey + ".tooltips", ""))));
+    }
+
+    public static DrawableWidget createToggleButton(
+            Supplier<Component> text,
+            Supplier<List<Component>> tooltips,
+            ValueAccessor<Boolean> value,
+            int x,
+            int y,
+            int dx,
+            int dy) {
+        return createToggleButton(text, tooltips, value, x, y, dx, dy, true);
+    }
+
+    public static DrawableWidget createToggleButton(
+            Supplier<Component> text,
+            Supplier<List<Component>> tooltips,
+            ValueAccessor<Boolean> value,
+            int x,
+            int y,
+            int dx,
+            int dy,
+            boolean frame) {
+        return ExecutableWidget.instance(x, y, dx, dy)
+                .setElementHandler(new ColorBoxElement(
+                                ButtonAction.run(() -> {
+                                    value.setValue(!value.getValue());
+                                }),
+                                el -> text.get(),
+                                () -> ClickGui.INSTANCE
+                                        .configColor
+                                        .get()
+                                        .withAlpha(
+                                                value.getValue()
+                                                        ? ClickGui.INSTANCE.buttonActiveAlpha.get()
+                                                        : ClickGui.INSTANCE.buttonInactiveAlpha.get()),
+                                () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
+                                (el, nl) -> {
+                                    if (frame && value.getValue()) {
+                                        return ClickGui.INSTANCE
+                                                .moduleListColor
+                                                .get()
+                                                .withAlpha(255);
+                                    } else if (nl) {
+                                        return -1;
+                                    } else return null;
+                                })
+                        .withTooltips(TooltipHandler.of(tooltips)));
+    }
+
+    public static DrawableWidget createElement(
+            ElementHandler elementHandler,
+            @Nullable Supplier<List<Component>> tooltips,
+            @Nullable ButtonAction action,
+            int x,
+            int y,
+            int dx,
+            int dy) {
+        var element = elementHandler;
+        if (tooltips != null) {
+            element = element.withTooltips(TooltipHandler.of(tooltips));
+        }
+        if (action != null) {
+            element = new BoxElement(action).withElement(element);
+        }
+        return ExecutableWidget.instance(x, y, dx, dy).setElementHandler(element);
+    }
+
+    public static DrawableWidget createElement(
+            RenderHandler elementHandler,
+            @Nullable Supplier<List<Component>> tooltips,
+            @Nullable ButtonAction action,
+            int x,
+            int y,
+            int dx,
+            int dy) {
+        var element = new BoxElement(action == null ? ButtonAction.empty() : action).combineRender(elementHandler);
+        if (tooltips != null) {
+            element = element.withTooltips(TooltipHandler.of(tooltips));
+        }
+        return ExecutableWidget.instance(x, y, dx, dy).setElementHandler(element);
+    }
+
+    public static DrawableWidget createRefEditor(String path, Ref<?> ref, int x, int y, int dx, int dy) {
         return new DefaultedKeyValueInputWidget(
                 x, y, dx, dy, indexWidth, blankWidth, dx - indexWidth - blankWidth, ref, path) {
             @Override
             public DrawableWidget createKeyLabel() {
-                return createRefKeyLabel(this::getTranslationName, this::getTooltips, dkey, dy);
+                return createLabel(this::getTranslationName, this::getTooltips, 0, 0, dkey, dy);
             }
         };
     }

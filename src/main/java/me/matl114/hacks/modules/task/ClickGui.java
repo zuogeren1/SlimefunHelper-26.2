@@ -107,6 +107,21 @@ public class ClickGui extends BaseModule {
             .defaultValue(new WrapColor(("#323232")))
             .build();
 
+    public final IntRef labelAlpha = intBuilder(clickGui.add("gui-config-label-alpha"))
+            .defaultValue(255)
+            .validator(Configs.intRange(0, 255))
+            .build();
+
+    public final IntRef buttonActiveAlpha = intBuilder(clickGui.add("button-active-alpha"))
+            .defaultValue(216)
+            .validator(Configs.intRange(0, 255))
+            .build();
+
+    public final IntRef buttonInactiveAlpha = intBuilder(clickGui.add("button-inactive-alpha"))
+            .defaultValue(128)
+            .validator(Configs.intRange(0, 255))
+            .build();
+
     public NBTRef<WrapColor> textColor = builder(clickGui.add("gui-text-style"), WrapColor.class)
             .defaultValue(new WrapColor((ChatFormatting.WHITE)))
             .build();
