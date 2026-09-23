@@ -22,6 +22,7 @@ import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.hacks.utils.config.Regex;
 import me.matl114.hacks.utils.config.WrapColor;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hacks.utils.render.RenderCollectors;
 import me.matl114.managers.Configs;
@@ -252,7 +253,7 @@ public class AutoSlab extends BaseModule {
                         && InteractExtra.INSTANCE.isWithinInteractRange(
                                 mc.player.position(), hitResult.val().getBlockPos(), range.get())
                         && InteractUtils.getBlockPlacement(bl, mc.player, mc.level, hitResult.val()) != null) {
-                    Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
+                    Runnable runnable = InvExtra.INSTANCE.swapItemToHand(entry.index(), false, GhostHandMode.INV_SWAP);
                     if (runnable == null) break;
                     stack.add(runnable);
                     if (useBlockRotate.get()) {

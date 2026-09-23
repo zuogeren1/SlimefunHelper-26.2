@@ -18,6 +18,7 @@ import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.utils.config.EntityTypeRegex;
 import me.matl114.hacks.utils.config.Regex;
 import me.matl114.hacks.utils.config.WrapColor;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hacks.utils.move.PathingSchedular;
 import me.matl114.hacks.utils.move.goal.IPathGoal;
 import me.matl114.hacks.utils.render.RenderCollectors;
@@ -185,7 +186,7 @@ public class AutoBreed extends BaseModule {
         if (breedItem == null || lastInteractTick + 5 >= Tasks.getTick() || Interact.INSTANCE == null) {
             return;
         }
-        Runnable restore = InvExtra.INSTANCE.swapInventoryIndexToHand(breedItem.index());
+        Runnable restore = InvExtra.INSTANCE.swapItemToHand(breedItem.index(), false, GhostHandMode.INV_SWAP);
         if (restore == null) {
             return;
         }

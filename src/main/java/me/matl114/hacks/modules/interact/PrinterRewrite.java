@@ -26,6 +26,7 @@ import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.WrapColor;
 import me.matl114.hacks.utils.entity.EntityMovementStatus;
 import me.matl114.hacks.utils.enums.BypassMode;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hacks.utils.render.RenderCollectors;
 import me.matl114.hooks.LitematicaHooks;
@@ -368,7 +369,7 @@ public class PrinterRewrite extends BaseModule {
             }
             enableRot.set(BypassMode.NO_BYPASS);
             try {
-                Runnable callback = InvExtra.INSTANCE.swapInventoryIndexToHand(idx);
+                Runnable callback = InvExtra.INSTANCE.swapItemToHand(idx, false, GhostHandMode.INV_SWAP);
                 if (callback == null) {
                     putCanNotPlace(pos);
                     return false;
@@ -440,7 +441,7 @@ public class PrinterRewrite extends BaseModule {
             if (rotation.flag() == mc.player.isShiftKeyDown()) {
                 var rot = rotation.val();
 
-                Runnable callback = InvExtra.INSTANCE.swapInventoryIndexToHand(item);
+                Runnable callback = InvExtra.INSTANCE.swapItemToHand(item, false, GhostHandMode.INV_SWAP);
                 if (callback != null) {
                     EntityMovementStatus<Player> playerStatus = new EntityMovementStatus<>(mc.player);
                     EntityUtils.setEntityPitchSafe(mc.player, rot.x);
@@ -602,7 +603,7 @@ public class PrinterRewrite extends BaseModule {
                     hitResult = new FlagEntry<>(false, InteractionTasks.createHitResult(pos, mc.player.position()));
                 }
                 if (InteractUtils.canInteractAndPlace(mc.player, hitResult)) {
-                    Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(re.index());
+                    Runnable runnable = InvExtra.INSTANCE.swapItemToHand(re.index(), false, GhostHandMode.INV_SWAP);
                     if (runnable != null) {
                         InteractionTasks.handlePlaceMode(mode.get(), hitResult.val(), InteractionHand.MAIN_HAND);
                         putSuccessPlace(pos);

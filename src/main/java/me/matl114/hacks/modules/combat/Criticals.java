@@ -19,7 +19,9 @@ import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.modules.move.FloatingUtils;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
+import me.matl114.hacks.utils.EntityUtils;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hacks.utils.enums.SetBackTriggerType;
 import me.matl114.hacks.utils.tasks.TimerExecutor;
 import me.matl114.hooks.ViaFabricPlusHooks;
@@ -46,7 +48,6 @@ import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
-import me.matl114.hacks.utils.EntityUtils;
 
 public class Criticals extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath attBot = makePath(Configs.COMBAT_CONFIG, "att-bot");
@@ -364,7 +365,7 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
                     var res = InventoryUtils.findPlayerItem(
                             it -> ItemStack.isSameItemSameComponents(it, stack), true, false);
                     if (res != null) {
-                        callback = InvExtra.INSTANCE.swapInventoryIndexToHand(res.index());
+                        callback = InvExtra.INSTANCE.swapItemToHand(res.index(), false, GhostHandMode.INV_SWAP);
                     }
                 }
                 Listener.sendPacketNoEvents(pkt);
