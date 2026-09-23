@@ -31,7 +31,7 @@ public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
     public NBTBoundedListScreen(
             AttrKeyValue<Map<W, T>> attrKeyValue,
             NBTType<T> type,
-            WidgetGenerator<W> keyWidgetGenerator,
+            WidgetGenerator<W> keyWidgetFactory,
             Consumer<Map<W, T>> callback,
             int dkey,
             int dx,
@@ -40,7 +40,7 @@ public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
                 attrKeyValue.get(),
                 attrKeyValue::isValueValid,
                 type::createAttrKeyValue,
-                keyWidgetGenerator,
+                keyWidgetFactory,
                 type::generateValueWidget,
                 callback,
                 dkey,
@@ -53,8 +53,8 @@ public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
             Map<W, T> list,
             Predicate<Map<W, T>> listValidator,
             BiFunction<String, T, AttrKeyValue<T>> attrElementFactory,
-            WidgetGenerator<W> keyWidgetGenerator,
-            WidgetGenerator<AttrKeyValue<T>> valueWidgetGenerator,
+            WidgetGenerator<W> keyWidgetFactory,
+            WidgetGenerator<AttrKeyValue<T>> valueWidgetFactory,
             Consumer<Map<W, T>> callback,
             int dkey,
             int dx,
@@ -73,8 +73,8 @@ public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
                 this.list,
                 (w) -> {
                     return new SubScreenWidget(0, 0, widgetDx, widgetDy)
-                            .addDrawableChild(keyWidgetGenerator.generateWidget(w.getFirst(), 0, 0, widgetDkey, widgetDy))
-                            .addDrawableChild(valueWidgetGenerator.generateWidget(
+                            .addDrawableChild(keyWidgetFactory.generateWidget(w.getFirst(), 0, 0, widgetDkey, widgetDy))
+                            .addDrawableChild(valueWidgetFactory.generateWidget(
                                     w.getSecond(), widgetDkey, 0, widgetDx - widgetDkey, widgetDy));
                 },
                 widgetDy,
@@ -91,7 +91,7 @@ public class NBTBoundedListScreen<W, T> extends ConfirmingBigScreen {
                         this.x + (this.backgroundWidth - listWidth) / 2,
                         this.y + CONTENT_START_Y,
                         listWidth,
-                        content_end_y - CONTENT_START_Y)
+                        getContentHeight())
                 .addTo(this);
     }
 

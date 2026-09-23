@@ -56,24 +56,24 @@ public class KeyBindConfigurateWidget extends SubScreenWidget {
                                 "widget.gui.key-bind-configurate-widget.keycode-configure.tooltips", ""))))
                 .addToSub(this);
         ExecutableWidget.instance(dx - 3 * dy - 1, 1, dy - 2, dy - 2)
-                .setElementHandler(new ButtonElement(
-                                TextProvider.of(Component.literal("T")), ((element, widget, mouseButton) -> {
+                .setElementHandler(
+                        new ButtonElement(TextProvider.of(Component.literal("T")), ((element, widget, mouseButton) -> {
                                     onSwitchToggleOnRelease();
                                     return false;
                                 }))
-                        .setActivePredicate((v) -> multiKeyBind.get().isToggleOnRelease())
-                        .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
-                                "widget.gui.key-bind-configurate-widget.keycode-t.tooltips", ""))))
+                                .setActivePredicate((v) -> multiKeyBind.get().isToggleOnRelease())
+                                .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
+                                        "widget.gui.key-bind-configurate-widget.keycode-t.tooltips", ""))))
                 .addToSub(this);
         ExecutableWidget.instance(dx - 2 * dy - 1, 1, dy - 2, dy - 2)
-                .setElementHandler(new ButtonElement(
-                                TextProvider.of(Component.literal("V")), ((element, widget, mouseButton) -> {
+                .setElementHandler(
+                        new ButtonElement(TextProvider.of(Component.literal("V")), ((element, widget, mouseButton) -> {
                                     onSwitchAllowVanilla();
                                     return false;
                                 }))
-                        .setActivePredicate((v) -> multiKeyBind.get().isAllowVanilla())
-                        .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
-                                "widget.gui.key-bind-configurate-widget.keycode-v.tooltips", ""))))
+                                .setActivePredicate((v) -> multiKeyBind.get().isAllowVanilla())
+                                .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
+                                        "widget.gui.key-bind-configurate-widget.keycode-v.tooltips", ""))))
                 .addToSub(this);
         deleteKeyInputWidget = ExecutableWidget.instance(dx - dy - 1, 1, dy - 2, dy - 2)
                 .setElementHandler(

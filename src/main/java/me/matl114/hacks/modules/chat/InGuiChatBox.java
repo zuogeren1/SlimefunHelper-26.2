@@ -14,8 +14,12 @@ import me.matl114.managers.Configs;
 import me.matl114.managers.config.DoubleRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
+import me.matl114.utils.config.ValueAccessor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -49,7 +53,7 @@ public class InGuiChatBox extends BaseModule {
         registerListener(Listener.getPostInitializeScreen(), this::onScreenInitialize);
     }
 
-    public AbstractWidget createInputWidget(int x, int y, int width) {
+    public AbstractWidget createInputWidget(ValueAccessor<Integer> x, ValueAccessor<Integer> y, int width) {
         return new ChatLikeInputWidget(mc.font, x, y, width, 12, (str) -> {
             if (str != null && !str.isEmpty() && !Objects.equals(str, "/")) {
                 // do not let blanks or / shits into it
@@ -60,19 +64,20 @@ public class InGuiChatBox extends BaseModule {
 
     public AbstractWidget createDefaultInputWidget() {
         WidgetPos pos = otherScreenInputPos.get();
-        double x = pos.getWindowX(mc.getWindow());
-        double y = pos.getWindowY(mc.getWindow());
         return createInputWidget(
-                (int) (x - otherScreenInputLength.get() / 2.0), (int) y - 12, (int) otherScreenInputLength.get());
+                ValueAccessor.ofIgnore(
+                        () -> (int) (pos.getWindowX(mc.getWindow()) - otherScreenInputLength.get() / 2.0)),
+                ValueAccessor.ofIgnore(() -> (int) (pos.getWindowY(mc.getWindow()) - 12)),
+                (int) otherScreenInputLength.get());
     }
 
     public void onScreenInitialize(Event<Screen> event) {
         if (event.context instanceof HandledScreenAccess access && enableGui.get()) {
             AbstractWidget newChat = createInputWidget(
-                    access.getScreenX() + 2,
-                    access.getScreenY()
+                    ValueAccessor.ofIgnore(() -> access.getScreenX() + 2),
+                    ValueAccessor.ofIgnore(access.getScreenY()
                             + access.getScreenBackgroundY()
-                            + (access instanceof CreativeModeInventoryScreen ? 40 : 10),
+                            + (access instanceof CreativeModeInventoryScreen ? 40 : 10)),
                     access.getScreenBackgroundX() - 4);
             access.addDrawableChildTo(newChat);
         } else if (!(event.context instanceof AbstractContainerScreen<?>)) {

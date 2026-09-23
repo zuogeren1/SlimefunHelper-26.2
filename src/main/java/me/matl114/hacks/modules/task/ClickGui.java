@@ -1,7 +1,5 @@
 package me.matl114.hacks.modules.task;
 
-import me.matl114.utils.ClientUtils;
-
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -19,12 +17,12 @@ import lombok.Setter;
 import me.matl114.accessors.gui.ScreenAccess;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
+import me.matl114.gui.*;
 import me.matl114.gui.Constants;
 import me.matl114.gui.FilterService;
 import me.matl114.gui.McWidgetHelpers;
 import me.matl114.gui.WidgetUtils;
 import me.matl114.gui.basic.*;
-import me.matl114.gui.complex.clickGui.ClickGuiMainScreen;
 import me.matl114.gui.complex.config.ConfigurateNewStyleScreen;
 import me.matl114.gui.elements.ButtonElement;
 import me.matl114.gui.elements.ColorBoxElement;
@@ -48,6 +46,7 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.file.FileStorage;
 import me.matl114.managers.input.*;
 import me.matl114.utils.ChatUtils;
+import me.matl114.utils.ClientUtils;
 import me.matl114.utils.algorithms.SerialExecutor;
 import me.matl114.utils.config.ValueAccessor;
 import net.minecraft.ChatFormatting;
@@ -81,7 +80,7 @@ public class ClickGui extends BaseModule {
 
     public final KeyBindRef optionsKeyBind = hotkey(hotkeys.add("open-options-menu"))
             .defaultValue(new MultiKeyBind())
-            .registerHotkey(HotKeyUtils.asHandler(this::openGameOptionsMenu))
+            .registerHotkey(HotKeyUtils.wrapAsHandler(this::openGameOptionsMenu))
             .build();
 
     public KeyBindRef keyBindClickGui = hotkey(clickGui.add("hotkey"))
@@ -101,6 +100,11 @@ public class ClickGui extends BaseModule {
 
     public NBTRef<WrapColor> backGroundColor = builder(clickGui.add("gui-background-style"), WrapColor.class)
             .defaultValue(new WrapColor(("#323232")))
+            .build();
+
+    public IntRef backgroundAlpha = intBuilder(clickGui.add("gui-background-alpha"))
+            .defaultValue(192)
+            .validator(Configs.intRange(0, 255))
             .build();
 
     public NBTRef<WrapColor> configColor = builder(clickGui.add("gui-config-style"), WrapColor.class)
@@ -265,7 +269,7 @@ public class ClickGui extends BaseModule {
         if (BaritoneHooks.getInstance().isBaritoneAPISupported()) {
             selections.put("Baritone", (s) -> this.createBaritoneScreen(s, meta));
         }
-        Screen screen = new ClickGuiMainScreen(selections);
+        Screen screen = new ClickGuiMainScreen(this, selections);
         // add save when close
         ScreenAccess.of(screen).addCloseFuture(() -> setClickGuiMeta(meta));
         ScreenAccess.of(screen).openFromCurrent();
@@ -367,7 +371,7 @@ public class ClickGui extends BaseModule {
                                         })
                                         : ButtonAction.run(() -> openConfigurateScreen(baseModule, metaData)),
                                 TextProvider.of(getModuleName(baseModule)),
-                                () -> this.backGroundColor.get().withAlpha(192),
+                                () -> this.backGroundColor.get().withAlpha(backgroundAlpha.get()),
                                 () -> this.textColor.get().withAlpha(255),
                                 (el, bl) -> {
                                     if (bindFlag != null && bindFlag.get()) {
@@ -470,12 +474,12 @@ public class ClickGui extends BaseModule {
                 .setRenderHandler(new ColorSplitterElement(
                         TextProvider.of(getConfigSubGroupTitle(prefix)),
                         this.textColor.get().withAlpha(255),
-                        () -> backGroundColor.get().withAlpha(192)))
+                        () -> backGroundColor.get().withAlpha(backgroundAlpha.get())))
                 .addToSub(subScreen);
         ExecutableWidget.instance(width - buttonHeight, buttonBlank, buttonHeight, buttonHeight)
                 .setRenderHandler(new AbstractElement()
                         .combineRender(
-                                RenderHandler.ofColorQuad(backGroundColor.get().withAlpha(192)))
+                                RenderHandler.ofColorQuad(backGroundColor.get().withAlpha(backgroundAlpha.get())))
                         .combineRender((element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
                             context.setShaderColor(textColor.get().withAlpha(255));
                             context.drawGuiTexture(
@@ -619,12 +623,12 @@ public class ClickGui extends BaseModule {
                 .setRenderHandler(new ColorSplitterElement(
                         TextProvider.of(Component.literal(group)),
                         this.textColor.get().withAlpha(255),
-                        () -> backGroundColor.get().withAlpha(192)))
+                        () -> backGroundColor.get().withAlpha(backgroundAlpha.get())))
                 .addToSub(subScreen);
         ExecutableWidget.instance(buttonWidth - buttonHeight, 0, buttonHeight, buttonHeight)
                 .setRenderHandler(new AbstractElement()
                         .combineRender(
-                                RenderHandler.ofColorQuad(backGroundColor.get().withAlpha(192)))
+                                RenderHandler.ofColorQuad(backGroundColor.get().withAlpha(backgroundAlpha.get())))
                         .combineRender(((element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
                             context.setShaderColor(textColor.get().withAlpha(255));
                             context.drawGuiTexture(
@@ -928,9 +932,91 @@ public class ClickGui extends BaseModule {
             () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
             () -> ClickGui.INSTANCE.moduleListColor.get().withAlpha(255),
             () -> ClickGui.INSTANCE.textColor.get().withAlpha(255),
-            () -> ClickGui.INSTANCE.configColor.get().withAlpha(255));
+            () -> ClickGui.INSTANCE.configColor.get().withAlpha(ClickGui.INSTANCE.labelAlpha.get()));
 
     static {
         WidgetUtils.DEFAULT_PALETTE = CONFIG_PALETTE;
+    }
+
+    public static class ClickGuiMainScreen extends GenericScreen {
+        ClickGui clickGui;
+        Map<String, Function<Screen, DrawableWidget>> widgets;
+        DrawableWidget widget;
+        String selecting;
+
+        public ClickGuiMainScreen(ClickGui clickGuiModule, Map<String, Function<Screen, DrawableWidget>> widgets) {
+            super(Component.empty(), 0, 0);
+            this.clickGui = clickGuiModule;
+            this.widgets = widgets;
+            String val = this.widgets.keySet().iterator().next();
+            setGlobal(val);
+        }
+
+        protected void init0() {
+            super.init0();
+            // FULL SCREEN
+            this.x = 0;
+            this.y = 0;
+        }
+
+        public static final int BUTTON_HEIGHT = 12;
+        public static final int BUTTON_MAX_WIDTH = 60;
+
+        protected void setGlobal(String string) {
+            if (!Objects.equals(string, selecting)) {
+                selecting = string;
+                widget = widgets.get(selecting).apply(this);
+                if (widgetDelegate != null) {
+                    widgetDelegate.setContentDelegate(widget);
+                }
+            }
+        }
+
+        ContentDelegateWidget<DrawableWidget> widgetDelegate;
+
+        @Override
+        protected void init() {
+            super.init();
+            int size = widgets.size();
+            int blank;
+            int width;
+            if (size * BUTTON_MAX_WIDTH > this.width) {
+                blank = 0;
+                width = this.width / size;
+            } else {
+                blank = (this.width - size * BUTTON_MAX_WIDTH) / 2;
+                width = BUTTON_MAX_WIDTH;
+            }
+            int cnt = 0;
+            for (String entry : widgets.keySet()) {
+                String selecting = entry;
+                ElementHandler element = new ColorBoxElement(
+                                ButtonAction.run(() -> this.setGlobal(selecting)),
+                                TextProvider.of(Component.translatableWithFallback(
+                                        "widget.click-gui.selection." + selecting, selecting)),
+                                () -> clickGui.configColor.get().withAlpha(clickGui.buttonActiveAlpha.get()),
+                                () -> clickGui.textColor.get().withAlpha(255),
+                                (el, bl) -> {
+                                    if (Objects.equals(this.selecting, selecting)) {
+                                        return clickGui.moduleListColor.get().withAlpha(255);
+                                    } else if (bl) {
+                                        return -1;
+                                    } else return null;
+                                })
+                        .withTooltips(TooltipHandler.of(ChatUtils.parseTooltipsTranslation(
+                                "widget.click-gui.selection." + selecting + ".tooltips", "暂无介绍")));
+                ExecutableWidget.instance(blank + cnt * width, 0, width, BUTTON_HEIGHT)
+                        .setElementHandler(element)
+                        .addTo(this);
+                cnt += 1;
+            }
+            // resize
+            String currentSelect = selecting;
+            selecting = null;
+            setGlobal(currentSelect);
+            widgetDelegate = new ContentDelegateWidget<>(0, BUTTON_HEIGHT, this.width, this.height - BUTTON_HEIGHT)
+                    .setContentDelegate(widget)
+                    .addTo(this);
+        }
     }
 }

@@ -23,9 +23,9 @@ public class McWidgetHelpers {
     public static ContentDelegateWidget<MultiLineEditBox> createMultiLineEditBox(
             int x, int y, int dx, int dy, Consumer<String> valueTracker, String origin) {
         return createEnhancedMultiLine(x, y, dx, dy, valueTracker, origin, null);
-        //        EditBoxWidget widget = new EditBoxWidget(mc.textRenderer, x,y, dx, dy, Text.empty(), Text.empty());
-        //        widget.setText(origin);
-        //        widget.setChangeListener((str)-> valueTracker.setInput(str));
+        //        MultiLineEditBox widget = new MultiLineEditBox(mc.font, x,y, dx, dy, Component.empty(), Component.empty());
+        //        widget.setValue(origin);
+        //        widget.setChangeListener((str)-> valueTracker.valueChange(str));
         //        return new ContentDelegateWidget<>(0,0, 0,0)
         //            .setContentDelegate(widget);
     }
@@ -39,9 +39,9 @@ public class McWidgetHelpers {
             String origin,
             ColorProvider boxColorProvider) {
         return createEnhancedMultiLine(x, y, dx, dy, valueTracker, origin, boxColorProvider);
-        //        EditBoxWidget widget = new EditBoxWidget(mc.textRenderer, x,y, dx, dy, Text.empty(), Text.empty());
-        //        widget.setText(origin);
-        //        widget.setChangeListener((str)-> valueTracker.setInput(str));
+        //        MultiLineEditBox widget = new MultiLineEditBox(mc.font, x,y, dx, dy, Component.empty(), Component.empty());
+        //        widget.setValue(origin);
+        //        widget.setChangeListener((str)-> valueTracker.valueChange(str));
         //        return new ContentDelegateWidget<>(0,0, 0,0)
         //            .setContentDelegate(widget);
     }
@@ -118,7 +118,7 @@ public class McWidgetHelpers {
         EditBox textFieldWidget = new EditBox(mc.font, 0, 0, dx, dy, Component.empty());
         textFieldWidget.setMaxLength(32768);
         textFieldWidget.setValue(origin);
-        textFieldWidget.setResponder((str) -> valueTracker.accept(str));
+        textFieldWidget.setResponder(valueTracker);
         if (boxColorProvider != null) TextFieldAccess.of(textFieldWidget).setBorderColorProvider(boxColorProvider);
         return new TextContentDelegateWidget<>(x, y, textFieldWidget);
     }
@@ -189,5 +189,4 @@ public class McWidgetHelpers {
             //
         }
     }
-
 }

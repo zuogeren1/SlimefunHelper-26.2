@@ -222,8 +222,7 @@ public class SlimefunChoiceScreen<T> extends SlimefunScreen {
                     builder.addAll(ChatUtils.parseTooltipsTranslation(
                             "widget.gui.slimefun-choice-screen.nbt-filter.tooltips", ""));
                     builder.add(Component.translatable(
-                            "widget.gui.slimefun-choice-screen.nbt-filter.current-option",
-                            nbtFilter.get().detail));
+                            "widget.gui.slimefun-choice-screen.nbt-filter.current-option", nbtFilter.get().detail));
                     return builder.build();
                 })))
                 .addTo(this);
