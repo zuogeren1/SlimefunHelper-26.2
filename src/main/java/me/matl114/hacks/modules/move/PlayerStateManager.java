@@ -58,7 +58,6 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
@@ -586,6 +585,7 @@ public class PlayerStateManager extends BaseModule {
         AABB box = mc.player.getBoundingBox();
         lastUnderBlock = MovTasks.isCollidingWithEnvironment(
                 mc.player, box.setMinY(box.maxY).setMaxY(box.maxY + 0.42));
+        // todo: maybe buggy
         lastHasGroundSupport = CollisionUtil.isEntitySupported(mc.player, 1E-3);
         lastVelocityAffectingPos = calculateVelocityAffectingPos();
         if (++cooldownInvSummary > 10 || inventorySummary == null || inventoryTotalSummary == null) {
@@ -682,18 +682,18 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void handleMaceSmash() {
-        if (fallDistance > 1.5) {
-            fallDistance = 0;
-        }
-    }
-
     public void onInteractBlock(Event<ServerboundUseItemOnPacket> event) {
         updateAFK();
     }
 
     public void onInteract(Event<ServerboundUseItemPacket> event) {
         updateAFK();
+    }
+
+    public void handleMaceSmash() {
+        if (fallDistance > 1.5) {
+            fallDistance = 0;
+        }
     }
 
     public void onClickSlot(Event<SlotClickAction> eventClick) {
@@ -931,10 +931,11 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
-    public void onEntityTrackedDataUpdate(Event<MetadataUpdate> eventDataUpdate) {
-        if (eventDataUpdate.context.entity() instanceof Player pl) {
-            if (eventDataUpdate.context.metadata().id() == VDataFlag.ID_POTION_SWIRLS
-                    && eventDataUpdate.context.metadata().value() instanceof List<?> lst) {
+    public void onEntityTrackedDataUpdate(Event<MetadataUpdate> event) {
+        var eventDataUpdate = event.context();
+        if (eventDataUpdate.entity() instanceof Player pl) {
+            if (eventDataUpdate.metadata().id() == VDataFlag.ID_POTION_SWIRLS
+                    && eventDataUpdate.metadata().value() instanceof List<?> lst) {
                 // update visible effect list
                 List<ParticleOptions> particles = (List<ParticleOptions>) lst;
                 PlayerStatus status = getOrCreateStatus(pl);
@@ -956,8 +957,8 @@ public class PlayerStateManager extends BaseModule {
                 for (var re : keys) {
                     status.visibleStatusEffects.remove(re);
                 }
-            } else if (eventDataUpdate.context.metadata().id() == VDataFlag.ID_LIVING_FLAGS
-                    && eventDataUpdate.context.metadata().value() instanceof Number lst) {
+            } else if (eventDataUpdate.metadata().id() == VDataFlag.ID_LIVING_FLAGS
+                    && eventDataUpdate.metadata().value() instanceof Number lst) {
                 byte byteValue = lst.byteValue();
                 PlayerStatus status = getOrCreateStatus(pl);
                 boolean useItem = (byteValue & VDataFlag.USING_ITEM_FLAG_INDEX) > 0;
