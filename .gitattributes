@@ -1,3 +1,7 @@
+# 本仓库约定：源码用 CRLF，且不做任何行尾转换（git 原样存取）——
+# 否则换行符约定只靠本机 core.autocrlf=false 维持，别的克隆会漂移。
+* -text
+
 #
 # https://help.github.com/articles/dealing-with-line-endings/
 #
