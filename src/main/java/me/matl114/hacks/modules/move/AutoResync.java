@@ -109,6 +109,7 @@ public class AutoResync extends BaseModule {
     public Vec2 restoreRot = null;
 
     public void onSetBack(Event<ClientboundPlayerPositionPacket> event) {
+        if (checkNull()) return;
         if (event.isCancelled()) return;
         if (mc.player == null) return;
         // just switch world for no more than 10 second, it is a game join, do not apply any resync
@@ -192,6 +193,7 @@ public class AutoResync extends BaseModule {
     }
 
     public void onPreSetBack(Event<ClientboundPlayerPositionPacket> event) {
+        if (checkNull()) return;
         if (autoResyncRot.get() && !modifyPacketRot.get()) {
             restoreRot = new Vec2(mc.player.getXRot(), mc.player.getYRot());
             mc.player.setXRot(PlayerStateManager.INSTANCE.lastPitch);
@@ -200,6 +202,7 @@ public class AutoResync extends BaseModule {
     }
 
     public void onPreRotate(Event<ClientboundPlayerRotationPacket> eventRotate) {
+        if (checkNull()) return;
         if (autoResyncRot.get()) {
             if (modifyPacketRot.get()) {
                 eventRotate.cancel();
@@ -212,6 +215,8 @@ public class AutoResync extends BaseModule {
     }
 
     public void onPostSetBack(Event<ClientboundPlayerPositionPacket> event) {
+        if (checkNull()) return;
+        if (checkNull()) return;
         if (restoreRot != null) {
             EntityUtils.setEntityPitchSafe(mc.player, restoreRot.x);
             PlayerStateManager.setPlayerYawSafe(mc.player, restoreRot.y);
@@ -222,6 +227,7 @@ public class AutoResync extends BaseModule {
     }
 
     public void onPostRotate(Event<ClientboundPlayerRotationPacket> eventRotate) {
+        if (checkNull()) return;
         if (restoreRot != null) {
             EntityUtils.setEntityPitchSafe(mc.player, restoreRot.x);
             PlayerStateManager.setPlayerYawSafe(mc.player, restoreRot.y);

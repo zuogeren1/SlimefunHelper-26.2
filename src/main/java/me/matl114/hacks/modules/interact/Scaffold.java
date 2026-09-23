@@ -10,6 +10,7 @@ import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.modules.inv.InvExtra;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.EnumRef;
@@ -103,6 +104,10 @@ public class Scaffold extends BaseModule {
             .validator(Configs.intRange(0, 3))
             .build();
 
+    public final EnumRef<GhostHandMode> ghostHand = builder(scaffold.add("ghost-hand-mode"), GhostHandMode.class)
+            .defaultValue(GhostHandMode.INV_SWAP)
+            .build();
+
     public final FlagRef swingHand = builder(scaffold.add("swing-hand"), Boolean.class)
             .defaultValue(true)
             .build();
@@ -123,11 +128,7 @@ public class Scaffold extends BaseModule {
 
     private void placeBlockLegally(int hand, BlockHitResult result) {
         boolean offhandOk = offhand.get() || hand == 40;
-        Runnable callback = offhandOk
-                ? InvExtra.INSTANCE.swapInventoryIndexToOffhand(hand)
-                : (swapHand.get()
-                        ? InvExtra.INSTANCE.switchOrSwapInventoryIndexToHand(hand)
-                        : InvExtra.INSTANCE.swapInventoryIndexToHand(hand));
+        Runnable callback = InvExtra.INSTANCE.swapItemToHand(hand, offhandOk, ghostHand.get());
         if (callback == null) {
             return;
         }
@@ -179,7 +180,12 @@ public class Scaffold extends BaseModule {
         }
         // do not consider offHand, because some game do not support
         IndexEntry<ItemStack> stackEntry = InventoryUtils.findPlayerItem(
-                (item) -> availableItemBlocks.contains(item.getItem()), true, false, true, true);
+                (item) -> availableItemBlocks.contains(item.getItem()),
+                ghostHand.get().getSearchSize(offhand.get()),
+                true,
+                false,
+                true,
+                true);
         return stackEntry == null ? -1 : stackEntry.index();
 
         // search block in backpack
