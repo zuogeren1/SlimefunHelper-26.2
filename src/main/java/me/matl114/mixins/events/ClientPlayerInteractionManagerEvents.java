@@ -64,7 +64,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
                             shift = At.Shift.BEFORE),
             cancellable = true)
     private void onCancelSend(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
-        Event<UseItem> handEvent = new Event<>(new UseItem(InteractionResult.PASS, hand), true, true);
+        Event<UseItem> handEvent = new Event<>(new UseItem(InteractionResult.PASS, hand, player.getItemInHand(hand)), true, true);
         Listener.getPrePlayerUseItem().handleValue(handEvent);
         if (handEvent.isCancelled()) {
             cir.setReturnValue(handEvent.context.actionResult());
@@ -79,7 +79,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
             int sequence,
             CallbackInfoReturnable<Packet> cir) {
         InteractionResult acc = mutableObject.getValue();
-        Event<UseItem> eventResult = new Event<>(new UseItem(acc, hand), false, true);
+        Event<UseItem> eventResult = new Event<>(new UseItem(acc, hand, playerEntity.getItemInHand(hand)), false, true);
         Listener.getPostPlayerUseItem().handleValue(eventResult);
         mutableObject.setValue(eventResult.context.actionResult());
     }
@@ -92,7 +92,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
             CallbackInfoReturnable<InteractionResult> cir,
             @Local(argsOnly = true) LocalRef<BlockHitResult> hand2) {
         Event<UseItemOnBlock> blockHitResultEvent =
-                new Event<>(new UseItemOnBlock(hitResult, InteractionResult.SUCCESS, false, hand), true, true);
+                new Event<>(new UseItemOnBlock(hitResult, InteractionResult.SUCCESS, false, hand, player.getItemInHand(hand)), true, true);
         Listener.getPrePlayerUseItemAtBlock().handleValue(blockHitResultEvent);
         if (blockHitResultEvent.isCancelled()) {
             cir.setReturnValue(blockHitResultEvent.context.actionResult());
@@ -141,7 +141,7 @@ public abstract class ClientPlayerInteractionManagerEvents {
         });
         InteractionResult acc = actionResult.getValue();
         Event<UseItemOnBlock> eventResult =
-                new Event<>(new UseItemOnBlock(hitResult, acc, placeBlock.getValue(), hand), false, true);
+                new Event<>(new UseItemOnBlock(hitResult, acc, placeBlock.getValue(), hand, stackCopy), false, true);
         Listener.getPostPlayerUseItemOnBlock().handleValue(eventResult);
         actionResult.setValue(eventResult.context.actionResult());
     }

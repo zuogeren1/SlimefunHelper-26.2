@@ -59,6 +59,7 @@ import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.*;
@@ -122,6 +123,7 @@ public class PlayerStateManager extends BaseModule {
     public Vec3 lastAverageMovementSpeed = Vec3.ZERO;
     public Vec3 lastSetBackPosition = Vec3.ZERO;
     public int lastAttackStrengthResetTick = 0;
+    public int lastStartGlidingTick = 0;
     public boolean lastMovementContainsPosition = false;
     boolean lastTickHasMovement = false;
     public boolean lastClimbing;
@@ -136,6 +138,7 @@ public class PlayerStateManager extends BaseModule {
     public boolean lastInWall;
     public boolean lastUnderBlock;
     public boolean lastHasGroundSupport;
+    public int lastSelectedSlot = 0;
     public PlayerInputUtils.Input lastInput = PlayerInputUtils.EMPTY.clone();
     public boolean serverSideCanFly;
     public Deque<Vec3> last40Positions = new ArrayDeque<>();
@@ -143,12 +146,17 @@ public class PlayerStateManager extends BaseModule {
     public Map<ItemStackSample, Integer> inventorySummary;
     public Map<ItemStackSample, Integer> inventoryTotalSummary;
     public int glidingTicks;
+    public int lastActiveTicks;
     private static final int MAX_SIZE = 20;
 
     {
         for (int i = 0; i < MAX_SIZE; ++i) {
             last40Positions.add(Vec3.ZERO);
         }
+    }
+
+    private void updateAFK() {
+        lastActiveTicks = Tasks.getTick();
     }
 
     public PlayerStateManager() {
@@ -235,6 +243,14 @@ public class PlayerStateManager extends BaseModule {
         registerListener(Listener.getOtherPlayerExitPoint(), this::onPlayerLeave);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundSwingPacket.class), this::onSwingHand);
         registerListener(Listener.getPacketPoint().getChannel(ServerboundAttackPacket.class), this::onAttack);
+        registerListener(Listener.getPacketPoint().getChannel(ClientboundDamageEventPacket.class), this::onPlayerDamage);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundSetCarriedItemPacket.class),
+                this::onSelectedSlot,
+                Integer.MAX_VALUE);
+        registerListener(
+                Listener.getPacketPoint().getChannel(ServerboundUseItemOnPacket.class), this::onInteractBlock);
+        registerListener(Listener.getPacketPoint().getChannel(ServerboundUseItemPacket.class), this::onInteract);
     }
 
     public void onMove(Event<ServerboundMovePlayerPacket> event) {
@@ -263,10 +279,12 @@ public class PlayerStateManager extends BaseModule {
             if (packet.hasRotation()) {
                 lastPitch = packet.getXRot(lastPitch);
                 lastYaw = packet.getYRot(lastYaw);
+                updateAFK();
             }
             lastKnownMovementSpeed = new Vec3(lastX - oldMove.x, lastY - oldMove.y, lastZ - oldMove.z);
             if (lastKnownMovementSpeed.lengthSqr() > 1E-7) {
                 lastKnownChangePosMovementSpeed = lastKnownMovementSpeed;
+                updateAFK();
             }
             if (PlayerMoveC2SPacketAccess.of(packet).getCause() != PlayerMoveC2SPacketAccess.Cause.LEGACY_SNAP) {
                 if (PlayerMoveC2SPacketAccess.of(packet).getCause() == PlayerMoveC2SPacketAccess.Cause.SET_BACK) {
@@ -281,11 +299,15 @@ public class PlayerStateManager extends BaseModule {
             if (packet.hasRotation()) {
                 lastPitch = packet.getXRot(lastPitch);
                 lastYaw = packet.getYRot(lastYaw);
+                updateAFK();
             }
         }
         // update input here , low version
         if (!ViaFabricPlusHooks.isSupportEndTick()) {
             lastInput = PlayerInputUtils.of(mc.player);
+            if (lastInput.hasMovementControl()) {
+                updateAFK();
+            }
         }
     }
 
@@ -318,12 +340,35 @@ public class PlayerStateManager extends BaseModule {
                         : deltaMovement.z;
                 lastKnownClientVelocity = new Vec3(lastClientVX, lastClientVY, lastClientVZ);
             }
+        } else {
+            isGrimResyncPacket = true;
+        }
+    }
+
+    boolean isGrimResyncPacket = false;
+    boolean lastHit = false;
+
+    public void onPlayerDamage(Event<ClientboundDamageEventPacket> damage) {
+        if (checkNull()) return;
+        if (mc.player != null
+                && damage.context.entityId() == mc.player.getId()
+                && damage.context.sourceType().is(DamageTypeTags.NO_KNOCKBACK)) {
+            lastHit = true;
         }
     }
 
     public void onPostPlayerVelocityUpdate(Event<ClientboundSetEntityMotionPacket> eventVC) {
         if (checkNull()) return;
         if (eventVC.context.id() != mc.player.getId()) return;
+        // filter fireDamage or something
+        if (lastHit) {
+            lastHit = false;
+        }
+        if (isGrimResyncPacket) {
+            isGrimResyncPacket = false;
+        } else {
+            return;
+        }
         Vec3 velocity = VPacket.getVelocity(eventVC.context);
         ACTasks.addPostTransactionAction(s -> lastKnownClientVelocity = velocity);
     }
@@ -341,6 +386,9 @@ public class PlayerStateManager extends BaseModule {
         if (eventInput.isCancelled()) return;
         if (ViaFabricPlusHooks.isSupportEndTick()) {
             lastInput = PlayerInputUtils.of(eventInput.context);
+            if (lastInput.hasMovementControl()) {
+                updateAFK();
+            }
         }
     }
 
@@ -610,6 +658,7 @@ public class PlayerStateManager extends BaseModule {
     public void onPlayerCommand(Event<ServerboundPlayerCommandPacket> event) {
         if (event.isCancelled()) return;
         switch (event.context.getAction()) {
+            case START_FALL_FLYING -> lastStartGlidingTick = Tasks.getTick();
             case START_SPRINTING -> {
                 lastSprint = true;
             }
@@ -621,12 +670,14 @@ public class PlayerStateManager extends BaseModule {
 
     public void onSwingHand(Event<ServerboundSwingPacket> event) {
         lastAttackStrengthResetTick = Tasks.getTick();
+        updateAFK();
     }
 
     public void onAttack(Event<ServerboundAttackPacket> event) {
         // 26.2: 攻击语义由 ServerboundAttackPacket 承载
         if (mc.level.getEntity(event.context.entityId()) instanceof LivingEntity living) {
             lastAttackStrengthResetTick = Tasks.getTick();
+            updateAFK();
         }
     }
 
@@ -636,8 +687,24 @@ public class PlayerStateManager extends BaseModule {
         }
     }
 
+    public void onInteractBlock(Event<ServerboundUseItemOnPacket> event) {
+        updateAFK();
+    }
+
+    public void onInteract(Event<ServerboundUseItemPacket> event) {
+        updateAFK();
+    }
+
     public void onClickSlot(Event<SlotClickAction> eventClick) {
         cooldownInvSummary = 100;
+    }
+
+    public void onSelectedSlot(Event<ServerboundSetCarriedItemPacket> event) {
+        if (event.isCancelled()) {
+            return;
+        }
+        lastSelectedSlot = event.context.getSlot();
+        updateAFK();
     }
 
     public void onInventoryUpdate(Event<ClientboundContainerSetContentPacket> event) {
@@ -679,6 +746,9 @@ public class PlayerStateManager extends BaseModule {
         inventoryTotalSummary = null;
         inventorySummary = null;
         glidingTicks = 0;
+        lastStartGlidingTick = 0;
+        lastSelectedSlot = 0;
+        updateAFK();
     }
 
     public void onTickEnd(Event<ServerboundClientTickEndPacket> tickEndPacket) {
