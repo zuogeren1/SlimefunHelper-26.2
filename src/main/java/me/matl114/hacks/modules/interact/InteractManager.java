@@ -120,6 +120,8 @@ public class InteractManager extends BaseModule {
         super.registerAll();
         registerCommandBootstrap(this::bootstrapCommands);
         registerListener(Listener.getPreHandleInputEvents(), this::onInputEvent, Integer.MAX_VALUE - 1);
+        registerListener(Listener.getPreHandleInputEvents(), this::onPreInputEventLow, Integer.MIN_VALUE);
+        registerListener(Listener.getPostHandleInputEvents(), this::onPostInputEventMonitor, Integer.MAX_VALUE);
         registerListener(Listener.getServerLeavePoint(), this::onServerLeave);
         registerListener(Listener.getWorldSwitchPoint(), this::onWorldSwitch);
         registerListener(Listener.getPostHandleInputEvents(), this::onPostInputEvent, Integer.MIN_VALUE);
@@ -127,6 +129,7 @@ public class InteractManager extends BaseModule {
                 Listener.getPacketPoint().getChannel(ServerboundMovePlayerPacket.class), this::onPlayerMoveC2SPacket);
     }
 
+    public boolean duringInputEvent = false;
     public boolean duringVanillaInput = false;
     boolean duringCommand = false;
 
@@ -188,6 +191,14 @@ public class InteractManager extends BaseModule {
             duringCommand = false;
         }
         duringVanillaInput = true;
+    }
+
+    public void onPreInputEventLow(Event<Void> event) {
+        duringInputEvent = true;
+    }
+
+    public void onPostInputEventMonitor(Event<Void> event) {
+        duringInputEvent = false;
     }
 
     public void onPostInputEvent(Event<Void> event) {

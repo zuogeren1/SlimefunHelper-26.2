@@ -43,6 +43,27 @@ public class HotKeyUtils {
         };
     }
 
+    public static boolean isValidNonInputState() {
+        if (ClientUtils.getScreen(mc) == null) {
+            return true;
+        }
+        if (!ModuleSettings.INSTANCE.hotkeyPolicy.get().isIn(ModuleSettings.HotkeyPolicy.RUN_IN_ALL_SCREEN)
+                && ModuleSettings.INSTANCE.shouldNotExecuteInInput()) {
+            return false;
+        }
+        return true;
+    }
+
+    public static SimpleHotKey.InputHandler asNoneInputHandler(Runnable task) {
+        return (ih, in) -> {
+            if (isValidNonInputState()) {
+                task.run();
+                return true;
+            }
+            return false;
+        };
+    }
+
     public static SimpleHotKey.InputHandler asHandler(Runnable task) {
         return (ih, in) -> {
             task.run();

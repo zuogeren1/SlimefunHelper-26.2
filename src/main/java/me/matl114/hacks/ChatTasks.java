@@ -54,6 +54,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import org.apache.commons.lang3.mutable.MutableInt;
+import me.matl114.managers.config.DoubleRef;
 
 public class ChatTasks {
     public static void init() {}
@@ -127,7 +128,7 @@ public class ChatTasks {
     }
 
     @Getter
-    private static final LimitedSpeedExecutor chatExecutor = new LimitedSpeedExecutor(new IntRef(5));
+    private static final LimitedSpeedExecutor chatExecutor = new LimitedSpeedExecutor(new DoubleRef(5));
 
     public static void sendDelayChatMessage(Component text) {
         chatExecutor.addDelayedExecuteTask(() -> ClientUtils.getChat(mc).addClientSystemMessage(text));

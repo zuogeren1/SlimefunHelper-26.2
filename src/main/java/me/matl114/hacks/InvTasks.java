@@ -89,6 +89,11 @@ public class InvTasks {
     }
 
     @ApiMethod
+    public static AbstractContainerMenu getCurrentServerScreenHandler(LocalPlayer player) {
+        return player == null ? null : ClientPlayerAccess.of(player).getServerScreenHandler();
+    }
+
+    @ApiMethod
     public static boolean dropAllCursorStack() {
         LocalPlayer player = mc.player;
         if (player == null) return false;
@@ -1193,6 +1198,9 @@ public class InvTasks {
     private static KitReplenish kitReplenish;
 
     @Getter
+    private static InvHelper invHelper;
+
+    @Getter
     private static ItemEditor itemEditor;
 
     // todo: remove
@@ -1228,6 +1236,7 @@ public class InvTasks {
         autoShulker = new AutoShulker().register(m);
         chestHistory = new ChestHistory().register(m);
         kitReplenish = new KitReplenish().register(m);
+        invHelper = new InvHelper().register(m);
 
         itemEditor = new ItemEditor().register(m);
         quickButton = new QuickButton().register(m);

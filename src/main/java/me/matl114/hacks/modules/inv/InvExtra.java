@@ -42,6 +42,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import me.matl114.managers.config.DoubleRef;
 
 public class InvExtra extends BaseModule {
     public static InvExtra INSTANCE;
@@ -52,9 +53,9 @@ public class InvExtra extends BaseModule {
         INSTANCE = this;
     }
 
-    public final IntRef inventoryClickLimit = intBuilder(inventory.add("packet-limit"))
-            .defaultValue(40)
-            .validator(Configs.INT_POSITIVE)
+    public final DoubleRef inventoryClickLimit = doubleBuilder(inventory.add("packet-limit"))
+            .defaultValue(40.0D)
+            .validator(Configs.doubleRange(0.0, 1000.0))
             .build();
 
     public final FlagRef invGrimFix =
