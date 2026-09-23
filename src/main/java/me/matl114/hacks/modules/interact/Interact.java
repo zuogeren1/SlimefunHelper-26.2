@@ -2,7 +2,6 @@ package me.matl114.hacks.modules.interact;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Streams;
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
@@ -775,7 +774,7 @@ public class Interact extends BaseModule {
 
     public void onRender3D(Event<Render3D> event) {
         if (renderAttackTarget.get() && currentInteractTarget != null) {
-            float tickDelta = (Float) event.extraArgs[0];
+            float tickDelta = event.context.partialTicks();
             AABB currentBox;
             if (currentInteractTarget instanceof BlockHitResult hitResult
                     && hitResult.getType() == HitResult.Type.BLOCK) {

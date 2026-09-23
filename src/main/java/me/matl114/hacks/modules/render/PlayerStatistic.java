@@ -128,8 +128,12 @@ public class PlayerStatistic extends IRender2DColoredModule {
             if (Objects.equals(po, potionType)) {
                 return true;
             }
-            var re = potionType.getEffects().stream().map(MobEffectInstance::getEffect);
-            var re2 = po.value().getEffects().stream().map(MobEffectInstance::getEffect);
+            var re = potionType.getEffects().stream()
+                    .map(MobEffectInstance::getEffect)
+                    .toList();
+            var re2 = po.value().getEffects().stream()
+                    .map(MobEffectInstance::getEffect)
+                    .toList();
             return Objects.equals(re, re2);
         }
         return false;

@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.combat;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -160,7 +159,7 @@ public class BowEnhance extends BaseModule {
     public void onRenderAimTarget(Event<Render3D> stackE) {
         var stack = stackE.context.stack();
         if (enable.get() && enableAim.get() && renderTarget.get() && mc.player != null && mc.player.isUsingItem()) {
-            float tickDelta = (Float) stackE.extraArgs[0];
+            float tickDelta = stackE.context.partialTicks();
             ItemStack itemInUse = mc.player.getUseItem();
             if (!itemInUse.isEmpty()
                     && (itemInUse.getItem() instanceof ProjectileWeaponItem
