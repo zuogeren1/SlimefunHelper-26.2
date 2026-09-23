@@ -1,7 +1,6 @@
 package me.matl114.hacks.modules.extra;
 
 import me.matl114.utils.ClientUtils;
-
 import com.google.common.util.concurrent.Runnables;
 import java.util.Comparator;
 import java.util.List;
@@ -341,9 +340,9 @@ public class ClientExtra extends BaseModule {
                 && mc.gameMode != null) {
             ScreenAccess.of(screen).openFrom(parentScreen);
         } else {
-            // 严重问题
+            // 严重问题, 直接退出游戏回到主屏幕
             MainTasks.disconnectImmediately();
-            ScreenAccess.of(screen).openFrom(parentScreen);
+            ScreenAccess.of(screen).openFrom(null);
         }
         lastCrashTick = Tasks.getTick();
     }
