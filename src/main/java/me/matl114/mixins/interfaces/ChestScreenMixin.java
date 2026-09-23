@@ -115,7 +115,7 @@ public abstract class ChestScreenMixin extends AbstractContainerScreen<ChestMenu
         }
 
         var player = Minecraft.getInstance().player;
-        vehicleEntity = (ContainerEntity) InteractionTasks.predictScreenFrom(ex -> {
+        vehicleEntity = (ContainerEntity) InteractionTasks.predictEntityScreenFrom(ex -> {
             return ex instanceof AbstractMinecartContainer
                     || (player != null && player.isSecondaryUseActive() && ex instanceof AbstractChestBoat);
         });
