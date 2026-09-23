@@ -88,6 +88,10 @@ public class InteractExtra extends BaseModule {
             .defaultValue(0.0)
             .build();
 
+    public final DoubleRef ridingReachDistance = builder(interactFix.add("riding-reach-distance"), DoubleRef.TYPE)
+            .defaultValue(1.0D)
+            .build();
+
     public final FlagRef noCooldown =
             flagBuilder(interactFix.add("no-cool-down")).build();
 
@@ -105,6 +109,10 @@ public class InteractExtra extends BaseModule {
     public final IntRef holdUseStartTick =
             intBuilder(interactFix.add("hold-use-start-tick")).defaultValue(4).build();
 
+    public final FlagRef clientUsingStateFix = builder(interactFix.add("client-using-state-fix"), Boolean.class)
+            .defaultValue(true)
+            .build();
+
     @Override
     public void registerAll() {
         super.registerAll();
@@ -112,7 +120,8 @@ public class InteractExtra extends BaseModule {
     }
 
     public double getBlockReachDistance() {
-        return mc.player.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) + reachDistance.get();
+        return mc.player.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE)
+                + (mc.player.isPassenger() ? ridingReachDistance.get() : reachDistance.get());
     }
 
     private final double[] FALL_FLYING_EYE_HEIGHTS = {0.4D, 1.62D, 1.27D};
