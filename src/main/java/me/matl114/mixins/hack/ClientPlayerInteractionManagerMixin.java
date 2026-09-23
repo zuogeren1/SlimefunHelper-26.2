@@ -50,7 +50,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Environment(EnvType.CLIENT)
 @Mixin(MultiPlayerGameMode.class)
-public abstract class PlayerInteractionMixin implements PlayerInteractionAccess {
+public abstract class ClientPlayerInteractionManagerMixin implements PlayerInteractionAccess {
     @Shadow
     private float destroyProgress;
 

@@ -49,6 +49,12 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
         portConfigs(makePath(Configs.MOV_CONFIG, "baritone.fix"), fix);
     }
 
+    public final FlagRef enableMiningCooldown =
+            flagBuilder(fix.add("add-baritone-mine-cooldown-override")).build();
+
+    public final FlagRef applyMineSettingsToBaritone =
+            flagBuilder(fix.add("apply-mine-settings-to-baritone")).build();
+
     public final FlagRef enableDimensionFix =
             flagBuilder(fix.add("dimension-fix")).build();
 
