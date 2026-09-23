@@ -172,7 +172,7 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
             }
             case AC_GRIM, AC_GRIM_LEGACY -> {
                 useItem.set(true);
-                useItemBypass.set(UseBypassMode.BYPASS_GRIM_LAZY_V3);
+                useItemBypass.set(UseBypassMode.BYPASS_GRIM_50);
             }
             default -> {
                 useItem.set(false);
@@ -185,7 +185,7 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
             }
             case AC_GRIM, AC_GRIM_LEGACY, AC_VULCAN, AC_MATRIX, AC_COMMON -> {
                 blockIn.set(true);
-                blockInBypass.set(NoWebMode.GRIM_SPEED);
+                blockInBypass.set(NoWebMode.GRIM_FAKE_MINE);
             }
             default -> {
                 blockIn.set(false);

@@ -1,8 +1,9 @@
 package me.matl114.hacks.modules.survival;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.utils.ClientUtils;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.util.*;
 import java.util.function.Consumer;
@@ -340,7 +341,8 @@ public class AutoLibrarian extends BaseModule {
                 IndexEntry<ItemStack> findStack = InventoryUtils.findPlayerItem(s -> s.is(Items.LECTERN), true, false);
                 if (findStack != null) {
                     noLecternNotify = false;
-                    Runnable callback = InvExtra.INSTANCE.swapInventoryIndexToHand(findStack.index());
+                    Runnable callback =
+                            InvExtra.INSTANCE.swapItemToHand(findStack.index(), false, GhostHandMode.INV_SWAP);
                     if (callback != null) {
                         Direction direction = MathUtils.getHorizontalFacing(
                                 Vec3.atCenterOf(targetWorkspace).subtract(targetVillager.position()));

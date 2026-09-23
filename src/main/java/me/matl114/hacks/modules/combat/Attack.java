@@ -25,6 +25,7 @@ import me.matl114.hacks.utils.config.NBTTypes;
 import me.matl114.hacks.utils.config.OptionalPrimitive;
 import me.matl114.hacks.utils.config.WrapColor;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hacks.utils.enums.LegalTargetingMode;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
@@ -133,6 +134,10 @@ public class Attack extends BaseModule {
 
     // todo: ghosthand mace enchantment
 
+    public final EnumRef<GhostHandMode> ghostHand = builder(attack.add("ghost-hand-mode"), GhostHandMode.class)
+            .defaultValue(GhostHandMode.INV_SWAP)
+            .build();
+
     public final FlagRef swingHand =
             builder(attack.add("swing-hand"), Boolean.class).defaultValue(true).build();
 
@@ -206,9 +211,9 @@ public class Attack extends BaseModule {
     private int lastTick;
 
     public void onRenderTarget(Event<Render3D> stackE) {
-        var stack = stackE.context.stack();
+        var stack = stackE.context;
         if (enable.get() && mc.player != null && renderAttackTarget.get()) {
-            float tickDelta = (Float) stackE.extraArgs[0];
+            float tickDelta = stack.partialTicks();
             if (mc.player.isUsingItem()) {
                 // filter bow, but keep shield
                 if (mc.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
@@ -230,7 +235,7 @@ public class Attack extends BaseModule {
                 lastTickTarget = null;
                 return;
             }
-            RenderUtils.startDrawVirtual(stack);
+            RenderUtils.startDrawVirtual(stack.stack());
             try {
                 Entity entity = lastTickTarget;
                 if (entity != null) {
@@ -238,13 +243,13 @@ public class Attack extends BaseModule {
                     float opacity = Math.min(0.6F, 0.10F + dist * 0.02F);
                     AABB box = RenderUtils.getLerpedBox(entity, tickDelta);
                     RenderUtils.drawSolidBox(
-                            stack,
+                            stack.stack(),
                             box.getMinPosition(),
                             box.getMaxPosition(),
                             ColorUtils.withAlpha(renderAttackColor.get().color(), opacity));
                 }
             } finally {
-                RenderUtils.stopDrawVirtual(stack);
+                RenderUtils.stopDrawVirtual(stack.stack());
             }
         }
     }
@@ -276,8 +281,9 @@ public class Attack extends BaseModule {
         return true; // player.getEyePos().subtract(target.getEyePos()).dotProduct(target.getRotationVector()) > 0;
     }
 
-    private static IndexEntry<ItemStack> findAntiShieldWeapon() {
-        return InventoryUtils.findPlayerItem((ex) -> VItem.getInstance().isAxe(ex), false, false);
+    private static IndexEntry<ItemStack> findAntiShieldWeapon(AttackSettings settings) {
+        return InventoryUtils.findPlayerItem(
+                (ex) -> VItem.getInstance().isAxe(ex), settings.ghostHandMode().getSearchSize(false), false, false);
     }
 
     public AttackSettings createAttackSettings() {
@@ -310,15 +316,20 @@ public class Attack extends BaseModule {
                 elytraSwitch,
                 criticalSprint,
                 maceVClip,
-                swingHand.get());
+                swingHand.get(),
+                ghostHand.get());
     }
 
     public static boolean shouldUseAntiShield(Entity target) {
+        return shouldUseAntiShield(target, INSTANCE.createAttackSettings());
+    }
+
+    private static boolean shouldUseAntiShield(Entity target, AttackSettings settings) {
         return target instanceof LivingEntity lv
                 && lv.isUsingItem()
                 && lv.getUseItem().getItem() instanceof ShieldItem sh
                 && canEntityUseShieldBlockMe(lv, mc.player)
-                && findAntiShieldWeapon() != null;
+                && findAntiShieldWeapon(settings) != null;
     }
 
     @NonNull
@@ -326,13 +337,14 @@ public class Attack extends BaseModule {
         IndexEntry<ItemStack> invResult;
         if (attackSettings.antiShieldSwap()
                 && shouldUseAntiShield(target)
-                && (invResult = findAntiShieldWeapon()) != null) {
+                && (invResult = findAntiShieldWeapon(attackSettings)) != null) {
             return invResult;
         } else if (attackSettings.invSwap()
                 && !VItem.getInstance().isWeapon(mc.player.getItemInHand(InteractionHand.MAIN_HAND))
                 && target instanceof LivingEntity lv
                 && (invResult = InventoryUtils.findBestPlayerItem(
                                 (ex) -> {
+                                    if (VItem.getInstance().isSpear(ex)) return null;
                                     if (VItem.getInstance().isWeapon(ex)) {
                                         Integer damageCost = VItem.getInstance().getAttackDurabilityCost(ex);
                                         return damageCost == null
@@ -343,6 +355,7 @@ public class Attack extends BaseModule {
                                     }
                                     return null;
                                 },
+                                attackSettings.ghostHandMode().getSearchSize(false),
                                 false,
                                 false))
                         != null) {
@@ -356,6 +369,7 @@ public class Attack extends BaseModule {
                                     }
                                     return null;
                                 },
+                                attackSettings.ghostHandMode().getSearchSize(false),
                                 false,
                                 false))
                         != null) {
@@ -365,6 +379,7 @@ public class Attack extends BaseModule {
                 && target instanceof LivingEntity
                 && (invResult = InventoryUtils.findBestPlayerItem(
                                 (ex) -> {
+                                    if (VItem.getInstance().isSpear(ex)) return null;
                                     if (ex.is(mc.player
                                             .getItemInHand(InteractionHand.MAIN_HAND)
                                             .getItem())) {
@@ -373,6 +388,7 @@ public class Attack extends BaseModule {
                                     }
                                     return null;
                                 },
+                                attackSettings.ghostHandMode().getSearchSize(false),
                                 false,
                                 false))
                         != null) {
@@ -394,7 +410,7 @@ public class Attack extends BaseModule {
             }
         }
         IndexEntry<ItemStack> invResult = selectBestWeapon(attackSettings, target);
-        Runnable callback = InvExtra.INSTANCE.swapInventoryIndexToHand(invResult.index());
+        Runnable callback = InvExtra.INSTANCE.swapItemToHand(invResult.index(), false, attackSettings.ghostHandMode());
         attackWithCritic(player, target, attackSettings.criticalSprint(), attackSettings.swingHand());
         if (callback != null) {
             callback.run();
@@ -444,7 +460,12 @@ public class Attack extends BaseModule {
     public boolean willUseMaceAttack(boolean autoMace) {
         return mc.player.getMainHandItem().getItem() instanceof MaceItem mace
                 || (autoMace
-                        && InventoryUtils.findPlayerItem((ex) -> ex.getItem() == Items.MACE, false, false) != null);
+                        && InventoryUtils.findPlayerItem(
+                                        (ex) -> ex.getItem() == Items.MACE,
+                                        ghostHand.get().getSearchSize(false),
+                                        false,
+                                        false)
+                                != null);
     }
 
     private boolean processLegalAttack(Entity target, AttackSettings settings) {
@@ -644,7 +665,7 @@ public class Attack extends BaseModule {
                                 if (posDelta != Vec3.ZERO) {
                                     Vec3 trueDelta = args.position().subtract(posDelta2); // .subtract(0, 0.2, 0);// =
                                     args.setPos(posDelta);
-                                    // args.move(MovementType.PLAYER, posDelta.subtract(args.getPos()));
+                                    // args.move(MoverType.PLAYER, posDelta.subtract(args.getPos()));
                                     args.move(MoverType.PLAYER, trueDelta);
                                     posDelta = posDelta2 = Vec3.ZERO;
                                 }
@@ -847,7 +868,7 @@ public class Attack extends BaseModule {
 
         // attacking creative player with mace at same height will cause falldamage calculate(caused by the shit code
         // below: we should resetHeight even if backStack.size() = 1
-        //            Vec3d lastlyPos = movementStack.peekLast().vec3d();
+        //            Vec3 lastlyPos = movementStack.peekLast().vec3d();
         // final pos lies in attack range
         // remove final pos check because already checked
         if (currentSuccessful) {
@@ -948,24 +969,24 @@ public class Attack extends BaseModule {
             Deque<MovTasks.MovInfo> movementStack,
             Deque<MovTasks.MovInfo> shouldMoveBackStack,
             AttackSettings attackSettings) {
-        //        if(maceHack.get() > 0.0D && player.getMainHandStack().getItem() instanceof MaceItem mace){
+        //        if(maceHack.get() > 0.0D && player.getMainHandItem().getItem() instanceof MaceItem mace){
         //            //dupe fall distance
         //            double maxMace = maceHack.get();
         //            player.setOnGround(false);
         //            double deltaY = Math.max(target.getY() - mc.player.getY(),0);
         //            //error: down search returns negative value
-        //            double height = MovTasks.searchFirstNoCollisionSpaceYHeight(mc.player.getPos().add(0, maxMace, 0),
+        //            double height = MovTasks.searchFirstNoCollisionSpaceYHeight(mc.player.position().add(0, maxMace, 0),
         // 0, maxMace - 2 - deltaY, false);
         //
         //            double maceHeightMultiplier = maxMace + height;
         //            //attack space
-        //            double minAvailableHeight = MovTasks.searchFirstNoCollisionSpaceYHeight(mc.player.getPos(), deltaY
+        //            double minAvailableHeight = MovTasks.searchFirstNoCollisionSpaceYHeight(mc.player.position(), deltaY
         // , maxMace, true);
         //
         //            if(maceHeightMultiplier - minAvailableHeight > 1.5){
-        //                Debug.chat(Text.literal("Mace Attack Simulation: simulate height %.2f, target height:
-        // %.2f".formatted(maceHeightMultiplier, minAvailableHeight)).formatted(Formatting.GREEN));
-        //                Vec3d top = movementStack.peekLast().vec3d();
+        //                Debug.chat(Component.literal("Mace Attack Simulation: simulate height %.2f, target height:
+        // %.2f".formatted(maceHeightMultiplier, minAvailableHeight)).withStyle(ChatFormatting.GREEN));
+        //                Vec3 top = movementStack.peekLast().vec3d();
         //                movementStack.addLast(MovTasks.MovInfo.createNoUpdate( top.add(0, maceHeightMultiplier,0)));
         //                movementStack.addLast(MovTasks.MovInfo.createNoUpdate(top.add(0, minAvailableHeight,0)));
         //                shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNoUpdate(top.add(0, minAvailableHeight,
@@ -1081,7 +1102,7 @@ public class Attack extends BaseModule {
                     shouldMoveBackStack.addFirst(MovTasks.MovInfo.create(tpSequenceBack.get(i)));
                 }
                 //                if(maceHack.get() > 80){
-                //                    Debug.chat(Text.literal("[Attack Bot] 在精确攻击模式下,不建议将MaceHack设置在80以上!"));
+                //                    Debug.chat(Component.literal("[Attack Bot] 在精确攻击模式下,不建议将MaceHack设置在80以上!"));
                 //                }
 
                 // shouldMoveBackStack.addFirst(MovTasks.MovInfo.create(tpSequenceBack.get(0).add(0, 9E-8,0)));
@@ -1116,9 +1137,9 @@ public class Attack extends BaseModule {
             List<Vec3> sequence =
                     MovTasks.tpAttackSearch(vec3d, target.getBoundingBox(), commonAttackRange - 0.25, 135, 1);
             //            if(!sequence.isEmpty() && RenderTasks.DEBUG_RENDER_COLLISION){
-            //                Vec3d vec3d1 = sequence.get(sequence.size() -1);
+            //                Vec3 vec3d1 = sequence.get(sequence.size() -1);
             //                RenderTasks.registerVirtualRenderTask(new RenderTasks.BoxRenderingTask(vec3d1.add(new
-            // Vec3d(-0.5, 0, -0.5)), vec3d1.add(new Vec3d(0.5, 2, 0.5)), 16));
+            // Vec3(-0.5, 0, -0.5)), vec3d1.add(new Vec3(0.5, 2, 0.5)), 16));
             //            }
 
             if (!sequence.isEmpty()
@@ -1130,7 +1151,7 @@ public class Attack extends BaseModule {
                     shouldMoveBackStack.addFirst(MovTasks.MovInfo.createNotOnGround(vec));
                 }
                 //                if(tpAttackRange.get() >= 135){
-                //                    Debug.chat(Text.literal("[Attack Bot] 不建议将tpAttack范围设置在135以上!"));
+                //                    Debug.chat(Component.literal("[Attack Bot] 不建议将tpAttack范围设置在135以上!"));
                 //                }
                 return true;
             }
@@ -1184,7 +1205,8 @@ public class Attack extends BaseModule {
             boolean elytraDelaySwitch,
             boolean criticalSprint,
             boolean maceVClip,
-            boolean swingHand) {
+            boolean swingHand,
+            GhostHandMode ghostHandMode) {
         public boolean isVanilla() {
             return !useTp && !elytraDelaySwitch && !maceVClip && !useAttack;
         }

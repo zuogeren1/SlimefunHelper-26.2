@@ -61,6 +61,10 @@ public class TrialInfoESP extends BaseModule {
             .defaultValue(new WrapColor(ChatFormatting.AQUA))
             .build();
 
+    public final NBTRef<WrapColor> color2 = builder(root.add("color2"), WrapColor.class)
+            .defaultValue(new WrapColor(ChatFormatting.RED))
+            .build();
+
     @Override
     public void registerAll() {
         super.registerAll();
@@ -77,6 +81,7 @@ public class TrialInfoESP extends BaseModule {
         if (cacheClearTimer.run(1000)) {
             cachedVaultsAndTrials = new HashMap<>();
         }
+        textCollector.clear();
         if (enable.get()) {
             for (var chunk : CommonUtils.chunks(false)) {
                 ChunkPos pos = chunk.getPos();
@@ -93,9 +98,11 @@ public class TrialInfoESP extends BaseModule {
             }
             for (var re : cachedVaultsAndTrials.values()) {
                 for (var bp : re) {
+                    boolean accept = false;
                     BlockEntity be = mc.level.getBlockEntity(bp);
                     List<Component> textLines = new ArrayList<>();
                     if (be instanceof TrialSpawnerBlockEntity be1) {
+                        accept = true;
                         BlockState currentState = mc.level.getBlockState(bp);
                         TrialSpawnerState state = currentState.getValue(TrialSpawnerBlock.STATE);
                         if (state == TrialSpawnerState.WAITING_FOR_PLAYERS) {
@@ -114,6 +121,7 @@ public class TrialInfoESP extends BaseModule {
                             }
                             textLines.add(Component.translatable(
                                     "message.module.trial-info-esp.display.trial-cooldown", time));
+                            accept = false;
                         } else if (state != TrialSpawnerState.INACTIVE) {
                             OptionalLong activeLong = WorldManager.INSTANCE.getTrialSpawnerActiveStartTime(be1);
                             String time;
@@ -147,14 +155,16 @@ public class TrialInfoESP extends BaseModule {
                                         : Component.translatable(
                                                 "message.module.trial-info.esp.display.vault-type.common"));
                         VaultSharedData sharedData = be2.getSharedData();
-                        var set = sharedData.getConnectedPlayers();
-                        if (!set.contains(mc.player.getUUID())) {
-                            textLines.add(
-                                    Component.translatable("message.module.trial-info-esp.display.vault-can-open"));
+                        var item = sharedData.hasDisplayItem();
+                        if (item) {
+                            accept = true;
+                            textLines.add(Component.translatable("message.module.trial-info-esp.display.vault-can-open"));
                         } else {
                             textLines.add(
                                     Component.translatable("message.module.trial-info-esp.display.vault-can-not-open"));
                         }
+                        var set = sharedData.getConnectedPlayers();
+
                         if (!set.isEmpty()) {
                             textLines.add(Component.translatable(
                                     "message.module.trial-info-esp.display.vault-opened-times", set.size()));
@@ -168,7 +178,9 @@ public class TrialInfoESP extends BaseModule {
                         Vec3 textPos = Vec3.atCenterOf(bp).add(0.0D, 0.4, 0.0D);
                         textCollector.submit(
                                 new RenderElements.Text(result, textPos, (float) textScale.get()),
-                                color.get().withAlpha(255));
+                                accept
+                                        ? color.get().withAlpha(255)
+                                        : color2.get().withAlpha(255));
                     }
                 }
             }
@@ -176,6 +188,7 @@ public class TrialInfoESP extends BaseModule {
     }
 
     public void onRender3D(Event<Render3D> event) {
+        if (checkNull()) return;
         if (!enable.get()) {
             return;
         }
