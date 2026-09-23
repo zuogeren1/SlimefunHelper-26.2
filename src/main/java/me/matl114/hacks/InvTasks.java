@@ -22,6 +22,7 @@ import me.matl114.hacks.modules.HackModules;
 import me.matl114.hacks.modules.inv.*;
 import me.matl114.hacks.utils.ItemCache;
 import me.matl114.managers.*;
+import me.matl114.managers.config.DoubleRef;
 import me.matl114.utils.*;
 import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.utils.itemdb.ItemStackData;
@@ -94,91 +95,13 @@ public class InvTasks {
     }
 
     @ApiMethod
-    public static boolean dropAllCursorStack() {
-        LocalPlayer player = mc.player;
-        if (player == null) return false;
-
-        AbstractContainerMenu handler = ClientPlayerAccess.of(player).getServerScreenHandler();
-        if (handler.getCarried() != null && !handler.getCarried().isEmpty()) {
-            ItemStack cleanedCursor = ItemStackUtils.getCleanedItem(handler.getCarried(), false, false);
-            InvTasks.getClickExecutor().execute(() -> {
-                Minecraft.getInstance()
-                        .gameMode
-                        .handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, player);
-            });
-            for (int i = 0; i < handler.slots.size(); i++) {
-                ItemStack slot = handler.getSlot(i).getItem();
-                if (!ItemStack.isSameItem(slot, cleanedCursor)) {
-                    continue;
-                }
-                ItemStack cleaned = ItemStackUtils.getCleanedItem(slot, false, false);
-                if (ItemStack.isSameItemSameComponents(cleaned, cleanedCursor)) {
-                    final int index = i;
-                    InvTasks.getClickExecutor().execute(() -> {
-                        Minecraft.getInstance()
-                                .gameMode
-                                .handleContainerInput(handler.containerId, index, 1, ContainerInput.THROW, player);
-                    });
-                }
-            }
-            return true;
-        }
-
-        return false;
-    }
-
-    @ApiMethod
-    public static void takeAllContainerItem() {
-        Screen nowScreen = getCurrentServerScreen(mc.player);
-        if (nowScreen instanceof AbstractContainerScreen<?> handled) {
-            AbstractContainerMenu handler = handled.getMenu();
-            for (int i = 0; i < handler.slots.size(); i++) {
-                Slot slot = handler.getSlot(i);
-                if (!(slot.container instanceof Inventory)) {
-                    final int index = i;
-                    clickExecutor.execute(() -> {
-                        mc.gameMode.handleContainerInput(
-                                handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
-                    });
-                }
-            }
-        }
-    }
-
-    @ApiMethod
-    public static void saveAllPlayerItem() {
-        Screen nowScreen = getCurrentServerScreen(mc.player);
-        if (nowScreen instanceof AbstractContainerScreen<?> handled) {
-            AbstractContainerMenu handler = handled.getMenu();
-            for (int i = 0; i < handler.slots.size(); i++) {
-                Slot slot = handler.getSlot(i);
-                if (slot.container instanceof Inventory) {
-                    final int index = i;
-                    clickExecutor.execute(() -> {
-                        mc.gameMode.handleContainerInput(
-                                handler.containerId, index, 1, ContainerInput.QUICK_MOVE, mc.player);
-                    });
-                }
-            }
-        }
-    }
-
-    @ApiMethod
     public static boolean isHandledScreen(Screen screen) {
         return screen instanceof AbstractContainerScreen;
     }
 
-    @ApiMethod
-    public static boolean quickMoveSlotItem(AbstractContainerScreen screen, int slotIndex) {
-        Slot slot = screen.getMenu().getSlot(slotIndex);
-        if (slot != null) {
-            return quickMoveSlotItem(screen, slot);
-        }
-        return false;
-    }
 
     @ApiMethod
-    public static boolean quickMoveSlotItem(AbstractContainerScreen screen, Slot slot) {
+    public static boolean quickMoveSlotItem(AbstractContainerScreen screen, Slot slot, boolean speedLimit) {
         if (slot != null) {
             AbstractContainerMenu handler = screen.getMenu();
             ItemStack cleanedStack = ItemStackUtils.getCleanedItem(slot.getItem(), false, false);
@@ -190,7 +113,7 @@ public class InvTasks {
                         && ItemStack.isSameItem(cleanedStack, slot2.getItem())
                         && ItemStack.isSameItemSameComponents(
                                 cleanedStack, ItemStackUtils.getCleanedItem(slot2.getItem(), false, false))) {
-                    quickMoveSlot(screen, i);
+                    quickMoveSlot(screen.getMenu(), i, false, speedLimit);
                 }
             }
             return true;
@@ -198,17 +121,8 @@ public class InvTasks {
         return false;
     }
 
-    @ApiMethod
-    public static void quickMoveSlot(AbstractContainerScreen handler, int index, boolean ignoreConfig) {
-        quickMoveSlot(handler.getMenu(), index, ignoreConfig);
-    }
 
-    @ApiMethod
-    public static void quickMoveSlot(AbstractContainerScreen handler, int index) {
-        quickMoveSlot(handler.getMenu(), index, false);
-    }
-
-    public static void quickMoveSlot(AbstractContainerMenu handler, int index, boolean ignoreConfig) {
+    public static void quickMoveSlot(AbstractContainerMenu handler, int index, boolean ignoreConfig, boolean speedLimit) {
         if (!ignoreConfig
                 && handler.getSlot(index).getItem().getCount() > 1
                 && getFastInv().enableLeftOne.get()) {
@@ -242,8 +156,11 @@ public class InvTasks {
             if (!hasPlace) {
                 return;
             }
-            mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.PICKUP, mc.player);
-            mc.gameMode.handleContainerInput(syncId, index, 1, ContainerInput.PICKUP, mc.player);
+            (speedLimit ? clickExecutor : unlimitedClickExecutor).execute(() -> {
+                if (mc.gameMode == null) return;
+                mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.PICKUP, mc.player);
+                mc.gameMode.handleContainerInput(syncId, index, 1, ContainerInput.PICKUP, mc.player);
+            });
             ItemStack sample = handler.getCarried();
             if (sample.isEmpty()) {
                 return;
@@ -258,15 +175,22 @@ public class InvTasks {
                 if (s.getItem().isEmpty()
                         || (s.getItem().getCount() < s.getItem().getMaxStackSize()
                                 && ItemStack.isSameItemSameComponents(slot.getItem(), s.getItem()))) {
-                    mc.gameMode.handleContainerInput(syncId, i, 0, ContainerInput.PICKUP, mc.player);
+                    final int fi = i;
+                    (speedLimit ? clickExecutor : unlimitedClickExecutor).execute(() -> {
+                        if (mc.gameMode == null) return;
+                        mc.gameMode.handleContainerInput(syncId, fi, 0, ContainerInput.PICKUP, mc.player);
+                    });
                     if (handler.getCarried().isEmpty()) {
                         return;
                     }
                 }
             }
-            if (!handler.getCarried().isEmpty()) {
-                mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.PICKUP, mc.player);
-            }
+            (speedLimit ? clickExecutor : unlimitedClickExecutor).execute(() -> {
+                if (mc.gameMode == null) return;
+                if (!handler.getCarried().isEmpty()) {
+                    mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.PICKUP, mc.player);
+                }
+            });
             //            while (handler.getSlot(index).getStack().getCount() > 1){
             //                mc.gameMode.handleContainerInput(syncId, index, 1,ContainerInput.PICKUP,mc.player);
             //                mc.gameMode.handleContainerInput(syncId, index, 0, ContainerInput.QUICK_MOVE, mc.player);
@@ -284,10 +208,13 @@ public class InvTasks {
             //                mc.gameMode.handleContainerInput(syncId, index, 1,ContainerInput.PICKUP,mc.player);
 
         } else {
-            if (handler.getCarried().isEmpty()) {
-                mc.gameMode.handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, mc.player);
-            }
-            mc.gameMode.handleContainerInput(handler.containerId, index, 0, ContainerInput.QUICK_MOVE, mc.player);
+            (speedLimit ? clickExecutor : unlimitedClickExecutor).execute(() -> {
+                if (mc.gameMode == null) return;
+                if (!handler.getCarried().isEmpty()) {
+                    mc.gameMode.handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, mc.player);
+                }
+                mc.gameMode.handleContainerInput(handler.containerId, index, 0, ContainerInput.QUICK_MOVE, mc.player);
+            });
         }
     }
 
@@ -510,7 +437,7 @@ public class InvTasks {
         if (!handler.getCarried().isEmpty()) {
             mc.gameMode.handleContainerInput(handler.containerId, -999, 0, ContainerInput.PICKUP, mc.player);
         }
-        quickMoveSlot(handler, slot, true);
+        quickMoveSlot(handler, slot, true, true);
         if (!handler.getSlot(slot).getItem().isEmpty()) {
             mc.gameMode.handleContainerInput(handler.containerId, slot, 1, ContainerInput.THROW, mc.player);
         }
@@ -1224,6 +1151,7 @@ public class InvTasks {
 
     @Getter
     private static final LimitedSpeedExecutor clickExecutor;
+    private static final LimitedSpeedExecutor unlimitedClickExecutor;
 
     private static void initModules(ModuleManager m) {
         invExtra = new InvExtra().register(m);
@@ -1267,5 +1195,6 @@ public class InvTasks {
         moduleManager.registerFactories(InvTasks::initModules);
         HackModules.registerModuleGroup(moduleManager);
         clickExecutor = new LimitedSpeedExecutor(invExtra.inventoryClickLimit);
+        unlimitedClickExecutor = new LimitedSpeedExecutor(new DoubleRef((double) Integer.MAX_VALUE / 2));
     }
 }
