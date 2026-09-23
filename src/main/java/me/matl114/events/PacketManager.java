@@ -18,6 +18,7 @@ import me.matl114.events.channels.EventChannel;
 import me.matl114.events.channels.EventChannelDispatcher;
 import me.matl114.events.channels.ListenerPoint;
 import me.matl114.events.packets.PacketStorage;
+import me.matl114.managers.ScheduleService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
@@ -48,7 +49,7 @@ import net.minecraft.world.level.Level;
 
 public class PacketManager {
     // this queue should be accessed only in event loop
-    public static final ConcurrentLinkedQueue<PacketStorage> packetQueueIn = Queues.newConcurrentLinkedQueue();
+    public static ConcurrentLinkedQueue<PacketStorage> packetQueueIn = Queues.newConcurrentLinkedQueue();
     // this queue can be accessed async
     public static final ConcurrentLinkedQueue<PacketStorage> packetQueueOut = Queues.newConcurrentLinkedQueue();
 
@@ -131,8 +132,12 @@ public class PacketManager {
                 clearAndShutdown();
             } else {
                 Event<PacketStorage> queueEvent = new Event<>(
-                        new PacketStorageImpl(packet, System.currentTimeMillis(), connection), true, false, connection);
-                packetQueueEvent.handleValue(queueEvent);
+                        new PacketStorageImpl(packet, System.currentTimeMillis(), connection),
+                        true,
+                        false,
+                        connection,
+                        true);
+                packetQueueInEvent.handleValue(queueEvent);
                 if (queueEvent.isCancelled()) {
                     handleQueueIn(queueEvent.context());
                     return true;
@@ -144,7 +149,6 @@ public class PacketManager {
 
     public static void clearAndShutdown() {
         queueShutdownEvent.broadcast(null);
-        flushInBound();
         flushOutBound();
     }
 
@@ -158,7 +162,7 @@ public class PacketManager {
             } else {
                 Event<PacketStorage> queueEvent = new Event<>(
                         new PacketStorageImpl(packet, System.currentTimeMillis(), connection), true, false, connection);
-                packetQueueEvent.handleValue(queueEvent);
+                packetQueueOutEvent.handleValue(queueEvent);
                 if (queueEvent.isCancelled()) {
                     handleQueueOut(queueEvent.context());
                     return true;
@@ -168,22 +172,40 @@ public class PacketManager {
         return false;
     }
 
-    public static void flushInBound() {
+    private static void flushInBoundInternal(boolean escapePipeline) {
         if (mc.getConnection() != null) {
             mc.getConnection().getConnection().channel.eventLoop().execute(() -> {
                 try {
+                    if (startFlushIn) {
+                        return;
+                    }
                     if (mc.getConnection() != null
                             && mc.getConnection().getConnection().isConnected()) {
                         // flush
+                        // do not trigger recursive call
                         startFlushIn = true;
                         try {
-                            for (var packet : packetQueueIn) {
+                            var oldQueue = packetQueueIn;
+                            packetQueueIn = new ConcurrentLinkedQueue<>();
+                            for (var packet : oldQueue) {
+                                if (!escapePipeline) {
+                                    Event<PacketStorage> queueEvent = new Event<>(
+                                            packet,
+                                            true,
+                                            false,
+                                            mc.getConnection().getConnection(),
+                                            false);
+                                    packetQueueInEvent.handleValue(queueEvent);
+                                    if (queueEvent.isCancelled()) {
+                                        packetQueueIn.add(packet);
+                                        continue;
+                                    }
+                                }
                                 packet.handle();
                             }
                         } finally {
                             startFlushIn = false;
                             // clear async
-                            packetQueueIn.clear();
                         }
                     } else {
                         packetQueueIn.clear();
@@ -194,40 +216,6 @@ public class PacketManager {
             });
         } else {
             packetQueueIn.clear();
-        }
-    }
-
-    public static void flushInBound(Function<PacketStorage, FlushAction> pdd) {
-
-        // flush
-        if (mc.getConnection() != null) {
-            mc.getConnection().getConnection().channel.eventLoop().execute(() -> {
-                if (mc.getConnection() != null
-                        && mc.getConnection().getConnection().isConnected()) {
-                    startFlushIn = true;
-                    var iter = packetQueueIn.iterator();
-                    try {
-                        while (iter.hasNext()) {
-                            var packet = iter.next();
-                            switch (pdd.apply(packet)) {
-                                case FLUSH -> {
-                                    packet.handle();
-                                    iter.remove();
-                                }
-                                case DROP -> {
-                                    iter.remove();
-                                }
-                            }
-                        }
-                    } finally {
-                        startFlushIn = false;
-                    }
-                } else {
-                    packetQueueIn.removeIf((v) -> pdd.apply(v) != FlushAction.QUEUE);
-                }
-            });
-        } else {
-            packetQueueIn.removeIf((v) -> pdd.apply(v) != FlushAction.QUEUE);
         }
     }
 
@@ -305,8 +293,6 @@ public class PacketManager {
         packetSet2.add(GamePacketTypes.CLIENTBOUND_PLAYER_CHAT);
         packetSet2.add(GamePacketTypes.CLIENTBOUND_SYSTEM_CHAT);
         packetSet2.add(GamePacketTypes.CLIENTBOUND_CONTAINER_CLOSE);
-        packetSet2.add(GamePacketTypes.CLIENTBOUND_LEVEL_CHUNK_WITH_LIGHT);
-        packetSet2.add(GamePacketTypes.CLIENTBOUND_CHUNKS_BIOMES);
     }
 
     public static boolean isInventoryPacket(Packet<?> pkt) {
@@ -340,9 +326,13 @@ public class PacketManager {
 
     @Getter
     @Cancelable
+    @ExtraArgs({Connection.class, boolean.class})
+    public static EventChannel<PacketStorage> packetQueueInEvent = new EventChannel<>();
+
+    @Getter
+    @Cancelable
     @ExtraArgs({Connection.class})
-    public static EventChannelDispatcher<PacketStorage> packetQueueEvent =
-            new EventChannelDispatcher<>(PacketStorage::side);
+    public static EventChannel<PacketStorage> packetQueueOutEvent = new EventChannel<>();
 
     @Getter
     @Broadcast
@@ -360,9 +350,16 @@ public class PacketManager {
         listener.registerHandler(handler);
     }
 
+    private static void flushInEveryMs() {
+        if (mc.player == null || mc.level == null) return;
+        if (packetQueueIn.isEmpty()) return;
+        flushInBoundInternal(false);
+    }
+
     static {
         registerListener(Listener.getServerLeavePoint(), PacketManager::onDisconnect);
         registerListener(Listener.getWorldSwitchPoint(), PacketManager::onWorldSwitch);
+        ScheduleService.launchAsyncRepeatTask(PacketManager::flushInEveryMs, 1, 1);
     }
 
     public static enum FlushAction {

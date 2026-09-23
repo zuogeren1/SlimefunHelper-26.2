@@ -23,6 +23,8 @@ import me.matl114.utils.entity.PlayerInputUtils;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.common.ClientboundPingPacket;
+import net.minecraft.network.protocol.common.ServerboundPongPacket;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
@@ -102,10 +104,7 @@ public class PacketDebugger extends BaseModule {
         super.registerAll();
         registerListener(Listener.getPacketPreHandlePoint(), this::onPacketHandle, Integer.MIN_VALUE);
         registerListener(Listener.getPacketPostScheduleSendPoint(), this::onPacketSend, Integer.MIN_VALUE);
-        registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND),
-                this::onViaSend,
-                Integer.MIN_VALUE);
+        registerListener(PacketManager.getPacketQueueOutEvent(), this::onViaSend, Integer.MIN_VALUE);
         registerListener(Listener.getPacketPoint(), this::onPacket);
         registerListener(Listener.getPreClickSlot(), this::onClick);
     }
@@ -137,6 +136,8 @@ public class PacketDebugger extends BaseModule {
                             ", Id:",
                             positionLookS2CPacket.id(),
                             timeStr);
+                } else if (type instanceof ClientboundPingPacket ping) {
+                    debug("Send", simplifyId(type.type().id()), ", Id:", ping.getId(), timeStr);
                 } else {
                     debug("Accept", simplifyId(type.type().id()), timeStr);
                 }
@@ -191,6 +192,8 @@ public class PacketDebugger extends BaseModule {
                     debug("Send", simplifyId(type.type().id()), ccmd.getAction().name(), timeStr);
                 } else if (type instanceof ServerboundAcceptTeleportationPacket confirm) {
                     debug("Send", simplifyId(type.type().id()), ", Id:", confirm.getId(), timeStr);
+                } else if (type instanceof ServerboundPongPacket pong) {
+                    debug("Send", simplifyId(type.type().id()), ", Id:", pong.getId(), timeStr);
                 } else {
                     debug("Send", simplifyId(type.type().id()), timeStr);
                 }

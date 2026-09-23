@@ -132,9 +132,10 @@ public abstract class ClientPlayerEntityEvents extends AbstractClientPlayer impl
         this.resyncLastInput = true;
     }
 
+    @Override
     @Unique
-    public void resyncMovementPacket() {
-        this.positionReminder = 100;
+    public void setResyncMovementPacketTicks(int ticks) {
+        this.positionReminder = ticks;
     }
 
     @Inject(method = "<init>", at = @At("RETURN"))

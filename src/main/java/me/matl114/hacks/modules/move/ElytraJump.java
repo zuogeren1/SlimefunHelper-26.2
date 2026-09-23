@@ -9,6 +9,7 @@ import me.matl114.hacks.MovTasks;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.modules.mine.QueueMine;
+import me.matl114.utils.EntityUtils;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
 import me.matl114.hacks.utils.move.goal.GoalNearBlockPos;
 import me.matl114.hooks.BaritoneHooks;
@@ -48,8 +49,6 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
     public final KeyBindRef hotkey =
             moduleEntry(root.addHotkey(), new MultiKeyBind(), root.addEnable()).build();
     //
-    public final FlagRef conditionalSprint =
-            flagBuilder(root.add("conditional-sprint")).build();
 
     public final DoubleRef pitch =
             doubleBuilder(root.add("pitch")).defaultValue(80.0D).build();
@@ -103,7 +102,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
     public void registerAll() {
         super.registerAll();
         registerListener(Listener.getPreHandleInputEvents(), this::onPreInputEvent);
-        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND), this::onPacketQueue);
+        registerListener(PacketManager.getPacketQueueOutEvent(), this::onPacketQueue);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onPacketFlush);
     }
 
@@ -179,9 +178,17 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
         double currentSpeed = mc.player.getDeltaMovement().horizontalDistance();
         Vec3 direction = EntityUtils.pitchYawToRotation(0, newYaw).normalize().scale(currentSpeed);
         for (var i = 0; i < predictTicks.get(); ++i) {
-            List<BlockPos> obs = checkForObstacles(direction, i, i + 1, currentLandingBlock.getY() + 1, 3);
-            if (!obs.isEmpty()) {
-                return i;
+            if (autoAvoidObstacle.get()) {
+                List<BlockPos> obs = checkForObstacles(direction, i, i + 1, currentLandingBlock.getY() + 1, 3);
+                if (!obs.isEmpty()) {
+                    return i;
+                }
+            }
+            if (avoidHoles.get()) {
+                List<BlockPos> obs = checkForObstacles(direction, i, i + 1, currentLandingBlock.getY(), 1);
+                if (obs.isEmpty()) {
+                    return i;
+                }
             }
         }
         return predictTicks.get();
@@ -226,15 +233,16 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
             }
         }
         if (workThisTick) {
-            if (lastStableHeight < currentLandingBlock.getY()) {
+            if (lastStableHeight < -114514) {
                 lastStableHeight = currentLandingBlock.getY();
             }
             if (lastStableHeight == currentLandingBlock.getY()) {
-                lastStableBlockTarget = BlockPos.containing(Vec3.atLowerCornerOf(currentLandingBlock)
-                        .add(PlayerStateManager.INSTANCE
-                                .lastKnownClientVelocity
-                                .with(Direction.Axis.Y, 0)
-                                .scale(4.0)));
+                Vec3 playerPos = mc.player.position().with(Direction.Axis.Y, lastStableHeight + 1);
+                Vec3 dir = EntityUtils.pitchYawToRotation(
+                        0,
+                        axis(EntityUtils.rotationToYaw(
+                                PlayerStateManager.INSTANCE.lastKnownClientVelocity.normalize())));
+                lastStableBlockTarget = BlockPos.containing(playerPos.add(dir.scale(10)));
             }
             if (lastLanding == currentLandingBlock.getY()) {
                 stableHeightCounter += 1;
@@ -266,7 +274,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
             if (axisStrict.get()) {
                 PlayerStateManager.setPlayerYawSafe(mc.player, axis(mc.player.getYRot()));
             }
-            if (autoAvoidObstacle.get()) {
+            if (autoAvoidObstacle.get() || avoidHoles.get()) {
                 float yaw = mc.player.getYRot();
                 float maxYaw = yaw;
                 int maxLen = 0;
@@ -315,7 +323,7 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                     mc.player.position().with(Direction.Axis.Y, currentLandingBlock.getY() + 1),
                     EntityUtils.pitchYawToRotation(0, mc.player.getYRot()),
                     false);
-            if (simulationMove.lengthSqr() < 1E-2) {
+            if (simulationMove.lengthSqr() < 1E-1) {
                 autoWalkAvoidObstacle = true;
                 workThisTick = false;
                 List<BlockPos> checkBox = CollisionUtil.getBoxCollision(
@@ -323,19 +331,9 @@ public class ElytraJump extends BaseModule implements LegalMovementManager.Movem
                         mc.player,
                         mc.player
                                 .dimensions
-                                .makeBoundingBox(Vec3.atBottomCenterOf(currentLandingBlock)
-                                        .add(0, 1, 0))
+                                .makeBoundingBox(
+                                        Vec3.atBottomCenterOf(currentLandingBlock).add(0, 1, 0))
                                 .move(EntityUtils.pitchYawToRotation(0, mc.player.getYRot())));
-                if (!checkBox.isEmpty()) {
-                    // climb up 1 block
-                    checkBox.stream()
-                            .max(Comparator.comparingDouble(BlockPos::getY))
-                            .ifPresent(checkBoxPos -> {
-                                if (checkBoxPos.getY() <= lastStableHeight + 1) {
-                                    lastStableHeight = checkBoxPos.getY();
-                                }
-                            });
-                }
             } else {
                 autoWalkAvoidObstacle = false;
             }

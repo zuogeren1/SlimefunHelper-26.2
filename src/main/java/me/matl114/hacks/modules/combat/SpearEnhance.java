@@ -8,9 +8,9 @@ import java.util.Optional;
 import java.util.function.IntSupplier;
 import lombok.Setter;
 import me.matl114.events.Event;
-import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.impl.UseItem;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
@@ -131,7 +131,16 @@ public class SpearEnhance extends BaseModule {
 
     public static boolean isUsingSpear(Player player) {
         // todo consider viaversion
-        return player != null && player.isUsingItem() && VItem.getInstance().isSpear(player.getUseItem());
+        if (mc.player == player) {
+            return player.isUsingItem() && VItem.getInstance().isSpear(player.getActiveItem());
+        }
+        return isHoldingSpear(player);
+    }
+
+    public static boolean isHoldingSpear(Player player) {
+        return player != null
+                && (VItem.getInstance().isSpear(player.getMainHandItem())
+                        || VItem.getInstance().isSpear(player.getOffhandItem()));
     }
 
     public static ItemStack getSpear() {
@@ -279,15 +288,20 @@ public class SpearEnhance extends BaseModule {
     @Setter
     boolean forceSpearReset = false;
 
+    @Setter
+    boolean ignoreSpear = false;
+
     public void onPostTick(Event<LocalPlayer> eventPostTick) {
         if (checkNull()) return;
         if (eventPostTick.context == mc.player
                 && (spearSpeedReset.get() || forceSpearReset)
                 && ViaFabricPlusHooks.isSupportDupRot()) {
+            boolean force = ignoreSpear;
             forceSpearReset = false;
+            ignoreSpear = false;
             boolean autoCondition = true;
 
-            if (spearSpeedResetAuto.get()) {
+            if (spearSpeedResetAuto.get() && !force) {
                 // 长矛使用时自动关闭啥比玩意免得我忘了
                 if (isUsingSpear(mc.player)) {
                     autoCondition = false;

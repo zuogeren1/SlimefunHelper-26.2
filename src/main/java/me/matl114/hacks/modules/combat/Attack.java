@@ -656,7 +656,7 @@ public class Attack extends BaseModule {
                                                             mc.player,
                                                             ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
                                             elytraExtra.switchSlotToArmor(elytraExtra.thisFallFlyingIsArmorFly);
-                                            elytraExtra.thisTickSwitchingIndex = -1;
+                                            elytraExtra.thisTickArmorFlySwitchBackIndex = -1;
                                             EntityInternalAccess.of(mc.player)
                                                     .setDataFlag(VDataFlag.FALL_FLYING_FLAG_INDEX, true);
                                         }

@@ -34,25 +34,16 @@ public class FakeLag extends BaseModule {
 
     public final IntRef delayMs =
             intBuilder(root.add("delay-ms")).defaultValue(25).build();
-    public String flushTask;
 
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onPacketInBound);
-        flushTask = ScheduleService.launchAsyncRepeatTask(this::flushPacketEveryMs, 1, 1);
+        registerListener(PacketManager.getPacketQueueInEvent(), this::onPacketInBound, Integer.MIN_VALUE);
     }
 
     @Override
     public <W> void unregisterAll() {
         super.unregisterAll();
-        ScheduleService.stopAsyncTask(flushTask);
-    }
-
-    @Override
-    public void onDisableModule() {
-        super.onDisableModule();
-        PacketManager.flushInBound();
     }
 
     int joinServerTick;
@@ -69,21 +60,10 @@ public class FakeLag extends BaseModule {
                 return;
             }
             long systemMs = System.currentTimeMillis();
-            if (systemMs < event.context.timestampMS() + delayMs.get() - 1) {
-                event.cancel();
+            if (systemMs > event.context.timestampMS() + delayMs.get() - 1) {
+                return;
             }
-        }
-    }
-
-    public void flushPacketEveryMs() {
-        if (enable.get()) {
-            long systemMs = System.currentTimeMillis();
-            PacketManager.flushInBound(event -> {
-                if (systemMs >= event.timestampMS() + delayMs.get() - 1) {
-                    return PacketManager.FlushAction.FLUSH;
-                }
-                return PacketManager.FlushAction.QUEUE;
-            });
+            event.cancel();
         }
     }
 }

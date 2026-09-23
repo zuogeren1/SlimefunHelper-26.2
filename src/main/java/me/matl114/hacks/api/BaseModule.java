@@ -183,6 +183,10 @@ public abstract class BaseModule implements ModuleListProvider {
         }
     }
 
+    public static void portConfigs(ModulePath oldPath, ModulePath newPath, String key) {
+        portConfigs(oldPath.add(key), newPath.add(key));
+    }
+
     public static boolean checkNull() {
         return mc.player == null || mc.level == null;
     }
