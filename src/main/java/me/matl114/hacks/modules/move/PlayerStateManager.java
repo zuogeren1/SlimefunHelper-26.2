@@ -557,7 +557,8 @@ public class PlayerStateManager extends BaseModule {
 
     private Stream<ItemStack> streamInvContent(ItemStack stack) {
         var cp = stack.get(DataComponents.CONTAINER);
-        return cp == null ? Stream.empty() : cp.nonEmptyItemCopyStream();
+        // 上游是 yarn ContainerComponent.stream()（全部槽位）→ allItemsCopyStream()，不是 nonEmptyItemCopyStream()
+        return cp == null ? Stream.empty() : cp.allItemsCopyStream();
     }
 
     private Stream<ItemStack> streamItems(ItemStack stack) {
