@@ -37,7 +37,7 @@ public abstract class ElytraBehaviourMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lbaritone/api/utils/IPlayerController;processRightClick(Lnet/minecraft/client/network/ClientPlayerEntity;Lnet/minecraft/world/World;Lnet/minecraft/util/Hand;)Lnet/minecraft/util/ActionResult;"),
+                                    "Lbaritone/api/utils/IPlayerController;processRightClick(Lnet/minecraft/client/player/LocalPlayer;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;"),
             require = 0)
     public InteractionResult onUseFireworks(
             IPlayerController instance,
