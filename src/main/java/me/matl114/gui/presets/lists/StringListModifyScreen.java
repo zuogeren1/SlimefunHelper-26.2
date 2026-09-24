@@ -73,7 +73,7 @@ public class StringListModifyScreen<T> extends ConfirmingBigScreen {
                         this.x + (this.backgroundWidth - listWidth) / 2,
                         this.y + CONTENT_START_Y,
                         listWidth,
-                        content_end_y - CONTENT_START_Y)
+                        getContentHeight())
                 .addTo(this);
     }
 }

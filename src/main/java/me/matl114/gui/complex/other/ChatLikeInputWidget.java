@@ -1,9 +1,9 @@
 package me.matl114.gui.complex.other;
 
-import me.matl114.utils.ClientUtils;
-
 import java.util.function.Consumer;
 import me.matl114.gui.basic.RenderHandler;
+import me.matl114.utils.ClientUtils;
+import me.matl114.utils.config.ValueAccessor;
 import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -18,11 +18,36 @@ public class ChatLikeInputWidget extends EditBox {
     Consumer<String> callback;
     int messageHistoryIndex;
     String chatLastMessage = "";
+    ValueAccessor<Integer> xValue;
+    ValueAccessor<Integer> yValue;
 
-    public ChatLikeInputWidget(Font textRenderer, int x, int y, int width, int height, Consumer<String> enterCallback) {
-        super(textRenderer, x, y, width, height, Component.empty());
+    public ChatLikeInputWidget(
+            Font textRenderer,
+            ValueAccessor<Integer> xv,
+            ValueAccessor<Integer> yv,
+            int width,
+            int height,
+            Consumer<String> enterCallback) {
+        super(textRenderer, xv.getValue(), yv.getValue(), width, height, Component.empty());
+        this.xValue = xv;
+        this.yValue = yv;
         this.callback = enterCallback;
         this.setBordered(false);
+    }
+
+    @Override
+    public int getX() {
+        if (xValue == null) {
+            return getX();
+        }
+        return xValue.getValue();
+    }
+
+    public int getY() {
+        if (yValue == null) {
+            return getY();
+        }
+        return yValue.getValue();
     }
 
     private static final Minecraft mc = Minecraft.getInstance();

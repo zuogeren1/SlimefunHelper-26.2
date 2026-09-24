@@ -45,6 +45,7 @@ public class TextFieldElement extends AbstractElement {
 
     private final Font textRenderer;
     private final TextFieldAccess accessBridge = new TextFieldAccess() {
+
         @Override
         public void setBorderColorProvider(ColorProvider provider) {
             TextFieldElement.this.setBorderColorProvider(provider);

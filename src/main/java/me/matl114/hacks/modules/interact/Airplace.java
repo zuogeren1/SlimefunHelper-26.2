@@ -4,11 +4,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.function.Predicate;
 import me.matl114.events.Event;
-import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.RenderListener;
 import me.matl114.events.catchers.PacketCatcherImpl;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.packets.PacketStorage;
 import me.matl114.hacks.InteractionTasks;
 import me.matl114.hacks.RenderTasks;
@@ -67,6 +67,10 @@ public class Airplace extends BaseModule {
             .validator(Configs.doubleRange(0, 10000))
             .build();
 
+    public final FlagRef onlyBlocks = builder(airPlace.add("only-blocks"), Boolean.class)
+            .defaultValue(true)
+            .build();
+
     public final FlagRef render = flagBuilder(airPlace.add("render")).build();
     // todo: add to switch mode
     public final EnumRef<Mode> enableAirWall = builder(airPlace.add("mode"), Mode.class)
@@ -94,9 +98,6 @@ public class Airplace extends BaseModule {
         registerListener(Listener.getItemUseAction(), this::onInteract);
         registerListener(Listener.getPreHandleInputEvents(), this::onInput);
         registerListener(RenderListener.getRender3DEvent(), this::onRenderPos);
-        registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onPacketAcceptQueue);
-        registerListener(Listener.getPostTick(), this::onPostTick);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onShutdownQueue);
     }
 
@@ -110,7 +111,7 @@ public class Airplace extends BaseModule {
         if (!event.isCancelled() && enable.get()) {
             InteractionHand hand = event.getArgs(0);
             ItemStack stack = mc.player.getItemInHand(hand);
-            if (!stack.isEmpty() && stack.getItem() instanceof BlockItem) {
+            if (!onlyBlocks.get() || (!stack.isEmpty() && stack.getItem() instanceof BlockItem)) {
                 HitResult hitResult = event.context();
                 if (hitResult.getType() == HitResult.Type.MISS) {
                     HitResult result = getCameraEntity().pick(range.get(), 0, false);
@@ -150,7 +151,6 @@ public class Airplace extends BaseModule {
 
     public void clearCurrentAirWall() {
         targetPos = null;
-        lastDelayTick = 0;
     }
 
     public void onGrimAirWall(BlockHitResult hitResult) {
@@ -163,42 +163,6 @@ public class Airplace extends BaseModule {
     }
 
     BlockPos targetPos = null;
-    int lastDelayTick = 0;
-
-    public void flush() {
-        lastDelayTick--;
-        if (targetPos == null && lastDelayTick == 0) {
-            PacketManager.flushInBound();
-        } else {
-            if (lastDelayTick > 3) lastDelayTick = 3;
-            PacketManager.flushInBound((packetStorage -> {
-                long timeMS = packetStorage.timestampMS();
-                long currentMs = System.currentTimeMillis();
-                if (currentMs > timeMS + 50L) {
-                    return PacketManager.FlushAction.FLUSH;
-                }
-                return PacketManager.FlushAction.QUEUE;
-            }));
-        }
-    }
-
-    public void onPacketAcceptQueue(Event<PacketStorage> packet) {
-        if (enable.get() && targetPos != null) {
-            var pkt = packet.context;
-
-            if (PacketManager.isAsyncOrNotTransactionS2CPacket(pkt.packetType())) {
-                return;
-            }
-            lastDelayTick += 1;
-            packet.cancel();
-        }
-    }
-
-    public void onPostTick(Event<Void> event) {
-        if ((lastDelayTick > 0)) {
-            flush();
-        }
-    }
 
     public void onInput(Event<Void> event) {
         onInputGrimWall();
@@ -228,9 +192,7 @@ public class Airplace extends BaseModule {
                     mc.player.swing(InteractionHand.MAIN_HAND);
                     // work by magic
                     // work by placeAfterPlace bypass
-                    if (!PlayerInputUtils.of(mc.options).hasWASDMovement()) {
-                        FloatingUtils.INSTANCE.setGrimFloatingTick(true);
-                    }
+                    DisablerManager.INSTANCE.flushACPlaceQueue();
                     return;
                 }
             }
@@ -450,17 +412,17 @@ public class Airplace extends BaseModule {
                     && mc.player.getItemInHand(InteractionHand.OFF_HAND).isEmpty()) {
                 return;
             }
-            PoseStack stack = event.context().stack();
+            var stack = event.context();
             if (mc.hitResult.getType() == HitResult.Type.MISS) {
                 HitResult result = getCameraEntity().pick(range.get(), 0, false);
                 if (result.getType() == HitResult.Type.MISS && result instanceof BlockHitResult block) {
-                    RenderUtils.startDrawVirtual(stack);
+                    RenderUtils.startDrawVirtual(stack.stack());
                     try {
                         BlockPos pos = block.getBlockPos();
                         RenderUtils.drawOutlinedBox(
-                                stack, Vec3.atLowerCornerOf(pos), Vec3.atLowerCornerOf(pos.offset(1, 1, 1)), Color.RED);
+                                stack.stack(), Vec3.atLowerCornerOf(pos), Vec3.atLowerCornerOf(pos.offset(1, 1, 1)), Color.RED);
                     } finally {
-                        RenderUtils.stopDrawVirtual(stack);
+                        RenderUtils.stopDrawVirtual(stack.stack());
                     }
                 }
             }

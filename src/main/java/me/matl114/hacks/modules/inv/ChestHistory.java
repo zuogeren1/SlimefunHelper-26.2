@@ -8,6 +8,7 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import lombok.Getter;
 import me.matl114.accessors.access.ClientPlayerAccess;
@@ -75,7 +76,7 @@ public class ChestHistory extends BaseModule {
     public final ModulePath invCache = makePath(Configs.INV_CONFIG, "inv-cache");
 
     private final int AUTO_REFRESH_RANGE = 64;
-    private final LinkedHashMap<ContainerPosition, MutableEntry<Block, Entry>> screens = new LinkedHashMap<>();
+    private final ConcurrentHashMap<ContainerPosition, MutableEntry<Block, Entry>> screens = new ConcurrentHashMap<>();
     private final List<Entry> virtualScreens = new ArrayList<>();
     public static ChestHistory INSTANCE;
 

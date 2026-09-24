@@ -8,6 +8,7 @@ import me.matl114.hacks.MovTasks;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.SetBackTriggerType;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
@@ -44,9 +45,9 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
                     grimAccelerate.add("hotkey"), new MultiKeyBind(), grimAccelerate.add("enable"))
             .build();
 
-    public final EnumRef<Configs.SetBackTriggerType> mode = builder(
-                    grimAccelerate.add("set-back-mode"), Configs.SetBackTriggerType.class)
-            .defaultValue(Configs.SetBackTriggerType.SIMULATION)
+    public final EnumRef<SetBackTriggerType> mode = builder(
+                    grimAccelerate.add("set-back-mode"), SetBackTriggerType.class)
+            .defaultValue(SetBackTriggerType.SIMULATION)
             .build();
 
     public final DoubleRef maxVelocityAccept = builder(grimAccelerate.add("max-accelerate-velocity"), Double.class)
@@ -92,11 +93,11 @@ public class ElytraGrimAccelerate extends BaseModule implements LegalMovementMan
             if (lastWorkingTick + 10 > Tasks.getTick()) {}
         }
 
-        //        if(enable.get() && mc.player != null && event.context.getEntityId() == mc.player.getId() &&
+        //        if(enable.get() && mc.player != null && event.drawContext.getEntityId() == mc.player.getId() &&
         // mc.player.isFallFlying()){
-        //            Debug.chat("VC update" + event.context.getVelocity().length());
-        //            Vec3d vec3d = event.context.getVelocity();
-        //            if(vec3d.lengthSquared() < 1E-6){
+        //            Debug.chat("VC update" + event.drawContext.getDeltaMovement().length());
+        //            Vec3 vec3d = event.drawContext.getDeltaMovement();
+        //            if(vec3d.lengthSqr() < 1E-6){
         //                event.cancel();
         //                return;
         //            }

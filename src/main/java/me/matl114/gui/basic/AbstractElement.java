@@ -25,6 +25,10 @@ public class AbstractElement implements ElementHandler {
         return this;
     }
 
+    public AbstractElement withElement(ElementHandler handler) {
+        return withInputHandler(handler).combineRender(handler);
+    }
+
     @Override
     public final boolean canBeSelected(DrawableWidget element) {
         return showTooltips;

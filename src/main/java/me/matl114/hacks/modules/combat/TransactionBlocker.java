@@ -42,7 +42,7 @@ public class TransactionBlocker extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND), this::onPacketQueue);
+        registerListener(PacketManager.getPacketQueueOutEvent(), this::onPacketQueue);
         registerListener(
                 Listener.getPacketPoint().getChannel(ClientboundPlayerPositionPacket.class), this::onPlayerRespawnLook);
         registerListener(Listener.getPacketPoint().getChannel(ClientboundSetPassengersPacket.class), this::onDismount);

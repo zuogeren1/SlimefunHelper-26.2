@@ -1,7 +1,5 @@
 package me.matl114.hacks.modules.task;
 
-import me.matl114.utils.ClientUtils;
-
 import java.util.List;
 import me.matl114.accessors.events.ChatHudAccess;
 import me.matl114.accessors.gui.TextFieldAccess;
@@ -14,6 +12,7 @@ import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.utils.config.StringFormat;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
+import me.matl114.utils.ClientUtils;
 import me.matl114.utils.Debug;
 import net.minecraft.network.chat.Component;
 
@@ -63,24 +62,6 @@ public class ModuleSettings extends BaseModule {
             .updateListener(s -> MainCommand.MAIN_PREFIX = s)
             .build();
 
-    public boolean shouldNotExecuteInInput() {
-        var focused = ClientUtils.getScreen(mc).getFocused();
-        if (focused instanceof TextFieldAccess) {
-            return true;
-        }
-        if (focused instanceof DrawableWidget widget) {
-            var focus = WidgetUtils.getFocusedWidget(widget);
-            if (WidgetUtils.isInputWidget(WidgetUtils.getFocusedWidget(focus))) {
-                return true;
-            }
-            var list = WidgetUtils.getWidgetHierarchy(widget);
-            if (list.stream().anyMatch(s -> s instanceof KeyBindConfigurateWidget)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public boolean shouldNotExecuteConditionHotkey() {
         if (ClientUtils.getScreen(mc) != null) {
             if (hotkeyPolicy.getValue() == HotkeyPolicy.RUN_IN_ALL_SCREEN) {
@@ -102,6 +83,28 @@ public class ModuleSettings extends BaseModule {
         } else {
             return false;
         }
+    }
+
+    public boolean shouldNotExecuteInInput() {
+        if (ClientUtils.getScreen(mc) instanceof ClickGui.ClickGuiMainScreen clickGui) {
+            return false;
+        }
+        var focused = ClientUtils.getScreen(mc).getFocused();
+
+        if (focused instanceof TextFieldAccess) {
+            return true;
+        }
+        if (focused instanceof DrawableWidget widget) {
+            var focus = WidgetUtils.getFocusedWidget(widget);
+            if (WidgetUtils.isInputWidget(WidgetUtils.getFocusedWidget(focus))) {
+                return true;
+            }
+            var list = WidgetUtils.getWidgetHierarchy(widget);
+            if (list.stream().anyMatch(s -> s instanceof KeyBindConfigurateWidget)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static final String TOGGLE_UNIQUE_ID = "slimefunhelper:module_toggle/";

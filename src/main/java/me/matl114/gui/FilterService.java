@@ -34,7 +34,7 @@ public class FilterService {
         return nameMatch(i.getHoverName().getString().replaceAll("§.", ""), str);
     };
 
-    public static Filter<String> RTYPE_ID_FILTER = (str, i, bl) -> {
+    public static Filter<String> STRING_FILTER = (str, i, bl) -> {
         if (bl) {
             try {
                 return Pattern.matches(str, i);

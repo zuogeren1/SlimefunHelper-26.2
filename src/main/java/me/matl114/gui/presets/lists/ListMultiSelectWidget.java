@@ -13,6 +13,7 @@ import me.matl114.gui.elements.IconElement;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.ValueAccessor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
 
 @Getter
@@ -33,6 +34,21 @@ public class ListMultiSelectWidget<W> extends ScrollableListWidget {
                 .filter(i -> i.getValue().get() == Boolean.TRUE)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    public static ListMultiSelectWidget<String> stringCollection(
+            List<String> list, Set<String> currentSelection, int x, int y, int dx, int dy, int height) {
+        return new ListMultiSelectWidget<String>(
+                list,
+                currentSelection,
+                (str, bl) -> RenderHandler.ofAutoScaleText(Component.translatable(str), CommonColors.WHITE),
+                ValueAccessor.holder(""),
+                FilterService.STRING_FILTER,
+                x,
+                y,
+                dx,
+                dy,
+                height);
     }
 
     public ListMultiSelectWidget(

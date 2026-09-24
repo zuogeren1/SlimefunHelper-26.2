@@ -1,7 +1,5 @@
 package me.matl114.gui.complex.itemEdit;
 
-import static net.minecraft.core.component.DataComponents.*;
-
 import com.google.common.base.Preconditions;
 import com.mojang.authlib.properties.PropertyMap;
 import com.mojang.datafixers.util.Pair;
@@ -46,6 +44,7 @@ import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
@@ -63,6 +62,7 @@ import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+import static net.minecraft.core.component.DataComponents.*;
 
 public class ItemEditScreen extends ConfirmingBigScreen {
     protected static final Minecraft mc = Minecraft.getInstance();
@@ -804,13 +804,10 @@ public class ItemEditScreen extends ConfirmingBigScreen {
                     try {
                         Attribute attribute = this.attr.get();
                         if (attribute != null) {
-                            Holder<Attribute> attribute0 =
-                                    BuiltInRegistries.ATTRIBUTE.wrapAsHolder(this.attr.get());
+                            Holder<Attribute> attribute0 = BuiltInRegistries.ATTRIBUTE.wrapAsHolder(this.attr.get());
                             if (attribute0 != null && attribute0.value() != null) {
                                 AttributeModifier modifier = new AttributeModifier(
-                                        identifier.get(),
-                                        modifierValue.get(),
-                                        modifierOperation.get());
+                                        identifier.get(), modifierValue.get(), modifierOperation.get());
                                 EquipmentSlotGroup slot = this.optionalSlot.get();
                                 return new ItemAttributeModifiers.Entry(attribute0, modifier, slot);
                             } else {

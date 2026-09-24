@@ -5,10 +5,10 @@ import java.awt.*;
 import java.util.HashSet;
 import java.util.Set;
 import me.matl114.events.Event;
-import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.RenderListener;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.packets.PacketStorage;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
@@ -19,6 +19,7 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.RenderUtils;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.PacketType;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
@@ -60,11 +61,9 @@ public class BackTrack extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(
-                PacketManager.getPacketQueueEvent().getChannel(PacketFlow.CLIENTBOUND), this::onQueuePlayerPosition);
+        registerListener(PacketManager.getPacketQueueInEvent(), this::onQueuePlayerPosition);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onShutdownQueue);
         registerListener(Listener.getPreTick(), this::onTick);
-        registerListener(Listener.getPostGameTick(), this::onPostGameTick);
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
     }
 
@@ -86,14 +85,7 @@ public class BackTrack extends BaseModule {
 
     public void onShutdown() {
         setNoTarget();
-        if (shouldDelay) {
-            flushAll();
-        }
         setNoDelay();
-    }
-
-    public void flushAll() {
-        PacketManager.flushInBound();
     }
 
     public void setTarget(Entity entity) {
@@ -112,21 +104,6 @@ public class BackTrack extends BaseModule {
 
     public void setDelay() {
         shouldDelay = true;
-    }
-
-    public void flushDelay() {
-        long currentMs = System.currentTimeMillis();
-        PacketManager.flushInBound((ev) -> {
-            if (shouldDelay) {
-                if (ev.timestampMS() + maxDelay.get() < currentMs) {
-                    return PacketManager.FlushAction.FLUSH;
-                } else {
-                    return PacketManager.FlushAction.QUEUE;
-                }
-            } else {
-                return PacketManager.FlushAction.FLUSH;
-            }
-        });
     }
 
     public void refreshTarget() {
@@ -169,7 +146,14 @@ public class BackTrack extends BaseModule {
     }
 
     public void onQueuePlayerPosition(Event<PacketStorage> event) {
-        if (enable.get() && currentTarget != null) {
+        if (shouldDelay) {
+            long currentMs = System.currentTimeMillis();
+            if (event.context.timestampMS() + maxDelay.get() < currentMs) {
+                return;
+            }
+            event.cancel();
+        }
+        if (enable.get() && currentTarget != null && event.<Boolean>getArgs(1)) {
             var storage = event.context;
             if (storage instanceof PacketManager.PacketStorageImpl impl) {
                 var packet = impl.packet();
@@ -200,9 +184,6 @@ public class BackTrack extends BaseModule {
                     boolean lastDelay = shouldDelay;
                     handleTrackEntityPosition(vec3d);
                     lastTrackingPosition = vec3d;
-                    if (lastDelay && !shouldDelay) {
-                        flushAll();
-                    }
                     if (shouldDelay) {
                         event.cancel();
                     }
@@ -212,7 +193,6 @@ public class BackTrack extends BaseModule {
                         && entityStatus.getEventId() == EntityEvent.PROTECTED_FROM_DEATH
                         && entityStatus.getEntity(mc.level) == mc.player) {
                     setNoDelay();
-                    flushAll();
                     return;
                 }
                 if (shouldDelay) {
@@ -257,20 +237,7 @@ public class BackTrack extends BaseModule {
             onShutdown();
             return;
         }
-        boolean lastShouldDelay = shouldDelay;
         refreshTarget();
-        if (lastShouldDelay && !shouldDelay) {
-            flushAll();
-        }
-        if (shouldDelay) {
-            flushDelay();
-        }
-    }
-
-    public void onPostGameTick(Event<LocalPlayer> event) {
-        if (shouldDelay) {
-            flushDelay();
-        }
     }
 
     public void onRender(Event<Render3D> eventMatrixStack) {

@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import me.matl114.gui.basic.DrawableWidget;
 import me.matl114.gui.basic.RenderHandler;
 import me.matl114.utils.EntityUtils;
+import me.matl114.utils.EntityUtils;
 import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.RegistryUtils;
 import me.matl114.versioned.api.VDrawContext;

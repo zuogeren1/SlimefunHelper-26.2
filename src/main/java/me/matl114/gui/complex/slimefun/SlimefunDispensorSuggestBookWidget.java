@@ -1,7 +1,5 @@
 package me.matl114.gui.complex.slimefun;
 
-import me.matl114.utils.ClientUtils;
-
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,6 +22,7 @@ import me.matl114.hacks.modules.slimefun.MultiBlockHelper;
 import me.matl114.hacks.utils.recipes.RecipeEntry;
 import me.matl114.managers.Tasks;
 import me.matl114.utils.ChatUtils;
+import me.matl114.utils.ClientUtils;
 import me.matl114.utils.ScreenUtils;
 import me.matl114.utils.config.AttrKeyValue;
 import me.matl114.utils.config.ValueAccessor;

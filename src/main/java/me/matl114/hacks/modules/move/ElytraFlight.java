@@ -8,6 +8,7 @@ import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.modules.combat.ElytraBot;
+import me.matl114.utils.EntityUtils;
 import me.matl114.hacks.utils.HotKeyUtils;
 import me.matl114.hacks.utils.config.NBTTypes;
 import me.matl114.hacks.utils.config.OptionalPrimitive;
@@ -241,6 +242,16 @@ public class ElytraFlight extends BaseModule implements LegalMovementManager.Mov
 
                         Vec3 movementInput = new Vec3(input.sidewaysSpeed(), input.upwardSpeed(), input.forwardSpeed());
                         Vec3 velocity = EntityUtils.movementInputToVelocity(movementInput, 1.0F, player.getYRot());
+                        if (useAutoRescale.get()
+                                && autoRescaleBestClimbingSpeed.get()
+                                && movementInput.horizontalDistance() > 0) {
+                            if (movementInput.y > 0 && velocity.y > 0) {
+
+                                velocity = ElytraOptimizeUtils.calculateBestPullupSpeed(velocity);
+                            } else if (movementInput.y < 0 && velocity.y < 0) {
+                                velocity = ElytraOptimizeUtils.calculateBestDownForwardSpeed(velocity, false);
+                            }
+                        }
                         if (movementInput.horizontalDistanceSqr() > 0.0D) {
                             if (movementInput.y > 0) {
                                 if (overridePullupAngle.get().isPresent()) {
@@ -263,16 +274,6 @@ public class ElytraFlight extends BaseModule implements LegalMovementManager.Mov
                                     double yLevel = Math.tan(Math.toRadians(angle)) * velocity.horizontalDistance();
                                     velocity = velocity.with(Direction.Axis.Y, -yLevel);
                                 }
-                            }
-                        }
-                        if (useAutoRescale.get()
-                                && autoRescaleBestClimbingSpeed.get()
-                                && movementInput.horizontalDistance() > 0) {
-                            if (movementInput.y > 0 && velocity.y > 0) {
-
-                                velocity = ElytraOptimizeUtils.calculateBestPullupSpeed(velocity);
-                            } else if (movementInput.y < 0 && velocity.y < 0) {
-                                velocity = ElytraOptimizeUtils.calculateBestDownForwardSpeed(velocity, false);
                             }
                         }
 
@@ -425,15 +426,15 @@ public class ElytraFlight extends BaseModule implements LegalMovementManager.Mov
                                             !mc.player.isNoGravity())
                                     : realVector);
                 } else if (realVector.length() > 0) {
-                    Debug.info(
-                            "Lost Control",
-                            PlayerStateManager.INSTANCE.lastKnownClientVelocity,
-                            EntityUtils.calculateGlidingVelocity(
-                                    mc.player,
-                                    PlayerStateManager.INSTANCE.lastKnownClientVelocity,
-                                    mc.player.getLookAngle(),
-                                    true),
-                            mc.player.getDeltaMovement());
+                    //                    Debug.info(
+                    //                            "Lost Control",
+                    //                            PlayerStateManager.INSTANCE.lastKnownClientVelocity,
+                    //                            EntityUtils.calculateGlidingVelocity(
+                    //                                    mc.player,
+                    //                                    PlayerStateManager.INSTANCE.lastKnownClientVelocity,
+                    //                                    mc.player.getRotationVector(),
+                    //                                    true),
+                    //                            mc.player.getDeltaMovement());
                 }
 
                 if (shouldCheckRocket) {
@@ -500,6 +501,4 @@ public class ElytraFlight extends BaseModule implements LegalMovementManager.Mov
             return "elytramode";
         }
     }
-
-    public enum GravityMode implements ConfigEnum {}
 }

@@ -7,11 +7,11 @@ import java.util.List;
 import java.util.OptionalInt;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
-import me.matl114.events.impl.MetadataUpdate;
-import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.RenderListener;
+import me.matl114.events.impl.MetadataUpdate;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.packets.PacketStorage;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
@@ -110,7 +110,7 @@ public class Blink extends BaseModule {
     @Override
     public void registerAll() {
         super.registerAll();
-        registerListener(PacketManager.getPacketQueueEvent().getChannel(PacketFlow.SERVERBOUND), this::onPacketQueue);
+        registerListener(PacketManager.getPacketQueueOutEvent(), this::onPacketQueue);
         registerListener(PacketManager.getQueueShutdownEvent(), this::onShutdown);
         registerListener(Listener.getPostTick(), this::onTick);
         registerListener(Listener.getServerLeavePoint(), this::onDisconnect);
@@ -306,7 +306,7 @@ public class Blink extends BaseModule {
         if (enable.get()
                 && elytraSupport.get()
                 && firework.context().metadata().id() == VDataFlag.ID_FIREWORK_SHOOTER_ID
-                && firework.context.entity() instanceof FireworkRocketEntity fireworkEntity
+                && firework.context().entity() instanceof FireworkRocketEntity fireworkEntity
                 && mc.player != null
                 && mc.player.isFallFlying()
                 && firework.context().metadata().value() instanceof OptionalInt opint

@@ -47,7 +47,7 @@ public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
             List<T> list,
             Predicate<List<T>> listValidator,
             BiFunction<String, T, AttrKeyValue<T>> attrElementFactory,
-            WidgetGenerator<AttrKeyValue<T>> customWidgetGenerator,
+            WidgetGenerator<AttrKeyValue<T>> customWidgetFactory,
             Supplier<T> newElement,
             Consumer<List<T>> callback,
             int dx,
@@ -63,7 +63,7 @@ public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
         this.fuckController = ListEntryWidgetController.mutable(
                 this.list,
                 () -> attrFactory.apply("", newElement.get()),
-                (w) -> customWidgetGenerator.generateWidget(w, 0, 0, widgetDx, widgetDy),
+                (w) -> customWidgetFactory.generateWidget(w, 0, 0, widgetDx, widgetDy),
                 widgetDy,
                 widgetDx);
     }
@@ -73,7 +73,7 @@ public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
     //        List<T> list,
     //        Predicate<List<T>> listValidator,
     //        BiFunction<String, T, AttrKeyValue<T>> attrElementFactory,
-    //        WidgetGenerator<AttrKeyValue<T>> customWidgetGenerator,
+    //        WidgetGenerator<AttrKeyValue<T>> customWidgetFactory,
     //        Consumer<List<T>> callback,
     //        int dx,
     //        int dy){
@@ -86,7 +86,7 @@ public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
     //        this.callback = callback;
     //        this.fuckController = ListEntryWidgetController.immutable(
     //            this.list,
-    //            (w) -> customWidgetGenerator.generateWidget(w, 0, 0, widgetDx, widgetDy),
+    //            (w) -> customWidgetFactory.generateWidget(w, 0, 0, widgetDx, widgetDy),
     //            widgetDy,
     //            widgetDx);
     //    }
@@ -101,7 +101,7 @@ public class NBTListModifyScreen<T> extends ConfirmingBigScreen {
                         this.x + (this.backgroundWidth - listWidth) / 2,
                         this.y + CONTENT_START_Y,
                         listWidth,
-                        content_end_y - CONTENT_START_Y)
+                        getContentHeight())
                 .addTo(this);
     }
 

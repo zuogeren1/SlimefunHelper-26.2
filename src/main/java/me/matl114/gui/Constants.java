@@ -37,6 +37,8 @@ public interface Constants {
         return ChatUtils.parseTooltipsTranslation("widget.gui.constants.search-registry.tooltips", "");
     }
 
+    public static final String OPEN_LIST_EDIT_KEY = "widget.gui.constants.open-list-edit";
+
     public static final Component OPEN_LIST_EDIT_TEXT = Component.translatable("widget.gui.constants.open-list-edit");
 
     public static List<Component> openListEditTooltips() {
