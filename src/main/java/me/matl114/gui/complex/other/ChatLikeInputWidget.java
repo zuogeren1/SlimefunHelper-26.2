@@ -35,17 +35,20 @@ public class ChatLikeInputWidget extends EditBox {
         this.setBordered(false);
     }
 
+    // ⚠ 必须走 super：父类构造链会在 this.xValue = xv 之前虚调用 getX()，
+    // 那时 xValue 还是 null。写成 return getX() 会自递归 -> StackOverflowError。
     @Override
     public int getX() {
         if (xValue == null) {
-            return getX();
+            return super.getX();
         }
         return xValue.getValue();
     }
 
+    @Override
     public int getY() {
         if (yValue == null) {
-            return getY();
+            return super.getY();
         }
         return yValue.getValue();
     }

@@ -26,7 +26,7 @@ public abstract class BaritoneChunkPackerFixMixin {
                     @At(
                             value = "INVOKE",
                             target =
-                                    "Lbaritone/utils/BlockStateInterface;a(Lnet/minecraft/world/chunk/WorldChunk;III)Lnet/minecraft/block/BlockState;"),
+                                    "Lbaritone/utils/BlockStateInterface;a(Lnet/minecraft/world/level/chunk/LevelChunk;III)Lnet/minecraft/world/level/block/state/BlockState;"),
             require = 0)
     private static BlockState fixWorldAccessIndexOutOfBound(
             LevelChunk chunk, int x, int y, int z, Operation<BlockState> original) {

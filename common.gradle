@@ -188,7 +188,14 @@ jar {
 }
 
 tasks.named("runClient", JavaExec) {
-	jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:-OmitStackTraceInFastThrow",
+	// -XX:+AllowEnhancedClassRedefinition 只有 JetBrains Runtime 支持；
+	// 换成 Zulu 等 JDK 时 JVM 会直接 "Unrecognized VM option" 起不来，所以按厂商条件添加。
+	def isJbr = (System.getProperty("java.vendor", "") + System.getProperty("java.vm.name", ""))
+			.toLowerCase().contains("jetbrains")
+	if (isJbr) {
+		jvmArgs("-XX:+AllowEnhancedClassRedefinition")
+	}
+	jvmArgs("-XX:-OmitStackTraceInFastThrow",
 			"-Dmixin.debug.export=true",
 			"-Xmx6G", "-Xms3G")
 }
