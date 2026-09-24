@@ -2,6 +2,7 @@ package me.matl114.hacks.modules.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -132,11 +133,11 @@ public class ExplosiveESP extends BaseModule {
                 ColorUtils.withAlphaInt(color, 255));
     }
 
-    public void onRender(Event<PoseStack> event) {
+    public void onRender(Event<Render3D> event) {
         if (checkNull() || !enable.get()) {
             return;
         }
-        PoseStack stack = event.context();
+        PoseStack stack = event.context().stack();
         RenderUtils.startDrawVirtual(stack);
         try {
             textCollector.render3D(stack);

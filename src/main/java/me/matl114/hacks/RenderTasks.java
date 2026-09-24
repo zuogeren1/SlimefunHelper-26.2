@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.ModuleGroup;
 import me.matl114.hacks.api.ModuleManager;
@@ -74,14 +75,14 @@ public class RenderTasks {
         }
     }
 
-    public static void onDebugRenderTick(Event<PoseStack> event) {
+    public static void onDebugRenderTick(Event<Render3D> event) {
         if (RenderTasks.DEBUG_RENDER_STANDING) {
             if (mc.player != null) {
                 try {
-                    RenderUtils.startDrawVirtual(event.context());
+                    RenderUtils.startDrawVirtual(event.context().stack());
                     BlockPos pos = PlayerStateManager.INSTANCE.lastVelocityAffectingPos;
                     RenderUtils.drawOutlinedBox(
-                            event.context(),
+                            event.context().stack(),
                             Vec3.atCenterOf(pos).add(RenderTasks.FROM),
                             Vec3.atCenterOf(pos).add(RenderTasks.TO),
                             Color.GREEN);
@@ -90,12 +91,12 @@ public class RenderTasks {
                     Vec3 vec3dSupportingBlock = vec3d.subtract(0, 0.500001F, 0);
                     BlockPos underBlock = BlockPos.containing(vec3dSupportingBlock);
                     RenderUtils.drawOutlinedBox(
-                            event.context(),
+                            event.context().stack(),
                             Vec3.atCenterOf(underBlock).add(RenderTasks.FROM),
                             Vec3.atCenterOf(underBlock).add(RenderTasks.TO),
                             Color.MAGENTA);
                 } finally {
-                    RenderUtils.stopDrawVirtual(event.context());
+                    RenderUtils.stopDrawVirtual(event.context().stack());
                 }
             }
         }
@@ -130,11 +131,11 @@ public class RenderTasks {
     public static final Vec3 TO = new Vec3(0.5, 0.5, 0.5);
     public static final Vec3 SMALL_TO = new Vec3(0.2, 0.2, 0.2);
 
-    private static void onRenderVirtualTasks(Event<PoseStack> stackE) {
+    private static void onRenderVirtualTasks(Event<Render3D> stackE) {
         if (renderBlocks.isEmpty()) return;
         synchronized (renderBlocks) {
-            var stack = stackE.context;
-            float ticksDelta = stackE.getArgs(0);
+            var stack = stackE.context.stack();
+            float ticksDelta = stackE.context.partialTicks();
             RenderUtils.startDrawVirtual(stack);
             try {
                 Iterator<VirtualRenderTask> tasks = renderBlocks.iterator();

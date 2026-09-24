@@ -45,8 +45,8 @@ public class NbtAttrKeyValue<W> extends BaseAttrKeyValue<Tag> {
     public void applyFormatting(Consumer<String> callback) {
         if (validate) {
             try {
-                valueChange(null, new SnbtPrinterTagVisitor().visit(this.getOriginValue()));
-                callback.accept(this.getValue());
+                setInput(new SnbtPrinterTagVisitor().visit(this.get()));
+                callback.accept(this.getInput());
             } catch (Throwable e) {
             }
         }
@@ -56,15 +56,15 @@ public class NbtAttrKeyValue<W> extends BaseAttrKeyValue<Tag> {
         //            EditBoxWidget widget = new EditBoxWidget(Minecraft.getInstance().textRenderer, x,y,
         // dx,dy, Text.empty(), Text.empty());
         //            widget.setText(this.value);
-        //            widget.setChangeListener((val)->valueChange(null, val));
+        //            widget.setChangeListener((val)->setInput(val));
         //            TextFieldAccess.of(widget).setBorderColorProvider();
         return McWidgetHelpers.createMultiLineEditBox(
                 x,
                 y,
                 dx,
                 dy,
-                (ed, val) -> valueChange(null, val),
-                this.getValue(),
+                (val) -> setInput(val),
+                this.getInput(),
                 McWidgetHelpers.getWrongRedTextBoxColorProvider(() -> validate));
         //            return widget;
     }

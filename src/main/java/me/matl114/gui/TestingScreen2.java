@@ -2,7 +2,6 @@ package me.matl114.gui;
 
 import me.matl114.gui.basic.*;
 import me.matl114.gui.complex.slimefun.SlimefunScreen;
-import me.matl114.utils.config.PropertyTracker;
 import net.minecraft.network.chat.Component;
 
 public class TestingScreen2 extends SlimefunScreen {
@@ -34,11 +33,11 @@ public class TestingScreen2 extends SlimefunScreen {
         //            )
         //            .addTo(this);
         //        element1 = new DraggableExecutableWidget(this.x + 30, this.y + 100, 40, this.backgroundHeight - 130)
-        //            .setElementHandler(ScrollElement.instance(PropertyTracker.empty()))
+        //            .setElementHandler(ScrollElement.instance(str -> {}))
         //            .addTo(this);
         //        element2 = new DraggableExecutableWidget(this.x+30, this.y+30, this.backgroundWidth - 60, 60)
         //            .setElementHandler(
-        //                ScrollElement.instance(PropertyTracker.empty())
+        //                ScrollElement.instance(str -> {})
         //                    .setDraggingY(false)
         //            )
         //            .addTo(this);
@@ -47,9 +46,9 @@ public class TestingScreen2 extends SlimefunScreen {
                 this.y + 110,
                 80,
                 90,
-                PropertyTracker.event((val, str) -> {
+                (str) -> {
                     int len = str.length();
-                }),
+                },
                 "byd");
         addRenderableWidget(((ContentDelegateWidget<?>) element3).getDelegate());
 

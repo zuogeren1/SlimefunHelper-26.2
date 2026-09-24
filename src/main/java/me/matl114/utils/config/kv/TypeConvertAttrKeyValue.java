@@ -12,17 +12,17 @@ public class TypeConvertAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable
     public AttrKeyValue<W> delegate;
 
     public final WrapperFactory<T, W> wrapperFactory;
-    public final CustomWidgetFactory<T> factoryOverride;
+    public final CustomWidgetGenerator<T> factoryOverride;
     public final WrapperFactory<String, T> stringifyOverride;
 
     public TypeConvertAttrKeyValue(AttrKeyValue<W> attrKeyValue, WrapperFactory<T, W> wrapperFactory, NBTType<T> type) {
-        this(attrKeyValue, wrapperFactory, type.customWidgetFactory(), type.stringifyFactory());
+        this(attrKeyValue, wrapperFactory, type.customWidgetGenerator(), type.stringifyFactory());
     }
 
     public TypeConvertAttrKeyValue(
             AttrKeyValue<W> attrKeyValue,
             WrapperFactory<T, W> wrapperFactory,
-            CustomWidgetFactory<T> factoryOverride,
+            CustomWidgetGenerator<T> factoryOverride,
             WrapperFactory<String, T> stringifyFactory) {
         this.wrapperFactory = wrapperFactory;
         this.factoryOverride = factoryOverride;
@@ -38,7 +38,7 @@ public class TypeConvertAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable
     private W lastUpdate;
 
     private void checkUpdate() {
-        var re = delegate.getOriginValue();
+        var re = delegate.get();
         if (!Objects.equals(re, lastUpdate)) {
             lastUpdate = re;
             value = stringifyOverride.get(wrapperFactory.get(re));
@@ -57,13 +57,13 @@ public class TypeConvertAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable
     }
 
     @Override
-    public String getValue() {
+    public String getInput() {
         checkUpdate();
         return value;
     }
 
     @Override
-    public T getOriginValue() {
+    public T get() {
         checkUpdate();
         return wrapperFactory.get(lastUpdate);
     }
@@ -82,7 +82,7 @@ public class TypeConvertAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable
     @Override
     public boolean setOriginValue(T val) {
         String value0 = stringifyOverride.get(val);
-        valueChange(null, value0);
+        setInput(value0);
         return isValidate();
     }
 
@@ -104,7 +104,7 @@ public class TypeConvertAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable
     }
 
     @Override
-    public String updateValue(T val) {
+    public String toInput(T val) {
         return stringifyOverride.get(val);
     }
 
@@ -124,7 +124,7 @@ public class TypeConvertAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable
     }
 
     @Override
-    public CustomWidgetFactory<T> getCustomWidgetFactory() {
+    public CustomWidgetGenerator<T> getCustomWidgetFactory() {
         return factoryOverride;
     }
 
@@ -136,7 +136,7 @@ public class TypeConvertAttrKeyValue<W, T> implements AttrKeyValue<T>, Cloneable
     }
 
     @Override
-    public void valueChange(Object object, String string) {
+    public void setInput(String string) {
         checkUpdate();
         if (Objects.equals(this.value, string)) {
             return;

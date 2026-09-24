@@ -7,6 +7,7 @@ import java.awt.*;
 import java.util.Map;
 import me.matl114.accessors.access.ChunkAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -107,9 +108,9 @@ public class ChestESP extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> render) {
+    public void onRender(Event<Render3D> render) {
         if (enable.get()) {
-            PoseStack stack = render.context();
+            PoseStack stack = render.context().stack();
             RenderUtils.startDrawVirtual(stack);
             try {
                 boxSolidCollector.render3D(stack);

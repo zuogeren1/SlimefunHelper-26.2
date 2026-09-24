@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.function.Predicate;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.RenderListener;
@@ -443,13 +444,13 @@ public class Airplace extends BaseModule {
         return FAST_STATE_WAIT_300MS;
     }
 
-    public void onRenderPos(Event<PoseStack> event) {
+    public void onRenderPos(Event<Render3D> event) {
         if (enable.get()) {
             if (mc.player.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()
                     && mc.player.getItemInHand(InteractionHand.OFF_HAND).isEmpty()) {
                 return;
             }
-            PoseStack stack = event.context();
+            PoseStack stack = event.context().stack();
             if (mc.hitResult.getType() == HitResult.Type.MISS) {
                 HitResult result = getCameraEntity().pick(range.get(), 0, false);
                 if (result.getType() == HitResult.Type.MISS && result instanceof BlockHitResult block) {

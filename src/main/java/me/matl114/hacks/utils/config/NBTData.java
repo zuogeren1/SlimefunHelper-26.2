@@ -14,7 +14,7 @@ public record NBTData(Tag nbtElement) implements NBTParsable<NBTData> {
     public static final NBTType<NBTData> TYPE = new NBTType<NBTData>(
             "nbtdata",
             VNbt.CODEC.xmap(NBTData::new, NBTData::nbtElement),
-            BaseAttrKeyValue.getWidgetFactory(),
+            BaseAttrKeyValue.getWidgetGenerator(),
             AttrKeyValues.NBT_FACTORY.concat(WrapperFactory.of(s -> new NBTData((CompoundTag) s), NBTData::nbtElement)),
             new NBTData(new CompoundTag()));
 

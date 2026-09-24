@@ -280,7 +280,7 @@ public class ConfigManager extends BaseModule {
         }
 
         AttrKeyValue<?> keyValue = ref.createKeyValue(rawPath);
-        keyValue.valueChange(this, value);
+        keyValue.setInput(value);
         if (!keyValue.isValidate()) {
             Debug.chat(
                     Component.literal("配置项格式不正确: " + configName + "." + rawPath).withStyle(ChatFormatting.RED));

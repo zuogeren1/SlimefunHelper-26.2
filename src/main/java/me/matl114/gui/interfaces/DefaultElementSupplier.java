@@ -1,4 +1,4 @@
-package me.matl114.gui;
+package me.matl114.gui.interfaces;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,13 +20,13 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
-public final class DefaultWidgetSupplier implements WidgetSupplier {
-    public static final DefaultWidgetSupplier INSTANCE = new DefaultWidgetSupplier();
+public final class DefaultElementSupplier implements ElementSupplier {
+    public static final DefaultElementSupplier INSTANCE = new DefaultElementSupplier();
 
-    private DefaultWidgetSupplier() {}
+    private DefaultElementSupplier() {}
 
     @Override
-    public ElementHandler create(WidgetSupplier.ButtonBuilder builder) {
+    public ElementHandler create(ElementSupplier.ButtonBuilder builder) {
         ButtonElement element = new ButtonElement(safeTextProvider(builder.textProvider), safeAction(builder.action));
         if (builder.inactiveId != null) {
             element.setInactiveId(builder.inactiveId);
@@ -49,12 +49,12 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
     }
 
     @Override
-    public ElementHandler create(WidgetSupplier.IconBuilder builder) {
+    public ElementHandler create(ElementSupplier.IconBuilder builder) {
         return buildIcon(builder);
     }
 
     @Override
-    public ElementHandler create(WidgetSupplier.RawTextBuilder builder) {
+    public ElementHandler create(ElementSupplier.RawTextBuilder builder) {
         RawTextElement element = new RawTextElement(
                 safeTextProvider(builder.textProvider),
                 builder.color == null ? ColorSampler.WHITE : builder.color,
@@ -63,7 +63,7 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
     }
 
     @Override
-    public ElementHandler create(WidgetSupplier.TextFieldBuilder builder) {
+    public ElementHandler create(ElementSupplier.TextFieldBuilder builder) {
         EditBox textFieldWidget = builder.textFieldWidget != null
                 ? builder.textFieldWidget
                 : new EditBox(
@@ -132,14 +132,14 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
                     builder.changedListener.accept(str);
                 }
                 if (builder.listener != null) {
-                    builder.listener.valueChange(TextFieldAccess.of(textFieldWidget), str);
+                    builder.listener.accept(str);
                 }
             });
         }
         return applyCommon(element, builder);
     }
 
-    private ElementHandler buildIcon(WidgetSupplier.AbstractIconBuilder<?> builder) {
+    private ElementHandler buildIcon(ElementSupplier.AbstractIconBuilder<?> builder) {
         Identifier activeId = builder.activeId != null ? builder.activeId : builder.inactiveId;
         Identifier inactiveId = builder.inactiveId != null ? builder.inactiveId : builder.activeId;
         IconElement.SimpleIconElement element =
@@ -157,7 +157,7 @@ public final class DefaultWidgetSupplier implements WidgetSupplier {
         return applyCommon(element, builder);
     }
 
-    private ElementHandler applyCommon(AbstractElement element, WidgetSupplier.AbstractElementBuilder<?> builder) {
+    private ElementHandler applyCommon(AbstractElement element, ElementSupplier.AbstractElementBuilder<?> builder) {
         element.setShowTooltips(builder.showTooltips);
         if (builder.tooltipHandler != null) {
             element.withTooltips(builder.tooltipHandler);

@@ -30,7 +30,7 @@ public class ListMultiSelectWidget<W> extends ScrollableListWidget {
 
     public Set<W> buildSelected() {
         return list.entrySet().stream()
-                .filter(i -> i.getValue().getOriginValue() == Boolean.TRUE)
+                .filter(i -> i.getValue().get() == Boolean.TRUE)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
@@ -75,16 +75,16 @@ public class ListMultiSelectWidget<W> extends ScrollableListWidget {
         RenderHandler renderHandler = renderFactory.apply(triplet.getKey(), attrKeyValue);
         renderHandler =
                 renderHandler.combineRender((element, context, mouseX, mouseY, delta, alpha, shouldHighlight) -> {
-                    if (attrKeyValue.getOriginValue() == Boolean.TRUE) {
+                    if (attrKeyValue.get() == Boolean.TRUE) {
                         RenderHandler.drawHighLightBox(context, 0, 0, this.dx, this.entryHeight, CommonColors.WHITE);
                     }
                 });
         InputHandler mouseHandler = InputHandler.run(() -> {
             if (modifiable) {
-                if (attrKeyValue.getOriginValue() == Boolean.TRUE) {
-                    attrKeyValue.valueChange(null, "false");
+                if (attrKeyValue.get() == Boolean.TRUE) {
+                    attrKeyValue.setInput("false");
                 } else {
-                    attrKeyValue.valueChange(null, "true");
+                    attrKeyValue.setInput("true");
                 }
             }
             // do not resort when value change
@@ -96,9 +96,9 @@ public class ListMultiSelectWidget<W> extends ScrollableListWidget {
 
     protected void updateFilterList() {
         Comparator<Map.Entry<W, AttrKeyValue<Boolean>>> comparator = (o1, o2) -> {
-            if (o1.getValue().getOriginValue() && !o2.getValue().getOriginValue()) {
+            if (o1.getValue().get() && !o2.getValue().get()) {
                 return -1;
-            } else if (!o1.getValue().getOriginValue() && o2.getValue().getOriginValue()) {
+            } else if (!o1.getValue().get() && o2.getValue().get()) {
                 return 1;
             } else {
                 return 0;
@@ -113,11 +113,11 @@ public class ListMultiSelectWidget<W> extends ScrollableListWidget {
     }
 
     protected void selectAllShown() {
-        this.filterList.forEach(s -> s.getValue().valueChangeInternal(null, true));
+        this.filterList.forEach(s -> s.getValue().accept(true));
     }
 
     protected void unselectAllShown() {
-        this.filterList.forEach(s -> s.getValue().valueChangeInternal(null, false));
+        this.filterList.forEach(s -> s.getValue().accept(false));
     }
 
     protected void init() {

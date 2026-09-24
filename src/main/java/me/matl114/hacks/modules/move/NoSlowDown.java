@@ -4,6 +4,7 @@ import java.util.*;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.accessors.access.PlayerInteractEntityC2SPacketAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.MetadataUpdate;
 import me.matl114.events.Listener;
 import me.matl114.events.impl.EventContainer;
 import me.matl114.hacks.ACTasks;
@@ -438,12 +439,12 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
         }
     }
 
-    public void onServerSyncSneak(Event<SynchedEntityData.DataValue<?>> event) {
+    public void onServerSyncSneak(Event<MetadataUpdate> event) {
         if (event.isCancelled()) {
             return;
         }
-        if (sneakStatus && event.getArgs(0) instanceof LocalPlayer player && player == mc.player) {
-            var val = event.context();
+        if (sneakStatus && event.context.entity() instanceof LocalPlayer player && player == mc.player) {
+            var val = event.context().metadata();
             if (val.id() == VDataFlag.ID_FLAGS) {
                 byte data = (byte) val.value();
                 boolean sneakFlag = (data & (1 << VDataFlag.SNEAKING_FLAG_INDEX)) != 0;
@@ -684,10 +685,10 @@ public class NoSlowDown extends BaseModule implements LegalMovementManager.Movem
 
     boolean grimSlowedByItemFlag = false;
 
-    public void onEntityDataUpdate(Event<SynchedEntityData.DataValue<?>> eventEntityDataUpdate) {
-        if (useItem.get() && eventEntityDataUpdate.getArgs(0) == mc.player) {
-            if (eventEntityDataUpdate.context.id() == VDataFlag.ID_LIVING_FLAGS
-                    && eventEntityDataUpdate.context.value() instanceof Number number) {
+    public void onEntityDataUpdate(Event<MetadataUpdate> eventEntityDataUpdate) {
+        if (useItem.get() && eventEntityDataUpdate.context.entity() == mc.player) {
+            if (eventEntityDataUpdate.context.metadata().id() == VDataFlag.ID_LIVING_FLAGS
+                    && eventEntityDataUpdate.context.metadata().value() instanceof Number number) {
                 byte flagByte = number.byteValue();
                 boolean bl = (flagByte & (1 << VDataFlag.USING_ITEM_FLAG_INDEX)) > 0;
                 if (bl) {

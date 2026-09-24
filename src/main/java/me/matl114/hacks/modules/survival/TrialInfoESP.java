@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.access.ChunkAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -174,15 +175,15 @@ public class TrialInfoESP extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<PoseStack> event) {
+    public void onRender3D(Event<Render3D> event) {
         if (!enable.get()) {
             return;
         }
-        RenderUtils.startDrawVirtual(event.context());
+        RenderUtils.startDrawVirtual(event.context().stack());
         try {
-            textCollector.render3D(event.context());
+            textCollector.render3D(event.context().stack());
         } finally {
-            RenderUtils.stopDrawVirtual(event.context());
+            RenderUtils.stopDrawVirtual(event.context().stack());
         }
     }
 

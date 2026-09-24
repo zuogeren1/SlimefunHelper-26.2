@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.function.IntSupplier;
 import lombok.Setter;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.UseItem;
@@ -149,9 +150,9 @@ public class SpearEnhance extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> event) {
+    public void onRender(Event<Render3D> event) {
         if (renderKineticPlayers.get()) {
-            RenderUtils.startDrawVirtual(event.context);
+            RenderUtils.startDrawVirtual(event.context.stack());
             try {
                 int color = renderColor.get().withAlpha(64);
                 var render = RenderCollectors.createBoxCollector(false, true, false);
@@ -162,10 +163,10 @@ public class SpearEnhance extends BaseModule {
                         }
                     }
                 }
-                render.render3D(event.context);
+                render.render3D(event.context.stack());
                 render.clear();
             } finally {
-                RenderUtils.stopDrawVirtual(event.context);
+                RenderUtils.stopDrawVirtual(event.context.stack());
             }
         }
     }

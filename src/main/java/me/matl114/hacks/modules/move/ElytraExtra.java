@@ -8,6 +8,7 @@ import me.matl114.accessors.access.PlayerInteractItemC2SPacketAccess;
 import me.matl114.accessors.hacks.EntityInternalAccess;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.MetadataUpdate;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.impl.EventContainer;
@@ -537,17 +538,17 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
     }
 
     // may cause fake gliding !!! must be careful
-    public void handleEntityDataUpdate(Event<SynchedEntityData.DataValue<?>> serializedEntryUpdateEvent) {
+    public void handleEntityDataUpdate(Event<MetadataUpdate> serializedEntryUpdateEvent) {
         if (serializedEntryUpdateEvent.isCancelled()) return;
         // only when elytra unbreakable do
         if (serializedEntryUpdateEvent.extraArgs().length > 0
-                && serializedEntryUpdateEvent.getArgs(0) instanceof LocalPlayer player
+                && serializedEntryUpdateEvent.context.entity() instanceof LocalPlayer player
                 && player == mc.player
-                && serializedEntryUpdateEvent.context.id() == VDataFlag.ID_FLAGS
+                && serializedEntryUpdateEvent.context.metadata().id() == VDataFlag.ID_FLAGS
                 && player.isFallFlying()) {
 
             if (!nextPacketResetFallFlying.isEmpty()) {
-                var val = serializedEntryUpdateEvent.context();
+                var val = serializedEntryUpdateEvent.context().metadata();
                 byte data = (byte) val.value();
                 if ((data & (1 << VDataFlag.FALL_FLYING_FLAG_INDEX)) == 0) {
                     // try start
@@ -556,7 +557,7 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                         if (it > Tasks.getTick()) {
                             if (canContinueGliding()) {
                                 if (hasGlidingEquipments()) {
-                                    serializedEntryUpdateEvent.context(
+                                    serializedEntryUpdateEvent.context.metadata(
                                             new SynchedEntityData.DataValue(val.id(), val.serializer(), (byte)
                                                     (data | (1 << VDataFlag.FALL_FLYING_FLAG_INDEX))));
                                     MovTasks.getMovExtra().sendPacketsForPreStartFallFlying();
@@ -581,7 +582,7 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
             // 1. elytraUnbreakable
             // 2. open armorGlide
             // 3. the nextTimeLaunchElytraUnbreakable flag was block from setting to false because armorGlide is on
-            var entry = serializedEntryUpdateEvent.context();
+            var entry = serializedEntryUpdateEvent.context().metadata();
             byte data = (byte) entry.value();
             if ((data & (1 << VDataFlag.FALL_FLYING_FLAG_INDEX)) == 0) {
                 elytraUnbreakableDurabilityCounter.reset();
@@ -594,18 +595,20 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                 thisTickTickStartFallFly = false;
             }
             if (shouldElytraUnbreakable() && canRunElytraUnbreakable) {
-                var val = serializedEntryUpdateEvent.context();
+                var val = serializedEntryUpdateEvent.context().metadata();
                 data = (byte) val.value();
-                serializedEntryUpdateEvent.context(new SynchedEntityData.DataValue(
+                serializedEntryUpdateEvent.context.metadata(
+                                            new SynchedEntityData.DataValue(
                         val.id(), val.serializer(), (byte) (data | (1 << VDataFlag.FALL_FLYING_FLAG_INDEX))));
                 nextTimeDelaySwitchElytraUnbreakable = 1;
             } else if (armorFly.get() && this.thisFallFlyingIsArmorFly != -1 && canRunArmorGlide) {
-                var val = serializedEntryUpdateEvent.context();
+                var val = serializedEntryUpdateEvent.context().metadata();
                 data = (byte) val.value();
                 // try start
                 if (armorMode.get() == ArmorFlyMode.LAZY) {
                     if (onSwitchItemArmorFallFlying()) {
-                        serializedEntryUpdateEvent.context(new SynchedEntityData.DataValue(
+                        serializedEntryUpdateEvent.context.metadata(
+                                            new SynchedEntityData.DataValue(
                                 val.id(), val.serializer(), (byte) (data | (1 << VDataFlag.FALL_FLYING_FLAG_INDEX))));
                         mc.getConnection()
                                 .send(new ServerboundPlayerCommandPacket(
@@ -628,7 +631,8 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
 
                 } else if (armorMode.get() == ArmorFlyMode.TICK_LEGACY) {
                     if (onSwitchItemArmorFallFlying()) {
-                        serializedEntryUpdateEvent.context(new SynchedEntityData.DataValue(
+                        serializedEntryUpdateEvent.context.metadata(
+                                            new SynchedEntityData.DataValue(
                                 val.id(), val.serializer(), (byte) (data | (1 << VDataFlag.FALL_FLYING_FLAG_INDEX))));
                         mc.getConnection()
                                 .send(new ServerboundPlayerCommandPacket(
@@ -643,7 +647,8 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
                     MovTasks.getMovExtra().sendPacketsForPostStartFallFlying();
                 } else {
                     thisTickTickStartFallFly = true;
-                    serializedEntryUpdateEvent.context(new SynchedEntityData.DataValue(
+                    serializedEntryUpdateEvent.context.metadata(
+                                            new SynchedEntityData.DataValue(
                             val.id(), val.serializer(), (byte) (data | (1 << VDataFlag.FALL_FLYING_FLAG_INDEX))));
                 }
             }
@@ -1529,12 +1534,12 @@ public class ElytraExtra extends BaseModule implements LegalMovementManager.Move
     int lastFireworkSpawnTime = 0;
     // boolean lastFireworkIsDeadSignal = false;
 
-    public void onFireworkOwner(Event<SynchedEntityData.DataValue<?>> firework) {
-        if (firework.context().id() == VDataFlag.ID_FIREWORK_SHOOTER_ID
-                && firework.getArgs(0) instanceof FireworkRocketEntity fireworkEntity
+    public void onFireworkOwner(Event<MetadataUpdate> firework) {
+        if (firework.context().metadata().id() == VDataFlag.ID_FIREWORK_SHOOTER_ID
+                && firework.context.entity() instanceof FireworkRocketEntity fireworkEntity
                 && mc.player != null
                 && mc.player.isFallFlying()
-                && firework.context().value() instanceof OptionalInt opint
+                && firework.context().metadata().value() instanceof OptionalInt opint
                 && opint.isPresent()
                 && opint.getAsInt() == mc.player.getId()) {
             recordedWorldFireworkRockets.add(fireworkEntity);

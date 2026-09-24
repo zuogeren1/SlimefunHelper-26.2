@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import me.matl114.events.Event;
+import me.matl114.gui.presets.single.IIcon;
 import me.matl114.gui.presets.single.RegistryDisplays;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.modules.move.PlayerStateManager;
@@ -151,7 +152,7 @@ public class PlayerStatistic extends IRender2DColoredModule {
                 cnt);
     }
 
-    private static final RegistryDisplays.IIcon<MobEffect> statusEffectRenderer =
+    private static final IIcon<MobEffect> statusEffectRenderer =
             RegistryDisplays.getIcon(MobEffect.class);
 
     public void handleEffects(VDrawContext vdraw) {

@@ -26,7 +26,6 @@ import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.ScreenUtils;
-import me.matl114.utils.config.PropertyTracker;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -197,7 +196,7 @@ public class ChatTools extends BaseModule {
         SubScreenWidget basicSubScreenWidget = new SubScreenWidget(0, 0, 250, 68);
         // -56 -> -56 - (-104)
         ContentDelegateWidget<EditBox> helperWidgetWrapper = McWidgetHelpers.createTextFieldEditBox(
-                0, 48, 120, 20, PropertyTracker.event(chatCache::set), chatCache.get());
+                0, 48, 120, 20, chatCache::set, chatCache.get());
         cacheWidget = helperWidgetWrapper.getDelegate();
 
         // todo： add translatable to buttons and everything
@@ -266,7 +265,7 @@ public class ChatTools extends BaseModule {
                 .addToSub(basicSubScreenWidget);
 
         ContentDelegateWidget<EditBox> helperWidget = McWidgetHelpers.createTextFieldEditBox(
-                40, 24, 40, 20, PropertyTracker.event(s -> int2CharFieldContent = s), int2CharFieldContent);
+                40, 24, 40, 20, s -> int2CharFieldContent = s, int2CharFieldContent);
         int2CharInputField = helperWidget.getDelegate();
 
         ExecutableWidget.instance(80, 24, 40, 20)

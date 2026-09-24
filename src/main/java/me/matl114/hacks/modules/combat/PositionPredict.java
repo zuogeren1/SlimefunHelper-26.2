@@ -12,6 +12,7 @@ import lombok.With;
 import me.matl114.accessors.hacks.EntityInternalAccess;
 import me.matl114.accessors.hacks.PlayerInternalAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.gui.basic.*;
@@ -106,9 +107,9 @@ public class PositionPredict extends BaseModule {
         registerListener(RenderListener.getRender3DEvent(), this::onRender);
     }
 
-    public void onRender(Event<PoseStack> event) {
+    public void onRender(Event<Render3D> event) {
         if (debugRender.get()) {
-            RenderUtils.startDrawVirtual(event.context);
+            RenderUtils.startDrawVirtual(event.context.stack());
             try {
                 List<AABB> boxes = new ArrayList<>();
                 Vec3 camera = RenderUtils.getCameraPos().reverse();
@@ -123,7 +124,7 @@ public class PositionPredict extends BaseModule {
                 VRender.getInstance().createLinesLayer(((operation, vertexConsumer) -> {
                     for (AABB box : boxes) {
                         operation.drawOutlinedBox(
-                                event.context,
+                                event.context.stack(),
                                 vertexConsumer,
                                 box.getMinPosition(),
                                 box.getMaxPosition(),
@@ -138,7 +139,7 @@ public class PositionPredict extends BaseModule {
                         for (Vec3 box : lst) {
                             box = box.add(camera);
                             operation.drawOutlinedBox(
-                                    event.context,
+                                    event.context.stack(),
                                     vertexConsumer,
                                     box.add(-0.2, -0.2, -0.2),
                                     box.add(0.2, 0.2, 0.2),
@@ -147,14 +148,14 @@ public class PositionPredict extends BaseModule {
                     }));
                     VRender.getInstance().createLineStripLayer(((operation, vertexConsumer) -> {
                         operation.drawLines(
-                                event.context,
+                                event.context.stack(),
                                 vertexConsumer,
                                 lst.stream().map(s -> s.add(camera)).toList(),
                                 hash);
                     }));
                 }
             } finally {
-                RenderUtils.stopDrawVirtual(event.context);
+                RenderUtils.stopDrawVirtual(event.context.stack());
             }
         }
     }
@@ -319,11 +320,11 @@ public class PositionPredict extends BaseModule {
                     SubScreenWidget subScreenWidget = SubScreenWidget.instance(x, y, dx, dy);
                     int half = dx / 4;
                     WrapperFactory<Double, PredictArgument> firstWrapper =
-                            WrapperFactory.of((d) -> s.getOriginValue().withTicksLater(d), PredictArgument::ticksLater);
+                            WrapperFactory.of((d) -> s.get().withTicksLater(d), PredictArgument::ticksLater);
                     WrapperFactory<Integer, PredictArgument> secondWrapper = WrapperFactory.of(
-                            (d) -> s.getOriginValue().withTicksHistory(d), PredictArgument::ticksHistory);
+                            (d) -> s.get().withTicksHistory(d), PredictArgument::ticksHistory);
                     WrapperFactory<Mode, PredictArgument> thirdWrapper =
-                            WrapperFactory.of((d) -> s.getOriginValue().withMode(d), PredictArgument::mode);
+                            WrapperFactory.of((d) -> s.get().withMode(d), PredictArgument::mode);
 
                     return subScreenWidget
                             .addDrawableChild(DisplayWidget.instance(0, 0, dy, dy)
@@ -354,7 +355,7 @@ public class PositionPredict extends BaseModule {
                             .addDrawableChild(new TypeConvertAttrKeyValue<>(
                                             s,
                                             thirdWrapper,
-                                            EnumAttrKeyValue.createEnumWidgetFactory(Mode.class),
+                                            EnumAttrKeyValue.createEnumWidgetGenerator(Mode.class),
                                             WrapperFactory.of(Mode::valueOf, Mode::name))
                                     .generateValueWidget(2 * half + dy, 0, 2 * half - dy, dy));
                 },

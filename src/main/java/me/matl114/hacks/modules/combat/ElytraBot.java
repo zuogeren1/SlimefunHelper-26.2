@@ -13,6 +13,8 @@ import lombok.experimental.Accessors;
 import me.matl114.SlimefunHelper;
 import me.matl114.accessors.hacks.PlayerInternalAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render2D;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -553,11 +555,11 @@ public class ElytraBot extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> event) {
+    public void onRender(Event<Render3D> event) {
         if (enable.get() && render.get()) {
-            RenderUtils.startDrawVirtual(event.context);
+            RenderUtils.startDrawVirtual(event.context.stack());
             try {
-                PoseStack stack = event.context;
+                PoseStack stack = event.context.stack();
                 if (currentBehaviour != null) {
                     net.minecraft.world.phys.Vec3 targetRender =
                             currentBehaviour.movementDirection.add(mc.player.position());
@@ -571,14 +573,14 @@ public class ElytraBot extends BaseModule {
                 }
 
             } finally {
-                RenderUtils.stopDrawVirtual(event.context);
+                RenderUtils.stopDrawVirtual(event.context.stack());
             }
         }
     }
 
-    public void onDebugRender(Event<VDrawContext> eventVDraw) {
+    public void onDebugRender(Event<Render2D> eventVDraw) {
         if (enable.get() && render.get() && currentBehaviour != null && target != null) {
-            var vdraw = eventVDraw.context;
+            var vdraw = eventVDraw.context.drawContext();
             vdraw.getMatrices().pushMatrix();
             vdraw.getMatrices().translate(200, 200);
             vdraw.drawText(

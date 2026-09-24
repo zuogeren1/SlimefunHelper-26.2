@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.hacks.modules.move.PlayerInputManager;
 import me.matl114.hacks.modules.survival.SchedularSettings;
 import me.matl114.hacks.utils.render.RenderCollectors;
@@ -175,15 +176,15 @@ public class AdjustmentSchedular {
         return modifier;
     }
 
-    public void renderAdjustment(Event<PoseStack> event) {
+    public void renderAdjustment(Event<Render3D> event) {
         if (!SchedularSettings.INSTANCE.enableRender.get()) {
             return;
         }
-        RenderUtils.startDrawVirtual(event.context);
+        RenderUtils.startDrawVirtual(event.context.stack());
         try {
-            renderCollector.render3D(event.context);
+            renderCollector.render3D(event.context.stack());
         } finally {
-            RenderUtils.stopDrawVirtual(event.context);
+            RenderUtils.stopDrawVirtual(event.context.stack());
         }
     }
 }

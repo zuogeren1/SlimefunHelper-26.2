@@ -7,6 +7,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -155,8 +156,8 @@ public class BowEnhance extends BaseModule {
         }
     }
 
-    public void onRenderAimTarget(Event<PoseStack> stackE) {
-        var stack = stackE.context;
+    public void onRenderAimTarget(Event<Render3D> stackE) {
+        var stack = stackE.context.stack();
         if (enable.get() && enableAim.get() && renderTarget.get() && mc.player != null && mc.player.isUsingItem()) {
             float tickDelta = (Float) stackE.extraArgs[0];
             ItemStack itemInUse = mc.player.getUseItem();

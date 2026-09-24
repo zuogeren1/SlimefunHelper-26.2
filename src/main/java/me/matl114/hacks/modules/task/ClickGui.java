@@ -577,7 +577,7 @@ public class ClickGui extends BaseModule {
                 0,
                 buttonWidth,
                 buttonHeight,
-                (v, t) -> {
+                (t) -> {
                     if (!Objects.equals(t, metaData.searching)) {
                         metaData.setSearching(t);
                         taskExecutor.submit(updateTask);

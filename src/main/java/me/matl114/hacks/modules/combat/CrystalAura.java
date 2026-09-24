@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import me.matl114.accessors.hacks.PlayerInteractionAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -261,13 +262,13 @@ public class CrystalAura extends BaseModule {
         }
     }
 
-    public void onRender3D(Event<PoseStack> event) {
+    public void onRender3D(Event<Render3D> event) {
         if (enable.get()) {
-            RenderUtils.startDrawVirtual(event.context);
+            RenderUtils.startDrawVirtual(event.context.stack());
             try {
-                debugRender.render3D(event.context);
+                debugRender.render3D(event.context.stack());
             } finally {
-                RenderUtils.stopDrawVirtual(event.context);
+                RenderUtils.stopDrawVirtual(event.context.stack());
             }
         }
     }

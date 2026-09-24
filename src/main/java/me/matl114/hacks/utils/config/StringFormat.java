@@ -62,7 +62,7 @@ public class StringFormat implements NBTParsable<StringFormat> {
                             Codec.BOOL.optionalFieldOf("color_str", false).forGetter(StringFormat::colorString))
                     .apply(oInstance, StringFormat::new)),
             (s, x, y, dx, dy) -> {
-                StringFormat original = s.getOriginValue();
+                StringFormat original = s.get();
                 AttrKeyValue<String> wrapper = new TypeConvertAttrKeyValue<>(
                         s,
                         WrapperFactory.of(original::withFormatString, StringFormat::formatString),
@@ -90,7 +90,7 @@ public class StringFormat implements NBTParsable<StringFormat> {
                                             Constants.EDITOR_SPRITE,
                                             ButtonAction.run(StringFormat::openWikiColorString))
                                     .withTooltips(TooltipHandler.of(
-                                            (el) -> s.getOriginValue().generateColorStringPreview()))));
+                                            (el) -> s.get().generateColorStringPreview()))));
                 }
                 return subScreenWidget;
             },

@@ -9,6 +9,7 @@ import java.util.Deque;
 import java.util.List;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -252,8 +253,8 @@ public class BowTp extends BaseModule {
         return false;
     }
 
-    public void onRender(Event<PoseStack> stackE) {
-        var stack = stackE.context;
+    public void onRender(Event<Render3D> stackE) {
+        var stack = stackE.context.stack();
         if (enable.get() && mc.player != null && render.get()) {
             float tickDelta = (Float) stackE.extraArgs[0];
             if (mc.player.isUsingItem() && mc.player.getUseItem().getItem() instanceof BowItem bow) {

@@ -3,7 +3,6 @@ package me.matl114.gui.presets.single;
 import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import me.matl114.gui.basic.DrawableWidget;
@@ -169,39 +168,6 @@ public class RegistryDisplays {
 
     public static <T> IIcon<T> getIcon(Registry<T> registryClass) {
         return (IIcon<T>) TYPE_TO_ICON_MAP.getOrDefault(RegistryUtils.getRegistryType(registryClass), IIcon.EMPTY);
-    }
-
-    public static interface IIcon<T> {
-        public static IIcon<?> EMPTY = ((x, y, context, registerValue) -> {
-            context.drawItem(defaultNullIcon(), x, y, 999, 0);
-        });
-
-        default void render(int startIndexX, int startIndexY, VDrawContext context, T registerValue) {
-            if (registerValue == null) {
-                context.drawItem(defaultNullIcon(), startIndexX, startIndexY, 114514, 0);
-            } else {
-                renderNonnull(startIndexX, startIndexY, context, registerValue);
-            }
-        }
-
-        public void renderNonnull(int width, int height, VDrawContext context, T registerValue);
-
-        public static <T> IIcon<T> renderItem(Function<T, ItemStack> function) {
-            return ((startIndexX, startIndexY, context, registerValue) -> {
-                context.drawItem(function.apply(registerValue), startIndexX, startIndexY, 114514, 0);
-            });
-        }
-
-        public static <T> IIcon<T> renderSprite(Function<T, ?> function) {
-            return ((startIndexX, startIndexY, context, registerValue) -> {
-                var re = function.apply(registerValue);
-                if (re instanceof Identifier identifier) {
-                    context.drawGuiTexture(identifier, startIndexX, startIndexY, 16, 16);
-                } else if (re instanceof TextureAtlasSprite sprite) {
-                    context.drawSprite(sprite, startIndexX, startIndexY, 0, 16, 16);
-                }
-            });
-        }
     }
 
     @AllArgsConstructor

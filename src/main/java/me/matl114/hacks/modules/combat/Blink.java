@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.OptionalInt;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.MetadataUpdate;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.PacketManager;
 import me.matl114.events.RenderListener;
@@ -154,9 +156,9 @@ public class Blink extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> eve) {
+    public void onRender(Event<Render3D> eve) {
         if (enable.get() && render.get()) {
-            PoseStack stack = eve.context();
+            PoseStack stack = eve.context().stack();
             if (startPlayerPos != null) {
                 RenderUtils.startDrawVirtual(stack);
                 try {
@@ -300,14 +302,14 @@ public class Blink extends BaseModule {
         }
     }
 
-    public void onFireworkOwner(Event<SynchedEntityData.DataValue<?>> firework) {
+    public void onFireworkOwner(Event<MetadataUpdate> firework) {
         if (enable.get()
                 && elytraSupport.get()
-                && firework.context().id() == VDataFlag.ID_FIREWORK_SHOOTER_ID
-                && firework.getArgs(0) instanceof FireworkRocketEntity fireworkEntity
+                && firework.context().metadata().id() == VDataFlag.ID_FIREWORK_SHOOTER_ID
+                && firework.context.entity() instanceof FireworkRocketEntity fireworkEntity
                 && mc.player != null
                 && mc.player.isFallFlying()
-                && firework.context().value() instanceof OptionalInt opint
+                && firework.context().metadata().value() instanceof OptionalInt opint
                 && opint.isPresent()
                 && opint.getAsInt() == mc.player.getId()) {
             flush();

@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import me.matl114.accessors.interfaces.MetadataHolder;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -210,12 +211,12 @@ public class AutoBreed extends BaseModule {
         }
     }
 
-    public void onRender(Event<PoseStack> event) {
+    public void onRender(Event<Render3D> event) {
         if (!enable.get() || !render.get() || targetAnimal == null) {
             return;
         }
-        float partialTicks = event.getArgs(0);
-        RenderUtils.startDrawVirtual(event.context);
+        float partialTicks = event.context.partialTicks();
+        RenderUtils.startDrawVirtual(event.context.stack());
         try {
             RenderCollector<AABB> collector = RenderCollectors.createBoxCollector(true, false, false);
             collector.submit(
@@ -231,9 +232,9 @@ public class AutoBreed extends BaseModule {
                     }
                 }
             }
-            collector.render3D(event.context);
+            collector.render3D(event.context.stack());
         } finally {
-            RenderUtils.stopDrawVirtual(event.context);
+            RenderUtils.stopDrawVirtual(event.context.stack());
         }
     }
 

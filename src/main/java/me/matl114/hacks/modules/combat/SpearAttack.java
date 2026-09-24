@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -226,13 +227,13 @@ public class SpearAttack extends BaseModule implements LegalMovementManager.Move
     // == 0 can move, can Start next Spear
     int currentWaitBackTick = 0;
 
-    private void renderPlayerSpearTarget(Event<PoseStack> event) {
+    private void renderPlayerSpearTarget(Event<Render3D> event) {
         if (!enable.get()) return;
         //        if (RenderTasks.DEBUG_RENDER_SPEAR) {
         //            onSpearAttackRender(event);
         //        }
-        PoseStack stack = event.context();
-        float tickDelta = event.getArgs(0);
+        PoseStack stack = event.context().stack();
+        float tickDelta = event.context.partialTicks();
         if (spearRender.get()) {
             RenderUtils.startDrawVirtual(stack);
             try {

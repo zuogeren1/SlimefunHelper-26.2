@@ -5,6 +5,7 @@ import java.awt.*;
 import java.util.function.Consumer;
 import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.events.impl.EventContainer;
@@ -200,18 +201,18 @@ public class NoInteract extends BaseModule {
         }
     }
 
-    public void onRender3d(Event<PoseStack> stackEvent) {
+    public void onRender3d(Event<Render3D> stackEvent) {
         if (enable.get() && render.get()) {
             if (Tasks.getTick() > lastStartRenderFailPlace + 200) {
                 failInteractPlace.clear();
                 ;
                 return;
             }
-            RenderUtils.startDrawVirtual(stackEvent.context);
+            RenderUtils.startDrawVirtual(stackEvent.context.stack());
             try {
-                failInteractPlace.render3D(stackEvent.context);
+                failInteractPlace.render3D(stackEvent.context.stack());
             } finally {
-                RenderUtils.stopDrawVirtual(stackEvent.context);
+                RenderUtils.stopDrawVirtual(stackEvent.context.stack());
             }
         }
     }

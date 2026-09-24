@@ -15,7 +15,7 @@ public record JsonData(JsonElement data) implements NBTParsable<JsonData> {
     public static final NBTType<JsonData> TYPE = new NBTType<>(
             "jsondata",
             ExtraCodecs.JSON.xmap(JsonData::new, JsonData::data),
-            BaseAttrKeyValue.getWidgetFactory(),
+            BaseAttrKeyValue.getWidgetGenerator(),
             AttrKeyValues.JSON_ELEMENT_FACTORY.concat(WrapperFactory.of(JsonData::new, JsonData::data)),
             new JsonData(new JsonObject()));
 

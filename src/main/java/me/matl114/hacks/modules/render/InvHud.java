@@ -2,6 +2,7 @@ package me.matl114.hacks.modules.render;
 
 import java.util.*;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render2D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -106,10 +107,10 @@ public class InvHud extends BaseModule {
         vdraw.drawItemInSlot(mc.font, stack, startX + 1, startY + 1, null);
     }
 
-    public void onRender2D(Event<VDrawContext> event) {
+    public void onRender2D(Event<Render2D> event) {
         if (checkNull()) return;
         if (enable.get() && !event.<Boolean>getArgs(1) && toShow != null) {
-            VDrawContext vdraw = event.context;
+            VDrawContext vdraw = event.context.drawContext();
             vdraw.pushMatrix();
             try {
                 handleRenderPosition(vdraw);

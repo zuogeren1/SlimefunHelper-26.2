@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import me.matl114.commands.MainCommand;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.gui.basic.DrawableWidget;
@@ -399,8 +400,8 @@ public class SeedOre extends BaseModule {
     }
     // render issues
 
-    public void onRenderOreSimulation(Event<PoseStack> event) {
-        var stack = event.context;
+    public void onRenderOreSimulation(Event<Render3D> event) {
+        var stack = event.context.stack();
         if (mc.player == null || oreConfig == null) return;
         if (!enable.get()) return;
         if (!enableRender.get()) return;
@@ -431,7 +432,7 @@ public class SeedOre extends BaseModule {
             Map<Ore, Set<Vec3>> chunk = chunkSeedCache.get(chunkKey);
 
             for (Map.Entry<Ore, Set<Vec3>> oreRenders : chunk.entrySet()) {
-                if (oreRenders.getKey().active.getOriginValue() == Boolean.TRUE) {
+                if (oreRenders.getKey().active.get() == Boolean.TRUE) {
                     Color color = oreRenders.getKey().color;
                     for (Vec3 pos : oreRenders.getValue()) {
                         Vec3 centerPos = Vec3.atCenterOf(BlockPos.containing(pos));
@@ -946,9 +947,9 @@ public class SeedOre extends BaseModule {
                 var regex = Pattern.compile(value).asMatchPredicate();
                 for (var ore : oreSettings) {
                     if (regex.test(ore.getKeyName().toLowerCase(Locale.ROOT))) {
-                        ore.valueChange(ore, "true");
+                        ore.setInput("true");
                     } else {
-                        ore.valueChange(ore, "false");
+                        ore.setInput("false");
                     }
                 }
             } catch (Throwable e) {

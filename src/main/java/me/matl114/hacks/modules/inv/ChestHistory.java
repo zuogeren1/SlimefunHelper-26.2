@@ -16,6 +16,7 @@ import me.matl114.accessors.gui.ScreenAccess;
 import me.matl114.accessors.interfaces.MetadataHolder;
 import me.matl114.accessors.interfaces.TileInventory;
 import me.matl114.events.Event;
+import me.matl114.events.impl.Render3D;
 import me.matl114.events.Listener;
 import me.matl114.events.RenderListener;
 import me.matl114.hacks.api.BaseModule;
@@ -376,8 +377,8 @@ public class ChestHistory extends BaseModule {
 
     private static final int POSITION_FLAG = VRender.createTextPositionFlag(0, 1);
 
-    public void onRender(Event<PoseStack> event) {
-        PoseStack stack = event.context();
+    public void onRender(Event<Render3D> event) {
+        PoseStack stack = event.context().stack();
         // todo: make it a render
         if (enableTitle.get()) {
             if (mc.player != null) {

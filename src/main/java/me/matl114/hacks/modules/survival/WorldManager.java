@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 import me.matl114.accessors.interfaces.EntityInventory;
 import me.matl114.events.Event;
+import me.matl114.events.impl.MetadataUpdate;
 import me.matl114.events.Listener;
 import me.matl114.events.impl.BlockUpdate;
 import me.matl114.hacks.api.BaseModule;
@@ -185,10 +186,10 @@ public class WorldManager extends BaseModule {
         }
     }
 
-    public void onVillagerProfessionUpdate(Event<SynchedEntityData.DataValue<?>> eventDataUpdate) {
-        if (eventDataUpdate.getArgs(0) instanceof Villager villager) {
-            if (eventDataUpdate.context.id() == VDataFlag.ID_VILLAGER_PROFESSION_DATA
-                    && eventDataUpdate.context.value() instanceof VillagerData data) {
+    public void onVillagerProfessionUpdate(Event<MetadataUpdate> eventDataUpdate) {
+        if (eventDataUpdate.context.entity() instanceof Villager villager) {
+            if (eventDataUpdate.context.metadata().id() == VDataFlag.ID_VILLAGER_PROFESSION_DATA
+                    && eventDataUpdate.context.metadata().value() instanceof VillagerData data) {
                 asyncExecutor.execute(() -> {
                     var profession = data.profession().unwrapKey().orElse(null);
                     if (Objects.equals(profession, VillagerProfession.NONE)
