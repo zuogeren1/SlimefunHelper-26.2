@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.mine;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.ArrayDeque;
 import java.util.Objects;

@@ -72,7 +72,6 @@ import net.minecraft.network.protocol.login.LoginPacketTypes;
 import net.minecraft.network.protocol.ping.ClientboundPongResponsePacket;
 import net.minecraft.network.protocol.ping.PingPacketTypes;
 import net.minecraft.network.protocol.status.StatusPacketTypes;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.RunningOnDifferentThreadException;

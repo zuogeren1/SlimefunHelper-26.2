@@ -194,7 +194,9 @@ public class InventoryUtils {
     }
 
     public static List<ItemStack> getContainerInventory(ItemContainerContents container) {
-        return container.nonEmptyItemCopyStream().toList();
+        // 上游是 yarn ContainerComponent.stream()（**全部槽位**，空槽给 EMPTY 占位）→ mojmap 对应 allItemsCopyStream()。
+        // nonEmptyItemCopyStream() 对应的是 yarn streamNonEmpty()，会把空槽过滤掉、索引不再与槽位对齐。
+        return container.allItemsCopyStream().toList();
     }
 
     public static List<ItemStack> getContainerFromItem(ItemStack itemStack) {

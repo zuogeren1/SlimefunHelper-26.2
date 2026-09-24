@@ -2,7 +2,6 @@ package me.matl114.mixins.interfaces;
 
 import me.matl114.accessors.interfaces.TileInventory;
 import me.matl114.hacks.InteractionTasks;
-import me.matl114.hacks.InvTasks;
 import me.matl114.utils.world.ContainerPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;

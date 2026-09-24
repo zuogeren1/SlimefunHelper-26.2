@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.combat;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import io.netty.buffer.ByteBuf;
 import java.util.HashMap;
 import java.util.Map;

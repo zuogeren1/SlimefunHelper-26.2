@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.survival;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import me.matl114.accessors.access.ChunkAccess;
 import me.matl114.events.Event;

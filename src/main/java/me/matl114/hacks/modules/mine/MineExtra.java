@@ -1,7 +1,6 @@
 package me.matl114.hacks.modules.mine;
 
 import com.google.common.util.concurrent.Runnables;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import java.awt.*;
 import java.util.*;

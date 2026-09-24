@@ -31,7 +31,6 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;

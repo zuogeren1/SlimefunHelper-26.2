@@ -19,7 +19,6 @@ import me.matl114.commands.MainCommand;
 import me.matl114.events.channels.ListenerPoint;
 import me.matl114.gui.basic.*;
 import me.matl114.gui.complex.config.DefaultedKeyValueInputWidget;
-import me.matl114.gui.elements.ButtonElement;
 import me.matl114.gui.elements.ColorLabelTextElement;
 import me.matl114.hacks.modules.task.ClickGui;
 import me.matl114.hacks.utils.HotKeyUtils;

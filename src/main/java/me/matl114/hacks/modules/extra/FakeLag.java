@@ -6,14 +6,12 @@ import me.matl114.events.packets.PacketStorage;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.managers.Configs;
-import me.matl114.managers.ScheduleService;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.PacketFlow;
 
 public class FakeLag extends BaseModule {
     public FakeLag() {

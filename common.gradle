@@ -42,10 +42,22 @@ loom {
 	// 每个 MC 版本一份 access widener，放在 versions/<mc版本>/ 下
 	accessWidenerPath = file("overrideList.accesswidener")
 
+	// 开发环境的玩家名固定住。不传 --username 时，MC 自己给的默认值是
+	//   "Player" + System.currentTimeMillis() % 1000        （见 net.minecraft.client.main.Main）
+	// 于是每次启动名字都不同；而离线 UUID 是由名字派生的
+	//   UUID.nameUUIDFromBytes("OfflinePlayer:" + name)
+	// 名字一变 UUID 就变，存档里的玩家数据（背包 / 位置 / 进度）也跟着断。
+	// 想换名字：改 gradle.properties 里的 dev_username
+	def devUsername = (project.findProperty("dev_username") ?: "Dev").toString()
+
 	runConfigs.configureEach {
 		ideConfigGenerated = true
 		// 每个版本独立运行目录：run/<mc版本>/（与原来两条分支时的布局一致）
 		runDir "../../run/${project.minecraft_version}"
+		// 只有客户端有玩家名；服务端吃 --username 会报未知选项
+		if (name == "client") {
+			programArgs("--username", devUsername)
+		}
 	}
 }
 

@@ -1,7 +1,5 @@
 package me.matl114.hacks.modules.combat;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.Random;
 import me.matl114.accessors.access.ClientPlayerAccess;

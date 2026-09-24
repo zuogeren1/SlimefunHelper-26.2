@@ -1,14 +1,12 @@
 package me.matl114.mixins.events;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import java.util.List;
 import me.matl114.accessors.events.EntityAccess;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;

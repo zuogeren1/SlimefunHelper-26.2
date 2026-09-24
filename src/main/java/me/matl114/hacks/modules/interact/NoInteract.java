@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.interact;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.function.Consumer;
 import me.matl114.accessors.access.ClientPlayerAccess;

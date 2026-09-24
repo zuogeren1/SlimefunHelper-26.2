@@ -12,7 +12,6 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.Debug;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.PacketType;
 import net.minecraft.network.protocol.common.ClientboundPingPacket;
 import net.minecraft.network.protocol.common.CommonPacketTypes;

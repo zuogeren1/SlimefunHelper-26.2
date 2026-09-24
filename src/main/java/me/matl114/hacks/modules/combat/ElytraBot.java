@@ -44,7 +44,6 @@ import me.matl114.utils.*;
 import me.matl114.utils.algorithms.StateMachine;
 import me.matl114.utils.entity.PlayerInputUtils;
 import me.matl114.versioned.api.VDataFlag;
-import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.core.BlockPos;
@@ -1787,7 +1786,7 @@ public class ElytraBot extends BaseModule {
                         Vec3 predictionPosition = PositionPredict.INSTANCE
                                 .attackPredictArgument
                                 .get()
-                                .predictWithExtraTicks(base.target, (int) predictionTicks);
+                                .predictWithExtraTicks(base.target, predictionTicks);
                         Vec3 untrustedDirection = calculateTargetDirection(predictionPosition);
                         if (untrustedDirection.y < 0 && conditionMovement.test(untrustedDirection)) {
                             movementDirection = untrustedDirection;
