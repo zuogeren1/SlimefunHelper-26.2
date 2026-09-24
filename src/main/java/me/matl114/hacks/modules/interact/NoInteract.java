@@ -19,6 +19,7 @@ import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.hacks.utils.config.Regex;
 import me.matl114.hacks.utils.config.WrapColor;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hacks.utils.render.RenderCollectors;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
@@ -80,9 +81,9 @@ public class NoInteract extends BaseModule {
     public final FlagRef autoCorrect =
             flagBuilder(noInteract.add("auto-correct-placement")).build();
 
-    public final EnumRef<Configs.LegalInteractMode> correctMode = builder(
-                    noInteract.add("auto-correct-mode"), Configs.LegalInteractMode.class)
-            .defaultValue(Configs.LegalInteractMode.NONE)
+    public final EnumRef<LegalInteractMode> correctMode = builder(
+                    noInteract.add("auto-correct-mode"), LegalInteractMode.class)
+            .defaultValue(LegalInteractMode.NONE)
             .build();
 
     public final FlagRef correctAirPlace =
@@ -225,7 +226,7 @@ public class NoInteract extends BaseModule {
     }
 
     public void onModulePreset(Event<EventContainer<ModulePreset>> event) {
-        correctMode.set(Configs.LegalInteractMode.getFromPreset(event.context.getValue()));
+        correctMode.set(LegalInteractMode.getFromPreset(event.context.getValue()));
         correctAirPlace.set(!event.context.getValue().hasAC());
     }
 }

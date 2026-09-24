@@ -14,6 +14,7 @@ import me.matl114.hacks.modules.ac.DisablerManager;
 import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.modules.mine.MineExtra;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.managers.Tasks;
 import me.matl114.utils.AttributeUtils;
 import me.matl114.utils.ItemStackUtils;
@@ -268,7 +269,8 @@ public abstract class ClientPlayerInteractionManagerMixin implements PlayerInter
             resetLocalMiningProgress();
         }
         this.destroyTicks = 0.0F;
-        this.destroyDelay = MineExtra.INSTANCE.getMiningPacketCooldown(0);
+        this.destroyDelay =
+                MineExtra.INSTANCE.cooldownOverride.get() ? MineExtra.INSTANCE.getMiningPacketCooldown(0) : 5;
     }
 
     @Override
@@ -300,16 +302,16 @@ public abstract class ClientPlayerInteractionManagerMixin implements PlayerInter
         if (!MineExtra.INSTANCE.doubleBreak.get() || !isFailBreakEmpty()) {
             return false;
         }
-        LocalPlayer playerEntity = Minecraft.getInstance().player;
+        LocalPlayer playerEntity = this.minecraft.player;
         if (!playerEntity.isWithinBlockInteractionRange(this.destroyBlockPos, 1.0D)) {
             return false;
         }
-        BlockState state = Minecraft.getInstance().level.getBlockState(this.destroyBlockPos);
+        BlockState state = this.minecraft.level.getBlockState(this.destroyBlockPos);
         if (state.isAir() || state.liquid()) {
             return false;
         }
-        float speed = state.getDestroyProgress(
-                Minecraft.getInstance().player, Minecraft.getInstance().player.level(), destroyBlockPos);
+        AttributeUtils.updateAttribute(this.minecraft.player);
+        float speed = WorldUtils.calcBlockBreakingDelta(state, this.minecraft.level, destroyBlockPos);
         if (speed <= 0) {
             return false;
         }
@@ -331,18 +333,18 @@ public abstract class ClientPlayerInteractionManagerMixin implements PlayerInter
      */
     @Unique
     private boolean shouldClearFailBreakBecauseInvalidState() {
-        if (Minecraft.getInstance().level == null) {
-            return false;
+        if (this.minecraft.level == null) {
+            return true;
         }
-        BlockState state = Minecraft.getInstance().level.getBlockState(currentFailBreakPos);
+        BlockState state = this.minecraft.level.getBlockState(currentFailBreakPos);
         if (minecraft.player == null || localPlayerMode != GameType.SURVIVAL) {
             return true;
         }
         if (state == null || state.isAir() || state.liquid()) {
             return true;
         }
-        float speed = state.getDestroyProgress(
-                Minecraft.getInstance().player, Minecraft.getInstance().level, currentFailBreakPos);
+        AttributeUtils.updateAttribute(this.minecraft.player);
+        float speed = WorldUtils.calcBlockBreakingDelta(state, this.minecraft.level, currentFailBreakPos);
         // in the case of server lag
         if (speed > 0.0F && ((Tasks.getTick() - failBreakStartTick - 1) * speed > 1.0F)) {
             return true;
@@ -375,7 +377,7 @@ public abstract class ClientPlayerInteractionManagerMixin implements PlayerInter
                                             minecraft.player, instance, bestTool.val()))
                             > 1.01) {
                 MineExtra.INSTANCE.instaBreakGhostHand =
-                        Pair.of(InvExtra.INSTANCE.swapInventoryIndexToHand(bestTool.index()), pos);
+                        Pair.of(InvExtra.INSTANCE.swapItemToHand(bestTool.index(), false, GhostHandMode.INV_SWAP), pos);
                 return true;
             }
         }
@@ -439,14 +441,18 @@ public abstract class ClientPlayerInteractionManagerMixin implements PlayerInter
 
     @Unique
     public boolean breakIfComplete(BlockPos pos, BlockState blockState, Direction direction) {
+        if (blockState.isAir() || blockState.liquid()) {
+            return true;
+        }
         MineExtra mineExtra = MineExtra.INSTANCE;
         IndexEntry<ItemStack> tool = MineExtra.INSTANCE.getGhostHandMiningTool(blockState);
-        float progress = getCurrentMiningProgress(tool.val());
+        float progress =
+                predictCurrentMiningProgressWithTool(tool.val(), MineExtra.INSTANCE.breakSpeedExtraTicks.get());
         if (mineExtra.shouldExecuteFastBreak(progress)) {
             this.destroyProgress = progress;
             DisablerManager.INSTANCE.flushACPlaceBreakQueue();
             clearBreakingState();
-            Runnable fastBreakGhostHand = InvExtra.INSTANCE.swapInventoryIndexToHand(tool.index());
+            Runnable fastBreakGhostHand = InvExtra.INSTANCE.swapItemToHand(tool.index(), false, GhostHandMode.INV_SWAP);
             AttributeUtils.updateAttribute(this.minecraft.player);
             float speed = blockState.getDestroyProgress(Minecraft.getInstance().player, this.minecraft.level, pos);
             this.startPrediction(Minecraft.getInstance().level, (sequence) -> {
@@ -551,7 +557,11 @@ public abstract class ClientPlayerInteractionManagerMixin implements PlayerInter
             }
             sendBreakPacket(destroyBlockPos, direction, true);
             // ... add cooldown here
-            this.destroyDelay = MineExtra.INSTANCE.getMiningPacketCooldown(0);
+            if (MineExtra.INSTANCE.cooldownOverride.get()) {
+                this.destroyDelay = MineExtra.INSTANCE.getMiningPacketCooldown(0);
+            } else {
+                this.destroyDelay = 5;
+            }
             return true;
         }
         return false;
@@ -679,7 +689,8 @@ public abstract class ClientPlayerInteractionManagerMixin implements PlayerInter
         }
         if (mineExtra.shouldTriggerEarlyStop(speed)) {
             DisablerManager.INSTANCE.flushACPlaceBreakQueue();
-            Runnable fastbreakCallback = InvExtra.INSTANCE.swapInventoryIndexToHand(usingTool.index());
+            Runnable fastbreakCallback =
+                    InvExtra.INSTANCE.swapItemToHand(usingTool.index(), false, GhostHandMode.INV_SWAP);
             AttributeUtils.updateAttribute(this.minecraft.player);
             clearBreakingState();
             this.startPrediction(Minecraft.getInstance().level, (sequence) -> {

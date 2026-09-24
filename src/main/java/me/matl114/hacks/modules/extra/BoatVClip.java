@@ -14,7 +14,7 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.CollisionUtil;
-import me.matl114.utils.EntityUtils;
+import me.matl114.hacks.utils.EntityUtils;
 import me.matl114.utils.InteractUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
@@ -63,7 +63,7 @@ public class BoatVClip extends BaseModule implements LegalMovementManager.Moveme
 
     public void onBlockUpdate(Event<ClientboundBlockUpdatePacket> update) {
         if (enable.get()) {
-            // minedBlockPos.remove(update.context.getPos());
+            // minedBlockPos.remove(update.drawContext.position());
             BlockPos pos = update.context.getPos();
 
             if (blockStateMap.containsKey(pos)) {

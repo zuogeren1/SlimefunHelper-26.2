@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.function.Predicate;
 import me.matl114.managers.config.*;
 import me.matl114.utils.ChatUtils;
-import me.matl114.utils.EntityUtils;
+import me.matl114.hacks.utils.EntityUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;

@@ -1,5 +1,6 @@
 package me.matl114.hacks.modules.slimefun;
 
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.utils.ClientUtils;
 
 import com.mojang.datafixers.util.Pair;
@@ -29,7 +30,7 @@ import me.matl114.managers.config.EnumRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.IntRef;
 import me.matl114.utils.Debug;
-import me.matl114.utils.EntityUtils;
+import me.matl114.hacks.utils.EntityUtils;
 import me.matl114.utils.RaycastUtils;
 import me.matl114.utils.containers.MetaData;
 import net.minecraft.ChatFormatting;
@@ -75,9 +76,9 @@ public class MultiBlockHelper extends BaseModule {
             .validator(Configs.INT_POSITIVE)
             .build();
 
-    public final EnumRef<Configs.LegalInteractMode> legalMode = builder(
-                    multiblock.add("bypass-targeting-mode"), Configs.LegalInteractMode.class)
-            .defaultValue(Configs.LegalInteractMode.USEITEM_PACKET)
+    public final EnumRef<LegalInteractMode> legalMode = builder(
+                    multiblock.add("bypass-targeting-mode"), LegalInteractMode.class)
+            .defaultValue(LegalInteractMode.USEITEM_PACKET)
             .build();
 
     @Override

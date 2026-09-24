@@ -70,6 +70,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.apache.commons.lang3.function.Consumers;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.jetbrains.annotations.Nullable;
+import me.matl114.hacks.utils.EntityUtils;
 
 // todo: add more Functional Method as API
 public class MovTasks {

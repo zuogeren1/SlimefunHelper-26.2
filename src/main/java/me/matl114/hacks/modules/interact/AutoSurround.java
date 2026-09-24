@@ -19,6 +19,8 @@ import me.matl114.hacks.modules.move.PlayerInputManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.*;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.GhostHandMode;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
@@ -46,9 +48,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class AutoSurround extends BaseModule implements LegalMovementManager.MovementModifier {
     static LegalMovementManager.DelegateMovementModifier instance;
+    public static AutoSurround INSTANCE;
 
     public AutoSurround() {
         super("AutoSurround");
@@ -57,6 +61,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
             MovTasks.PLAYER_PIPELINE_0.addMovementModifierFactory(() -> instance);
         }
         instance.setDelegate(this::cast);
+        INSTANCE = this;
         bindFlag(enable);
     }
 
@@ -85,9 +90,8 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
             .validator(Configs.INT_POSITIVE)
             .build();
 
-    public final EnumRef<Configs.LegalInteractMode> mode = builder(
-                    autoSurround.add("mode"), Configs.LegalInteractMode.class)
-            .defaultValue(Configs.LegalInteractMode.DELAY_MOVEMENT)
+    public final EnumRef<LegalInteractMode> mode = builder(autoSurround.add("mode"), LegalInteractMode.class)
+            .defaultValue(LegalInteractMode.DELAY_MOVEMENT)
             .build();
 
     public final FlagRef airplace = flagBuilder(autoSurround.add("air-place")).build();
@@ -97,7 +101,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
             .defaultValue(new OptionalPrimitive<>(false, NBTTypes.DOUBLE_TYPE, 10.0D))
             .build();
 
-    public final FlagRef placeUpper = flagBuilder(autoSurround.add("upper")).build();
+    public final FlagRef placeLower = flagBuilder(autoSurround.add("lower")).build();
 
     public final FlagRef autoAttackCrystals =
             flagBuilder(autoSurround.add("auto-attack-crystal")).build();
@@ -121,6 +125,14 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
 
     public final FlagRef onlyBlastResistance = builder(autoSurround.add("only-blast-resistance"), Boolean.class)
             .defaultValue(true)
+            .build();
+
+    public final FlagRef eatingAbort = builder(autoSurround.add("using-item-abort"), Boolean.class)
+            .defaultValue(false)
+            .build();
+
+    public final EnumRef<GhostHandMode> ghostHand = builder(autoSurround.add("ghost-hand-mode"), GhostHandMode.class)
+            .defaultValue(GhostHandMode.INV_SWAP)
             .build();
 
     public final FlagRef swingHand = builder(autoSurround.add("swing-hand"), Boolean.class)
@@ -154,13 +166,15 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
         if (enable.get()) {
             boolean bl = mc.player.isShiftKeyDown();
             if (++delayTicks >= delay.get()) {
-                if (checkSurround()) {
-                    if (autoCenter.get() && mc.player.getPose() != Pose.SWIMMING) {
-                        triggerCenterFix = true;
+                if (!eatingAbort.get() || !mc.player.isUsingItem()) {
+                    if (checkSurround()) {
+                        if (autoCenter.get() && mc.player.getPose() != Pose.SWIMMING) {
+                            triggerCenterFix = true;
+                        }
+                        delayTicks = 0;
+                    } else {
+                        triggerCenterFix = false;
                     }
-                    delayTicks = 0;
-                } else {
-                    triggerCenterFix = false;
                 }
             }
             if (needSneak) {
@@ -212,7 +226,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
         int minY = ((int) playerBox.minY) - 1;
         int maxY = ((int) playerBox.maxY) + 1;
         Set<BlockPos> result = new LinkedHashSet<>();
-        for (int direction = 0; direction < 4 + (placeUpper.get() ? 1 : 0); ++direction) {
+        for (int direction = 0; direction < 4; ++direction) {
             Direction dir = dd[direction];
             var directionTestPoses = new LinkedHashSet<BlockPos>();
             for (BlockPos occupiedPos : occupiedBasePoses) {
@@ -230,6 +244,22 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                         continue;
                     }
                     result.add(test);
+                }
+            }
+        }
+        if (placeLower.get()) {
+            if (!CollisionUtil.isBoxCollided(
+                    mc.level,
+                    mc.player,
+                    playerBox.setMinY(playerBox.minY - 2.5).setMaxY(playerBox.minY))) {
+                for (int y = minY; y < maxY - 2; ++y) {
+                    for (var re : occupiedPoses) {
+                        BlockPos test = re.atY(y);
+                        if (occupiedPoses.contains(test)) {
+                            continue;
+                        }
+                        result.add(test);
+                    }
                 }
             }
         }
@@ -271,6 +301,9 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
         Set<BlockPos> bbs = Set.of();
         if (antiPacketMine.get()) {
             bbs = MiningProgressManager.INSTANCE.getBreakingMap().values().stream()
+                    .filter(s -> TargetSelector.INSTANCE.canAttack(s.player))
+                    .filter(MiningProgressManager.BlockBreakTracker::canMine)
+                    .filter(s -> s.predictBreakingProgress() > 0.5)
                     .map(MiningProgressManager.BlockBreakTracker::getBlockPos)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
@@ -312,9 +345,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                             }
                             mul = Math.min(mul, supply.val().getCount());
                             offhandOk |= supply.index() == 40;
-                            invCallback = offhandOk
-                                    ? InvExtra.INSTANCE.swapInventoryIndexToOffhand(supply.index())
-                                    : InvExtra.INSTANCE.swapInventoryIndexToHand(supply.index());
+                            invCallback = InvExtra.INSTANCE.swapItemToHand(supply.index(), offhandOk, ghostHand.get());
                         }
                         InteractionTasks.handlePlaceMode(
                                 mode.get(),
@@ -327,13 +358,18 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                         }
                     }
                 }
-            } else if (antiPacketMine.get() && bbs.contains(test)) {
+            } else if (antiPacketMine.get()
+                    && bbs.contains(test)
+                    && mc.level
+                            .getEntities(
+                                    (Entity) null, new AABB(test), predicate -> !(predicate instanceof EndCrystal))
+                            .isEmpty()) {
                 pendingMine.add(test);
             }
         }
-        if (placeCnt < mul) {
+        if (placeCnt < mul && !mc.player.isUsingItem()) {
             for (var test : pendingMine) {
-                BlockHitResult selfHitResult = RaycastUtils.createHitResult(test, mc.player.getEyePosition());
+                BlockHitResult selfHitResult = InteractionTasks.createHitResult(test, mc.player.position());
                 if (placeCnt == 0) {
                     var supply = supplyBlocks();
                     if (supply == null) {
@@ -341,9 +377,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                     }
                     mul = Math.min(mul, supply.val().getCount());
                     offhandOk |= supply.index() == 40;
-                    invCallback = offhandOk
-                            ? InvExtra.INSTANCE.swapInventoryIndexToOffhand(supply.index())
-                            : InvExtra.INSTANCE.swapInventoryIndexToHand(supply.index());
+                    invCallback = InvExtra.INSTANCE.swapItemToHand(supply.index(), offhandOk, ghostHand.get());
                 }
                 InteractionTasks.handlePlaceMode(
                         mode.get(),
@@ -380,6 +414,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
                     }
                     return null;
                 },
+                ghostHand.get().getSearchSize(offhand.get()),
                 true,
                 false);
     }
@@ -433,7 +468,7 @@ public class AutoSurround extends BaseModule implements LegalMovementManager.Mov
     }
 
     public void onModulePreset(Event<EventContainer<ModulePreset>> event) {
-        this.mode.set(Configs.LegalInteractMode.getFromPreset(event.context.getValue()));
+        this.mode.set(LegalInteractMode.getFromPreset(event.context.getValue()));
         this.airplace.set(!event.context.getValue().hasAC());
     }
 }

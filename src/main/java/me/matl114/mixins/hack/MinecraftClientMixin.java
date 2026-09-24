@@ -1,6 +1,7 @@
 package me.matl114.mixins.hack;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.platform.Window;
@@ -10,6 +11,7 @@ import me.matl114.hacks.InteractionTasks;
 import me.matl114.hacks.modules.combat.CombatExtra;
 import me.matl114.hacks.modules.interact.InteractExtra;
 import me.matl114.hacks.modules.inv.InvExtra;
+import me.matl114.hacks.modules.mine.MineExtra;
 import me.matl114.hacks.modules.render.RenderExtra;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -21,6 +23,8 @@ import net.minecraft.client.gui.screens.inventory.*;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
@@ -107,6 +111,21 @@ public abstract class MinecraftClientMixin implements Cloneable, ClientAccess {
             return false;
         }
         return original;
+    }
+
+    @WrapOperation(
+            method = "startAttack",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z"))
+    private boolean onVanillaAttackBlockFixCooldown(
+            MultiPlayerGameMode instance, BlockPos pos, Direction direction, Operation<Boolean> original) {
+        if (MineExtra.INSTANCE.vanillaFastBreakFix.get() && MineExtra.INSTANCE.getMiningPacketCooldown(1) > 0) {
+            return false;
+        }
+        return original.call(instance, pos, direction);
     }
 
     boolean lastUse = false;
@@ -253,5 +272,50 @@ public abstract class MinecraftClientMixin implements Cloneable, ClientAccess {
             return actionResult3;
         }
         return InteractionResult.FAIL;
+    }
+
+    @WrapWithCondition(
+            method = "continueAttack",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"))
+    private boolean handleBlockBreakingNoSwing(LocalPlayer instance, InteractionHand hand) {
+        if (MineExtra.INSTANCE.noSwing.get()) {
+            return false;
+        }
+        return true;
+    }
+
+    @Unique
+    boolean blockAttack = false;
+
+    @Inject(
+            method = "startAttack",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z"))
+    private void onCaptureAttackBlock(CallbackInfoReturnable<Boolean> cir) {
+        blockAttack = true;
+    }
+
+    @WrapWithCondition(
+            method = "startAttack",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"))
+    private boolean handleBlockAttackNoSwing(LocalPlayer instance, InteractionHand hand) {
+        if (blockAttack) {
+            blockAttack = false;
+            if (MineExtra.INSTANCE.noSwing.get()) {
+                return false;
+            }
+        }
+        return true;
     }
 }

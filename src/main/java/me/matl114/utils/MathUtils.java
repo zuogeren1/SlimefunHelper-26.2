@@ -20,6 +20,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
 import org.joml.Matrix3d;
 import org.joml.Vector3d;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class MathUtils {
 
@@ -583,6 +584,94 @@ public class MathUtils {
         private final IntSupplier supplier;
 
         public AcceleratePredictor(Vec3[] historyStack, IntSupplier currentIndex) {
+            pointList = historyStack;
+            supplier = currentIndex;
+        }
+
+        public Vec3 compute(int ticksLater) {
+            int idx = supplier.getAsInt();
+            Vec3 currentPos = pointList[idx];
+            if (currentPos == null) return null;
+            int len = pointList.length;
+            int i = 1;
+            List<Vec3> points = new ArrayList<>();
+            points.add(currentPos);
+            for (; i < len; i++) {
+                Vec3 v3d = pointList[(idx - i + len) % len];
+                if (v3d != null) {
+                    points.add(0, v3d);
+                } else {
+                    break;
+                }
+            }
+            Vec3 result = null;
+            if (!points.isEmpty()) {
+                result = currentPos;
+            }
+            if (points.size() < 2) return result;
+            List<Vec3> diff = new ArrayList<>();
+            Vec3 oldV = null;
+            for (Vec3 v : points) {
+                if (oldV == null) {
+                    oldV = v;
+                    continue;
+                }
+
+                diff.add(v.subtract(oldV));
+
+                oldV = v;
+            }
+            Vec3 lastDirectionVec = null;
+            for (int start = diff.size() - 1; start >= 0; --start) {
+                if (lastDirectionVec == null) {
+                    lastDirectionVec = diff.get(start);
+                } else {
+                    Vec3 v = points.get(start);
+                    if (lastDirectionVec.normalize().dot(v.normalize()) < 0.25 || lastDirectionVec.y * v.y < 0) {
+                        diff = diff.subList(start, diff.size());
+                        break;
+                    }
+                }
+            }
+            if (diff.size() >= 3) {
+                Vec3 d = new Vec3(0, 0, 0);
+                for (Vec3 v : diff) {
+                    d = d.add(v).scale(0.5);
+                }
+                List<Vec3> dvs = new ArrayList<>();
+                Vec3 oldDelta = null;
+                for (Vec3 v : diff) {
+                    if (oldDelta == null) {
+                        oldDelta = v;
+                        continue;
+                    }
+                    dvs.add(v.subtract(oldDelta));
+                    oldDelta = v;
+                }
+                Vec3 nextDv = new Vec3(0, 0, 0);
+                for (Vec3 v : dvs) {
+                    nextDv = nextDv.add(v).scale(0.5);
+                }
+                Vec3 finalSpeed = result;
+                for (var newTick = 0; newTick < ticksLater; ++newTick) {
+                    d = d.add(nextDv);
+                    finalSpeed = finalSpeed.add(d);
+                }
+
+                return finalSpeed;
+            } else if (diff.size() > 0) {
+                return currentPos.add(diff.get(0).scale(ticksLater));
+            }
+
+            return result;
+        }
+    }
+
+    public static class AcceleratePredictor2 {
+        private final Vec3[] pointList;
+        private final IntSupplier supplier;
+
+        public AcceleratePredictor2(Vec3[] historyStack, IntSupplier currentIndex) {
             pointList = historyStack;
             supplier = currentIndex;
         }

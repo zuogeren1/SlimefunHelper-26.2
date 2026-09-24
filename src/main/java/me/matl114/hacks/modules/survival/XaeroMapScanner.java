@@ -15,7 +15,7 @@ import me.matl114.hooks.impl.xaeroplus.wrapper.LineWrapper;
 import me.matl114.managers.Configs;
 import me.matl114.managers.config.*;
 import me.matl114.managers.input.MultiKeyBind;
-import me.matl114.utils.EntityUtils;
+import me.matl114.hacks.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.collections.FPoint;
 import me.matl114.utils.collections.IndexEntry;

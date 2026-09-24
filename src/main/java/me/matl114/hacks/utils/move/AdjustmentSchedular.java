@@ -11,7 +11,7 @@ import me.matl114.events.impl.Render3D;
 import me.matl114.hacks.modules.move.PlayerInputManager;
 import me.matl114.hacks.modules.survival.SchedularSettings;
 import me.matl114.hacks.utils.render.RenderCollectors;
-import me.matl114.utils.EntityUtils;
+import me.matl114.hacks.utils.EntityUtils;
 import me.matl114.utils.MathUtils;
 import me.matl114.utils.RenderUtils;
 import me.matl114.utils.render.RenderCollector;

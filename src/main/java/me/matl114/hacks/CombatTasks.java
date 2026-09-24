@@ -24,6 +24,7 @@ import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class CombatTasks {
     public static void init() {}

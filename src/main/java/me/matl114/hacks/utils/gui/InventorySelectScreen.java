@@ -3,6 +3,7 @@ package me.matl114.hacks.utils.gui;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 import me.matl114.accessors.gui.ScreenAccess;
 import me.matl114.accessors.interfaces.TileInventory;
@@ -94,10 +95,12 @@ public class InventorySelectScreen extends GenericBackGroundScreen {
                         .withInputHandler(InputHandler.isLeft((l) -> {
                             if (l) {
                                 openInventoryViewScreen(screen);
-                            } else if (screen instanceof TileInventory tile
-                                    && !tile.isVirtual()
-                                    && WorldUtils.areWorldEquals(Minecraft.getInstance().level, tile.getWorld())) {
-                                ContainerPosition pos = tile.getContainerPosition();
+                            } else if (screen.getContainerPosition().isPresent()
+                                    && Objects.equals(
+                                            Minecraft.getInstance().level.dimension(),
+                                            screen.getContainerPosition().get().world())) {
+                                ContainerPosition pos =
+                                        screen.getContainerPosition().get();
                                 RenderTasks.registerVirtualRenderTask(new RenderTasks.RenderTask(
                                         120,
                                         new RenderTasks.BoxObject(pos.getBoundingBox(), Color.GREEN),

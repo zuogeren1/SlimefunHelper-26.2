@@ -42,14 +42,17 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector2d;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class ProjectileESP extends BaseModule {
     public final ModulePath detectEntity = makePath(Configs.RENDER_CONFIG, "detect-entity");
     public final ModulePath calculateTrace = detectEntity.add("calculate-trace");
+    public static ProjectileESP INSTANCE;
 
     public ProjectileESP() {
         super("ProjectileESP");
         bindFlag(enable);
+        INSTANCE = this;
     }
 
     public final FlagRef enable = flagBuilder(calculateTrace).build();
@@ -220,7 +223,7 @@ public class ProjectileESP extends BaseModule {
             var stack = stackE.context.stack();
             boolean arrowFlag = renderArrow.get();
             boolean fireballFlag = renderFireball.get();
-            float tickDelta = (Float) stackE.context.partialTicks();
+            float tickDelta = stackE.context.partialTicks();
             RenderUtils.startDrawVirtual(stack);
             try {
                 for (var fireball : mc.level.entitiesForRendering()) {
@@ -245,10 +248,9 @@ public class ProjectileESP extends BaseModule {
         }
     }
 
-    private static class ArrowPredictor {
+    public static class ArrowPredictor {
         Vec3 pos;
         Vec3 vec;
-        Type type;
         Entity owner;
         private static final RandomSource random = net.minecraft.util.RandomSource.create();
         private static Vec3 lastRand;
@@ -281,7 +283,7 @@ public class ProjectileESP extends BaseModule {
 
             //            Debug.info(entity.getTarget());
             Vec3 vec3d = calculateVelocity(d, facing.y + g * 0.2, f, 1.6F);
-            return new ArrowPredictor(originPos, vec3d, Type.SKELETON, entity);
+            return new ArrowPredictor(originPos, vec3d, entity);
         }
 
         private static float getPullProgress(int useTicks) {
@@ -330,7 +332,7 @@ public class ProjectileESP extends BaseModule {
                 float speed = 3.15F;
                 vec3d = calculateVelocity(facing.x, facing.y, facing.z, speed);
             }
-            return new ArrowPredictor(pos, vec3d, Type.PLAYER, player) {
+            return new ArrowPredictor(pos, vec3d, player) {
                 @Override
                 public List<Vec3> predictLine(int ticks) {
                     List<Vec3> list = super.predictLine(ticks);
@@ -346,8 +348,7 @@ public class ProjectileESP extends BaseModule {
         }
 
         public static ArrowPredictor of(AbstractArrow arrow, float tickDelta) {
-            return new ArrowPredictor(
-                    RenderUtils.getLerpedPos(arrow, tickDelta), arrow.getDeltaMovement(), Type.ARROW, arrow);
+            return new ArrowPredictor(RenderUtils.getLerpedPos(arrow, tickDelta), arrow.getDeltaMovement(), arrow);
         }
 
         public static ArrowPredictor of(CrossbowAttackMob user, float tickDelta) {
@@ -358,13 +359,12 @@ public class ProjectileESP extends BaseModule {
             Vec3 vec3d = calculateVelocity(facing.x, facing.y, facing.z, speed);
             Vec3 pos = new Vec3(player.getX(), player.getEyeY() - 0.10000000149011612, player.getZ())
                     .add(RenderUtils.getLerpedDelta((Entity) user, tickDelta));
-            return new ArrowPredictor(pos, vec3d, Type.CROSSBOW, player);
+            return new ArrowPredictor(pos, vec3d, player);
         }
 
-        public ArrowPredictor(Vec3 pos, Vec3 vec, Type type, Entity owner) {
+        public ArrowPredictor(Vec3 pos, Vec3 vec, Entity owner) {
             this.pos = pos;
             this.vec = vec;
-            this.type = type;
             this.owner = owner;
         }
 
@@ -398,7 +398,8 @@ public class ProjectileESP extends BaseModule {
 
                 if (path.size() > 2) {
                     lastPos = path.get(path.size() - 2);
-                    if (RaycastUtils.raycastAnySolidBlock(owner, lastPos, arrowPos)
+                    HitResult hitResult = RaycastUtils.raycastOnlyBlockCollisions(lastPos, arrowPos);
+                    if ((hitResult != null && hitResult.getType() == HitResult.Type.BLOCK)
                             || RaycastUtils.raycastHitAnyEntityExceptPlayer(owner, lastPos, arrowPos)) {
                         break;
                     }
@@ -431,7 +432,7 @@ public class ProjectileESP extends BaseModule {
 
                 if (path.size() > 2) {
                     lastPos = path.get(path.size() - 2);
-                    result = RaycastUtils.raycastSolidBlockResult(owner, lastPos, arrowPos);
+                    result = RaycastUtils.raycastOnlyBlockCollisions(lastPos, arrowPos);
                     if (result != null && result.getType() != HitResult.Type.MISS) {
                         break;
                     }

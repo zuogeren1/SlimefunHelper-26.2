@@ -261,6 +261,11 @@ public class ConnectionProxy extends BaseModule {
         @ApiStatus.Experimental
         HTTPS;
 
+        @Override
+        public String getConfigEnumType() {
+            return "connection_proxy_type";
+        }
+
         public Component getDisplay() {
             return Component.literal(name().toLowerCase(Locale.ROOT));
         }

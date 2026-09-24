@@ -16,6 +16,7 @@ import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
+import me.matl114.hacks.utils.enums.BypassMode;
 import me.matl114.hooks.LitematicaHooks;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
@@ -73,6 +74,7 @@ import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class BlockRotate extends BaseModule {
     public final ModulePath blockRotate = makePath(Configs.INTERACT_CONFIG, "block-rotate");
@@ -89,14 +91,14 @@ public class BlockRotate extends BaseModule {
     public final FlagRef enable =
             builder(blockRotate.add("enable"), Boolean.class).defaultValue(true).build();
 
-    public final EnumRef<Configs.BypassMode> bypassMode = builder(
-                    blockRotate.add("yaw-deceive-bypass-mode"), Configs.BypassMode.class)
-            .defaultValue(Configs.BypassMode.NO_BYPASS)
+    public final EnumRef<BypassMode> bypassMode = builder(
+                    blockRotate.add("yaw-deceive-bypass-mode"), BypassMode.class)
+            .defaultValue(BypassMode.NO_BYPASS)
             .build();
 
-    public final EnumRef<Configs.BypassMode> bypassMode2 = builder(
-                    blockRotate.add("rotate-bypass-mode"), Configs.BypassMode.class)
-            .defaultValue(Configs.BypassMode.NO_BYPASS)
+    public final EnumRef<BypassMode> bypassMode2 = builder(
+                    blockRotate.add("rotate-bypass-mode"), BypassMode.class)
+            .defaultValue(BypassMode.NO_BYPASS)
             .build();
 
     public final FlagRef enable3 = builder(tempSchematic.add("enable"), Boolean.class)
@@ -200,7 +202,7 @@ public class BlockRotate extends BaseModule {
                 }
                 if (deceivePy != null
                         && ViaFabricPlusHooks.getInstance().getCurrentVersion().isHigherOrEqualTo(21, 0)) {
-                    if (bypassMode.get() == Configs.BypassMode.BYPASS_GRIM) {
+                    if (bypassMode.get() == BypassMode.BYPASS_GRIM) {
                         // to ensure the rotate is successfully done
                         // use a wrong sequence id to ensure that this packet cancelled by grimac
                         Listener.sendPacketNoEvents(new ServerboundUseItemOnPacket(
@@ -369,12 +371,12 @@ public class BlockRotate extends BaseModule {
 
     public void onPresetLoad(Event<EventContainer<ModulePreset>> e) {
         switch (e.context.getValue()) {
-            case AC_GRIM, AC_GRIM_LEGACY -> bypassMode.set(Configs.BypassMode.BYPASS_GRIM);
-            default -> bypassMode.set(Configs.BypassMode.NO_BYPASS);
+            case AC_GRIM, AC_GRIM_LEGACY -> bypassMode.set(BypassMode.BYPASS_GRIM);
+            default -> bypassMode.set(BypassMode.NO_BYPASS);
         }
         switch (e.context.getValue()) {
-            case AC_GRIM, AC_GRIM_LEGACY -> bypassMode2.set(Configs.BypassMode.BYPASS_GRIM);
-            default -> bypassMode2.set(Configs.BypassMode.NO_BYPASS);
+            case AC_GRIM, AC_GRIM_LEGACY -> bypassMode2.set(BypassMode.BYPASS_GRIM);
+            default -> bypassMode2.set(BypassMode.NO_BYPASS);
         }
     }
 

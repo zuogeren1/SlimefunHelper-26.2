@@ -1,6 +1,7 @@
 package me.matl114.hacks.modules.interact;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import me.matl114.accessors.access.ClientAccess;
@@ -17,6 +18,7 @@ import me.matl114.hacks.modules.move.ElytraExtra;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.hacks.utils.config.Regex;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;
@@ -71,6 +73,15 @@ public class AutoEat extends BaseModule {
     public final FlagRef forceEatLeftClick =
             flagBuilder(autoEat.add("left-click-tool-force-eat")).build();
 
+    public final FlagRef leftClickWeapon = builder(autoEat.add("left-click-weapon"), Boolean.class)
+            .defaultValue(true)
+            .build();
+
+    public final NBTRef<EntrySet<Item>> extraLeftClickItem = builder(
+                    autoEat.add("left-click-extra-items"), EntrySet.<Item>parameter())
+            .defaultValue(new EntrySet<>(BuiltInRegistries.ITEM, List.of(Items.TOTEM_OF_UNDYING)))
+            .build();
+
     public final FlagRef enableHealth = builder(autoEat.add("enable-health"), Boolean.class)
             .defaultValue(true)
             .build();
@@ -122,7 +133,12 @@ public class AutoEat extends BaseModule {
             .defaultValue(false)
             .build();
 
+    public final EnumRef<GhostHandMode> ghostHand = builder(autoEat.add("ghost-hand-mode"), GhostHandMode.class)
+            .defaultValue(GhostHandMode.INV_SWAP)
+            .build();
+
     private boolean eating;
+    private Runnable nextTickCallback = null;
     private Runnable restoreCallback = null;
     private int eatingSlot = -1;
     private int eatingCooldownTick = 0;
@@ -182,7 +198,11 @@ public class AutoEat extends BaseModule {
         // TODO VALIDATE
         boolean healthPriority = enableHealth.get() && mc.player.getHealth() <= healthLevel.get();
         return useInv
-                ? InventoryUtils.findBestPlayerItem(stack -> scoreFood(stack, healthPriority), true, false)
+                ? InventoryUtils.findBestPlayerItem(
+                        stack -> scoreFood(stack, healthPriority),
+                        ghostHand.get().getSearchSize(false),
+                        true,
+                        false)
                 : findHandStack(healthPriority);
     }
 
@@ -193,21 +213,29 @@ public class AutoEat extends BaseModule {
             logI18N("message.module.auto-eat.start", text);
         }
         offHand = offHand || re.index() == 40;
-        Runnable cbb = offHand
-                ? InvExtra.INSTANCE.swapInventoryIndexToOffhand(re.index())
-                : InvExtra.INSTANCE.swapInventoryIndexToHand(re.index());
+        Runnable cbb = InvExtra.INSTANCE.swapItemToHand(re.index(), offHand, ghostHand.get());
         if (cbb != null) {
+            Runnable nextTick = nextTickCallback;
+            nextTickCallback = null;
             ClientAccess.of(mc).simulateUseItem(offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND);
             if (mc.player.isUsingItem()
                     && ((mc.player.getUsedItemHand() == InteractionHand.OFF_HAND) == offHand)
                     && ItemStack.isSameItemSameComponents(re.val(), mc.player.getUseItem())) {
                 mc.options.keyUse.setDown(true);
                 eating = true;
-                restoreCallback = cbb;
+                if (nextTick != null) {
+                    restoreCallback = () -> {
+                        cbb.run();
+                        nextTick.run();
+                    };
+                } else {
+                    restoreCallback = cbb;
+                }
                 eatingSlot = offHand ? 40 : InventoryUtils.getSelectedSlot();
             } else {
                 KeyBindAccess.of(mc.options.keyUse).resetKeyState();
                 cbb.run();
+                if (nextTick != null) nextTick.run();
             }
         }
     }
@@ -220,7 +248,7 @@ public class AutoEat extends BaseModule {
         if (eating) {
             KeyBindAccess.of(mc.options.keyUse).resetKeyState(); // mc.options.useKey.setPressed(false);
             if (!checkNull() && restoreCallback != null) {
-                restoreCallback.run();
+                nextTickCallback = restoreCallback;
             }
         }
         restoreCallback = null;
@@ -337,6 +365,22 @@ public class AutoEat extends BaseModule {
                 }
             }
         }
+        if (restoreCallback == null && nextTickCallback != null) {
+            try {
+                nextTickCallback.run();
+            } finally {
+                nextTickCallback = null;
+            }
+        }
+    }
+
+    private boolean canHoldUseEat(ItemStack stack, ItemStack offhandStack) {
+        return (((leftClickWeapon.get()
+                                && (VItem.getInstance().isTool(stack)
+                                        || VItem.getInstance().isWeapon(stack)))
+                        || extraLeftClickItem.get().test(stack.getItem()))
+                && !VItem.getInstance().isSpear(stack)
+                && !InteractUtils.canHoldUse(offhandStack));
     }
 
     public void onRightClick(Event<UseItem> event) {
@@ -346,9 +390,7 @@ public class AutoEat extends BaseModule {
             InteractionHand offhand =
                     hand == InteractionHand.MAIN_HAND ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
             ItemStack offhandStack = mc.player.getItemInHand(offhand);
-            if ((VItem.getInstance().isTool(stack) || VItem.getInstance().isWeapon(stack))
-                    && !VItem.getInstance().isSpear(stack)
-                    && !InteractUtils.canHoldUse(offhandStack)) {
+            if (canHoldUseEat(stack, offhandStack) || (nextTickCallback != null)) {
                 var re = findFood(true);
                 if (re == null) {
                     return;

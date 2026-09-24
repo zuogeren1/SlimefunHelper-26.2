@@ -17,6 +17,7 @@ import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.hacks.utils.config.Regex;
+import me.matl114.hacks.utils.enums.MineTargetingMode;
 import me.matl114.hacks.utils.tasks.TimerExecutor;
 import me.matl114.managers.*;
 import me.matl114.managers.config.*;
@@ -45,6 +46,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class MineBot extends BaseModule {
     public MineBot() {
@@ -70,9 +72,9 @@ public class MineBot extends BaseModule {
             .defaultValue(MineBotMode.SPHERICAL)
             .build();
 
-    public final EnumRef<Configs.MineTargetingMode> legalMode = builder(
-                    mineBot.add("legal-mode"), Configs.MineTargetingMode.class)
-            .defaultValue(Configs.MineTargetingMode.NO_BYPASS)
+    public final EnumRef<MineTargetingMode> legalMode = builder(
+                    mineBot.add("legal-mode"), MineTargetingMode.class)
+            .defaultValue(MineTargetingMode.NO_BYPASS)
             .show(() -> this.mineBotMode.get().isNotIn(MineBotMode.AUTO_TOOL))
             .build();
 

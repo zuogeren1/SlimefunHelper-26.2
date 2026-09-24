@@ -1,10 +1,11 @@
-package me.matl114.utils;
+package me.matl114.hacks.utils;
 
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import me.matl114.hacks.modules.move.PlayerStateManager;
+import me.matl114.utils.ItemStackUtils;
 import me.matl114.utils.entity.PlayerInputUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -584,8 +585,8 @@ public class EntityUtils {
     }
 
     public static double getEffectiveGravity(LocalPlayer player) {
-        boolean bl = player.getDeltaMovement().y <= 0.0;
-        return bl && player.hasEffect(MobEffects.SLOW_FALLING)
+        boolean bl = PlayerStateManager.INSTANCE.lastKnownClientVelocity.y <= 0.0;
+        return (bl && player.hasEffect(MobEffects.SLOW_FALLING))
                 ? Math.min(player.getGravity(), 0.01)
                 : player.getGravity();
     }

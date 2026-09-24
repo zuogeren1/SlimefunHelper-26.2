@@ -87,7 +87,7 @@ public class QueueMine extends BaseModule {
         if (useDoubleBreak.get()
                 && supportDoubleBreakGhostHand.get()
                 && PlayerInteractionAccess.of(mc.gameMode).getCurrentFailBreakPos() != null) {
-            PacketMine.INSTANCE.tickGhostHandDoubleBreak(null, false);
+            MineExtra.INSTANCE.tickGhostHandDoubleBreak(null, false);
         }
         for (var re : breakRequest) {
             outline.submit(new AABB(re).inflate(-0.2), color.get().withAlpha(255));

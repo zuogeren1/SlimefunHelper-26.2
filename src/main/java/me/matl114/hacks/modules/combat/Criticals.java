@@ -20,6 +20,7 @@ import me.matl114.hacks.modules.move.FloatingUtils;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.SetBackTriggerType;
 import me.matl114.hacks.utils.tasks.TimerExecutor;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
@@ -45,6 +46,7 @@ import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class Criticals extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath attBot = makePath(Configs.COMBAT_CONFIG, "att-bot");
@@ -85,9 +87,9 @@ public class Criticals extends BaseModule implements LegalMovementManager.Moveme
             .show(() -> mode.get().isIn(Mode.GRIM_GROUND_SIMULATION))
             .build();
 
-    public final EnumRef<Configs.SetBackTriggerType> setBackType = builder(
-                    criticals.add("set-back-mode"), Configs.SetBackTriggerType.class)
-            .defaultValue(Configs.SetBackTriggerType.SIMULATION)
+    public final EnumRef<SetBackTriggerType> setBackType = builder(
+                    criticals.add("set-back-mode"), SetBackTriggerType.class)
+            .defaultValue(SetBackTriggerType.SIMULATION)
             .show(() -> mode.get().isIn(Mode.GRIM_GROUND_SIMULATION))
             .build();
 

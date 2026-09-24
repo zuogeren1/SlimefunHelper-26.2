@@ -10,6 +10,7 @@ import me.matl114.accessors.access.ClientPlayerAccess;
 import me.matl114.events.Event;
 import me.matl114.events.Listener;
 import me.matl114.events.catchers.PacketCatcherImpl;
+import me.matl114.events.impl.UseItemOnBlock;
 import me.matl114.hacks.api.ModuleGroup;
 import me.matl114.hacks.api.ModuleManager;
 import me.matl114.hacks.modules.HackModules;
@@ -18,9 +19,11 @@ import me.matl114.hacks.modules.interact.*;
 import me.matl114.hacks.modules.move.LegacySnapRotManager;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
+import me.matl114.hacks.utils.enums.LegalInteractMode;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
+import me.matl114.hacks.InvTasks;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.FlagEntry;
 import net.minecraft.client.Minecraft;
@@ -71,6 +74,7 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.mutable.MutableObject;
 import me.matl114.utils.RaycastUtils;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class InteractionTasks {
     public static void init() {}
@@ -82,8 +86,7 @@ public class InteractionTasks {
     //    }
 
     public static void interactItem(InteractionHand hand, Vec3 rot, boolean realInteract, boolean swingHand) {
-        Vec2 pitchYaw = EntityUtils.rotationToPitchYaw(rot);
-        interactItem(hand, pitchYaw.x, pitchYaw.y, realInteract, swingHand);
+        interactItem(hand, EntityUtils.rotationToPitch(rot), EntityUtils.rotationToYaw(rot), realInteract, swingHand);
     }
 
     public static void interactItem(
@@ -178,12 +181,12 @@ public class InteractionTasks {
         }
     }
 
-    public static void handlePlaceMode(Configs.LegalInteractMode mode, BlockHitResult result, InteractionHand hand) {
+    public static void handlePlaceMode(LegalInteractMode mode, BlockHitResult result, InteractionHand hand) {
         handlePlaceMode(mode, result, hand, true);
     }
 
     public static void handlePlaceMode(
-            Configs.LegalInteractMode mode, BlockHitResult result, InteractionHand hand, boolean swingHand) {
+            LegalInteractMode mode, BlockHitResult result, InteractionHand hand, boolean swingHand) {
         Vec3 bestEyePos = InteractExtra.INSTANCE.getBestInteractEyePos(mc.player.position(), result);
         switch (mode) {
             case USEITEM_PACKET -> {
@@ -233,7 +236,7 @@ public class InteractionTasks {
     }
 
     public static void handlePlaceModeMulti(
-            Configs.LegalInteractMode mode,
+            LegalInteractMode mode,
             Vec3 targetCenter,
             List<Pair<BlockHitResult, InteractionHand>> resultList,
             boolean swingHand) {
@@ -1286,7 +1289,26 @@ public class InteractionTasks {
         lastInteractTimestamp = Tasks.getTick();
     }
 
-    public static Entity predictScreenFrom(Predicate<Entity> targetBlock) {
+    public static BlockPos predictBlockScreenFrom(Predicate<Block> targetBlock) {
+        int timeStamp = Tasks.getTick();
+        // 在一秒内反应的 可以考虑
+        List<UseItemOnBlock> potentialHit = getSequencedActionManager()
+                .getCurrentPendingBlockPlace()
+                .filter(s -> {
+                    var lastInteact = s.hitResult();
+                    return targetBlock.test(
+                            mc.level.getBlockState(lastInteact.getBlockPos()).getBlock());
+                })
+                .toList();
+        Optional<UseItemOnBlock> lastInteract =
+                potentialHit.isEmpty() ? Optional.empty() : Optional.of(potentialHit.getLast());
+        return lastInteract
+                .map(UseItemOnBlock::hitResult)
+                .map(BlockHitResult::getBlockPos)
+                .orElse(null);
+    }
+
+    public static Entity predictEntityScreenFrom(Predicate<Entity> targetBlock) {
         int timeStamp = Tasks.getTick();
         // 在一秒内反应的 可以考虑
         if (timeStamp < lastInteractTimestamp + 20
@@ -1305,6 +1327,9 @@ public class InteractionTasks {
 
     @Getter
     private static InteractExtra interactExtra;
+
+    @Getter
+    private static SequencedActionManager sequencedActionManager;
 
     @Getter
     private static GuiInteract guiInteract;
@@ -1356,6 +1381,7 @@ public class InteractionTasks {
 
     private static void initModules(ModuleManager m) {
         interactExtra = new InteractExtra().register(m);
+        sequencedActionManager = new SequencedActionManager().register(m);
         guiInteract = new GuiInteract().register(m);
         autoClick = new AutoClick().register(m);
         interact = new Interact().register(m);

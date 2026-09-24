@@ -100,7 +100,7 @@ public abstract class ChestScreenMixin extends AbstractContainerScreen<ChestMenu
     private void tryInitBlockPos(ChestMenu handler, Inventory inventory, Component title, CallbackInfo ci) {
         this.world = Minecraft.getInstance().level;
         // everything
-        this.pos = InvTasks.predictScreenFrom((b) -> true);
+        this.pos = InteractionTasks.predictBlockScreenFrom((b) -> true);
         if (this.pos != null && this.world != null) {
             var state = this.world.getBlockState(this.pos);
             cacheBlockType = state.getBlock();
@@ -115,7 +115,7 @@ public abstract class ChestScreenMixin extends AbstractContainerScreen<ChestMenu
         }
 
         var player = Minecraft.getInstance().player;
-        vehicleEntity = (ContainerEntity) InteractionTasks.predictScreenFrom(ex -> {
+        vehicleEntity = (ContainerEntity) InteractionTasks.predictEntityScreenFrom(ex -> {
             return ex instanceof AbstractMinecartContainer
                     || (player != null && player.isSecondaryUseActive() && ex instanceof AbstractChestBoat);
         });

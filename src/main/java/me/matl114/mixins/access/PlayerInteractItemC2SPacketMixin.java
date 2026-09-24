@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Unique;
@@ -18,6 +19,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Environment(EnvType.CLIENT)
 @Mixin(ServerboundUseItemPacket.class)
 public abstract class PlayerInteractItemC2SPacketMixin implements PlayerInteractItemC2SPacketAccess {
+
+    @Shadow
+    @Final
+    private InteractionHand hand;
 
     @Override
     @Mutable
@@ -49,6 +54,6 @@ public abstract class PlayerInteractItemC2SPacketMixin implements PlayerInteract
     }
 
     public ItemStack getItemStack() {
-        return useContext;
+        return useContext == null ? Minecraft.getInstance().player.getItemInHand(hand) : useContext;
     }
 }

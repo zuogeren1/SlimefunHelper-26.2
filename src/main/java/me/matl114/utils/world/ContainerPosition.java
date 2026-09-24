@@ -28,7 +28,7 @@ public record ContainerPosition(ResourceKey<Level> world, int doubleX, int y, in
             .apply(obj, ContainerPosition::new));
 
     public Vec3 getCenterPosition() {
-        return new Vec3((doubleX + 1) / 2.0F, y + 0.5, (doubleZ + 1) / 2.0F);
+        return new Vec3((doubleX + 1) / 2.0D, y + 0.5, (doubleZ + 1) / 2.0D);
     }
 
     public AABB getBoundingBox() {

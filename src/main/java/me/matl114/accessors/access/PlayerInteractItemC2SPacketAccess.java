@@ -1,5 +1,6 @@
 package me.matl114.accessors.access;
 
+import javax.annotation.Nonnull;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.world.InteractionHand;
@@ -14,6 +15,7 @@ public interface PlayerInteractItemC2SPacketAccess {
 
     void setItemStack(ItemStack stack);
 
+    @Nonnull
     ItemStack getItemStack();
 
     static PlayerInteractItemC2SPacketAccess of(ServerboundUseItemPacket packet) {

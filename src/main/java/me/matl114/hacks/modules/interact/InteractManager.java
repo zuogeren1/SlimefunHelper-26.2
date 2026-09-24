@@ -18,8 +18,10 @@ import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.modules.inv.InvExtra;
 import me.matl114.hacks.modules.move.PlayerStateManager;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hooks.ViaFabricPlusHooks;
 import me.matl114.managers.Configs;
+import me.matl114.managers.config.EnumRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.utils.*;
 import me.matl114.utils.collections.IndexEntry;
@@ -61,6 +63,7 @@ import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.stream.Streams;
 import org.joml.Vector2f;
 import org.joml.Vector3d;
+import me.matl114.hacks.utils.EntityUtils;
 
 public class InteractManager extends BaseModule {
     public static InteractManager INSTANCE;
@@ -112,6 +115,9 @@ public class InteractManager extends BaseModule {
                     module.add("disable-low-version-speed-reset-when-command"))
             .build();
 
+    public final EnumRef<GhostHandMode> ghostHand = builder(module.add("ghost-hand-mode"), GhostHandMode.class)
+            .defaultValue(GhostHandMode.INV_SWAP)
+            .build();
     private final Map<String, InteractRequest> runningRequests = new LinkedHashMap<>();
     private long requestCounter = 0L;
 
@@ -131,7 +137,7 @@ public class InteractManager extends BaseModule {
 
     public boolean duringInputEvent = false;
     public boolean duringVanillaInput = false;
-    boolean duringCommand = false;
+    public boolean duringCommand = false;
 
     @Override
     public void onDisableModule() {
@@ -912,7 +918,7 @@ public class InteractManager extends BaseModule {
             if (entitySelect == null) return;
             var entry = hand.getUseContext();
             if (entry != null) {
-                Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
+                Runnable runnable = InvExtra.INSTANCE.swapItemToHand(entry.index(), false, manager.ghostHand.get());
                 if (runnable != null) {
                     CombatTasks.getAttack().attackEntity(entitySelect);
                     if (InteractManager.INSTANCE.logA.get()) {
@@ -941,7 +947,7 @@ public class InteractManager extends BaseModule {
             BlockPos blockPos = new BlockPos((int) vector3d.x, (int) vector3d.y, (int) vector3d.z);
             var entry = hand.getUseContext();
             if (entry != null) {
-                Runnable runnable = InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
+                Runnable runnable = InvExtra.INSTANCE.swapItemToHand(entry.index(), false, manager.ghostHand.get());
                 if (runnable != null) {
                     mc.gameMode.startDestroyBlock(
                             blockPos,
@@ -976,9 +982,8 @@ public class InteractManager extends BaseModule {
                 var entry = hand.getUseContext();
                 if (entry != null) {
                     boolean shouldUseOffHand = InteractManager.shouldUseOffhandByDefault() || entry.index() == 40;
-                    var runnable = shouldUseOffHand
-                            ? (InvExtra.INSTANCE.swapInventoryIndexToOffhand(entry.index()))
-                            : InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
+                    var runnable =
+                            InvExtra.INSTANCE.swapItemToHand(entry.index(), shouldUseOffHand, manager.ghostHand.get());
                     if (runnable != null) {
                         Vec2 vec2f = new Vec2(player.getXRot(), player.getYRot());
                         player.setXRot(supply.x);
@@ -1026,9 +1031,7 @@ public class InteractManager extends BaseModule {
             var entry = hand.getUseContext();
             if (entry != null) {
                 boolean offhand = InteractManager.INSTANCE.offHandHoldUsage.get() || entry.index() == 40;
-                var runnable = offhand
-                        ? (InvExtra.INSTANCE.swapInventoryIndexToOffhand(entry.index()))
-                        : InvExtra.INSTANCE.swapInventoryIndexToHand(entry.index());
+                var runnable = InvExtra.INSTANCE.swapItemToHand(entry.index(), offhand, manager.ghostHand.get());
                 if (runnable != null) {
                     InteractionHand hand = offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
                     var result = mc.gameMode.useItem(player, hand);
@@ -1091,7 +1094,10 @@ public class InteractManager extends BaseModule {
     public record ItemUseContextSelector(ItemStackSelector itemStack) implements UseContextSelector {
         @Override
         public IndexEntry<ItemStack> getUseContext() {
-            return itemStack == null ? null : InventoryUtils.findBestPlayerItem(itemStack::matches, true, false);
+            return itemStack == null
+                    ? null
+                    : InventoryUtils.findBestPlayerItem(
+                            itemStack::matches, InventoryUtils.getPlayerInvSize(), true, false);
         }
 
         public String toString() {

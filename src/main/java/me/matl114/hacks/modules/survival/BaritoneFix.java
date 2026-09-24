@@ -87,6 +87,13 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
     public final FlagRef pauseElytraProcess =
             flagBuilder(fix.add("baritone-conditional-pause")).build();
 
+    public final FlagRef forcePauseElytraProcess =
+            flagBuilder(fix.add("baritone-force-pause")).build();
+
+    public final KeyBindRef togglePauseElytraProcess = toggleHotkey(
+                    fix.add("baritone-pause-hotkey"), new MultiKeyBind(), fix.add("baritone-force-pause"))
+            .build();
+
     public final KeyBindRef pauseKey = builder(fix.add("baritone-pause-hotkey"), KeyBindRef.TYPE)
             .defaultValue(new MultiKeyBind())
             .build();
@@ -222,6 +229,9 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
     }
 
     public boolean shouldPauseBaritoneElytra() {
+        if (forcePauseElytraProcess.get()) {
+            return true;
+        }
         if (pauseElytraProcess.get()) {
             // DO NOT use other modules judgement
             if (FloatingUtils.INSTANCE.enableGrim.get()) {
