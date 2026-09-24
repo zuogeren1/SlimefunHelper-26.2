@@ -31,6 +31,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.throwableitemprojectile.AbstractThrownPotion;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownSplashPotion;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
@@ -236,7 +237,10 @@ public class AutoThrow extends BaseModule {
                     AABB checkUpperAABB =
                             mc.player.getBoundingBox().inflate(3.6, 8.0, 3.6).expandTowards(0, 5, 0);
                     mc.level
-                            .getEntitiesOfClass(AbstractThrownPotion.class, checkUpperAABB, Predicates.alwaysTrue())
+                            // 上游是 yarn getEntitiesByType(EntityType.SPLASH_POTION, ...) —— **只匹配喷溅药水**。
+                            // 26.2 没有 Level.getEntitiesByType，等价物是 getEntitiesOfClass；但 AbstractThrownPotion
+                            // 还包含 ThrownLingeringPotion，用它会把附近飞行的滞留药水的效果也算进来、导致少投。
+                            .getEntitiesOfClass(ThrownSplashPotion.class, checkUpperAABB, Predicates.alwaysTrue())
                             .forEach(potion -> {
                                 var po = potion.getItem().get(DataComponents.POTION_CONTENTS);
                                 if (po != null) {
