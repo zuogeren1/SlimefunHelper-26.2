@@ -144,7 +144,7 @@ public abstract class ElytraProcessMixin {
             at =
                     @At(
                             value = "INVOKE",
-                            target = "Lnet/minecraft/client/network/LocalPlayer;isFallFlying()Z",
+                            target = "Lnet/minecraft/client/player/LocalPlayer;isFallFlying()Z",
                             ordinal = 1),
             cancellable = true,
             require = 0,

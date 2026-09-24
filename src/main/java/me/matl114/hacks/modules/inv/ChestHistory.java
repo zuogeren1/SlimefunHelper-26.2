@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.inv;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -379,7 +378,7 @@ public class ChestHistory extends BaseModule {
     private static final int POSITION_FLAG = VRender.createTextPositionFlag(0, 1);
 
     public void onRender(Event<Render3D> event) {
-        PoseStack stack = event.context().stack();
+        var stack = event.context().stack();
         // todo: make it a render
         if (enableTitle.get()) {
             if (mc.player != null) {
