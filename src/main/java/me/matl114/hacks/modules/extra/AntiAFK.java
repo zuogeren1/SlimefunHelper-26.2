@@ -50,6 +50,7 @@ public class AntiAFK extends BaseModule {
                 if (move.get()) {
                     if (lastForward) {
                         modifier = modifier.withBackward(true);
+                        ;
                         lastForward = false;
                     } else {
                         modifier = modifier.withForward(true);

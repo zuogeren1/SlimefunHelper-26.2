@@ -19,7 +19,6 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.multiplayer.prediction.PredictiveAction;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.network.protocol.Packet;
 import net.minecraft.stats.StatsCounter;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -71,17 +70,29 @@ public abstract class ClientPlayerInteractionManagerEvents {
         }
     }
 
-    @Inject(method = "lambda$useItem$0", at = @At("RETURN"))
-    public void onInteractItem(
-            InteractionHand hand,
-            Player playerEntity,
-            MutableObject<InteractionResult> mutableObject,
-            int sequence,
-            CallbackInfoReturnable<Packet> cir) {
-        InteractionResult acc = mutableObject.getValue();
-        Event<UseItem> eventResult = new Event<>(new UseItem(acc, hand, playerEntity.getItemInHand(hand)), false, true);
-        Listener.getPostPlayerUseItem().handleValue(eventResult);
-        mutableObject.setValue(eventResult.context.actionResult());
+    @WrapOperation(
+            method = "useItem",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V"))
+    private void onInteractItemCapture(
+            MultiPlayerGameMode instance,
+            ClientLevel world,
+            PredictiveAction packetCreator,
+            Operation<Void> original,
+            @Local(argsOnly = true) InteractionHand hand,
+            @Local MutableObject<InteractionResult> mutableObject) {
+        ItemStack stackCopy = minecraft.player.getItemInHand(hand).copy();
+        original.call(instance, world, (PredictiveAction) (seq) -> {
+            var packet = packetCreator.predict(seq);
+            InteractionResult acc = mutableObject.getValue();
+            Event<UseItem> eventResult = new Event<>(new UseItem(acc, hand, stackCopy), false, true);
+            Listener.getPostPlayerUseItem().handleValue(eventResult);
+            mutableObject.setValue(eventResult.context.actionResult());
+            return packet;
+        });
     }
 
     @Inject(method = "useItemOn", at = @At(value = "HEAD"), cancellable = true)

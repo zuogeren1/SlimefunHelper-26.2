@@ -424,15 +424,15 @@ public class BlockRotate extends BaseModule {
             Vec2 pitchYaw;
             switch (facing) {
                 case DOWN -> {
-                    pitchYaw = EntityUtils.rotationToPitchYaw(Vec3.atLowerCornerOf(rotation.getUnitVec3i())
-                            .add(0, -4, 0)
-                            .normalize());
-                }
-                case UP -> {
                     pitchYaw = EntityUtils.rotationToPitchYaw(
                             Vec3.atLowerCornerOf(rotation.getOpposite().getUnitVec3i())
                                     .add(0, 4, 0)
                                     .normalize());
+                }
+                case UP -> {
+                    pitchYaw = EntityUtils.rotationToPitchYaw(Vec3.atLowerCornerOf(rotation.getUnitVec3i())
+                            .add(0, -4, 0)
+                            .normalize());
                 }
                 default -> {
                     pitchYaw = EntityUtils.rotationToPitchYaw(

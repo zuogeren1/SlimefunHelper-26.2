@@ -58,14 +58,14 @@ public class NameTag extends INameTag {
         if (checkNull()) {
             return;
         }
-        if (enable.get() && !event.<Boolean>getArgs(1) && nameTagInfos != null) {
+        if (enable.get() && !event.context.hudHidden() && nameTagInfos != null) {
             var stack = event.context.drawContext();
             Matrix4f cam = RenderListener.getWorldModelViewMatrix();
             Matrix4f proj = RenderListener.getWorldBasicProjectionMatrix();
             Function<Vec3, Vector2d> projector = RenderUtils.createProjector(cam, proj);
             for (var entity : nameTagInfos) {
                 if (entity.player != mc.getCameraEntity()) {
-                    onRenderPlayer(entity, stack, projector, (event.<Float>getArgs(0)));
+                    onRenderPlayer(entity, stack, projector, event.context.partialTicks());
                 }
             }
         }

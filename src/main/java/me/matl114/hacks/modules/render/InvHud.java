@@ -109,7 +109,7 @@ public class InvHud extends BaseModule {
 
     public void onRender2D(Event<Render2D> event) {
         if (checkNull()) return;
-        if (enable.get() && !event.<Boolean>getArgs(1) && toShow != null) {
+        if (enable.get() && !event.context.hudHidden() && toShow != null) {
             VDrawContext vdraw = event.context.drawContext();
             vdraw.pushMatrix();
             try {

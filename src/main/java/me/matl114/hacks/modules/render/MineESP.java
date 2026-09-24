@@ -1,8 +1,6 @@
 package me.matl114.hacks.modules.render;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import java.util.Comparator;
 import me.matl114.events.Event;
 import me.matl114.events.impl.Render2D;
 import me.matl114.events.impl.Render3D;
@@ -12,7 +10,6 @@ import me.matl114.hacks.RenderTasks;
 import me.matl114.hacks.api.BaseModule;
 import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.modules.mine.MiningProgressManager;
-import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.WidgetPos;
 import me.matl114.hacks.utils.config.WrapColor;
 import me.matl114.hacks.utils.render.RenderCollectors;
@@ -27,8 +24,6 @@ import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.ChatUtils;
 import me.matl114.utils.ColorUtils;
 import me.matl114.utils.RenderUtils;
-import me.matl114.utils.WorldUtils;
-import me.matl114.utils.inventory.ItemStackSample;
 import me.matl114.utils.render.RenderCollector;
 import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.ChatFormatting;
@@ -37,8 +32,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -136,13 +129,11 @@ public class MineESP extends BaseModule {
             for (var re : MiningProgressManager.INSTANCE.getBreakingMap().values()) {
                 if (re.blockPos != null) {
                     BlockPos currentMining = re.blockPos;
-                    int startTick = re.breakingStartTick;
                     int progress = re.breakingProgress;
                     String breakState;
                     int progressPercentage;
                     if (ghostHandPredict.get()) {
-                        float prediction = predictGhostHandBreakSpeed(re.player, currentMining);
-                        float predictProgress = prediction * (Tasks.getTick() - startTick);
+                        float predictProgress = re.predictBreakingProgress();
                         if (predictProgress > 0.7F) {
                             progressPercentage = 100;
                             breakState = "&cInstant";
@@ -203,19 +194,6 @@ public class MineESP extends BaseModule {
         }
     }
 
-    public float predictGhostHandBreakSpeed(Player player, BlockPos pos) {
-        PlayerStateManager.PlayerStatus status = PlayerStateManager.INSTANCE.getPlayerStatus(player);
-        BlockState blockState = mc.level.getBlockState(pos);
-        ItemStack bestTool = status.trackedInventoryItems.stream()
-                .max(Comparator.comparingDouble(s -> {
-                    return WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(player, blockState, s.sample());
-                }))
-                .map(ItemStackSample::sample)
-                .orElse(ItemStack.EMPTY);
-        float speed = WorldUtils.getPlayerBlockBreakingSpeedWithCanMineMultiply(player, blockState, bestTool);
-        return WorldUtils.calcBlockBreakingDelta(blockState, mc.level, pos, speed);
-    }
-
     public void onRender3D(Event<Render3D> event) {
         if (checkNull()) return;
         if (enable.get()) {
@@ -232,7 +210,7 @@ public class MineESP extends BaseModule {
 
     public void onRender2D(Event<Render2D> event) {
         if (checkNull()) return;
-        if (!enable.get() || !renderGrid2D.get() || event.<Boolean>getArgs(1)) {
+        if (!enable.get() || !renderGrid2D.get() || event.context.hudHidden()) {
             return;
         }
 
@@ -495,7 +473,7 @@ public class MineESP extends BaseModule {
             return -1;
         }
         if (ghostHandPredict.get()) {
-            float prediction = predictGhostHandBreakSpeed(tracker.player, tracker.blockPos);
+            float prediction = tracker.predictBreakingProgress();
             float predictProgress = prediction * (Tasks.getTick() - tracker.breakingStartTick);
             if (predictProgress > 0.7F) {
                 return 100;

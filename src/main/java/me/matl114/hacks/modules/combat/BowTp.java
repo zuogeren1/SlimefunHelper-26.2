@@ -1,7 +1,6 @@
 package me.matl114.hacks.modules.combat;
 
 import com.google.common.base.Preconditions;
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -256,7 +255,7 @@ public class BowTp extends BaseModule {
     public void onRender(Event<Render3D> stackE) {
         var stack = stackE.context.stack();
         if (enable.get() && mc.player != null && render.get()) {
-            float tickDelta = (Float) stackE.extraArgs[0];
+            float tickDelta = stackE.context.partialTicks();
             if (mc.player.isUsingItem() && mc.player.getUseItem().getItem() instanceof BowItem bow) {
                 // filter bow, but keep shield
                 RenderUtils.startDrawVirtual(stack);

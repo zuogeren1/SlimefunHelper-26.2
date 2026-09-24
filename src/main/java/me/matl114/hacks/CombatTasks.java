@@ -51,7 +51,7 @@ public class CombatTasks {
     }
 
     public static boolean notSuitableForAttack(ItemStack item) {
-        return item.count() == 0
+        return item.isEmpty()
                 || (!ItemStackUtils.hasInPatch(item, DataComponents.ATTRIBUTE_MODIFIERS)
                         && (!VItem.getInstance().isWeapon(item)))
                 || (VItem.getInstance().isNotAttackingTool(item));
@@ -251,6 +251,9 @@ public class CombatTasks {
     private static BackTrack backTrack;
 
     @Getter
+    private static AutoThrow autoThrow;
+
+    @Getter
     private static PearlFly pearlFly;
 
     @Getter
@@ -263,16 +266,13 @@ public class CombatTasks {
     private static AutoWeb autoWeb;
 
     @Getter
-    private static AntiCrystal antiCrystal;
-
-    @Getter
-    private static AutoThrow autoThrow;
+    private static AnchorAura anchorAura;
 
     @Getter
     private static AntiReplenish antiReplenish;
 
     @Getter
-    private static AnchorAura anchorAura;
+    private static AntiCrystal antiCrystal;
 
     @Getter
     private static ElytraBot elytraBot;
@@ -310,13 +310,13 @@ public class CombatTasks {
         spearAttack = new SpearAttack().register(m);
         blink = new Blink().register(m);
         backTrack = new BackTrack().register(m);
+        autoThrow = new AutoThrow().register(m);
         pearlFly = new PearlFly().register(m);
         autoCity = new AutoCity().register(m);
         crystalAura = new CrystalAura().register(m);
         autoWeb = new AutoWeb().register(m);
         anchorAura = new AnchorAura().register(m);
         antiReplenish = new AntiReplenish().register(m);
-        autoThrow = new AutoThrow().register(m);
         antiCrystal = new AntiCrystal().register(m);
         elytraBot = new ElytraBot().register(m);
         // transactionBlocker = new TransactionBlocker().register(m);

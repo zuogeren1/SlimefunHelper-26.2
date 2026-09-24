@@ -25,6 +25,7 @@ import me.matl114.hacks.modules.mine.MineExtra;
 import me.matl114.hacks.modules.move.PlayerStateManager;
 import me.matl114.hacks.utils.config.EntrySet;
 import me.matl114.hacks.utils.config.Regex;
+import me.matl114.hacks.utils.enums.GhostHandMode;
 import me.matl114.hacks.utils.enums.MineTargetingMode;
 import me.matl114.hacks.utils.move.PathingSchedular;
 import me.matl114.hacks.utils.move.goal.GoalNear;
@@ -560,7 +561,7 @@ public class AutoMine extends BaseModule {
                     bestStack = InventoryUtils.getSelectedItem();
                 }
             }
-            InvExtra.INSTANCE.swapInventoryIndexToHand(bestStack.index());
+            InvExtra.INSTANCE.swapItemToHand(bestStack.index(), false, GhostHandMode.INV_SWAP);
             AttributeUtils.updateAttribute(mc.player);
             float speed = MineExtra.INSTANCE.predictBlockBreakingSpeedAt(lastMinePos);
             tryMine += 1;

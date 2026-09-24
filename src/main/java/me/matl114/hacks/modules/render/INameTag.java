@@ -22,7 +22,6 @@ import me.matl114.managers.config.EnumRef;
 import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.NBTRef;
 import me.matl114.utils.ChatUtils;
-import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
@@ -58,6 +57,8 @@ public abstract class INameTag extends BaseModule {
     {
         initializeModuleSettings();
     }
+
+    public final FlagRef hideSelf = flagBuilder(nameTag.add("hide-self")).build();
 
     public final FlagRef showHealth = flagBuilder(nameTag.add("health")).build();
 
