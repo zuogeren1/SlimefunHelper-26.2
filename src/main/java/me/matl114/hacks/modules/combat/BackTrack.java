@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.combat;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -18,9 +17,7 @@ import me.matl114.managers.config.FlagRef;
 import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.RenderUtils;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.PacketType;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;

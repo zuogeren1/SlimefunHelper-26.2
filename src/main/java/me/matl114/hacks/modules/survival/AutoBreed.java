@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.survival;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;

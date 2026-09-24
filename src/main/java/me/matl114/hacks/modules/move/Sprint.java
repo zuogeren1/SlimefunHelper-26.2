@@ -16,7 +16,6 @@ import me.matl114.managers.config.KeyBindRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.entity.PlayerInputUtils;
 import net.minecraft.client.player.LocalPlayer;
-import me.matl114.hacks.utils.EntityUtils;
 
 public class Sprint extends BaseModule implements LegalMovementManager.MovementModifier {
     public final ModulePath moveSpeed = makePath(Configs.MOV_CONFIG, "move-speed");

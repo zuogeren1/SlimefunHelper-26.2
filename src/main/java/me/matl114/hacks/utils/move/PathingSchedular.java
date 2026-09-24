@@ -1,6 +1,5 @@
 package me.matl114.hacks.utils.move;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import me.matl114.hacks.modules.interact.SequencedActionManager;
 import me.matl114.utils.ClientUtils;
 

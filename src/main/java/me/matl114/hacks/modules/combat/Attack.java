@@ -2,7 +2,6 @@ package me.matl114.hacks.modules.combat;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Streams;
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import lombok.NonNull;
 import lombok.With;

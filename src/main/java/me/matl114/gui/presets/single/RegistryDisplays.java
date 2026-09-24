@@ -15,7 +15,6 @@ import me.matl114.versioned.api.VDrawContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.ParticleResources;
 import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;

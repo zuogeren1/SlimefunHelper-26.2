@@ -13,7 +13,6 @@ import me.matl114.hacks.api.ModulePath;
 import me.matl114.hacks.api.ModulePreset;
 import me.matl114.hacks.modules.mine.FakeBlockManager;
 import me.matl114.hacks.utils.entity.LegalMovementManager;
-import me.matl114.hacks.utils.enums.BypassMode;
 import me.matl114.managers.Configs;
 import me.matl114.managers.Tasks;
 import me.matl114.managers.config.*;

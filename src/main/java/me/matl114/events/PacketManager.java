@@ -15,7 +15,6 @@ import me.matl114.events.annotations.Broadcast;
 import me.matl114.events.annotations.Cancelable;
 import me.matl114.events.annotations.ExtraArgs;
 import me.matl114.events.channels.EventChannel;
-import me.matl114.events.channels.EventChannelDispatcher;
 import me.matl114.events.channels.ListenerPoint;
 import me.matl114.events.packets.PacketStorage;
 import me.matl114.managers.ScheduleService;

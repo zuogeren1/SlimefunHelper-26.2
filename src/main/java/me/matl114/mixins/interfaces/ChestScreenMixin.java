@@ -3,7 +3,6 @@ package me.matl114.mixins.interfaces;
 import me.matl114.accessors.interfaces.EntityInventory;
 import me.matl114.accessors.interfaces.TileInventory;
 import me.matl114.hacks.InteractionTasks;
-import me.matl114.hacks.InvTasks;
 import me.matl114.utils.world.ContainerPosition;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;

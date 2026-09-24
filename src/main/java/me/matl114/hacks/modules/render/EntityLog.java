@@ -1,6 +1,5 @@
 package me.matl114.hacks.modules.render;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import lombok.AllArgsConstructor;
 import me.matl114.commands.MainCommand;
@@ -22,7 +21,6 @@ import me.matl114.managers.config.NBTRef;
 import me.matl114.managers.input.MultiKeyBind;
 import me.matl114.utils.*;
 import me.matl114.utils.render.RenderCollector;
-import me.matl114.versioned.api.VDrawContext;
 import me.matl114.versioned.api.VRecord;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;

@@ -3,7 +3,6 @@ package me.matl114.gui.interfaces;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import me.matl114.accessors.gui.TextFieldAccess;
 import me.matl114.gui.basic.AbstractElement;
 import me.matl114.gui.basic.ButtonAction;
 import me.matl114.gui.basic.ColorSampler;
