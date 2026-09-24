@@ -184,9 +184,9 @@ public class PrinterRewrite extends BaseModule {
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
         acceptor.accept(WidgetUtils.withCondition(
-                createTitleLabel("widget.queue-mine.mine.use-argument", 0, dblank, dx, dy),
+                createTitle("widget.queue-mine.mine.use-argument", 0, dblank, dx, dy),
                 () -> supportWater.get() && useIce.get()));
-        acceptor.accept(createTitleLabel("widget.block-rotate.yaw-deceive.use-argument", 0, dblank, dx, dy));
+        acceptor.accept(createTitle("widget.block-rotate.yaw-deceive.use-argument", 0, dblank, dx, dy));
     }
 
     int countDown;

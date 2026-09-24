@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
 
 @Data
 @AllArgsConstructor
@@ -17,4 +18,6 @@ public class UseItem {
     InteractionResult actionResult;
 
     final InteractionHand hand;
+
+    ItemStack handItem;
 }

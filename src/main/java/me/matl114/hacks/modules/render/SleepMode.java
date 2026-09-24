@@ -88,7 +88,7 @@ public class SleepMode extends BaseModule {
     @Override
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
-        acceptor.accept(createTitleLabel("widget.sleep-mode.command", 0, dblank, dx, dy));
+        acceptor.accept(createTitle("widget.sleep-mode.command", 0, dblank, dx, dy));
     }
 
     boolean runnerOptimizeStart = false;

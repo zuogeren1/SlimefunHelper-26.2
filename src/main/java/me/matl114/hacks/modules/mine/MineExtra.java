@@ -119,6 +119,9 @@ public class MineExtra extends BaseModule {
     public final FlagRef swingFix =
             flagBuilder(fastbreak.add("fix-swing-packet")).build();
 
+    public final FlagRef noSwing =
+            flagBuilder(fastbreak.add("no-swing-for-vanilla-break")).build();
+
     public final FlagRef silent = flagBuilder(fastbreak.add("silent-break")).build();
 
     public final FlagRef mineRender =

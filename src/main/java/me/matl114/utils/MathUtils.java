@@ -22,6 +22,10 @@ import org.joml.Matrix3d;
 import org.joml.Vector3d;
 
 public class MathUtils {
+
+    public static boolean isInXZBox(AABB box, Vec3 vec) {
+        return vec.x >= box.minX && vec.x < box.maxX && vec.z >= box.minZ && vec.z < box.maxZ;
+    }
     public static double s2(double x) {
         return x * x;
     }

@@ -112,10 +112,10 @@ public class FakePlayer extends BaseModule {
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
         if (mc.level == null) {
-            acceptor.accept(createTitleLabel("widget.fake-player.fake-player-list.enter-world", 0, dblank, dx, dy));
+            acceptor.accept(createTitle("widget.fake-player.fake-player-list.enter-world", 0, dblank, dx, dy));
             return;
         }
-        acceptor.accept(createTitleLabel("widget.fake-player.fake-player-list.title", 0, dblank, dx, dy));
+        acceptor.accept(createTitle("widget.fake-player.fake-player-list.title", 0, dblank, dx, dy));
         DynamicListWidget list = new DynamicListWidget(0, dblank, dx);
         for (var re : mc.level.entitiesForRendering()) {
             if (re instanceof FakePlayerEntity fakePlayer) {

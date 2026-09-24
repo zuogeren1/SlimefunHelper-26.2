@@ -1368,8 +1368,8 @@ public class KitReplenish extends BaseModule {
                             }
                         },
                         ButtonAction.run(this::openKitEditScreen))));
-        acceptor.accept(createTitleLabel("widget.kit-manager.command", 0, dblank, dx, dy));
-        acceptor.accept(createTitleLabel("widget.interact.interact-all.use-argument", 0, dblank, dx, dy));
+        acceptor.accept(createTitle("widget.kit-manager.command", 0, dblank, dx, dy));
+        acceptor.accept(createTitle("widget.interact.interact-all.use-argument", 0, dblank, dx, dy));
     }
 
     public void openKitEditScreen() {

@@ -476,7 +476,7 @@ public abstract class BaseModule implements ModuleListProvider {
                         .withTooltips(TooltipHandler.of(tooltips)));
     }
 
-    public DrawableWidget createTitleLabel(String translationKey, int x, int y, int dx, int dy) {
+    public static DrawableWidget createTitle(String translationKey, int x, int y, int dx, int dy) {
         return DisplayWidget.instance(x, y, dx, dy)
                 .setRenderHandler(new ColorLabelTextElement(
                                 TextProvider.of(Component.translatable(translationKey)),

@@ -63,6 +63,24 @@ public class ModuleSettings extends BaseModule {
             .updateListener(s -> MainCommand.MAIN_PREFIX = s)
             .build();
 
+    public boolean shouldNotExecuteInInput() {
+        var focused = ClientUtils.getScreen(mc).getFocused();
+        if (focused instanceof TextFieldAccess) {
+            return true;
+        }
+        if (focused instanceof DrawableWidget widget) {
+            var focus = WidgetUtils.getFocusedWidget(widget);
+            if (WidgetUtils.isInputWidget(WidgetUtils.getFocusedWidget(focus))) {
+                return true;
+            }
+            var list = WidgetUtils.getWidgetHierarchy(widget);
+            if (list.stream().anyMatch(s -> s instanceof KeyBindConfigurateWidget)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean shouldNotExecuteConditionHotkey() {
         if (ClientUtils.getScreen(mc) != null) {
             if (hotkeyPolicy.getValue() == HotkeyPolicy.RUN_IN_ALL_SCREEN) {
@@ -76,21 +94,7 @@ public class ModuleSettings extends BaseModule {
                     return true;
                 }
                 case WHEN_NO_INPUT_SCREEN: {
-                    var focused = ClientUtils.getScreen(mc).getFocused();
-                    if (focused instanceof TextFieldAccess) {
-                        return true;
-                    }
-                    if (focused instanceof DrawableWidget widget) {
-                        var focus = WidgetUtils.getFocusedWidget(widget);
-                        if (WidgetUtils.isInputWidget(WidgetUtils.getFocusedWidget(focus))) {
-                            return true;
-                        }
-                        var list = WidgetUtils.getWidgetHierarchy(widget);
-                        if (list.stream().anyMatch(s -> s instanceof KeyBindConfigurateWidget)) {
-                            return true;
-                        }
-                    }
-                    return false;
+                    return shouldNotExecuteInInput();
                 }
                 default:
                     return false;

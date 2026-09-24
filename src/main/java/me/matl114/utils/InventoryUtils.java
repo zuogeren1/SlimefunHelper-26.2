@@ -214,6 +214,27 @@ public class InventoryUtils {
     }
 
     public static IndexEntry<ItemStack> findPlayerItem(
+            Predicate<ItemStack> predicate, int size, boolean doNotFSearchWhenOpenOtherScreen, boolean acceptEmpty) {
+        return findPlayerItem(predicate, size, doNotFSearchWhenOpenOtherScreen, acceptEmpty, true, false);
+    }
+
+    public static IndexEntry<ItemStack> findPlayerItem(
+            Predicate<ItemStack> predicate,
+            int size,
+            boolean doNotFSearchWhenOpenOtherScreen,
+            boolean acceptEmpty,
+            boolean handPriority,
+            boolean offHandPriority) {
+        return findPlayerInventory(
+                (val) -> predicate.test(val.val()),
+                size,
+                doNotFSearchWhenOpenOtherScreen,
+                acceptEmpty,
+                handPriority,
+                offHandPriority);
+    }
+
+    public static IndexEntry<ItemStack> findPlayerItem(
             Predicate<ItemStack> predicate,
             boolean doNotFSearchWhenOpenOtherScreen,
             boolean acceptEmpty,
@@ -221,6 +242,7 @@ public class InventoryUtils {
             boolean offHandPriority) {
         return findPlayerInventory(
                 (val) -> predicate.test(val.val()),
+                getPlayerInvSize(),
                 doNotFSearchWhenOpenOtherScreen,
                 acceptEmpty,
                 handPriority,
@@ -229,11 +251,13 @@ public class InventoryUtils {
 
     public static IndexEntry<ItemStack> findPlayerInventory(
             Predicate<IndexEntry<ItemStack>> predicate, boolean doNotFSearchWhenOpenOtherScreen, boolean acceptEmpty) {
-        return findPlayerInventory(predicate, doNotFSearchWhenOpenOtherScreen, acceptEmpty, true, false);
+        return findPlayerInventory(
+                predicate, getPlayerInvSize(), doNotFSearchWhenOpenOtherScreen, acceptEmpty, true, false);
     }
 
     public static IndexEntry<ItemStack> findPlayerInventory(
             Predicate<IndexEntry<ItemStack>> predicate,
+            int searchTo,
             boolean doNotFSearchWhenOpenOtherScreen,
             boolean acceptEmpty,
             boolean handPriority,
@@ -266,7 +290,7 @@ public class InventoryUtils {
                         != mc.player.inventoryMenu.containerId) {
             return result;
         }
-        for (var i = 0; i < getPlayerInvSize(); ++i) {
+        for (var i = 0; i < searchTo; ++i) {
             ItemStack stack = pinv.getItem(i);
             test = new IndexEntry<>(i, stack);
             if ((acceptEmpty || !stack.isEmpty()) && predicate.test(test)) {
@@ -331,8 +355,30 @@ public class InventoryUtils {
                 acceptEmpty);
     }
 
+    public static IndexEntry<ItemStack> findBestPlayerItem(
+            Function<ItemStack, Double> maxFunction,
+            int size,
+            boolean doNotFSearchWhenOpenOtherScreen,
+            boolean acceptEmpty) {
+        return findBestPlayerInventory(
+                s -> {
+                    return maxFunction.apply(s.val());
+                },
+                size,
+                doNotFSearchWhenOpenOtherScreen,
+                acceptEmpty);
+    }
+
     public static IndexEntry<ItemStack> findBestPlayerInventory(
             Function<IndexEntry<ItemStack>, Double> maxFunction,
+            boolean doNotFSearchWhenOpenOtherScreen,
+            boolean acceptEmpty) {
+        return findBestPlayerInventory(maxFunction, getPlayerInvSize(), doNotFSearchWhenOpenOtherScreen, acceptEmpty);
+    }
+
+    public static IndexEntry<ItemStack> findBestPlayerInventory(
+            Function<IndexEntry<ItemStack>, Double> maxFunction,
+            int searchTo,
             boolean doNotFSearchWhenOpenOtherScreen,
             boolean acceptEmpty) {
         // while player is open Screen
@@ -358,7 +404,7 @@ public class InventoryUtils {
         }
 
         Double currentValue;
-        for (var i = 0; i < getPlayerInvSize(); ++i) {
+        for (var i = 0; i < searchTo; ++i) {
             ItemStack stack = pinv.getItem(i);
             test = new IndexEntry<>(i, stack);
             if ((acceptEmpty || !stack.isEmpty()) && (currentValue = maxFunction.apply(test)) != null) {

@@ -65,6 +65,9 @@ public class SurvivalTasks {
     @Getter
     public static XaeroMapScanner xaeroMapScanner;
 
+    @Getter
+    public static PearlESP pearlESP;
+
     private static void initModules(ModuleManager m) {
         schedularSettings = new SchedularSettings().register(m);
         villagerEsp = new VillagerEsp().register(m);
@@ -82,6 +85,7 @@ public class SurvivalTasks {
         baritoneFix = new BaritoneFix().register(m);
         xaeroHelper = new XaeroHelper().register(m);
         xaeroMapScanner = new XaeroMapScanner().register(m);
+        pearlESP = new PearlESP().register(m);
     }
 
     static {

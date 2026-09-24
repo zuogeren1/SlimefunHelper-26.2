@@ -385,7 +385,7 @@ public class ElytraBot extends BaseModule {
     @Override
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
         super.addCustomWidgets(acceptor, dx, dy, dblank);
-        var widget = createTitleLabel("widget.attack.attack.use-argument", 0, dblank, dx, dy);
+        var widget = createTitle("widget.attack.attack.use-argument", 0, dblank, dx, dy);
         acceptor.accept(new DynamicContentWidget<>(
                 () -> {
                     return mode.get().isIn(Mode.MACE_ARUA) ? widget : null;

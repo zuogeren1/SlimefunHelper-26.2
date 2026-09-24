@@ -49,6 +49,12 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
         portConfigs(makePath(Configs.MOV_CONFIG, "baritone.fix"), fix);
     }
 
+    public final FlagRef enableMiningCooldown =
+            flagBuilder(fix.add("add-baritone-mine-cooldown-override")).build();
+
+    public final FlagRef applyMineSettingsToBaritone =
+            flagBuilder(fix.add("apply-mine-settings-to-baritone")).build();
+
     public final FlagRef enableDimensionFix =
             flagBuilder(fix.add("dimension-fix")).build();
 
@@ -292,7 +298,7 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
 
     @Override
     public void addCustomWidgets(Consumer<DrawableWidget> acceptor, int dx, int dy, int dblank) {
-        acceptor.accept(createTitleLabel(
+        acceptor.accept(createTitle(
                 BaritoneHooks.getInstance().isBaritoneAPISupported()
                         ? "widget.baritone-fix.baritone-api-support"
                         : "widget.baritone-fix.baritone-api-not-support",
@@ -300,7 +306,7 @@ public class BaritoneFix extends BaseModule implements LegalMovementManager.Move
                 dblank,
                 dx,
                 dy));
-        acceptor.accept(createTitleLabel(
+        acceptor.accept(createTitle(
                 BaritoneHooks.getInstance().isBaritoneVersionSupported()
                         ? "widget.baritone-fix.baritone-support"
                         : "widget.baritone-fix.baritone-not-support",
